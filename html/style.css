@@ -1,0 +1,234 @@
+body {
+	/* color:#999; */
+	background:#fff;
+	margin:4% 4% 0 6%;
+	font-family:Verdana,Geneva,'Lucida Grande',sans-serif;
+	font-size:75%; /* default 'medium' text in modern browsers is 16px */
+}
+em {
+	font-style:italic;
+}
+.hidden {
+	visibility:hidden;
+}
+address, ul, p { margin-bottom:1.4167em; }
+h2, caption {
+        font-size:120%;
+        font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+        font-weight:bold;
+        padding-bottom:1em;
+        line-height:1em;
+	clear:both;
+        /*color:#26e;*/
+        /*color:#d22;*/
+}
+/*** Containers ***/
+ul#menu, div#content, .clearfix, form  {
+	clear:none; /* IE Mac 5.x doesn't like clear:both */
+	/*overflow:auto;*/	/* force div to expand to its own content -- obsoleted by class "clearfix" (below) */
+	width:100%;
+	display:inline-block;	/* required for clearing */
+}
+ul#menu, div#content, .clearfix {
+	margin-bottom:2em;
+}
+/* Clearing method below taken from
+http://www.positioniseverything.net/easyclearing.html */
+ul#menu:after, div#content:after, .clearfix:after, form:after  {
+	content:".";
+	display:block;
+	height:0;
+	clear:both;
+	visibility:hidden;
+}
+/* Hide from IE Mac \*/
+* html ul#menu, div#content, .clearfix, form { display:block; }
+/* End hide from IE Mac */
+/*** End Containers ***/
+form {
+	clear:both;
+}
+div#footer {
+	color:#999;
+	clear:both;
+	/*width:675px;*/
+	border-top:1px solid #000;
+	/*padding:1.375em 0 2.8333em 0;*/ /* unlike margin property, this works both in Mozilla and in Konqueror */
+	font-family:Verdana,'Helvetica Neue',Helvetica,Arial,sans-serif;
+	text-transform:uppercase;
+}
+div#footer ul {
+	display:table;
+}
+div#footer ul li {
+	display:table-cell;
+	vertical-align:top;
+	padding:1em 3em 0 0;
+}
+div#footer ul li ul li {
+	display:inline;
+	padding-right:0.5em;
+}
+span.separator { color:#ccc; font-weight:normal; }
+
+a {
+	color:#00f;
+	background:transparent;
+	text-decoration:none;
+	cursor:pointer;
+}
+a:focus { outline: none; }	/* removes the dotted rectangle that appears in Firefox when link is clicked */
+a:hover { color:#f00; }
+a:active { color:#fff; background:#55f; }
+th a:active { background:none; }
+/************* forms ***************/
+dl {
+	font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+	overflow:visible;
+}
+dl dt {
+	width:153px;
+	clear:none;	/* clear:left is required for scalable layout */
+	margin-right:21px;
+	float:left;
+	line-height:1em;
+	font-weight:bold;
+}
+/* Hide from IE Mac \*/
+dl dt { clear:left; }
+/* End hide from IE Mac */
+dl dd {
+	width:531px;
+	float:left;
+}
+
+dl dt {
+	margin-bottom:0.815em;
+}
+dl dd {
+	padding-bottom:0.815em;	/* checkbox fields in IE 7.0 do not obey line-height property */
+	min-height:1.665em;
+	/*color:#777;*/
+}
+form.getTFS input[type=submit] {
+	color: #00f;
+	background-color: transparent;
+	border-width: 0; 
+	cursor: pointer;
+}
+form.getTFS input[type=submit]:focus { outline: none; }
+form.getTFS input[type=submit]:hover { color:#f00; }
+form.getTFS input[type=submit]:active { color:#fff; background:#55f; }
+/****** begin Javascript form validation */
+form dl dd.error input, form dl dd.error textarea {
+	color:#000;
+	background:#E6E6B2;
+}
+div#errormsg {
+	color:#ec1b23;
+	font-weight:bold;
+	font-size:1em;
+	/*line-height:1.4167em;*/
+}
+input, select {
+	font-size:1em;
+	font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+input[type=radio],input[type=checkbox] {
+	margin-right:4px;
+}
+/****** end Javascript form validation */
+
+/* Fieldset and legend styling: http://www.sitepoint.com/avantgo/article.php?aid=1569&pid=111 */
+legend {
+	position:relative;	/* IE/Win only */
+	left:-7px;		/* IE/Win only */
+	top: -0.75em;		/* IE/Win only */
+
+	font-weight:bold;
+	font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+	padding-right:1em;
+	color:#d22;
+	background:#fff;	/* when set, background covers visible fieldset border in IE 5.5 */
+}
+fieldset {
+	position:relative;	/* IE/Win only */
+	top: 0.75em;		/* IE/Win only */
+
+	clear:both;
+	border-top:0.1em solid #ccc;
+}
+html>/**/body legend, html>/**/body fieldset {
+	position:static;	/* Not IE/Win */
+}
+/*************** menu ***************************/
+ul#menu {
+	margin-bottom:15px;
+}
+
+/************* images *************************/
+img#schema {
+	margin:10px;
+}
+/************* YUI Sam skin correction ********/
+.yui-skin-sam .yui-panel .bd {
+	padding:8px;
+}
+.yui-skin-sam .yui-panel .bd, .yui-skin-sam .yui-panel .ft {
+	background-color:#FFFFFF;
+}
+/************* tmp drag-drop ******************/
+div.workarea {
+	float:left;
+	margin:0 20px 20px 0;
+}
+ul.draglist { 
+    position: relative;
+    width: 200px; 
+    height:240px;
+    background: #f7f7f7;
+    border: 1px solid gray;
+    list-style: none;
+    margin:0;
+    padding:0;
+}
+ul.draglist li {
+    margin: 1px;
+    cursor: move;
+    zoom: 1;
+}
+ 
+ul.draglist_alt { 
+    position: relative;
+    width: 200px; 
+    list-style: none;
+    margin:0;
+    padding:0;
+    /*
+       The bottom padding provides the cushion that makes the empty 
+       list targetable.  Alternatively, we could leave the padding 
+       off by default, adding it when we detect that the list is empty.
+    */
+    padding-bottom:20px;
+}
+ 
+ul.draglist_alt li {
+    margin: 1px;
+    cursor: move; 
+}
+ 
+ 
+li.list1 {
+    background-color: #D1E6EC;
+    border:1px solid #7EA6B2;
+}
+li.list2, li.core {
+    background-color: #D8D4E2;
+    border:1px solid #6B4C86;
+}
+div.table_cont {
+	margin-bottom:1em;
+}
+dl, table, div.table_cont {
+	clear:both;
+}
