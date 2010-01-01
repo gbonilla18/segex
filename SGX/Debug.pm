@@ -14,7 +14,7 @@ use base qw/Exporter/;
 # production code.
 BEGIN { 
         use CGI::Carp qw/carpout fatalsToBrowser warningsToBrowser/;
-        open(LOG, '>>/www/html/images/students_09/group_2/error_log')
+        open(LOG, '>>/var/www/error_log/error_log')
                 or die "Unable to append to error_log: $!";
         carpout(*LOG);
 }

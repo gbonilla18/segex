@@ -66,7 +66,7 @@ use vars qw($VERSION);
 $VERSION = '0.09';
 $VERSION = eval $VERSION;
 
-use Apache::Session::MySQL;
+use Apache2::Session::MySQL;
 use SGX::Debug;
 #use Data::Dumper;	# for debugging
 

@@ -45,14 +45,15 @@ my $q = CGI->new();
 my $error_string;
 my $title;
 my $css = [
-	{-src=>HTML_PATH.'/yui/build/reset-fonts/reset-fonts.css'},
-	{-src=>HTML_PATH.'/yui/build/container/assets/skins/sam/container.css'},
-	{-src=>HTML_PATH.'/yui/build/paginator/assets/skins/sam/paginator.css'},
-	{-src=>HTML_PATH.'/yui/build/datatable/assets/skins/sam/datatable.css'},
-	{-src=>HTML_PATH.'/style.css'}
+	{-src=>'./yui/build/reset-fonts/reset-fonts.css'},
+	{-src=>'./yui/build/container/assets/skins/sam/container.css'},
+	{-src=>'./yui/build/paginator/assets/skins/sam/paginator.css'},
+	{-src=>'./yui/build/datatable/assets/skins/sam/datatable.css'},
+	{-src=>'./html/style.css'}
 ];
-my $js = [{-type=>'text/javascript',-src=>HTML_PATH.'/prototype.js'},
-	  {-type=>'text/javascript',-src=>HTML_PATH.'/form.js'}];
+
+my $js = [{-type=>'text/javascript',-src=>'./html/prototype.js'},
+	  {-type=>'text/javascript',-src=>'./html/form.js'}];
 
 my $content;	# this will be a reference to a subroutine that displays the main content
 
@@ -60,9 +61,9 @@ my $content;	# this will be a reference to a subroutine that displays the main c
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
 # but then the URIs would not be human-readable anymore.
 # ===== User Management ==================================
-use constant FORM			=> 'form_';	# this is simply a prefix
-use constant LOGIN			=> 'login';
-use constant LOGOUT			=> 'logout';
+use constant FORM				=> 'form_';	# this is simply a prefix
+use constant LOGIN				=> 'login';
+use constant LOGOUT				=> 'logout';
 use constant DEFAULT_ACTION		=> 'mainPage';
 use constant UPDATEPROFILE		=> 'updateProfile';
 use constant SHOWPLATFORMS		=> 'showPlatforms';
@@ -71,13 +72,13 @@ use constant CHANGEEMAIL		=> 'changeEmail';
 use constant RESETPASSWORD		=> 'resetPassword';
 use constant REGISTERUSER		=> 'registerUser';
 use constant VERIFYEMAIL		=> 'verifyEmail';
-use constant QUIT			=> 'quit';
-use constant DUMP			=> 'dump';
+use constant QUIT				=> 'quit';
+use constant DUMP				=> 'dump';
 use constant DOWNLOADTFS		=> 'getTFS';
 use constant SHOWSCHEMA			=> 'showSchema';
-use constant HELP			=> 'help';
-use constant ABOUT			=> 'about';
-use constant COMPAREEXPERIMENTS		=> 'Compare Selected';	# submit button text
+use constant HELP				=> 'help';
+use constant ABOUT				=> 'about';
+use constant COMPAREEXPERIMENTS	=> 'Compare Selected';	# submit button text
 use constant FINDPROBES			=> 'Search';		# submit button text
 use constant UPDATEPROBE		=> 'updateCell';
 use constant UPLOADANNOT		=> 'uploadAnnot';
@@ -92,10 +93,10 @@ while (defined($action)) { switch ($action) {
 		# TODO: only admins should be allowed to perform this action
 		if ($s->is_authorized('user')) {
 			$title = 'Upload/Update Annotations';
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/animation/animation-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript',-src=>HTML_PATH.'/annot.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/animation/animation-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
+			push @$js, {-type=>'text/javascript',-src=>'./html/annot.js'};
 			$content = \&form_uploadAnnot;
 			$action = undef;	# final state
 		} else {
@@ -154,15 +155,15 @@ function init() {
 	case FINDPROBES				{
 		if ($s->is_authorized('user')) {
 			$title = 'Find Probes';
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/connection/connection-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/container/container-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/datatable/datatable-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/selector/selector-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
 			push @$js, {-type=>'text/javascript',-code=>findProbes_js()};
 			$content = \&findProbes;
 			$action = undef;	# final state
@@ -186,12 +187,12 @@ function init() {
 		if ($s->is_authorized('user')) {
 			$title = 'View Slice';
 
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/datatable/datatable.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/yahoo/yahoo.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo/yahoo.js'};
 			push @$js, {-type=>'text/javascript',-code=>show_tfs_js()};
 
 			$content = \&show_tfs;
@@ -212,7 +213,7 @@ function init() {
 	case HELP			{
 		# will send a redirect header, so commit the session to data store now
 		$s->commit;
-		print $q->redirect(-uri		=> $q->url(-base=>1).HTML_PATH.'/wiki/',
+		print $q->redirect(-uri		=> $q->url(-base=>1).'./html/wiki/',
 				   -status	=> 302,	 # 302 Found
 				   -cookie	=> \@SGX::Cookie::cookies);
 		$action = QUIT;
@@ -226,7 +227,7 @@ function init() {
 		if ($s->is_authorized('user')) {
 			$title = 'Compare Experiments';
 			push @$js, {-type=>'text/javascript',-code=>form_compareExperiments_js()};
-			push @$js, {-type=>'text/javascript',-src=>HTML_PATH.'/experiment.js'};
+			push @$js, {-type=>'text/javascript',-src=>'./html/experiment.js'};
 			$content = \&form_compareExperiments;
 			$action = undef;	# final state
 		} else {
@@ -237,11 +238,11 @@ function init() {
 		if ($s->is_authorized('user')) {
 			$title = 'Compare Experiments';
 
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>HTML_PATH.'/yui/build/datatable/datatable-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
 			push @$js, {-type=>'text/javascript',-code=>compare_experiments_js()};
 
 			$content = \&compare_experiments;
@@ -581,13 +582,12 @@ sub form_login {
 			form_error($error_string), 
 			$q->submit(-name=>'login',-id=>'login',-value=>'Login'),
 			$q->span({-class=>'separator'},' / '),
-			$q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.RESETPASSWORD,
-				-title=>'Email me a new password'},'I Forgot My Password'),
+			$q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.RESETPASSWORD,-title=>'Email me a new password'},'I Forgot My Password'),
 			$q->span({-class=>'separator'},' / '),
-			$q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.REGISTERUSER,
-				-title=>'Set up a new account'},'Register')
+			$q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.REGISTERUSER,-title=>'Set up a new account'},'Register')
 		)
-	) .
+	)
+	.
 	$q->end_form;
 }
 #######################################################################################
@@ -1274,7 +1274,8 @@ sub compare_experiments_js {
 	my $query_fs_body = '';
 	my (@eids, @reverses, @fcs, @pvals);
 	my $i;
-	for ($i = 1; defined($q->param("eid_$i")); $i++) {
+	for ($i = 1; defined($q->param("eid_$i")); $i++) 
+	{
 		my ($eid, $fc, $pval) = ($q->param("eid_$i"), $q->param("fc_$i"), $q->param("pval_$i"));
 		my $reverse = (defined($q->param("reverse_$i"))) ? 1 : 0;
 		# prepare the four arrays that will be used to display data
@@ -1282,25 +1283,20 @@ sub compare_experiments_js {
 
 		# flagsum breakdown query
 		my $flag = 1 << $i - 1;
-		$query_fs_body .= "
-SELECT rid, $flag AS flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL
-";
+		$query_fs_body .= "SELECT rid, $flag AS flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
 		# account for sample order when building title query
 		my $title = ($reverse) ? 
 			"s1.genotype, '-', s1.sex, ' / ', s2.genotype, '-', s2.sex" :
 			"s2.genotype, '-', s2.sex, ' / ', s1.genotype, '-', s1.sex";
-		$query_titles .= "
-SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study LEFT JOIN sample AS s1 ON sid1=s1.sid LEFT JOIN sample AS s2 ON sid2=s2.sid WHERE eid=$eid UNION ALL
-";
+		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study LEFT JOIN sample AS s1 ON sid1=s1.sid LEFT JOIN sample AS s2 ON sid2=s2.sid WHERE eid=$eid UNION ALL ";
 	}
 
 	my $exp_count = $i - 1;	# number of experiments being compared
 
 	# strip trailing 'UNION ALL' plus any trailing white space
 	$query_fs_body =~ s/UNION ALL\s*$//i;
-	$query_fs = sprintf($query_fs, $exp_count) . $query_fs_body . '
-) AS d1 GROUP BY rid) AS d2 GROUP BY fs
-';
+	$query_fs = sprintf($query_fs, $exp_count) . $query_fs_body . ') AS d1 GROUP BY rid) AS d2 GROUP BY fs';
+
 	my $sth_fs = $dbh->prepare(qq{$query_fs}) or die $dbh->errstr;
 	my $rowcount_fs = $sth_fs->execute or die $dbh->errstr;
 	my $h = $sth_fs->fetchall_hashref('fs');

@@ -28,7 +28,7 @@ our @EXPORT = qw/max min bounds label_format mysql_connect PROJECT_NAME CGIBIN_P
 
 sub mysql_connect {
 	# connects to the database and returns the handle
-	DBI->connect('dbi:mysql:group_2_test',
+	DBI->connect('dbi:mysql:group_2',
 		     'group_2_user',
 		     'b00g3yk1d')
 	or die $DBI::errstr;
