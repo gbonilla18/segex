@@ -973,7 +973,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 		var i = oRecord.getCount();
 		';
 		if (defined($q->param('graph'))) {
-			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"580\" data=\"'.CGIBIN_PATH.'/graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"'.CGIBIN_PATH.'/graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"580\" /></object></li>";
+			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"580\" data=\"graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"580\" /></object></li>";
 		elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
 		} else {
 			$out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
@@ -1125,7 +1125,7 @@ asyncSubmitter: function(callback, newValue) {
 					imgFile = this.innerHTML;	// replaced ".text" with ".innerHTML" because of IE problem
 					var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
 					panel.setHeader(imgFile);
-					panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"580\" data=\"'.CGIBIN_PATH.'/graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"'.CGIBIN_PATH.'/graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"580\" /></object>");
+					panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"580\" data=\"/graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"/graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"580\" /></object>");
 					manager.register(panel);
 					panel.render("container" + index);
 					// panel.show is unnecessary here because visible:true is set
