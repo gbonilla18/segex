@@ -27,6 +27,7 @@ use SGX::Debug;		# all debugging code goes here
 use SGX::Config;	# all configuration for our project goes here
 use SGX::User 0.07;	# user authentication, sessions and cookies
 use SGX::Session 0.08;	# email verification
+use SGX::ManageMicroarrayPlatforms;
 
 # ===== USER AUTHENTICATION =============================================
 
@@ -57,28 +58,31 @@ my $js = [{-type=>'text/javascript',-src=>'./html/prototype.js'},
 
 my $content;	# this will be a reference to a subroutine that displays the main content
 
+#This is a reference to the manage platform module. Module gets instanstiated when visitng the page.
+my $managePlatform;
+
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
 # but then the URIs would not be human-readable anymore.
 # ===== User Management ==================================
-use constant FORM				=> 'form_';	# this is simply a prefix
-use constant LOGIN				=> 'login';
-use constant LOGOUT				=> 'logout';
+use constant FORM			=> 'form_';# this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
+use constant LOGIN			=> 'login';
+use constant LOGOUT			=> 'logout';
 use constant DEFAULT_ACTION		=> 'mainPage';
 use constant UPDATEPROFILE		=> 'updateProfile';
-use constant SHOWPLATFORMS		=> 'showPlatforms';
+use constant MANAGEPLATFORMS		=> 'managePlatforms';
 use constant CHANGEPASSWORD		=> 'changePassword';
 use constant CHANGEEMAIL		=> 'changeEmail';
 use constant RESETPASSWORD		=> 'resetPassword';
 use constant REGISTERUSER		=> 'registerUser';
 use constant VERIFYEMAIL		=> 'verifyEmail';
-use constant QUIT				=> 'quit';
-use constant DUMP				=> 'dump';
+use constant QUIT			=> 'quit';
+use constant DUMP			=> 'dump';
 use constant DOWNLOADTFS		=> 'getTFS';
 use constant SHOWSCHEMA			=> 'showSchema';
-use constant HELP				=> 'help';
-use constant ABOUT				=> 'about';
-use constant COMPAREEXPERIMENTS	=> 'Compare Selected';	# submit button text
+use constant HELP			=> 'help';
+use constant ABOUT			=> 'about';
+use constant COMPAREEXPERIMENTS		=> 'Compare Selected';	# submit button text
 use constant FINDPROBES			=> 'Search';		# submit button text
 use constant UPDATEPROBE		=> 'updateCell';
 use constant UPLOADANNOT		=> 'uploadAnnot';
@@ -128,9 +132,30 @@ while (defined($action)) { switch ($action) {
 			exit(0);
 		}
 	}
-	case SHOWPLATFORMS {
+	case FORM.MANAGEPLATFORMS {
+		if ($s->is_authorized('user')) {	
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+		
+			$content = \&form_managePlatforms;
+			$title = 'Platforms';
+			$action = undef;	# final state
+		} else {
+			$action = FORM.LOGIN;
+		}
+	}
+	case MANAGEPLATFORMS {
 		if ($s->is_authorized('user')) {
-			$content = \&showPlatforms;
+
+			$content = \&managePlatforms;
+
 			$title = 'Platforms';
 			$action = undef;	# final state
 		} else {
@@ -466,7 +491,7 @@ if ($s->is_authorized('user')) {
 	# TODO: only admins should be allowed to see the menu part below:
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPLOADANNOT,
 				-title=>'Upload or Update Probe Annotations'}, 'Upload/Update Annotations');
-	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.SHOWPLATFORMS,
+	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEPLATFORMS,
 				-title=>'View/Manage Platforms'}, 'View/Manage Platforms');
 }
 if ($s->is_authorized('admin')) {
@@ -931,7 +956,8 @@ records: [
 		# http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
 		$out .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'"';
 
-		if (@extra_fields) {
+		if (@extra_fields) 
+		{
 			$out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'"';
 		}
 		$out .= "},\n";
@@ -2122,23 +2148,33 @@ sub uploadAnnot {
 	print $q->p(sprintf("%d lines processed.", $count_lines));
 }
 
-sub showPlatforms {
-	my $sth = $dbh->prepare('select pname, def_f_cutoff, def_p_cutoff, species from platform')
-			or die $dbh->errstr;
-	my $rowcount = $sth->execute or die $dbh->errstr;
-	print '<table><tbody><thead><tr>
-	<th>Platform Name</th>
-	<th>Fold Change Cutoff</th>
-	<th>P-Value Cutoff</th>
-	<th>Species</th>
-	</tr></thead>';
-	while (my @row = $sth->fetchrow_array) {
-		print '<tr>';
-		foreach (@row) {
-			print "<td>$_</td>";
+#This just displays the Manage platforms form.
+sub form_managePlatforms
+{
+	$managePlatform = new SGX::ManageMicroarrayPlatforms($dbh,$q);
+	$managePlatform->showPlatforms();
+}
+
+#This performs the action that was asked for by the manage platforms form.
+sub managePlatforms
+{
+	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
+	$managePlatform = new SGX::ManageMicroarrayPlatforms($dbh,$q);
+
+	switch ($ManageAction) 
+	{
+		case 'add' 
+		{
+			$managePlatform->insertNewPlatform();
+			print "<br />Inserted new record.<br />";
 		}
-		print "<td>Edit / Delete</td></tr>\n";
+		case 'delete'
+		{
+			$managePlatform->deletePlatform();
+			print "<br />Deleted record.<br />";
+		}
+
 	}
-	print '</tbody></table>';
-	$sth->finish;
+	
+	print "<a href ='" . $q->url(-absolute=>1).'?a=form_managePlatforms' . "'>Return to platforms.</a>";
 }
