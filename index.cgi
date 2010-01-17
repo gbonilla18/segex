@@ -106,7 +106,7 @@ while (defined($action)) { switch ($action) {
 		} else {
 			$action = FORM.LOGIN;
 		}
-	}
+ 	}
 	case UPLOADANNOT {
 		# TODO: only admins should be allowed to perform this action
 		if ($s->is_authorized('user')) {
@@ -492,7 +492,7 @@ if ($s->is_authorized('user')) {
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPLOADANNOT,
 				-title=>'Upload or Update Probe Annotations'}, 'Upload/Update Annotations');
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEPLATFORMS,
-				-title=>'View/Manage Platforms'}, 'View/Manage Platforms');
+				-title=>'Manage Platforms'}, 'Manage Platforms');
 }
 if ($s->is_authorized('admin')) {
 	# add admin options
@@ -999,7 +999,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 		var i = oRecord.getCount();
 		';
 		if (defined($q->param('graph'))) {
-			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"580\" data=\"graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"580\" /></object></li>";
+			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"580\" data=\"/graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"/graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"580\" /></object></li>";
 		elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
 		} else {
 			$out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
@@ -2152,6 +2152,7 @@ sub uploadAnnot {
 sub form_managePlatforms
 {
 	$managePlatform = new SGX::ManageMicroarrayPlatforms($dbh,$q);
+	$managePlatform->loadAllPlatforms();
 	$managePlatform->showPlatforms();
 }
 
@@ -2165,13 +2166,26 @@ sub managePlatforms
 	{
 		case 'add' 
 		{
+			$managePlatform->loadFromForm();
 			$managePlatform->insertNewPlatform();
-			print "<br />Inserted new record.<br />";
+			print "<br />Record added.<br />";
 		}
 		case 'delete'
 		{
+			$managePlatform->loadFromForm();
 			$managePlatform->deletePlatform();
-			print "<br />Deleted record.<br />";
+			print "<br />Record deleted.<br />";
+		}
+		case 'edit'
+		{
+			$managePlatform->loadSinglePlatform();
+			$managePlatform->editPlatform();
+		}
+		case 'editSubmit'
+		{
+			$managePlatform->loadFromForm();
+			$managePlatform->editSubmitPlatform();
+			print "<br />Record updated.<br />";
 		}
 
 	}
