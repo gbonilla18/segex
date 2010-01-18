@@ -27,7 +27,6 @@ package SGX::ManageMicroarrayPlatforms;
 
 use strict;
 use warnings;
-use Data::Dumper;
 
 sub new {
 	# This is the constructor
@@ -38,7 +37,7 @@ sub new {
 		_FormObject	=> shift,
 		_LoadQuery	=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid from platform;',
 		_LoadSingleQuery=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid from platform WHERE pid = {0};',
-		_UpdateQuery	=> 'UPDATE platform SET pname = \'{0}\',def_f_cutoff = {1}, def_p_cutoff = {2}, species = \'{3}\' WHERE pid = {4};',
+		_UpdateQuery	=> 'UPDATE platform SET pname = \'{0}\',def_f_cutoff = \'{1}\', def_p_cutoff = \'{2}\', species = \'{3}\' WHERE pid = {4};',
 		_InsertQuery	=> 'INSERT INTO platform (pname,def_f_cutoff,def_p_cutoff,species) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\');',
 		_DeleteQuery	=> 'DELETE FROM platform WHERE pid = {0};',
 		_RecordCount	=> 0,
