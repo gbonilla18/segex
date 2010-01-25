@@ -29,6 +29,7 @@ use SGX::User 0.07;	# user authentication, sessions and cookies
 use SGX::Session 0.08;	# email verification
 use SGX::ManageMicroarrayPlatforms;
 use SGX::ManageStudies;
+use SGX::ManageExperiments;
 
 # ===== USER AUTHENTICATION =============================================
 
@@ -62,6 +63,7 @@ my $content;	# this will be a reference to a subroutine that displays the main c
 #This is a reference to the manage platform module. Module gets instanstiated when visitng the page.
 my $managePlatform;
 my $manageStudy;
+my $manageExperiment;
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
@@ -74,6 +76,7 @@ use constant DEFAULT_ACTION		=> 'mainPage';
 use constant UPDATEPROFILE		=> 'updateProfile';
 use constant MANAGEPLATFORMS		=> 'managePlatforms';
 use constant MANAGESTUDIES		=> 'manageStudy';
+use constant MANAGEEXPERIMENTS		=> 'manageExperiments';
 use constant CHANGEPASSWORD		=> 'changePassword';
 use constant CHANGEEMAIL		=> 'changeEmail';
 use constant RESETPASSWORD		=> 'resetPassword';
@@ -195,6 +198,36 @@ while (defined($action)) { switch ($action) {
 			$action = FORM.LOGIN;
 		}
 	}	
+	case FORM.MANAGEEXPERIMENTS {
+		if ($s->is_authorized('user')) {	
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+
+			$content = \&form_manageExperiments;
+			$title = 'Experiments';
+			$action = undef;	# final state
+		} else {
+			$action = FORM.LOGIN;
+		}
+	}
+	case MANAGEEXPERIMENTS {
+		if ($s->is_authorized('user')) {
+
+			$content = \&manageExperiments;
+
+			$title = 'Experiments';
+			$action = undef;	# final state
+		} else {
+			$action = FORM.LOGIN;
+		}
+	}
 	case FORM.FINDPROBES			{
 		if ($s->is_authorized('user')) {
 			$title = 'Find Probes';
@@ -528,6 +561,8 @@ if ($s->is_authorized('user')) {
 				-title=>'Manage Platforms'}, 'Manage Platforms');
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGESTUDIES,
 				-title=>'Manage Studies'}, 'Manage Studies');
+	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEEXPERIMENTS,
+				-title=>'Manage Experiments'}, 'Manage Experiments');
 }
 if ($s->is_authorized('admin')) {
 	# add admin options
@@ -2182,7 +2217,10 @@ sub uploadAnnot {
 	#print $q->p(sprintf("%d lines processed in %g seconds", $count_lines, $clock1 - $clock0));
 	print $q->p(sprintf("%d lines processed.", $count_lines));
 }
+#######################################################################################
 
+
+#######################################################################################
 #This just displays the Manage platforms form.
 sub form_managePlatforms
 {
@@ -2227,7 +2265,10 @@ sub managePlatforms
 	
 	print "<a href ='" . $q->url(-absolute=>1).'?a=form_managePlatforms' . "'>Return to platforms.</a>";
 }
+#######################################################################################
 
+
+#######################################################################################
 #This just displays the Manage studies form.
 sub form_manageStudies
 {
@@ -2259,7 +2300,8 @@ sub manageStudies
 		}
 		case 'edit'
 		{
-			$manageStudy->loadSinglePlatform();
+			$manageStudy->loadSingleStudy();
+			$manageStudy->loadPlatformData();
 			$manageStudy->editStudy();
 		}
 		case 'editSubmit'
@@ -2273,3 +2315,50 @@ sub manageStudies
 	
 	print "<a href ='" . $q->url(-absolute=>1).'?a=form_manageStudy' . "'>Return to Studies.</a>";
 }
+#######################################################################################
+
+#######################################################################################
+#This just displays the Manage experiments form.
+sub form_manageExperiments
+{
+	$manageExperiment = new SGX::ManageExperiments($dbh,$q);
+	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
+
+	switch ($ManageAction) 
+	{
+		case 'load' 
+		{
+			$manageExperiment->loadFromForm();
+			$manageExperiment->loadAllExperimentsFromStudy();
+			$manageExperiment->showExperiments();
+		}
+		
+		else
+		{
+			$manageExperiment->loadStudyData();
+			$manageExperiment->showExperiments();
+		}
+
+	}
+
+}
+
+#This performs the action that was asked for by the manage platforms form.
+sub manageExperiments
+{
+	$manageExperiment = new SGX::ManageExperiments($dbh,$q);
+	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
+
+	switch ($ManageAction) 
+	{
+		case 'load' 
+		{
+			$manageExperiment->loadFromForm();
+			$manageExperiment->loadAllExperimentsFromStudy();
+			$manageExperiment->showExperiments();
+		}
+	}
+
+	print "<a href ='" . $q->url(-absolute=>1).'?a=form_manageStudy' . "'>Return to Experiments.</a>";
+}
+#######################################################################################

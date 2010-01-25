@@ -78,7 +78,7 @@ sub loadSinglePlatform
 	my $singleItemQuery 	= $self->{_LoadSingleQuery};
 	$singleItemQuery 	=~ s/\{0\}/\Q$self->{_pid}\E/;
 
-	#Run the SPROC and get the data into the object.
+	#Run the SQL and get the data into the object.
 	$self->{_Records} 	= $self->{_dbh}->prepare($singleItemQuery) or die $self->{_dbh}->errstr;
 	$self->{_RecordCount}	= $self->{_Records}->execute or die $self->{_dbh}->errstr;
 	$self->{_Data} 		= $self->{_Records}->fetchall_arrayref;

@@ -1,11 +1,11 @@
 =head1 NAME
 
-SGX::ManageStudies
+SGX::ManageExperiments
 
 =head1 SYNOPSIS
 
 =head1 DESCRIPTION
-Grouping of functions for managing studies.
+Grouping of functions for managing experiments.
 
 =head1 AUTHORS
 Michael McDuffie
@@ -23,7 +23,7 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 
 =cut
 
-package SGX::ManageStudies;
+package SGX::ManageExperiments;
 
 use strict;
 use warnings;
@@ -35,12 +35,12 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
-		_LoadQuery	=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid;',
+		_LoadQuery	=> 'SELECT eid,	sample1.description,sample2.description FROM experiment INNER JOIN sample sample1 ON sample1.sid = experiment.sid1 INNER JOIN sample sample2 ON sample2.sid = experiment.sid2 WHERE experiment.stid = {0};',
 		_LoadSingleQuery=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid WHERE study.stid = {0};',
 		_UpdateQuery	=> 'UPDATE study SET description = \'{0}\', pubmed = \'{1}\', pid = \'{2}\' WHERE stid = {3};',
 		_InsertQuery	=> 'INSERT INTO study (description,pubmed,pid) VALUES (\'{0}\',\'{1}\',\'{2}\');',
 		_DeleteQuery	=> 'DELETE FROM study WHERE stid = {0};',
-		_PlatformQuery	=> 'SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;',
+		_StudyQuery	=> 'SELECT stid,description FROM study;',
 		_RecordCount	=> 0,
 		_Records	=> '',
 		_FieldNames	=> '',
@@ -49,20 +49,23 @@ sub new {
 		_description	=> '',
 		_pubmed		=> '',
 		_pid		=> '',
-		_platformList	=> {},
-		_platformValue	=> ()
+		_studyList	=> {},
+		_studyValue	=> ()
 	};
 
 	bless $self, $class;
 	return $self;
 }
 
-#Loads all platforms into the object from the database.
-sub loadAllStudies
+#Loads all expriments from a specific study.
+sub loadAllExperimentsFromStudy
 {
-	my $self = shift;
+	my $self 	= shift;
+	my $loadQuery 	= $self->{_LoadQuery};
 
-	$self->{_Records} 	= $self->{_dbh}->prepare($self->{_LoadQuery}) or die $self->{_dbh}->errstr;
+	$loadQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/;
+
+	$self->{_Records} 	= $self->{_dbh}->prepare($loadQuery) or die $self->{_dbh}->errstr;
 	$self->{_RecordCount}	= $self->{_Records}->execute or die $self->{_dbh}->errstr;
 	$self->{_FieldNames} 	= $self->{_Records}->{NAME};
 	$self->{_Data} 		= $self->{_Records}->fetchall_arrayref;
@@ -70,7 +73,7 @@ sub loadAllStudies
 }
 
 #Loads a single platform from the database based on the URL parameter.
-sub loadSingleStudy
+sub loadSingleExperiment
 {
 	#Grab object and id from URL.
 	my $self 	= shift;
@@ -80,7 +83,7 @@ sub loadSingleStudy
 	my $singleItemQuery 	= $self->{_LoadSingleQuery};
 	$singleItemQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/;
 
-	#Run the SQL and get the data into the object.
+	#Run the SPROC and get the data into the object.
 	$self->{_Records} 	= $self->{_dbh}->prepare($singleItemQuery) or die $self->{_dbh}->errstr;
 	$self->{_RecordCount}	= $self->{_Records}->execute or die $self->{_dbh}->errstr;
 	$self->{_Data} 		= $self->{_Records}->fetchall_arrayref;
@@ -95,34 +98,35 @@ sub loadSingleStudy
 	$self->{_Records}->finish;
 }
 
-#Loads information into the object that is used to create the platform dropdown.
-sub loadPlatformData
+#Loads information into the object that is used to create the study dropdown.
+sub loadStudyData
 {
 	my $self		= shift;
+
 	#Temp variables used to create the hash and array for the dropdown.
-	my %platformLabel;
-	my @platformValue;
+	my %StudyLabel;
+	my @StudyValue;
 
 	#Variables used to temporarily hold the database information.
 	my $tempRecords		= '';
 	my $tempRecordCount	= '';
-	my @tempPlatforms	= '';
+	my @tempStudies		= '';
 
-	$tempRecords 		= $self->{_dbh}->prepare($self->{_PlatformQuery}) or die $self->{_dbh}->errstr;
+	$tempRecords 		= $self->{_dbh}->prepare($self->{_StudyQuery}) or die $self->{_dbh}->errstr;
 	$tempRecordCount	= $tempRecords->execute or die $self->{_dbh}->errstr;
 
 	#Grab all platforms and build the hash and array for drop down.
-	@tempPlatforms 		= @{$tempRecords->fetchall_arrayref};
+	@tempStudies 		= @{$tempRecords->fetchall_arrayref};
 
-	foreach (sort {$a->[0] cmp $b->[0]} @tempPlatforms)
+	foreach (sort {$a->[0] cmp $b->[0]} @tempStudies)
 	{
-		$platformLabel{$_->[0]} = $_->[1];
-		push(@platformValue,$_->[0]);
+		$StudyLabel{$_->[0]} = $_->[1];
+		push(@StudyValue,$_->[0]);
 	}
 
 	#Assign members variables reference to the hash and array.
-	$self->{_platformList} 		= \%platformLabel;
-	$self->{_platformValue} 	= \@platformValue;
+	$self->{_studyList} 		= \%StudyLabel;
+	$self->{_studyValue} 		= \@StudyValue;
 	
 	#Finish with database.
 	$tempRecords->finish;
@@ -133,9 +137,7 @@ sub loadFromForm
 {
 	my $self = shift;
 
-	$self->{_description}	= ($self->{_FormObject}->param('description')) 	if defined($self->{_FormObject}->param('description'));
-	$self->{_pubmed}	= ($self->{_FormObject}->param('pubmed')) 	if defined($self->{_FormObject}->param('pubmed'));
-	$self->{_pid}		= ($self->{_FormObject}->param('platform')) 	if defined($self->{_FormObject}->param('platform'));
+	$self->{_stid}		= ($self->{_FormObject}->param('stid')) 	if defined($self->{_FormObject}->param('stid'));
 	$self->{_stid}		= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
 
 }
@@ -143,49 +145,67 @@ sub loadFromForm
 #######################################################################################
 #PRINTING HTML AND JAVASCRIPT STUFF
 #######################################################################################
-#Draw the javascript and HTML for the study table.
-sub showStudies
+#Draw the javascript and HTML for the experiment table.
+sub showExperiments
 {
 	my $self = shift;
 	my $error_string = "";
-
-	my $JSStudyList = "var JSStudyList = 
-	{
-		caption: \"Showing all Studies\",
-		records: [". printJSRecords($self) ."],
-		headers: [". printJSHeaders($self) . "]
-	};" . "\n";
-
-	print	'<h2 name = "caption" id="caption"></h2>' . "\n";
-	print	'<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>' . "\n";
-	print	'<div id="StudyTable"></div>' . "\n";
-	print	"<script type=\"text/javascript\">\n";
-	print $JSStudyList;
-
-	printTableInformation($self->{_FieldNames},$self->{_FormObject});
-	printExportTable();	
-	printDrawResultsTableJS();
-
-	print 	"</script>\n";
-	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Study</h2>' . "\n";
-
+	
+	#Load the study dropdown to choose which experiments to load into table.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=add',
-		-onsubmit=>'return validate_fields(this, [\'description\']);'
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=form_manageExperiments&ManageAction=load',
+		-onsubmit=>'return validate_fields(this, [\'study\']);'
 	) .
 	$self->{_FormObject}->dl(
-		$self->{_FormObject}->dt('description:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'description',-id=>'description',-maxlength=>100)),
-		$self->{_FormObject}->dt('pubmed:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pubmed',-id=>'pubmed',-maxlength=>20)),
-		$self->{_FormObject}->dt('platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}})),
+		$self->{_FormObject}->dt('Study:'),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'stid',-id=>'stid',-values=>\@{$self->{_studyValue}},-labels=>\%{$self->{_studyList}})),
 		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-value=>'Add Platform'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'SelectStudy',-id=>'SelectStudy',-value=>'Load Study'),$self->{_FormObject}->span({-class=>'separator'})
 		)
 	) .
-	$self->{_FormObject}->end_form;	
+	$self->{_FormObject}->end_form;
+
+	#If we have selected and loaded an expriment, load the table.
+	if(!$self->{_Data} == '')
+	{
+		my $JSStudyList = "var JSStudyList = 
+		{
+			caption: \"Showing all Studies\",
+			records: [". printJSRecords($self) ."],
+			headers: [". printJSHeaders($self) . "]
+		};" . "\n";
+
+		print	'<h2 name = "caption" id="caption"></h2>' . "\n";
+		print	'<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>' . "\n";
+		print	'<div id="StudyTable"></div>' . "\n";
+		print	"<script type=\"text/javascript\">\n";
+		print $JSStudyList;
+
+		printTableInformation($self->{_FieldNames},$self->{_FormObject});
+		printExportTable();	
+		printDrawResultsTableJS();
+
+		print 	"</script>\n";
+		print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Study</h2>' . "\n";
+
+		print $self->{_FormObject}->start_form(
+			-method=>'POST',
+			-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=add',
+			-onsubmit=>'return validate_fields(this, [\'description\']);'
+		) .
+		$self->{_FormObject}->dl(
+			$self->{_FormObject}->dt('platform:'),
+			$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}})),
+			$self->{_FormObject}->dt('&nbsp;'),
+			$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-value=>'Add Platform'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+			)
+		) .
+		$self->{_FormObject}->end_form;
+		
+	}
+
+
 }
 
 #This prints the results table to a printable text screen.
@@ -222,7 +242,7 @@ sub printDrawResultsTableJS
 	print	'
 	var myDataSource 		= new YAHOO.util.DataSource(JSStudyList.records);
 	myDataSource.responseType 	= YAHOO.util.DataSource.TYPE_JSARRAY;
-	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5"]};
+	myDataSource.responseSchema 	= {fields: ["0","1","2","3"]};
 	var myData_config 		= {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
 	var myDataTable 		= new YAHOO.widget.DataTable("StudyTable", myColumnDefs, myDataSource, myData_config);' . "\n";
 }
@@ -241,7 +261,7 @@ sub printJSRecords
 			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
 		}
 		#stid,description,pubmed,platform.pid,platform.pname,platform.species
-		$tempRecordList .= '{0:"'.$_->[1].'",1:"'.$_->[2].'",2:"'.$_->[4].'",3:"'.$_->[5].'",4:"'.$_->[0].'",5:"'.$_->[0].'"},';
+		$tempRecordList .= '{0:"'.$_->[1].'",1:"'.$_->[2].'",2:"'.$_->[0].'",3:"'.$_->[0].'"},';
 	}
 	$tempRecordList =~ s/,\s*$//;	# strip trailing comma
 
@@ -270,27 +290,25 @@ sub printTableInformation
 	my $arrayRef 	= shift;
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudy&ManageAction=delete&id=';
-	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageStudy&ManageAction=edit&id=';
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageExperiment&ManageAction=delete&id=';
+	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageExperiment&ManageAction=edit&id=';
 
 	print	'
-		YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData) 
+		YAHOO.widget.DataTable.Formatter.formatSampleDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Delete Study\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			elCell.innerHTML = "<a title=\"Delete Sample\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
 		}
-		YAHOO.widget.DataTable.Formatter.formatStudyEditLink = function(elCell, oRecord, oColumn, oData) 
+		YAHOO.widget.DataTable.Formatter.formatSampleEditLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Edit Study\" target=\"_self\" href=\"' . $editURL . '" + oData + "\">Edit</a>";
+			elCell.innerHTML = "<a title=\"Edit Sample\" target=\"_self\" href=\"' . $editURL . '" + oData + "\">Edit</a>";
 		}
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSStudyList.caption;
 		var myColumnDefs = [
-		{key:"0", sortable:true, resizeable:true, label:"Description"},
-		{key:"1", sortable:true, resizeable:true, label:"PubMed"},
-		{key:"2", sortable:true, resizeable:true, label:"Platform"}, 
-		{key:"3", sortable:true, resizeable:true, label:"Species"},
-		{key:"4", sortable:false, resizeable:true, label:"Delete Study",formatter:"formatStudyDeleteLink"},
-		{key:"5", sortable:false, resizeable:true, label:"Edit Study",formatter:"formatStudyEditLink"}
+		{key:"0", sortable:true, resizeable:true, label:"Sample 1"},
+		{key:"1", sortable:true, resizeable:true, label:"Sample 2"},
+		{key:"2", sortable:false, resizeable:true, label:"Delete Sample",formatter:"formatSampleDeleteLink"},
+		{key:"3", sortable:false, resizeable:true, label:"Edit Sample",formatter:"formatSampleEditLink"}
 		];' . "\n";
 }
 #######################################################################################
