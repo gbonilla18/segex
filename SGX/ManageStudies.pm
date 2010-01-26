@@ -326,7 +326,7 @@ sub editStudy
 	#Edit existing platform.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=editSubmit&id=' . $self->{_pid},
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=editSubmit&id=' . $self->{_stid},
 		-onsubmit=>'return validate_fields(this, [\'description\']);'
 	) .
 	$self->{_FormObject}->dl
@@ -338,7 +338,7 @@ sub editStudy
 		$self->{_FormObject}->dt('platform:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}},-default=>$self->{_pid})),
 		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'editStudy',-id=>'editStudy',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'editSaveStudy',-id=>'editSaveStudy',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
 	) .
 	$self->{_FormObject}->end_form;	
