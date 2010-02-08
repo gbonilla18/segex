@@ -2330,6 +2330,8 @@ sub form_manageExperiments
 		{
 			$manageExperiment->loadFromForm();
 			$manageExperiment->loadAllExperimentsFromStudy();
+			$manageExperiment->loadStudyData();
+			$manageExperiment->loadSampleData();
 			$manageExperiment->showExperiments();
 		}
 		
@@ -2351,14 +2353,25 @@ sub manageExperiments
 
 	switch ($ManageAction) 
 	{
-		case 'load' 
+		case 'add' 
 		{
 			$manageExperiment->loadFromForm();
-			$manageExperiment->loadAllExperimentsFromStudy();
-			$manageExperiment->showExperiments();
+			$manageExperiment->insertNewExperiment();
+			print "<br />Record added.<br />";
+		}
+		case 'edit' 
+		{
+			$manageExperiment->loadSingleExperiment();
+			$manageExperiment->loadSampleData();
+			$manageExperiment->editExperiment();
+		}
+		case 'editSubmit'
+		{
+			$manageExperiment->loadFromForm();
+			$manageExperiment->editSubmitExperiment();
 		}
 	}
 
-	print "<a href ='" . $q->url(-absolute=>1).'?a=form_manageStudy' . "'>Return to Experiments.</a>";
+	print "<a href ='" . $q->url(-absolute=>1).'?a=form_manageExperiments' . "'>Return to Experiments.</a>";
 }
 #######################################################################################

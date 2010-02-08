@@ -25,6 +25,7 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 
 package SGX::ManageExperiments;
 
+use SGX::DropDownData;
 use strict;
 use warnings;
 
@@ -35,12 +36,28 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
-		_LoadQuery	=> 'SELECT eid,	sample1.description,sample2.description FROM experiment INNER JOIN sample sample1 ON sample1.sid = experiment.sid1 INNER JOIN sample sample2 ON sample2.sid = experiment.sid2 WHERE experiment.stid = {0};',
-		_LoadSingleQuery=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid WHERE study.stid = {0};',
+		_LoadQuery	=> "	SELECT 	experiment.eid,
+						study.pid,
+						sample1.description,
+						sample2.description,
+						COUNT(1)
+					FROM	experiment 
+					INNER JOIN study ON study.stid = experiment.stid
+					INNER JOIN sample sample1 ON sample1.sid = experiment.sid1 
+					INNER JOIN sample sample2 ON sample2.sid = experiment.sid2
+					LEFT JOIN microarray ON microarray.eid = experiment.eid
+					WHERE experiment.stid = {0}
+					GROUP BY experiment.eid,
+						study.pid,
+						sample1.description,
+						sample2.description;
+				   ",
+		_LoadSingleQuery=> 'SELECT eid,	sid1,sid2 FROM experiment WHERE experiment.eid = {0};',
 		_UpdateQuery	=> 'UPDATE study SET description = \'{0}\', pubmed = \'{1}\', pid = \'{2}\' WHERE stid = {3};',
-		_InsertQuery	=> 'INSERT INTO study (description,pubmed,pid) VALUES (\'{0}\',\'{1}\',\'{2}\');',
+		_InsertQuery	=> 'INSERT INTO experiment (sid1,sid2,stid) VALUES (\'{0}\',\'{1}\',\'{2}\');',
 		_DeleteQuery	=> 'DELETE FROM study WHERE stid = {0};',
 		_StudyQuery	=> 'SELECT stid,description FROM study;',
+		_SampleQuery	=> 'SELECT sid,description FROM sample;',
 		_RecordCount	=> 0,
 		_Records	=> '',
 		_FieldNames	=> '',
@@ -49,8 +66,13 @@ sub new {
 		_description	=> '',
 		_pubmed		=> '',
 		_pid		=> '',
+		_eid		=> '',
 		_studyList	=> {},
-		_studyValue	=> ()
+		_studyValue	=> (),
+		_sampleList	=> {},
+		_sampleValue	=> (),
+		_sample1	=> '',
+		_sample2	=> ''
 	};
 
 	bless $self, $class;
@@ -77,11 +99,12 @@ sub loadSingleExperiment
 {
 	#Grab object and id from URL.
 	my $self 	= shift;
-	$self->{_stid} 	= $self->{_FormObject}->url_param('id');
-
+	$self->{_eid} 	= $self->{_FormObject}->url_param('id');
+	$self->{_stid}	= ($self->{_FormObject}->url_param('stid')) if defined($self->{_FormObject}->url_param('stid'));
+	
 	#Use a regex to replace the ID in the query to load a single platform.
 	my $singleItemQuery 	= $self->{_LoadSingleQuery};
-	$singleItemQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/;
+	$singleItemQuery 	=~ s/\{0\}/\Q$self->{_eid}\E/;
 
 	#Run the SPROC and get the data into the object.
 	$self->{_Records} 	= $self->{_dbh}->prepare($singleItemQuery) or die $self->{_dbh}->errstr;
@@ -90,9 +113,8 @@ sub loadSingleExperiment
 
 	foreach (@{$self->{_Data}})
 	{
-		$self->{_description}	= $_->[1];
-		$self->{_pubmed}	= $_->[2];
-		$self->{_pid}		= $_->[3];		
+		$self->{_sample1}	= $_->[1];
+		$self->{_sample2}	= $_->[2];
 	}
 
 	$self->{_Records}->finish;
@@ -103,43 +125,39 @@ sub loadStudyData
 {
 	my $self		= shift;
 
-	#Temp variables used to create the hash and array for the dropdown.
-	my %StudyLabel;
-	my @StudyValue;
+	my $studyDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_StudyQuery});
 
-	#Variables used to temporarily hold the database information.
-	my $tempRecords		= '';
-	my $tempRecordCount	= '';
-	my @tempStudies		= '';
+	$studyDropDown->loadDropDownValues();
 
-	$tempRecords 		= $self->{_dbh}->prepare($self->{_StudyQuery}) or die $self->{_dbh}->errstr;
-	$tempRecordCount	= $tempRecords->execute or die $self->{_dbh}->errstr;
-
-	#Grab all platforms and build the hash and array for drop down.
-	@tempStudies 		= @{$tempRecords->fetchall_arrayref};
-
-	foreach (sort {$a->[0] cmp $b->[0]} @tempStudies)
-	{
-		$StudyLabel{$_->[0]} = $_->[1];
-		push(@StudyValue,$_->[0]);
-	}
-
-	#Assign members variables reference to the hash and array.
-	$self->{_studyList} 		= \%StudyLabel;
-	$self->{_studyValue} 		= \@StudyValue;
-	
-	#Finish with database.
-	$tempRecords->finish;
+	$self->{_studyList} 	= $studyDropDown->{_dropDownList};
+	$self->{_studyValue} 	= $studyDropDown->{_dropDownValue};
 }
+
+#Loads information into the object that is used to create the study dropdown.
+sub loadSampleData
+{
+	my $self		= shift;
+
+	my $sampleDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_SampleQuery});
+
+	$sampleDropDown->loadDropDownValues();
+
+	$self->{_sampleList} 	= $sampleDropDown->{_dropDownList};
+	$self->{_sampleValue} 	= $sampleDropDown->{_dropDownValue};
+}
+
 
 #Load the data from the submitted form.
 sub loadFromForm
 {
 	my $self = shift;
 
-	$self->{_stid}		= ($self->{_FormObject}->param('stid')) 	if defined($self->{_FormObject}->param('stid'));
-	$self->{_stid}		= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
-
+	$self->{_eid}		= ($self->{_FormObject}->param('eid')) 		if defined($self->{_FormObject}->param('eid'));
+	$self->{_stid}		= ($self->{_FormObject}->param('stid'))		if defined($self->{_FormObject}->param('stid'));
+	$self->{_stid}		= ($self->{_FormObject}->url_param('stid'))	if defined($self->{_FormObject}->url_param('stid'));	
+	$self->{_eid}		= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
+	$self->{_sample1}	= ($self->{_FormObject}->param('Sample1'))	if defined($self->{_FormObject}->param('Sample1'));
+	$self->{_sample2}	= ($self->{_FormObject}->param('Sample2'))	if defined($self->{_FormObject}->param('Sample2'));
 }
 
 #######################################################################################
@@ -159,7 +177,7 @@ sub showExperiments
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Study:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'stid',-id=>'stid',-values=>\@{$self->{_studyValue}},-labels=>\%{$self->{_studyList}})),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'stid',-id=>'stid',-values=>\@{$self->{_studyValue}},-labels=>\%{$self->{_studyList}},-default=>$self->{_stid})),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'SelectStudy',-id=>'SelectStudy',-value=>'Load Study'),$self->{_FormObject}->span({-class=>'separator'})
 		)
@@ -182,23 +200,25 @@ sub showExperiments
 		print	"<script type=\"text/javascript\">\n";
 		print $JSStudyList;
 
-		printTableInformation($self->{_FieldNames},$self->{_FormObject});
+		printTableInformation($self->{_FieldNames},$self->{_FormObject},$self->{_stid});
 		printExportTable();	
 		printDrawResultsTableJS();
 
 		print 	"</script>\n";
-		print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Study</h2>' . "\n";
+		print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Experiment</h2>' . "\n";
 
 		print $self->{_FormObject}->start_form(
 			-method=>'POST',
-			-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=add',
-			-onsubmit=>'return validate_fields(this, [\'description\']);'
+			-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageExperiments&ManageAction=add&stid=' . $self->{_stid},
+			-onsubmit=>'return validate_fields(this, [\'\']);'
 		) .
 		$self->{_FormObject}->dl(
-			$self->{_FormObject}->dt('platform:'),
-			$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}})),
+			$self->{_FormObject}->dt('Sample 1:'),
+			$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'Sample1',-id=>'Sample1',-values=>\@{$self->{_sampleValue}},-labels=>\%{$self->{_sampleList}})),
+			$self->{_FormObject}->dt('Sample 2:'),
+			$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'Sample2',-id=>'Sample2',-values=>\@{$self->{_sampleValue}},-labels=>\%{$self->{_sampleList}})),
 			$self->{_FormObject}->dt('&nbsp;'),
-			$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-value=>'Add Platform'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+			$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 			)
 		) .
 		$self->{_FormObject}->end_form;
@@ -242,7 +262,7 @@ sub printDrawResultsTableJS
 	print	'
 	var myDataSource 		= new YAHOO.util.DataSource(JSStudyList.records);
 	myDataSource.responseType 	= YAHOO.util.DataSource.TYPE_JSARRAY;
-	myDataSource.responseSchema 	= {fields: ["0","1","2","3"]};
+	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4"]};
 	var myData_config 		= {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
 	var myDataTable 		= new YAHOO.widget.DataTable("StudyTable", myColumnDefs, myDataSource, myData_config);' . "\n";
 }
@@ -261,7 +281,7 @@ sub printJSRecords
 			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
 		}
 		#stid,description,pubmed,platform.pid,platform.pname,platform.species
-		$tempRecordList .= '{0:"'.$_->[1].'",1:"'.$_->[2].'",2:"'.$_->[0].'",3:"'.$_->[0].'"},';
+		$tempRecordList .= '{0:"'.$_->[2].'",1:"'.$_->[3].'",2:"'.$_->[4].'",3:"'.$_->[0].'",4:"' . $_->[0] . '"},';
 	}
 	$tempRecordList =~ s/,\s*$//;	# strip trailing comma
 
@@ -290,25 +310,46 @@ sub printTableInformation
 	my $arrayRef 	= shift;
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageExperiment&ManageAction=delete&id=';
-	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageExperiment&ManageAction=edit&id=';
+	my $studyID	= shift;
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=delete&id=';
+	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=edit&stid=' . $studyID . '&id=';
 
 	print	'
-		YAHOO.widget.DataTable.Formatter.formatSampleDeleteLink = function(elCell, oRecord, oColumn, oData) 
+		YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Delete Sample\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			//elCell.innerHTML = "<a title=\"Delete Experiment\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			elCell.innerHTML = "N/A"
 		}
-		YAHOO.widget.DataTable.Formatter.formatSampleEditLink = function(elCell, oRecord, oColumn, oData) 
+		YAHOO.widget.DataTable.Formatter.formatExperimentEditLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Edit Sample\" target=\"_self\" href=\"' . $editURL . '" + oData + "\">Edit</a>";
+			if(oRecord.getData("2") < 2 )
+			{
+				elCell.innerHTML = "<a title=\"Edit Experiment\" target=\"_self\" href=\"' . $editURL . '" + oData + "\">Edit</a>";
+			}
+			else
+			{
+				elCell.innerHTML = "N/A";
+			}
+		}
+		YAHOO.widget.DataTable.Formatter.formatExperimentDataPresent = function(elCell, oRecord, oColumn, oData) 
+		{
+			if(oData<2)
+			{
+				elCell.innerHTML = "No";
+			}
+			else
+			{
+				elCell.innerHTML = "Yes";
+			}
 		}
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSStudyList.caption;
 		var myColumnDefs = [
 		{key:"0", sortable:true, resizeable:true, label:"Sample 1"},
 		{key:"1", sortable:true, resizeable:true, label:"Sample 2"},
-		{key:"2", sortable:false, resizeable:true, label:"Delete Sample",formatter:"formatSampleDeleteLink"},
-		{key:"3", sortable:false, resizeable:true, label:"Edit Sample",formatter:"formatSampleEditLink"}
+		{key:"2", sortable:true, resizeable:true, label:"Experiment Data Present",formatter:"formatExperimentDataPresent"},
+		{key:"3", sortable:false, resizeable:true, label:"Delete Experiment",formatter:"formatExperimentDeleteLink"},
+		{key:"4", sortable:false, resizeable:true, label:"Edit Experiment",formatter:"formatExperimentEditLink"}
 		];' . "\n";
 }
 #######################################################################################
@@ -317,13 +358,13 @@ sub printTableInformation
 #######################################################################################
 #ADD/DELETE/EDIT METHODS
 #######################################################################################
-sub insertNewStudy
+sub insertNewExperiment
 {
 	my $self = shift;
 	my $insertStatement 	= $self->{_InsertQuery};
-	$insertStatement 	=~ s/\{0\}/\Q$self->{_description}\E/;
-	$insertStatement 	=~ s/\{1\}/\Q$self->{_pubmed}\E/;
-	$insertStatement 	=~ s/\{2\}/\Q$self->{_pid}\E/;
+	$insertStatement 	=~ s/\{0\}/\Q$self->{_sample1}\E/;
+	$insertStatement 	=~ s/\{1\}/\Q$self->{_sample2}\E/;
+	$insertStatement 	=~ s/\{2\}/\Q$self->{_stid}\E/;
 
 	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
 }
@@ -337,42 +378,120 @@ sub deleteStudy
 	$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
 }
 
-sub editStudy
+sub editExperiment
 {
 	my $self = shift;
 
 	#Edit existing platform.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=editSubmit&id=' . $self->{_pid},
-		-onsubmit=>'return validate_fields(this, [\'description\']);'
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageExperiments&ManageAction=editSubmit&id=' . $self->{_eid} . '&stid=' . $self->{_stid},
+		-onsubmit=>'return validate_fields(this, [\'description\']);',
+		-enctype=>'multipart/form-data'
 	) .
 	$self->{_FormObject}->dl
 		(
-		$self->{_FormObject}->dt('description:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'description',-id=>'description',-maxlength=>100,-value=>$self->{_description})),
-		$self->{_FormObject}->dt('pubmed:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pubmed',-id=>'pubmed',-maxlength=>20,-value=>$self->{_pubmed})),
-		$self->{_FormObject}->dt('platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}},-default=>$self->{_pid})),
-		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'editStudy',-id=>'editStudy',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+			$self->{_FormObject}->dt('Sample 1:'),
+			$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'Sample1',-id=>'Sample1',-values=>\@{$self->{_sampleValue}},-labels=>\%{$self->{_sampleList}},-default=>$self->{_sample1})),
+			$self->{_FormObject}->dt('Sample 2:'),
+			$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'Sample2',-id=>'Sample2',-values=>\@{$self->{_sampleValue}},-labels=>\%{$self->{_sampleList}},-default=>$self->{_sample2})),
+			$self->{_FormObject}->dt("Data File to upload:"),
+			$self->{_FormObject}->dd($self->{_FormObject}->filefield(-name=>'uploaded_data_file')),
+			$self->{_FormObject}->dt('&nbsp;'),			
+			$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'editStudy',-id=>'editStudy',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
 	) .
 	$self->{_FormObject}->end_form;	
 }
 
-sub editSubmitStudy
+sub editSubmitExperiment
 {	
-	my $self = shift;
-	my $updateStatement 	= $self->{_UpdateQuery};
-	
-	$updateStatement 	=~ s/\{0\}/\Q$self->{_description}\E/;
-	$updateStatement 	=~ s/\{1\}/\Q$self->{_pubmed}\E/;
-	$updateStatement 	=~ s/\{2\}/\Q$self->{_pid}\E/;
-	$updateStatement 	=~ s/\{3\}/\Q$self->{_stid}\E/;
+	#Get reference to our object.
+	my $self 	= shift;
+	#Get time to make our unique ID.
+	my $time      	= time();
+	#Make idea with the time and ID of the running application.
+	my $processID 	= $time. '_' . getppid();
+	#Regex to strip quotes.
+	my $regex_strip_quotes = qr/^("?)(.*)\1$/;
 
-	$self->{_dbh}->do($updateStatement) or die $self->{_dbh}->errstr;
+	#We need to create this output directory.
+	my $direc_out	 = "/var/www/temp_files/$processID/";
+	system("mkdir $direc_out");
+	
+	#This is where we put the temp file we will import.
+	my $outputFileName 	= $direc_out . "StudyData";
+
+	#The is the file handle of the uploaded file.
+	my $uploadedFile 	= $self->{_FormObject}->upload('uploaded_data_file');
+
+	#Open file we are writing to server.
+	open(OUTPUTTOSERVER,">$outputFileName");
+
+	#Check each line in the uploaded file and write it to our temp file.
+	while ( <$uploadedFile> )
+	{
+		my @row = split(/\s*,\s*/);
+
+		if(!($row[0] eq '"Reporter Name"'))
+		{
+			if($row[0] =~ $regex_strip_quotes)
+			{
+				$row[0] = $2;
+			}
+			print OUTPUTTOSERVER $self->{_stid} . ',' . $row[0] . ',' . $row[1] . ',' . $row[2] . ',' . $row[3] . ',' . $row[4] . ',' . $row[5];
+		}
+	}
+
+	close(OUTPUTTOSERVER);
+
+	#--------------------------------------------
+	#Now get the temp file into a temp MYSQL table.
+
+	#Command to create temp table.
+	my $createTableStatement = "CREATE TABLE $processID (stid INT(1),Reporter VARCHAR(150),ratio DOUBLE,foldchange DOUBLE,pvalue DOUBLE,intensity1 DOUBLE,intensity2 DOUBLE)";
+
+	#This is the mysql command to suck in the file.
+	my $inputStatement	= "
+					LOAD DATA LOCAL INFILE '$outputFileName'
+					INTO TABLE $processID
+					FIELDS TERMINATED BY ','
+					LINES TERMINATED BY '\n'
+					(stid,Reporter, ratio, foldchange,pvalue,intensity1,intensity2); 
+				";
+	
+	#This is the mysql command to get results from temp file into the microarray table.
+	my $insertStatement 	= "INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity2,intensity1)
+	SELECT	probe.rid,
+		" . $self->{_eid} . " as eid,
+		temptable.ratio,
+		temptable.foldchange,
+		temptable.pvalue,
+		temptable.intensity2,
+		temptable.intensity1
+	FROM	 probe
+	INNER JOIN $processID AS temptable ON temptable.reporter = probe.reporter
+	INNER JOIN study 	ON study.stid 	= temptable.stid
+	INNER JOIN platform 	ON platform.pid = study.pid
+	WHERE	platform.pid = probe.pid;";
+
+	#This is the command to drop the temp table.
+	my $dropStatement = "DROP TABLE $processID;";
+	#--------------------------------------------
+
+	#---------------------------------------------
+	#Run the command to create the temp table.
+	$self->{_dbh}->do($createTableStatement) or die $self->{_dbh}->errstr;
+
+	#Run the command to suck in the data.
+	$self->{_dbh}->do($inputStatement) or die $self->{_dbh}->errstr;
+
+	#Run the command to insert the data.
+	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
+
+	#Run the command to drop the temp table.
+	$self->{_dbh}->do($dropStatement) or die $self->{_dbh}->errstr;
+	#--------------------------------------------
 }
 #######################################################################################
 
