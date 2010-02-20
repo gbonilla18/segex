@@ -32,7 +32,7 @@ use SGX::ManageStudies;
 use SGX::ManageExperiments;
 
 # ===== USER AUTHENTICATION =============================================
-
+my $softwareVersion = "0.10";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -841,7 +841,8 @@ sub footer {
 			$q->li($q->a({-href=>'http://validator.w3.org/check?uri=referer',
 				-title=>'Validate XHTML'},'XHTML')),
 			$q->li($q->a({-href=>'http://jigsaw.w3.org/css-validator/check/referer',
-				-title=>'Validate CSS'},'CSS'))
+				-title=>'Validate CSS'},'CSS')),
+			$q->li('SEGEX version : ' . $softwareVersion )
 			)
 		))
 	);
