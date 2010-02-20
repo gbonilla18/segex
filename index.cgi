@@ -842,7 +842,7 @@ sub footer {
 				-title=>'Validate XHTML'},'XHTML')),
 			$q->li($q->a({-href=>'http://jigsaw.w3.org/css-validator/check/referer',
 				-title=>'Validate CSS'},'CSS')),
-			$q->li('SEGEX version : ' . $softwareVersion )
+			$q->li('SEGEX version : ' . $softwareVersion . ' Release date : 02/20/2010' )
 			)
 		))
 	);
