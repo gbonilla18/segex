@@ -33,6 +33,11 @@ sub new {
 	# This is the constructor
 	my $class = shift;
 
+	my @deleteStatementList;
+
+	push @deleteStatementList,'DELETE FROM microarray WHERE eid = {0};';
+	push @deleteStatementList,'DELETE FROM experiment WHERE eid = {0};';
+
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
@@ -55,7 +60,7 @@ sub new {
 		_LoadSingleQuery=> 'SELECT eid,	sid1,sid2 FROM experiment WHERE experiment.eid = {0};',
 		_UpdateQuery	=> 'UPDATE study SET description = \'{0}\', pubmed = \'{1}\', pid = \'{2}\' WHERE stid = {3};',
 		_InsertQuery	=> 'INSERT INTO experiment (sid1,sid2,stid) VALUES (\'{0}\',\'{1}\',\'{2}\');',
-		_DeleteQuery	=> 'DELETE FROM study WHERE stid = {0};',
+		_DeleteQuery	=> \@deleteStatementList,
 		_StudyQuery	=> 'SELECT stid,description FROM study;',
 		_SampleQuery	=> 'SELECT sid,description FROM sample;',
 		_RecordCount	=> 0,
@@ -317,8 +322,7 @@ sub printTableInformation
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			//elCell.innerHTML = "<a title=\"Delete Experiment\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
-			elCell.innerHTML = "N/A"
+			elCell.innerHTML = "<a title=\"Delete Experiment\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
 		}
 		YAHOO.widget.DataTable.Formatter.formatExperimentEditLink = function(elCell, oRecord, oColumn, oData) 
 		{
@@ -369,13 +373,17 @@ sub insertNewExperiment
 	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
 }
 
-sub deleteStudy
+sub deleteExperiment
 {
 	my $self = shift;
-	my $deleteStatement 	= $self->{_DeleteQuery};
-	$deleteStatement 	=~ s/\{0\}/\Q$self->{_stid}\E/;
 
-	$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+	foreach (@{$self->{_DeleteQuery}})
+	{
+		my $deleteStatement 	= $_;
+		$deleteStatement 	=~ s/\{0\}/\Q$self->{_eid}\E/;
+		
+		$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+	}
 }
 
 sub editExperiment
@@ -386,9 +394,17 @@ sub editExperiment
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
 		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageExperiments&ManageAction=editSubmit&id=' . $self->{_eid} . '&stid=' . $self->{_stid},
-		-onsubmit=>'return validate_fields(this, [\'description\']);',
+		-onsubmit=>'return validate_fields(this, [\'Sample1\']);',
 		-enctype=>'multipart/form-data'
-	) .
+	) 	.
+		$self->{_FormObject}->h2('Uploading Experiment Data')
+		.
+		$self->{_FormObject}->p('In order to upload an experiment the file must be in .CSV (Comma separated value) format and the columns be as follows.')
+		.
+		$self->{_FormObject}->p('<b>Reporter Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2</b>')
+		.
+		$self->{_FormObject}->p('Make sure the first row is the column headings and the second row starts the data.')
+		.
 	$self->{_FormObject}->dl
 		(
 			$self->{_FormObject}->dt('Sample 1:'),
@@ -424,74 +440,104 @@ sub editSubmitExperiment
 
 	#The is the file handle of the uploaded file.
 	my $uploadedFile 	= $self->{_FormObject}->upload('uploaded_data_file');
-
-	#Open file we are writing to server.
-	open(OUTPUTTOSERVER,">$outputFileName");
-
-	#Check each line in the uploaded file and write it to our temp file.
-	while ( <$uploadedFile> )
+	
+	if(!$uploadedFile)
 	{
-		my @row = split(/\s*,\s*/);
+		print "File failed to upload.<br />\n";
+	}
+	else
+	{
+		#Open file we are writing to server.
+		open(OUTPUTTOSERVER,">$outputFileName");
 
-		if(!($row[0] eq '"Reporter Name"'))
+		#Check each line in the uploaded file and write it to our temp file.
+		while ( <$uploadedFile> )
 		{
-			if($row[0] =~ $regex_strip_quotes)
+			my @row = split(/\s*,\s*/);
+
+			#The first line should be "Reporter Name" in the first column. We don't process this line.
+			if(!($row[0] eq '"Reporter Name"'))
 			{
-				$row[0] = $2;
+				if($row[0] =~ $regex_strip_quotes)
+				{
+					$row[0] = $2;
+				}
+				
+				#Make sure we have a value for each column.
+				if(!exists($row[0]) || !exists($row[1]) || !exists($row[2]) || !exists($row[3]) || !exists($row[4]) || !exists($row[5]))
+				{
+					print "File not found to be in correct format.<br />\n";
+					#exit;
+				}
+
+				print OUTPUTTOSERVER $self->{_stid} . ',' . $row[0] . ',' . $row[1] . ',' . $row[2] . ',' . $row[3] . ',' . $row[4] . ',' . $row[5];
+		
 			}
-			print OUTPUTTOSERVER $self->{_stid} . ',' . $row[0] . ',' . $row[1] . ',' . $row[2] . ',' . $row[3] . ',' . $row[4] . ',' . $row[5];
+		}
+
+		close(OUTPUTTOSERVER);
+
+		#--------------------------------------------
+		#Now get the temp file into a temp MYSQL table.
+
+		#Command to create temp table.
+		my $createTableStatement = "CREATE TABLE $processID (stid INT(1),Reporter VARCHAR(150),ratio DOUBLE,foldchange DOUBLE,pvalue DOUBLE,intensity1 DOUBLE,intensity2 DOUBLE)";
+
+		#This is the mysql command to suck in the file.
+		my $inputStatement	= "
+						LOAD DATA LOCAL INFILE '$outputFileName'
+						INTO TABLE $processID
+						FIELDS TERMINATED BY ','
+						LINES TERMINATED BY '\n'
+						(stid,Reporter, ratio, foldchange,pvalue,intensity1,intensity2); 
+					";
+	
+		#This is the mysql command to get results from temp file into the microarray table.
+		my $insertStatement 	= "INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity2,intensity1)
+		SELECT	probe.rid,
+			" . $self->{_eid} . " as eid,
+			temptable.ratio,
+			temptable.foldchange,
+			temptable.pvalue,
+			temptable.intensity2,
+			temptable.intensity1
+		FROM	 probe
+		INNER JOIN $processID AS temptable ON temptable.reporter = probe.reporter
+		INNER JOIN study 	ON study.stid 	= temptable.stid
+		INNER JOIN platform 	ON platform.pid = study.pid
+		WHERE	platform.pid = probe.pid;";
+
+		#This is the command to drop the temp table.
+		my $dropStatement = "DROP TABLE $processID;";
+		#--------------------------------------------
+
+		#---------------------------------------------
+		#Run the command to create the temp table.
+		$self->{_dbh}->do($createTableStatement) or die $self->{_dbh}->errstr;
+
+		#Run the command to suck in the data.
+		$self->{_dbh}->do($inputStatement) or die $self->{_dbh}->errstr;
+		
+		my $rowsInserted = $self->{_dbh}->do($insertStatement);
+		#Run the command to insert the data.
+		if(!$rowsInserted)
+		{
+			die $self->{_dbh}->errstr;
+		}
+
+		#Run the command to drop the temp table.
+		$self->{_dbh}->do($dropStatement) or die $self->{_dbh}->errstr;
+		#--------------------------------------------
+
+		if($rowsInserted < 1)
+		{
+			print "Experiment data could not be added. Please verify you are using the correct annotations for the platform. <br />\n";
+		}
+		else
+		{
+			print "Experiment data added. $rowsInserted probes found. <br />\n";
 		}
 	}
-
-	close(OUTPUTTOSERVER);
-
-	#--------------------------------------------
-	#Now get the temp file into a temp MYSQL table.
-
-	#Command to create temp table.
-	my $createTableStatement = "CREATE TABLE $processID (stid INT(1),Reporter VARCHAR(150),ratio DOUBLE,foldchange DOUBLE,pvalue DOUBLE,intensity1 DOUBLE,intensity2 DOUBLE)";
-
-	#This is the mysql command to suck in the file.
-	my $inputStatement	= "
-					LOAD DATA LOCAL INFILE '$outputFileName'
-					INTO TABLE $processID
-					FIELDS TERMINATED BY ','
-					LINES TERMINATED BY '\n'
-					(stid,Reporter, ratio, foldchange,pvalue,intensity1,intensity2); 
-				";
-	
-	#This is the mysql command to get results from temp file into the microarray table.
-	my $insertStatement 	= "INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity2,intensity1)
-	SELECT	probe.rid,
-		" . $self->{_eid} . " as eid,
-		temptable.ratio,
-		temptable.foldchange,
-		temptable.pvalue,
-		temptable.intensity2,
-		temptable.intensity1
-	FROM	 probe
-	INNER JOIN $processID AS temptable ON temptable.reporter = probe.reporter
-	INNER JOIN study 	ON study.stid 	= temptable.stid
-	INNER JOIN platform 	ON platform.pid = study.pid
-	WHERE	platform.pid = probe.pid;";
-
-	#This is the command to drop the temp table.
-	my $dropStatement = "DROP TABLE $processID;";
-	#--------------------------------------------
-
-	#---------------------------------------------
-	#Run the command to create the temp table.
-	$self->{_dbh}->do($createTableStatement) or die $self->{_dbh}->errstr;
-
-	#Run the command to suck in the data.
-	$self->{_dbh}->do($inputStatement) or die $self->{_dbh}->errstr;
-
-	#Run the command to insert the data.
-	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
-
-	#Run the command to drop the temp table.
-	$self->{_dbh}->do($dropStatement) or die $self->{_dbh}->errstr;
-	#--------------------------------------------
 }
 #######################################################################################
 

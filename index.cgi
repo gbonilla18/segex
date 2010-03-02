@@ -30,9 +30,10 @@ use SGX::Session 0.08;	# email verification
 use SGX::ManageMicroarrayPlatforms;
 use SGX::ManageStudies;
 use SGX::ManageExperiments;
+use SGX::JavaScriptDeleteConfirm;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.10";
+my $softwareVersion = "0.101";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -842,9 +843,9 @@ sub footer {
 				-title=>'Validate XHTML'},'XHTML')),
 			$q->li($q->a({-href=>'http://jigsaw.w3.org/css-validator/check/referer',
 				-title=>'Validate CSS'},'CSS')),
+			$q->li('SEGEX version : ' . $softwareVersion )
 			)
-		)),
-		$q->ul($q->li('SEGEX version : ' . $softwareVersion . '<br /> Release date : 02/20/2010' ))
+		))
 	);
 }
 #######################################################################################
@@ -2228,6 +2229,9 @@ sub form_managePlatforms
 	$managePlatform = new SGX::ManageMicroarrayPlatforms($dbh,$q);
 	$managePlatform->loadAllPlatforms();
 	$managePlatform->showPlatforms();
+
+	my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+	$javaScriptDeleteConfirm->drawJavaScriptCode();
 }
 
 #This performs the action that was asked for by the manage platforms form.
@@ -2277,6 +2281,9 @@ sub form_manageStudies
 	$manageStudy->loadAllStudies();
 	$manageStudy->loadPlatformData();
 	$manageStudy->showStudies();
+
+	my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+	$javaScriptDeleteConfirm->drawJavaScriptCode();
 }
 
 #This performs the action that was asked for by the manage platforms form.
@@ -2325,6 +2332,9 @@ sub form_manageExperiments
 	$manageExperiment = new SGX::ManageExperiments($dbh,$q);
 	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
 
+	my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+	$javaScriptDeleteConfirm->drawJavaScriptCode();
+
 	switch ($ManageAction) 
 	{
 		case 'load' 
@@ -2370,6 +2380,12 @@ sub manageExperiments
 		{
 			$manageExperiment->loadFromForm();
 			$manageExperiment->editSubmitExperiment();
+		}
+		case 'delete'
+		{
+			$manageExperiment->loadFromForm();
+			$manageExperiment->deleteExperiment();
+			print "<br />Experiment deleted.<br />";
 		}
 	}
 

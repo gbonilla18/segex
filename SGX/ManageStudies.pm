@@ -32,6 +32,12 @@ sub new {
 	# This is the constructor
 	my $class = shift;
 
+	my @deleteStatementList;
+
+	push @deleteStatementList,'DELETE FROM microarray WHERE eid in (SELECT eid FROM experiment WHERE stid = {0});';
+	push @deleteStatementList,'DELETE FROM experiment WHERE stid = {0};';
+	push @deleteStatementList,'DELETE FROM study WHERE stid = {0};';
+
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
@@ -39,7 +45,7 @@ sub new {
 		_LoadSingleQuery=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid WHERE study.stid = {0};',
 		_UpdateQuery	=> 'UPDATE study SET description = \'{0}\', pubmed = \'{1}\', pid = \'{2}\' WHERE stid = {3};',
 		_InsertQuery	=> 'INSERT INTO study (description,pubmed,pid) VALUES (\'{0}\',\'{1}\',\'{2}\');',
-		_DeleteQuery	=> 'DELETE FROM study WHERE stid = {0};',
+		_DeleteQuery	=> \@deleteStatementList,
 		_PlatformQuery	=> 'SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;',
 		_RecordCount	=> 0,
 		_Records	=> '',
@@ -276,7 +282,7 @@ sub printTableInformation
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Delete Study\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			elCell.innerHTML = "<a title=\"Delete Study\" target=\"_self\" onClick = \"return deleteConfirmation();\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
 		}
 		YAHOO.widget.DataTable.Formatter.formatStudyEditLink = function(elCell, oRecord, oColumn, oData) 
 		{
@@ -313,10 +319,14 @@ sub insertNewStudy
 sub deleteStudy
 {
 	my $self = shift;
-	my $deleteStatement 	= $self->{_DeleteQuery};
-	$deleteStatement 	=~ s/\{0\}/\Q$self->{_stid}\E/;
 
-	$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+	foreach (@{$self->{_DeleteQuery}})
+	{
+		my $deleteStatement 	= $_;
+		$deleteStatement 	=~ s/\{0\}/\Q$self->{_stid}\E/;
+		
+		$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+	}
 }
 
 sub editStudy

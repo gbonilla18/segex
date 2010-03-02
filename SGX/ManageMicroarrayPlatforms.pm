@@ -32,6 +32,17 @@ sub new {
 	# This is the constructor
 	my $class = shift;
 
+	my @deleteStatementList;
+
+	push @deleteStatementList,'DELETE FROM annotates WHERE rid IN (SELECT rid FROM probe WHERE pid = {0});';
+	push @deleteStatementList,'DELETE FROM experiment WHERE stid IN (SELECT stid FROM study WHERE pid = {0});';
+	push @deleteStatementList,'DELETE FROM microarray WHERE rid in (SELECT rid FROM probe WHERE pid = {0});';
+	push @deleteStatementList,'DELETE FROM probe WHERE pid = {0};';
+	push @deleteStatementList,'DELETE FROM study WHERE pid = {0};';
+	push @deleteStatementList,'DELETE FROM platform WHERE pid = {0};';
+
+
+
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
@@ -39,7 +50,7 @@ sub new {
 		_LoadSingleQuery=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid from platform WHERE pid = {0};',
 		_UpdateQuery	=> 'UPDATE platform SET pname = \'{0}\',def_f_cutoff = \'{1}\', def_p_cutoff = \'{2}\', species = \'{3}\' WHERE pid = {4};',
 		_InsertQuery	=> 'INSERT INTO platform (pname,def_f_cutoff,def_p_cutoff,species) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\');',
-		_DeleteQuery	=> 'DELETE FROM platform WHERE pid = {0};',
+		_DeleteQuery	=> \@deleteStatementList,
 		_RecordCount	=> 0,
 		_Records	=> '',
 		_FieldNames	=> '',
@@ -210,7 +221,7 @@ sub printTableInformation
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatPlatformDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Delete Platform\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			elCell.innerHTML = "<a title=\"Delete Platform\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
 		}
 		YAHOO.widget.DataTable.Formatter.formatPlatformEditLink = function(elCell, oRecord, oColumn, oData) 
 		{
@@ -243,10 +254,15 @@ sub insertNewPlatform
 sub deletePlatform
 {
 	my $self = shift;
-	my $deleteStatement 	= $self->{_DeleteQuery};
-	$deleteStatement 	=~ s/\{0\}/\Q$self->{_pid}\E/;
 
-	$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+	foreach (@{$self->{_DeleteQuery}})
+	{
+		my $deleteStatement 	= $_;
+		$deleteStatement 	=~ s/\{0\}/\Q$self->{_pid}\E/;
+		
+		$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+	}
+
 }
 
 sub editPlatform
