@@ -138,7 +138,7 @@ sub showPlatforms
 	}
 	$JSPlatformList =~ s/,\s*$//;	# strip trailing comma
 	$JSPlatformList .= ']};' . "\n";
-
+	print	'<font size="5">Manage Platforms</font><br /><br />' . "\n";
 	print	'<h2 name = "caption" id="caption"></h2>' . "\n";
 	print	'<div><a id="PlatformTable_astext">View as plain text</a></div>' . "\n";
 	print	'<div id="PlatformTable"></div>' . "\n";
@@ -268,6 +268,8 @@ sub deletePlatform
 sub editPlatform
 {
 	my $self = shift;
+
+	print	'<font size="5">Editing Platform</font><br /><br />' . "\n";
 
 	#Edit existing platform.
 	print $self->{_FormObject}->start_form(

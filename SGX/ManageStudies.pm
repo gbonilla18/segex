@@ -162,6 +162,7 @@ sub showStudies
 		headers: [". printJSHeaders($self) . "]
 	};" . "\n";
 
+	print	'<font size="5">Manage Studies</font><br /><br />' . "\n";
 	print	'<h2 name = "caption" id="caption"></h2>' . "\n";
 	print	'<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>' . "\n";
 	print	'<div id="StudyTable"></div>' . "\n";
@@ -188,7 +189,7 @@ sub showStudies
 		$self->{_FormObject}->dt('platform:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}})),
 		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-value=>'Add Platform'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddStudy',-id=>'AddStudy',-value=>'Add Study'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
 	) .
 	$self->{_FormObject}->end_form;	
@@ -332,7 +333,7 @@ sub deleteStudy
 sub editStudy
 {
 	my $self = shift;
-
+	print	'<font size="5">Editing Study</font><br /><br />' . "\n";
 	#Edit existing platform.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',

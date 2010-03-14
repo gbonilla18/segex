@@ -33,7 +33,7 @@ use SGX::ManageExperiments;
 use SGX::JavaScriptDeleteConfirm;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.101";
+my $softwareVersion = "0.102";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -590,7 +590,7 @@ cgi_start_html();
 
 #print $q->h1('Welcome to '.PROJECT_NAME),
 #	$q->h2('The database for sex-specific gene expression');
-print $q->img({src=>IMAGES_PATH."/logo.png", width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
+print $q->img({src=>IMAGES_PATH."/logo_DEV.png", width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
 
 print $q->ul({-id=>'menu'},$q->li(\@menu));
 
@@ -638,6 +638,7 @@ sub main {
 }
 #######################################################################################
 sub about {
+	print $q->p('<font size="5">About</font>');
 	print $q->p('The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. 
 	Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the 
 	GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to 
@@ -792,6 +793,7 @@ sub changeEmail_success {
 #######################################################################################
 sub form_updateProfile {
 	# user has to be logged in
+	print $q->p('<font size = "5">My Profile</font>');
 	print $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEPASSWORD,-title=>'Change Password'},'Change Password')) .
 	$q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEEMAIL,-title=>'Change Email'},'Change Email'));
 }
@@ -899,7 +901,7 @@ sub form_findProbes {
 	print $q->start_form(-method=>'GET',
 		-action=>$q->url(absolute=>1),
 		-enctype=>'application/x-www-form-urlencoded') .
-
+	$q->p('<font size="5">Find Probes</font>') .
 	#$q->p('This function will find all probes that reference the same gene symbol as the reporter ID entered below and plot fold change or log ratio.') .
 	$q->dl(
 		$q->dt('Search string:'),
@@ -1254,6 +1256,7 @@ sub findProbes {
 #######################################################################################
 sub schema {
 	my $dump_url = $q->url(-absolute=>1).'?a='.DUMP;
+	print '<font size = "5">Schema</font>';
 	print '
 <map name="schema_Map">
 <area shape="rect" title="Click to download Users table" alt="users" coords="544,497,719,718" href="'.$dump_url.'&amp;table=users" target="_blank">
@@ -1318,7 +1321,7 @@ var study = {};
 	$sth->finish;
 
 	# get a list of all experiments
-	$sth = $dbh->prepare(qq{select stid, eid, s2.description as s2_desc, s1.description as s1_desc from study natural join experiment left join sample as s1 on sid1=s1.sid left join sample as s2 on sid2=s2.sid})
+	$sth = $dbh->prepare(qq{select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc from study natural join experiment})
 		or die $dbh->errstr;
 	$rowcount = $sth->execute
 		or die $dbh->errstr;
@@ -1341,7 +1344,7 @@ function init() {
 }
 #######################################################################################
 sub form_compareExperiments {
-
+	print $q->p('<font size="5">Compare Experiments</font>');
 	print 
 	$q->dl(
 		$q->dt('Choose platform / add experiment:'),
@@ -1384,9 +1387,9 @@ sub compare_experiments_js {
 		$query_fs_body .= "SELECT rid, $flag AS flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
 		# account for sample order when building title query
 		my $title = ($reverse) ? 
-			"s1.genotype, '-', s1.sex, ' / ', s2.genotype, '-', s2.sex" :
-			"s2.genotype, '-', s2.sex, ' / ', s1.genotype, '-', s1.sex";
-		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study LEFT JOIN sample AS s1 ON sid1=s1.sid LEFT JOIN sample AS s2 ON sid2=s2.sid WHERE eid=$eid UNION ALL ";
+			"experiment.sample1, ' / ', experiment.sample2" :
+			"experiment.sample2, ' / ', experiment.sample1";
+		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
 	}
 
 	my $exp_count = $i - 1;	# number of experiments being compared
@@ -1693,10 +1696,10 @@ LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$eid
 ";
 		# account for sample order when building title query
 		my $title = ($reverses[$i-1]) ?
-			"s1.genotype, '-', s1.sex, ' / ', s2.genotype, '-', s2.sex" :
-			"s2.genotype, '-', s2.sex, ' / ', s1.genotype, '-', s1.sex";
+			"experiment.sample1, ' / ', experiment.sample2" :
+			"experiment.sample2, ' / ', experiment.sample1";
 		$query_titles .= "
-SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study LEFT JOIN sample AS s1 ON sid1=s1.sid LEFT JOIN sample AS s2 ON sid2=s2.sid WHERE eid=$eid UNION ALL
+SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL
 ";
 		$i++;
 	}
@@ -1958,7 +1961,7 @@ sub form_uploadAnnot {
 	}
 
 	print
-	$q->h2('Upload Annotation'),
+	$q->h2('<font size = "5">Upload Annotation</font>'),
 	$q->p('Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add transcript accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'),
 	$q->p('The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.');
 	print $q->div({-class=>'workarea'}, $q->h2('Available Fields:') .
@@ -2342,7 +2345,6 @@ sub form_manageExperiments
 			$manageExperiment->loadFromForm();
 			$manageExperiment->loadAllExperimentsFromStudy();
 			$manageExperiment->loadStudyData();
-			$manageExperiment->loadSampleData();
 			$manageExperiment->showExperiments();
 		}
 		
@@ -2373,7 +2375,6 @@ sub manageExperiments
 		case 'edit' 
 		{
 			$manageExperiment->loadSingleExperiment();
-			$manageExperiment->loadSampleData();
 			$manageExperiment->editExperiment();
 		}
 		case 'editSubmit'
