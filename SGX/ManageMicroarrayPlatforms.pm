@@ -132,7 +132,7 @@ sub showPlatforms
 			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
 		}
 
-		$JSPlatformList .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'",5:"'.$_->[4].'"},';
+		$JSPlatformList .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'"},';
 	}
 	$JSPlatformList =~ s/,\s*$//;	# strip trailing comma
 	$JSPlatformList .= ']};' . "\n";
@@ -203,7 +203,7 @@ sub printDrawResultsTableJS
 	print	'
 	var myDataSource 		= new YAHOO.util.DataSource(JSPlatformList.records);
 	myDataSource.responseType 	= YAHOO.util.DataSource.TYPE_JSARRAY;
-	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5"]};
+	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4"]};
 	var myData_config 		= {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
 	var myDataTable 		= new YAHOO.widget.DataTable("PlatformTable", myColumnDefs, myDataSource, myData_config);' . "\n";
 }
@@ -221,10 +221,6 @@ sub printTableInformation
 		{
 			elCell.innerHTML = "<a title=\"Delete Platform\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
 		}
-		YAHOO.widget.DataTable.Formatter.formatPlatformEditLink = function(elCell, oRecord, oColumn, oData) 
-		{
-			elCell.innerHTML = "<a title=\"Edit Platform\" target=\"_self\" href=\"' . $editURL . '" + oData + "\">Edit</a>";
-		}
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSPlatformList.caption;
 		var myColumnDefs = [
@@ -233,7 +229,6 @@ sub printTableInformation
 		{key:"2", sortable:true, resizeable:true, label:"'.$names[2].'"}, 
 		{key:"3", sortable:true, resizeable:true, label:"'.$names[3].'"},
 		{key:"4", sortable:false, resizeable:true, label:"Delete Platform",formatter:"formatPlatformDeleteLink"},
-		{key:"5", sortable:false, resizeable:true, label:"Edit Platform",formatter:"formatPlatformEditLink"},
 		];' . "\n";
 }
 

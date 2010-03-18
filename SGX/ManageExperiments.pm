@@ -361,7 +361,7 @@ sub printTableInformation
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
 	my $studyID	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=delete&id=';
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=delete&stid=' . $studyID . '&id=';
 	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=edit&stid=' . $studyID . '&id=';
 
 	print	'

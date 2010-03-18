@@ -2249,29 +2249,20 @@ sub managePlatforms
 		{
 			$managePlatform->loadFromForm();
 			$managePlatform->insertNewPlatform();
-			print "<br />Record added.<br />";
+			print "<br />Record added - Redirecting...<br />";
 		}
 		case 'delete'
 		{
 			$managePlatform->loadFromForm();
 			$managePlatform->deletePlatform();
-			print "<br />Record deleted.<br />";
+			print "<br />Record deleted - Redirecting...<br />";
 		}
-		case 'edit'
-		{
-			$managePlatform->loadSinglePlatform();
-			$managePlatform->editPlatform();
-		}
-		case 'editSubmit'
-		{
-			$managePlatform->loadFromForm();
-			$managePlatform->editSubmitPlatform();
-			print "<br />Record updated.<br />";
-		}
-
 	}
-	
-	print "<a href ='" . $q->url(-absolute=>1).'?a=form_managePlatforms' . "'>Return to platforms.</a>";
+
+	my $redirectSite   = $q->url(-absolute=>1).'?a=form_managePlatforms';
+	my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+	print "$redirectString";
+
 }
 #######################################################################################
 
@@ -2301,13 +2292,13 @@ sub manageStudies
 		{
 			$manageStudy->loadFromForm();
 			$manageStudy->insertNewStudy();
-			print "<br />Record added.<br />";
+			print "<br />Record added - Redirecting...<br />";
 		}
 		case 'delete'
 		{
 			$manageStudy->loadFromForm();
 			$manageStudy->deleteStudy();
-			print "<br />Record deleted.<br />";
+			print "<br />Record deleted - Redirecting...<br />";
 		}
 		case 'edit'
 		{
@@ -2319,12 +2310,15 @@ sub manageStudies
 		{
 			$manageStudy->loadFromForm();
 			$manageStudy->editSubmitStudy();
-			print "<br />Record updated.<br />";
+			print "<br />Record updated - Redirecting...<br />";
 		}
 
 	}
-	
-	print "<a href ='" . $q->url(-absolute=>1).'?a=form_manageStudy' . "'>Return to Studies.</a>";
+
+	my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageStudy';
+	my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+	print "$redirectString";
+
 }
 #######################################################################################
 
@@ -2370,7 +2364,7 @@ sub manageExperiments
 		{
 			$manageExperiment->loadFromForm();
 			$manageExperiment->insertNewExperiment();
-			print "<br />Record added.<br />";
+			print "<br />Record added - Redirecting...<br />";
 		}
 		case 'edit' 
 		{
@@ -2381,21 +2375,25 @@ sub manageExperiments
 		{
 			$manageExperiment->loadFromForm();
 			$manageExperiment->editSubmitExperiment();
+			print "<br />Record updated - Redirecting...<br />";
 		}
 		case 'delete'
 		{
 			$manageExperiment->loadFromForm();
 			$manageExperiment->deleteExperiment();
-			print "<br />Experiment deleted.<br />";
+			print "<br />Record deleted - Redirecting...<br />";
 		}
 		case 'addExisting'
 		{
 			$manageExperiment->loadFromForm();
 			$manageExperiment->addExistingExperiment();
-			print "<br />Existing Experiment added.<br />";
+			print "<br />Record added - Redirecting...<br />";
 		}
 	}
 
-	print "<a href ='" . $q->url(-absolute=>1).'?a=form_manageExperiments' . "'>Return to Experiments.</a>";
+	my $redirectSite   = $q->url(-absolute=>1)."?a=form_manageExperiments&ManageAction=load&stid=$manageExperiment->{_stid}";
+	my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+	print "$redirectString";
+
 }
 #######################################################################################
