@@ -41,8 +41,6 @@ sub new {
 	push @deleteStatementList,'DELETE FROM study WHERE pid = {0};';
 	push @deleteStatementList,'DELETE FROM platform WHERE pid = {0};';
 
-
-
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,

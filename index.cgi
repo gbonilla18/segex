@@ -2388,6 +2388,12 @@ sub manageExperiments
 			$manageExperiment->deleteExperiment();
 			print "<br />Experiment deleted.<br />";
 		}
+		case 'addExisting'
+		{
+			$manageExperiment->loadFromForm();
+			$manageExperiment->addExistingExperiment();
+			print "<br />Existing Experiment added.<br />";
+		}
 	}
 
 	print "<a href ='" . $q->url(-absolute=>1).'?a=form_manageExperiments' . "'>Return to Experiments.</a>";

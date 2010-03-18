@@ -35,6 +35,7 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_LoadQuery	=> shift,
+		_includeBlank	=> shift,
 		_dropDownList	=> {},
 		_dropDownValue	=> ()
 	};
@@ -62,6 +63,13 @@ sub loadDropDownValues
 
 	#Grab all platforms and build the hash and array for drop down.
 	@tempRecordsArray	= @{$tempRecords->fetchall_arrayref};
+
+	#If the dropdown is to have blank values, add them.
+	if($self->{_includeBlank})
+	{
+		$tempLabel{"0"}="Please select a value.";
+		push(@tempValue,"0");
+	}
 
 	foreach (sort {$a->[0] cmp $b->[0]} @tempRecordsArray)
 	{

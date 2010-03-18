@@ -34,9 +34,13 @@ sub new {
 	my $class = shift;
 
 	my @deleteStatementList;
+	my @addExistingExperimentList;
 
 	push @deleteStatementList,'DELETE FROM microarray WHERE eid = {0};';
 	push @deleteStatementList,'DELETE FROM experiment WHERE eid = {0};';
+
+	push @addExistingExperimentList,'INSERT INTO experiment (sample1,sample2,stid,ExperimentDescription,AdditionalInformation) SELECT sample1,sample2,stid,ExperimentDescription,AdditionalInformation FROM experiment WHERE eid = {0};';
+	push @addExistingExperimentList,'INSERT INTO microarray (eid,rid,ratio,foldchange,pvalue,intensity2,intensity1) SELECT LAST_INSERT_ID(),rid,ratio,foldchange,pvalue,intensity2,intensity1 FROM microarray WHERE eid = {0};';
 
 	my $self = {
 		_dbh		=> shift,
@@ -78,6 +82,10 @@ sub new {
 		_InsertQuery	=> 'INSERT INTO experiment (sample1,sample2,stid,ExperimentDescription,AdditionalInformation) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\',\'{4}\');',
 		_DeleteQuery	=> \@deleteStatementList,
 		_StudyQuery	=> 'SELECT stid,description FROM study;',
+		_ExistingStudyQuery => 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0});',
+		_ExistingExperimentQuery => "SELECT	stid,eid,sample2,sample1 FROM experiment WHERE stid = {0};",
+		_PlatformQuery	=> 'SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;',
+		_AddExistingExperiment => \@addExistingExperimentList,
 		_RecordCount	=> 0,
 		_Records	=> '',
 		_FieldNames	=> '',
@@ -89,11 +97,15 @@ sub new {
 		_eid		=> '',
 		_studyList	=> {},
 		_studyValue	=> (),
+		_ExistingExperimentList	=> {},
+		_ExistingExperimentValue => (),
 		_sample1	=> '',
 		_sample2	=> '',
 		_rowCount	=> 0,
 		_ExperimentDescription => '',
-		_AdditionalInformation => ''
+		_AdditionalInformation => '',
+		_SelectedStudy	=> 0,
+		_SelectExperiment => 0
 	};
 
 	bless $self, $class;
@@ -149,7 +161,7 @@ sub loadStudyData
 {
 	my $self		= shift;
 
-	my $studyDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_StudyQuery});
+	my $studyDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_StudyQuery},0);
 
 	$studyDropDown->loadDropDownValues();
 
@@ -170,6 +182,8 @@ sub loadFromForm
 	$self->{_sample2}		= ($self->{_FormObject}->param('Sample2'))			if defined($self->{_FormObject}->param('Sample2'));
 	$self->{_ExperimentDescription}	= ($self->{_FormObject}->param('ExperimentDescription'))	if defined($self->{_FormObject}->param('ExperimentDescription'));
 	$self->{_AdditionalInformation}	= ($self->{_FormObject}->param('AdditionalInformation'))	if defined($self->{_FormObject}->param('AdditionalInformation'));
+	$self->{_SelectedStudy}		= ($self->{_FormObject}->param('study_exist'))			if defined($self->{_FormObject}->param('study_exist'));
+	$self->{_SelectedExperiment}	= ($self->{_FormObject}->param('experiment_exist'))		if defined($self->{_FormObject}->param('experiment_exist'));
 }
 
 #######################################################################################
@@ -198,7 +212,7 @@ sub showExperiments
 	) .
 	$self->{_FormObject}->end_form;
 
-	#If we have selected and loaded an expriment, load the table.
+	#If we have selected and loaded an experiment, load the table.
 	if(!$self->{_Data} == '')
 	{
 		my $JSStudyList = "var JSStudyList = 
@@ -211,12 +225,14 @@ sub showExperiments
 		print	'<h2 name = "caption" id="caption"></h2>' . "\n";
 		print	'<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>' . "\n";
 		print	'<div id="StudyTable"></div>' . "\n";
+		print	'<script src="./js/AddExistingExperiment.js" type="text/javascript"></script>';
 		print	"<script type=\"text/javascript\">\n";
 		print $JSStudyList;
 
 		printTableInformation($self->{_FieldNames},$self->{_FormObject},$self->{_stid});
 		printExportTable();	
 		printDrawResultsTableJS();
+		printJavaScriptRecordsForExistingDropDowns($self);
 
 		print 	"</script>\n";
 		print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add New Experiment</h2>' . "\n";
@@ -241,31 +257,25 @@ sub showExperiments
 		) .
 		$self->{_FormObject}->end_form;
 
-		print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add New Experiment</h2>' . "\n";
+		print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Existing Experiment</h2>' . "\n";
 
 		print $self->{_FormObject}->start_form(
 			-method=>'POST',
+			-name=>'AddExistingForm',
 			-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageExperiments&ManageAction=addExisting&stid=' . $self->{_stid},
-			-onsubmit=>'return validate_fields(this, [\'Sample1\',\'Sample2\']);'
+			-onsubmit=>'return validate_fields(this);'
 		) .
 		$self->{_FormObject}->dl(
-			$self->{_FormObject}->dt('Sample 1:'),
-			$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'Sample1',-id=>'Sample1',-maxlength=>120)),
-			$self->{_FormObject}->dt('Sample 2:'),
-			$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'Sample2',-id=>'Sample2',-maxlength=>120)),
-			$self->{_FormObject}->dt('Experiment Description:'),
-			$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'ExperimentDescription',-id=>'ExperimentDescription',-maxlength=>1000)),
-			$self->{_FormObject}->dt('Additional Information:'),
-			$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'AdditionalInformation',-id=>'AdditionalInformation',-maxlength=>1000)),
+			$self->{_FormObject}->dt('Study : '),
+			$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'study_exist', -id=>'study_exist',-values=>\@{$self->{_ExistingStudyValue}},-labels=>\%{$self->{_ExistingStudyList}},-default=>$self->{_SelectedStudy}, -onChange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
+			$self->{_FormObject}->dt('Experiment : '),
+			$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist', -id=>'experiment_exist',-values=>\@{$self->{_ExistingExperimentValue}}, -labels=>\%{$self->{_ExistingExperimentList}},-default=>$self->{_SelectedExperiment})),
 			$self->{_FormObject}->dt('&nbsp;'),
 			$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 			)
 		) .
 		$self->{_FormObject}->end_form;
-		
 	}
-
-
 }
 
 #This prints the results table to a printable text screen.
@@ -386,6 +396,51 @@ sub printTableInformation
 		{key:"4", sortable:false, resizeable:true, label:"Edit Experiment",formatter:"formatExperimentEditLink"}
 		];' . "\n";
 }
+
+sub printJavaScriptRecordsForExistingDropDowns
+{
+	my $self 		= shift;
+
+	my $studyQuery 		= $self->{_ExistingStudyQuery};
+	$studyQuery 		=~ s/\{0\}/\Q$self->{_stid}\E/;	
+
+	my $experimentQuery	= $self->{_ExistingExperimentQuery};
+	$experimentQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/;	
+
+	my $tempRecords 	= $self->{_dbh}->prepare($studyQuery) or die $self->{_dbh}->errstr;
+	my $tempRecordCount	= $tempRecords->execute or die $self->{_dbh}->errstr;
+
+	print	'Event.observe(window, "load", init);';
+	print 	"var study = {};";
+
+	my $out = "";
+
+	while (my @row = $tempRecords->fetchrow_array) {
+		$out .= 'study['.$row[0]."] = {};\n";
+		$out .= 'study['.$row[0].'][0] = \''.$row[1]."';\n"; # study description
+		$out .= 'study['.$row[0]."][1] = {};\n";     # sample 1 name
+		$out .= 'study['.$row[0]."][2] = {};\n";     # sample 2 name
+		$out .= 'study['.$row[0].'][3] = \''.$row[2]."';\n"; # platform id
+	}
+	$tempRecords->finish;
+
+	$tempRecords 		= $self->{_dbh}->prepare($experimentQuery) or die $self->{_dbh}->errstr;
+	$tempRecordCount	= $tempRecords->execute or die $self->{_dbh}->errstr;
+
+	### populate the Javascript hash with the content of the experiment recordset
+	while (my @row = $tempRecords->fetchrow_array) {
+		$out .= 'study['.$row[0].'][1]['.$row[1].'] = \''.$row[2]."';\n";
+		$out .= 'study['.$row[0].'][2]['.$row[1].'] = \''.$row[3]."';\n";
+	}
+	$tempRecords->finish;
+
+	print $out;
+	print 'function init() {';
+	print 'populateExistingStudy("study_exist");';
+	print 'populateSelectExistingExperiments(document.getElementById("experiment_exist"),document.getElementById("study_exist"));';
+	print '}';
+}
+
 #######################################################################################
 
 
@@ -594,6 +649,20 @@ sub editSubmitExperiment
 	}
 
 }
+
+sub addExistingExperiment
+{
+	my $self = shift;
+
+	foreach (@{$self->{_AddExistingExperiment}})
+	{
+		my $insertStatement 	= $_;
+		$insertStatement	=~ s/\{0\}/\Q$self->{_SelectedExperiment}\E/;
+
+		$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
+	}
+}
+
 #######################################################################################
 
 1;
