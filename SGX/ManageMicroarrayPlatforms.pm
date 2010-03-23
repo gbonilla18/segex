@@ -44,8 +44,8 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
-		_LoadQuery	=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid from platform;',
-		_LoadSingleQuery=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid from platform WHERE pid = {0};',
+		_LoadQuery	=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid,CASE WHEN isAnnotated THEN \'Y\' ELSE \'N\' END AS \'Is Annotated\' from platform;',
+		_LoadSingleQuery=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid,CASE WHEN isAnnotated THEN \'Y\' ELSE \'N\' END AS \'Is Annotated\' from platform WHERE pid = {0};',
 		_UpdateQuery	=> 'UPDATE platform SET pname = \'{0}\',def_f_cutoff = \'{1}\', def_p_cutoff = \'{2}\', species = \'{3}\' WHERE pid = {4};',
 		_InsertQuery	=> 'INSERT INTO platform (pname,def_f_cutoff,def_p_cutoff,species) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\');',
 		_DeleteQuery	=> \@deleteStatementList,
@@ -132,7 +132,7 @@ sub showPlatforms
 			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
 		}
 
-		$JSPlatformList .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'"},';
+		$JSPlatformList .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'",5:"'.$_->[5].'"},';
 	}
 	$JSPlatformList =~ s/,\s*$//;	# strip trailing comma
 	$JSPlatformList .= ']};' . "\n";
@@ -203,7 +203,7 @@ sub printDrawResultsTableJS
 	print	'
 	var myDataSource 		= new YAHOO.util.DataSource(JSPlatformList.records);
 	myDataSource.responseType 	= YAHOO.util.DataSource.TYPE_JSARRAY;
-	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4"]};
+	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5"]};
 	var myData_config 		= {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
 	var myDataTable 		= new YAHOO.widget.DataTable("PlatformTable", myColumnDefs, myDataSource, myData_config);' . "\n";
 }
@@ -228,6 +228,7 @@ sub printTableInformation
 		{key:"1", sortable:true, resizeable:true, label:"'.$names[1].'"},
 		{key:"2", sortable:true, resizeable:true, label:"'.$names[2].'"}, 
 		{key:"3", sortable:true, resizeable:true, label:"'.$names[3].'"},
+		{key:"5", sortable:true, resizeable:true, label:"'.$names[5].'"},
 		{key:"4", sortable:false, resizeable:true, label:"Delete Platform",formatter:"formatPlatformDeleteLink"},
 		];' . "\n";
 }
@@ -242,6 +243,8 @@ sub insertNewPlatform
 	$insertStatement 	=~ s/\{3\}/\Q$self->{_Species}\E/;
 
 	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
+
+	$self->{_pid}		= $self->{_dbh}->{'mysql_insertid'};
 }
 
 sub deletePlatform

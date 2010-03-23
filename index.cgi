@@ -1073,7 +1073,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 		var i = oRecord.getCount();
 		';
 		if (defined($q->param('graph'))) {
-			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"580\" data=\"/graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"/graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"580\" /></object></li>";
+			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"/graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"/graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
 		elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
 		} else {
 			$out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
@@ -1498,9 +1498,16 @@ caption: "Experiments compared",
 records: [
 ';
 
-	for ($i = 0; $i < @eids; $i++) {
-		print '<tr><th>' . ($i + 1) . '</th><td>'.$ht->{$eids[$i]}->{title}.'</td><td>'.$fcs[$i].'</td><td>'.$pvals[$i].'</td><td>'.$hc{$i}."</td></tr>\n";
-		$out .= '{0:"'. ($i + 1) . '",1:"' . $ht->{$eids[$i]}->{title} . '",2:"' . $fcs[$i] . '",3:"' . $pvals[$i] . '",4:"'.$hc{$i} . "\"},\n";
+	for ($i = 0; $i < @eids; $i++) 
+	{
+		my $escapedTitle	= '';
+		print '<tr><th>' . ($i + 1) . '</th><td>'.	$ht->{$eids[$i]}->{title} .'</td><td>'.$fcs[$i].'</td><td>'.$pvals[$i].'</td><td>'.$hc{$i}."</td></tr>\n";
+
+		$escapedTitle		= $ht->{$eids[$i]}->{title};
+		$escapedTitle		=~ s/\\/\\\\/g;
+		$escapedTitle		=~ s/"/\\\"/g;
+
+		$out .= '{0:"'. ($i + 1) . '",1:"' . $escapedTitle . '",2:"' . $fcs[$i] . '",3:"' . $pvals[$i] . '",4:"'.$hc{$i} . "\"},\n";
 	}
 	$out =~ s/,\s*$//;      # strip trailing comma
 	$out .= '
@@ -1934,6 +1941,11 @@ sub get_annot_fields {
 }
 #######################################################################################
 sub form_uploadAnnot {
+
+	#If we have a newpid in the querystring, default the dropdown list.
+	my $newpid = '';
+	my $newpid = ($q->url_param('newpid')) if defined($q->url_param('newpid'));
+
 	my $fieldlist;
 	my %platforms;
 	my %core_fields = (
@@ -1975,7 +1987,7 @@ sub form_uploadAnnot {
 
 	print $q->dl(
 		$q->dt("Platform:"),
-		$q->dd($q->popup_menu(-name=>'platform', -values=>[keys %platforms], -labels=>{%platforms})),
+		$q->dd($q->popup_menu(-name=>'platform', -values=>[keys %platforms], -labels=>{%platforms}, -default=>$newpid)),
 		$q->dt("Update policy for annotations:"),
 		$q->dd($q->checkbox(-name=>'add', -checked=>0, -label=>'Add transcript accession numbers to existing probes')),
 		$q->dt("File to upload (tab-delimited):"),
@@ -2250,18 +2262,22 @@ sub managePlatforms
 			$managePlatform->loadFromForm();
 			$managePlatform->insertNewPlatform();
 			print "<br />Record added - Redirecting...<br />";
+
+			my $redirectSite   = $q->url(-absolute=>1).'?a=form_uploadAnnot&newpid=' . $managePlatform->{_pid};
+			my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+			print "$redirectString";
 		}
 		case 'delete'
 		{
 			$managePlatform->loadFromForm();
 			$managePlatform->deletePlatform();
 			print "<br />Record deleted - Redirecting...<br />";
+
+			my $redirectSite   = $q->url(-absolute=>1).'?a=form_managePlatforms';
+			my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+			print "$redirectString";
 		}
 	}
-
-	my $redirectSite   = $q->url(-absolute=>1).'?a=form_managePlatforms';
-	my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-	print "$redirectString";
 
 }
 #######################################################################################
@@ -2315,9 +2331,12 @@ sub manageStudies
 
 	}
 
-	my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageStudy';
-	my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-	print "$redirectString";
+	if($ManageAction eq 'add' || $ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
+	{
+		my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageStudy';
+		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+		print "$redirectString";
+	}
 
 }
 #######################################################################################
@@ -2391,9 +2410,12 @@ sub manageExperiments
 		}
 	}
 
-	my $redirectSite   = $q->url(-absolute=>1)."?a=form_manageExperiments&ManageAction=load&stid=$manageExperiment->{_stid}";
-	my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-	print "$redirectString";
+	if($ManageAction eq 'add' || $ManageAction eq 'delete' || $ManageAction eq 'addExisting' || $ManageAction eq 'editSubmit')
+	{
+		my $redirectSite   = $q->url(-absolute=>1)."?a=form_manageExperiments&ManageAction=load&stid=$manageExperiment->{_stid}";
+		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+		print "$redirectString";
+	}
 
 }
 #######################################################################################

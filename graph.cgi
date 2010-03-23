@@ -85,11 +85,11 @@ $sth->finish;
 my $title_text = "$seqname Differential Expression Reported by $reporter";
 my $xtitle_text = 'Experiment';
 $sth = $dbh->prepare(qq{
-select CONCAT(study.description, ': ', s2.genotype, '-', s2.sex, '/', s1.genotype, '-', s1.sex) AS label, $sql_trans as y, pvalue from microarray 
+select CONCAT(study.description, ': ', experiment.sample2, '/', experiment.sample1) AS label, $sql_trans as y, pvalue from microarray 
 right join 
 (
 select distinct rid from probe where reporter='$reporter'
-) as d3 on microarray.rid=d3.rid NATURAL JOIN experiment NATURAL JOIN study left join sample s1 on s1.sid=sid1 left join sample s2 on s2.sid=sid2
+) as d3 on microarray.rid=d3.rid NATURAL JOIN experiment NATURAL JOIN study
 })
 	or die $dbh->errstr;
 $rowcount = $sth->execute
@@ -112,7 +112,7 @@ my $xl = 55;
 my $yl = 24;
 my $body_width = 500;
 my $body_height = 300;
-my $longest_xlabel = 250;
+my $longest_xlabel = 550;
 my $text_breath = 6; # pixels
 my $text_fudge = 4; # fudge factor
 my $text_fudge_inv = 10; # inverse fudge factor

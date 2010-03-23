@@ -477,11 +477,11 @@ sub editExperiment
 {
 	my $self = shift;
 
-	#Edit existing platform.
+	#Edit existing experiment.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
 		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageExperiments&ManageAction=editSubmit&id=' . $self->{_eid} . '&stid=' . $self->{_stid},
-		-onsubmit=>'return validate_fields(this, [\'Sample1\']);',
+		-onsubmit=>'return validate_fields(this, []);',
 		-enctype=>'multipart/form-data'
 	) 	.
 		'<font size="5">Editing Experiment</font><br /><br />' . "\n"
@@ -551,7 +551,8 @@ sub editSubmitExperiment
 	
 		if(!$uploadedFile)
 		{
-			print "File failed to upload.<br />\n";
+			print "File failed to upload. Please press the back button on your browser and try again.<br />\n";
+			exit;
 		}
 		else
 		{
@@ -574,8 +575,8 @@ sub editSubmitExperiment
 					#Make sure we have a value for each column.
 					if(!exists($row[0]) || !exists($row[1]) || !exists($row[2]) || !exists($row[3]) || !exists($row[4]) || !exists($row[5]))
 					{
-						print "File not found to be in correct format.<br />\n";
-						#exit;
+						print "File not found to be in correct format. Please press the back button on your browser and try again.<br />\n";
+						exit;
 					}
 
 					print OUTPUTTOSERVER $self->{_stid} . ',' . $row[0] . ',' . $row[1] . ',' . $row[2] . ',' . $row[3] . ',' . $row[4] . ',' . $row[5];
@@ -640,6 +641,7 @@ sub editSubmitExperiment
 			if($rowsInserted < 1)
 			{
 				print "Experiment data could not be added. Please verify you are using the correct annotations for the platform. <br />\n";
+				exit;
 			}
 			else
 			{
