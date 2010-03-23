@@ -1944,7 +1944,7 @@ sub form_uploadAnnot {
 
 	#If we have a newpid in the querystring, default the dropdown list.
 	my $newpid = '';
-	my $newpid = ($q->url_param('newpid')) if defined($q->url_param('newpid'));
+	$newpid = ($q->url_param('newpid')) if defined($q->url_param('newpid'));
 
 	my $fieldlist;
 	my %platforms;
@@ -2167,7 +2167,7 @@ sub uploadAnnot {
 				if ($have_reporter && @accnum_array) {
 					push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
 					foreach (@accnum_array) {
-						push @sql, qq{insert into gene (pid, accnum, seqname $gene_titles) values ($pid_value, $_, $seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
+						push @sql, qq{insert into gene (accnum, seqname $gene_titles) values ($_, $seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
 						push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
 					}
 				}
@@ -2175,7 +2175,7 @@ sub uploadAnnot {
 			if ($have_reporter && !@accnum_array && $have_seqname) {
 				# have gene symbol but not transcript accession number
 				push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
-				push @sql, qq{insert into gene (pid, seqname $gene_titles) values ($pid_value, $seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
+				push @sql, qq{insert into gene (seqname $gene_titles) values ($seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
 				push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
 			}
 		}
@@ -2217,6 +2217,7 @@ sub uploadAnnot {
 		# execute the SQL statements
 		foreach(@sql) {
 			#warn $_;
+
 			$dbh->do($_) or die $dbh->errstr;
 		}
 	}
@@ -2233,6 +2234,10 @@ sub uploadAnnot {
 	my $count_lines = @lines;
 	#print $q->p(sprintf("%d lines processed in %g seconds", $count_lines, $clock1 - $clock0));
 	print $q->p(sprintf("%d lines processed.", $count_lines));
+	
+	#Flag the platform as being annotated.
+	my $annotateUpdate = "UPDATE platform SET isAnnotated = 1 WHERE pid = $pid_value";
+	$dbh->do($annotateUpdate) or die $dbh->errstr;
 }
 #######################################################################################
 

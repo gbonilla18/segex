@@ -626,7 +626,7 @@ sub editSubmitExperiment
 
 			#Run the command to suck in the data.
 			$self->{_dbh}->do($inputStatement) or die $self->{_dbh}->errstr;
-		
+
 			my $rowsInserted = $self->{_dbh}->do($insertStatement);
 			#Run the command to insert the data.
 			if(!$rowsInserted)
@@ -638,7 +638,7 @@ sub editSubmitExperiment
 			$self->{_dbh}->do($dropStatement) or die $self->{_dbh}->errstr;
 			#--------------------------------------------
 
-			if($rowsInserted < 1)
+			if($rowsInserted < 2)
 			{
 				print "Experiment data could not be added. Please verify you are using the correct annotations for the platform. <br />\n";
 				exit;
