@@ -44,7 +44,30 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
-		_LoadQuery	=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid,CASE WHEN isAnnotated THEN \'Y\' ELSE \'N\' END AS \'Is Annotated\' from platform;',
+		_LoadQuery	=> 'select 	platform.pname, 
+						platform.def_f_cutoff, 
+						platform.def_p_cutoff, 
+						platform.species,
+						platform.pid,
+						CASE 
+							WHEN isAnnotated THEN \'Y\' 
+							ELSE \'N\' 
+						END AS \'Is Annotated\',
+						COUNT(DISTINCT probe.rid) AS \'ProbeCount\',
+						SUM(IF(probe.probe_sequence IS NOT NULL,1,0)) AS \'Sequences Loaded\',
+						SUM(IF(annotates.gid IS NOT NULL,1,0)) AS \'Transcript IDs\',
+						SUM(IF(gene.seqname IS NOT NULL,1,0)) AS \'Gene Names\',
+						SUM(IF(gene.description IS NOT NULL AND gene.description <> \'\',1,0)) AS \'Gene Description\'	
+					FROM platform
+					INNER JOIN probe 	ON probe.pid = platform.pid
+					LEFT JOIN annotates 	ON annotates.rid = probe.rid
+					LEFT JOIN gene 		ON gene.gid = annotates.gid
+					GROUP BY pname, 
+					def_f_cutoff, 
+					def_p_cutoff, 
+					species,
+					pid,
+					isAnnotated;',
 		_LoadSingleQuery=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid,CASE WHEN isAnnotated THEN \'Y\' ELSE \'N\' END AS \'Is Annotated\' from platform WHERE pid = {0};',
 		_UpdateQuery	=> 'UPDATE platform SET pname = \'{0}\',def_f_cutoff = \'{1}\', def_p_cutoff = \'{2}\', species = \'{3}\' WHERE pid = {4};',
 		_InsertQuery	=> 'INSERT INTO platform (pname,def_f_cutoff,def_p_cutoff,species) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\');',
@@ -132,7 +155,7 @@ sub showPlatforms
 			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
 		}
 
-		$JSPlatformList .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'",5:"'.$_->[5].'"},';
+		$JSPlatformList .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'",10:"'.$_->[10].'"},';
 	}
 	$JSPlatformList =~ s/,\s*$//;	# strip trailing comma
 	$JSPlatformList .= ']};' . "\n";
@@ -203,7 +226,7 @@ sub printDrawResultsTableJS
 	print	'
 	var myDataSource 		= new YAHOO.util.DataSource(JSPlatformList.records);
 	myDataSource.responseType 	= YAHOO.util.DataSource.TYPE_JSARRAY;
-	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5"]};
+	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5","6","7","8","9","10"]};
 	var myData_config 		= {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
 	var myDataTable 		= new YAHOO.widget.DataTable("PlatformTable", myColumnDefs, myDataSource, myData_config);' . "\n";
 }
@@ -230,6 +253,11 @@ sub printTableInformation
 		{key:"3", sortable:true, resizeable:true, label:"'.$names[3].'"},
 		{key:"5", sortable:true, resizeable:true, label:"'.$names[5].'"},
 		{key:"4", sortable:false, resizeable:true, label:"Delete Platform",formatter:"formatPlatformDeleteLink"},
+		{key:"6", sortable:false, resizeable:true, label:"Probe Count"},
+		{key:"7", sortable:false, resizeable:true, label:"Sequences Loaded"},
+		{key:"8", sortable:false, resizeable:true, label:"Transcript IDs"},
+		{key:"9", sortable:false, resizeable:true, label:"Gene Names"},
+		{key:"10", sortable:false, resizeable:true, label:"Gene Description"}
 		];' . "\n";
 }
 

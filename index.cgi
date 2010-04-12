@@ -18,7 +18,7 @@ use URI::Escape;
 use Carp;
 use Math::BigInt;
 #use Time::HiRes qw/clock/;
-#use Data::Dumper;
+use Data::Dumper;
 
 use lib 'SGX';
 
@@ -30,10 +30,11 @@ use SGX::Session 0.08;	# email verification
 use SGX::ManageMicroarrayPlatforms;
 use SGX::ManageStudies;
 use SGX::ManageExperiments;
+use SGX::OutputData;
 use SGX::JavaScriptDeleteConfirm;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.102";
+my $softwareVersion = "0.103";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -65,6 +66,7 @@ my $content;	# this will be a reference to a subroutine that displays the main c
 my $managePlatform;
 my $manageStudy;
 my $manageExperiment;
+my $outputData;
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
@@ -78,6 +80,7 @@ use constant UPDATEPROFILE		=> 'updateProfile';
 use constant MANAGEPLATFORMS		=> 'managePlatforms';
 use constant MANAGESTUDIES		=> 'manageStudy';
 use constant MANAGEEXPERIMENTS		=> 'manageExperiments';
+use constant OUTPUTDATA			=> 'outputData';
 use constant CHANGEPASSWORD		=> 'changePassword';
 use constant CHANGEEMAIL		=> 'changeEmail';
 use constant RESETPASSWORD		=> 'resetPassword';
@@ -224,6 +227,45 @@ while (defined($action)) { switch ($action) {
 			$content = \&manageExperiments;
 
 			$title = 'Experiments';
+			$action = undef;	# final state
+		} else {
+			$action = FORM.LOGIN;
+		}
+	}
+	case FORM.OUTPUTDATA {
+		if ($s->is_authorized('user')) {	
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+
+			$content = \&form_outputData;
+			$title = 'Output Data';
+			$action = undef;	# final state
+		} else {
+			$action = FORM.LOGIN;
+		}
+	}
+	case OUTPUTDATA {
+		if ($s->is_authorized('user')) {
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+
+			$content = \&outputData;
+
+			$title = 'Output Data';
 			$action = undef;	# final state
 		} else {
 			$action = FORM.LOGIN;
@@ -564,6 +606,8 @@ if ($s->is_authorized('user')) {
 				-title=>'Manage Studies'}, 'Manage Studies');
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEEXPERIMENTS,
 				-title=>'Manage Experiments'}, 'Manage Experiments');
+	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.OUTPUTDATA,
+				-title=>'Output Data'}, 'Output Data');
 }
 if ($s->is_authorized('admin')) {
 	# add admin options
@@ -909,7 +953,7 @@ sub form_findProbes {
 		$q->dt('Pattern to match:'),
 		$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression'})),
 		$q->dt('Display options:'),
-		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2'], -default=>'1',-labels=>{'0'=>'Basic (names and IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data (TO BE IMPLEMENTED)'})),
+		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2'], -default=>'1',-labels=>{'0'=>'Basic (names and IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data'})),
 		$q->dt('Graph(s):'),
 		$q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
 		$q->dt({id=>'graph_option_names'}, "Response variable:"),
@@ -920,20 +964,37 @@ sub form_findProbes {
 	$q->endform;
 }
 #######################################################################################
-sub findProbes_js {
-
-	my $text = $q->param('text') or die "You did not specify what to search for";	# must be always set -- no defaults
-	my $type = $q->param('type') or die "You did not specify where to search";	# must be always set -- no defaults
-	my $trans = (defined($q->param('trans'))) ? $q->param('trans') : 'fold';
-	my $match = (defined($q->param('match'))) ? $q->param('match') : 'full';
-	my $opts = (defined($q->param('opts'))) ? $q->param('opts') : 1;
+sub findProbes_js 
+{
+	my $text 		= $q->param('text') or die "You did not specify what to search for";	# must be always set -- no defaults
+	my $type 		= $q->param('type') or die "You did not specify where to search";	# must be always set -- no defaults
+	my $trans 		= (defined($q->param('trans'))) ? $q->param('trans') : 'fold';
+	my $match 		= (defined($q->param('match'))) ? $q->param('match') : 'full';
+	my $opts 		= (defined($q->param('opts'))) ? $q->param('opts') : 1;
+	my $speciesColumn	= 5;
+	
+	#These are used when we want to return experiment data in the find probes.
+	my $AllExperimentQuery	= '';
+	my $AllExperimentGroup 	= '';
+	my $AllExperimentSelect = '';
 
 	my @extra_fields;
 
 	switch ($opts) {
 	case 0 {}
 	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Specificity - Comment\'') }
-	case 2 {} # TODO
+	case 2 {
+			#Add items to select statement so we can get all the data for the experiments.
+			$AllExperimentSelect =",concat(study.description, ': ', experiment.sample2, '/', experiment.sample1),microarray.eid,coalesce(probe.probe_sequence, g0.probe_sequence) AS 'Probe Sequence',platform.def_p_cutoff,platform.def_f_cutoff ";
+
+			#Add a join to the microarray table so we know what experiments this probe was a part of.
+			$AllExperimentQuery = 'inner join microarray on microarray.rid = coalesce(probe.rid, g0.rid) ';
+			$AllExperimentQuery .= 'inner join experiment on experiment.eid = microarray.eid ';
+			$AllExperimentQuery .= 'inner join study on study.stid = experiment.stid ';
+			
+			#Add a group by for newly added items.
+			$AllExperimentGroup = ",study.description, ': ', experiment.sample2, '/', experiment.sample1,microarray.eid,coalesce(probe.probe_sequence, g0.probe_sequence),platform.def_p_cutoff,platform.def_f_cutoff "
+		}
 	}
 
 	my $extra_sql = (@extra_fields) ? ', '.join(', ', @extra_fields) : '';
@@ -947,58 +1008,76 @@ sub findProbes_js {
 	}
 
 	my $g0_sql;
-	switch ($type) {
-	case 'probe' {
-		$g0_sql = "
-select rid, reporter, note, probe_sequence, g1.pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
-(select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, accnum from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid where reporter REGEXP ?) as g1
-on g2.accnum=g1.accnum where rid is not NULL
+	switch ($type) 
+	{
+		case 'probe' 
+		{
+			$g0_sql = "
+			select rid, reporter, note, probe_sequence, g1.pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join 
+			(select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, accnum from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid where reporter REGEXP ?) as g1
+			on g2.accnum=g1.accnum where rid is not NULL
+			
+			union
 
-union
+			select rid, reporter, note, probe_sequence, g3.pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, seqname from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid where reporter REGEXP ?) as g3
+			on g4.seqname=g3.seqname where rid is not NULL
+			";
 
-select rid, reporter, note, probe_sequence, g3.pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
-(select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, seqname from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid where reporter REGEXP ?) as g3
-on g4.seqname=g3.seqname where rid is not NULL
-";
+		}
+		case 'gene' 
+		{
+			$g0_sql = "
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
+			(select distinct accnum from gene where seqname REGEXP ? and accnum is not NULL) as g1
+			on g2.accnum=g1.accnum where g2.gid is not NULL
+
+			union
+
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct seqname from gene where seqname REGEXP ? and seqname is not NULL) as g3
+			on g4.seqname=g3.seqname where g4.gid is not NULL
+			";
+		}
+		case 'transcript' 
+		{
+			$g0_sql = "
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
+			(select distinct accnum from gene where accnum REGEXP ? and accnum is not NULL) as g1
+			on g2.accnum=g1.accnum where g2.gid is not NULL
+
+			union
+
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct seqname from gene where accnum REGEXP ? and seqname is not NULL) as g3
+			on g4.seqname=g3.seqname where g4.gid is not NULL
+			";
+		} 
+		else 
+		{
+			assert(0); # shouldn't happen
+		}
 	}
-	case 'gene' {
-		$g0_sql = "
-select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
-(select distinct accnum from gene where seqname REGEXP ? and accnum is not NULL) as g1
-on g2.accnum=g1.accnum where g2.gid is not NULL
-
-union
-
-select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
-(select distinct seqname from gene where seqname REGEXP ? and seqname is not NULL) as g3
-on g4.seqname=g3.seqname where g4.gid is not NULL
-";
-	}
-	case 'transcript' {
-		$g0_sql = "
-select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
-(select distinct accnum from gene where accnum REGEXP ? and accnum is not NULL) as g1
-on g2.accnum=g1.accnum where g2.gid is not NULL
-
-union
-
-select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
-(select distinct seqname from gene where accnum REGEXP ? and seqname is not NULL) as g3
-on g4.seqname=g3.seqname where g4.gid is not NULL
-";
-	} else {
-		assert(0); # shouldn't happen
-	}}
 
 	my $sth = $dbh->prepare(qq{
-select distinct coalesce(probe.reporter, g0.reporter) as Probe, pname as Platform, group_concat(distinct if(isnull(g0.accnum),'',g0.accnum) order by g0.seqname asc separator ',') as 'Transcript', if(isnull(g0.seqname),'',g0.seqname) as 'Gene'$extra_sql from
-($g0_sql) as g0
-left join (annotates natural join probe) on annotates.gid=g0.gid
-left join platform on platform.pid=coalesce(probe.pid, g0.pid)
-group by coalesce(probe.rid, g0.rid)
-})
+			select distinct 
+				coalesce(probe.reporter, g0.reporter) as Probe, 
+				pname as Platform,
+				group_concat(distinct if(isnull(g0.accnum),'',g0.accnum) order by g0.seqname asc separator ',') as 'Transcript', 
+				if(isnull(g0.seqname),'',g0.seqname) as 'Gene'
+				$extra_sql,
+				platform.species
+				$AllExperimentSelect
+				from
+				($g0_sql) as g0
+			left join (annotates natural join probe) on annotates.gid=g0.gid
+			left join platform on platform.pid=coalesce(probe.pid, g0.pid)
+			$AllExperimentQuery
+			group by coalesce(probe.rid, g0.rid) $AllExperimentGroup
+			})
 		or die $dbh->errstr;
 	#warn $sth->{Statement};
+
 	my $rowcount = $sth->execute($qtext, $qtext)
 		or die $dbh->errstr;
 
@@ -1030,13 +1109,112 @@ records: [
 		# http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
 		$out .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'"';
 
-		if (@extra_fields) 
+
+		switch ($opts) 
 		{
-			$out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'"';
+			case 0 
+			{
+				$speciesColumn = 5;
+				$out .= ',5:"'.$_->[5].'"';
+			}
+
+			case 1 
+			{ 
+				$speciesColumn = 8;
+				$out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'"';
+			}
+
+			case 2 
+			{
+				$speciesColumn = 4;
+				$out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'"';
+			}
 		}
 		$out .= "},\n";
 	}
 	$out =~ s/,\s*$//;	# strip trailing comma
+
+	my $tableOut = '';
+	my $columnList = '';
+
+	#We need different 
+	switch ($opts) 
+		{
+			case 0 
+			{
+				$tableOut = '';
+			}
+
+			case 1 
+			{ 
+				$columnList = ',"4","5","6","7","8"';
+				$tableOut = ',
+						{key:"4", sortable:true, resizeable:true, label:"'.$names[4].'",
+				editor:new YAHOO.widget.TextareaCellEditor({
+				disableBtns: false,
+				asyncSubmitter: function(callback, newValue) { 
+					var record = this.getRecord();
+					//var column = this.getColumn();
+					//var datatable = this.getDataTable(); 
+					if (this.value == newValue) { callback(); } 
+
+					YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", { 
+						success:function(o) { 
+							if(o.status === 200) {
+								// HTTP 200 OK
+								callback(true, newValue); 
+							} else { 
+								alert(o.statusText);
+								//callback();
+							} 
+						}, 
+						failure:function(o) { 
+							alert(o.statusText); 
+							callback(); 
+						},
+						scope:this 
+					}, "type=probe&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&reporter=" + encodeURI(record.getData("0"))
+					);
+				}})},
+						{key:"5", sortable:true, resizeable:true, label:"'.$names[5].'", formatter:"formatSequence"},
+						{key:"6", sortable:true, resizeable:true, label:"'.$names[6].'"},
+						{key:"7", sortable:true, resizeable:true, label:"'.$names[7].'",
+
+				editor:new YAHOO.widget.TextareaCellEditor({
+				disableBtns: false,
+				asyncSubmitter: function(callback, newValue) {
+					var record = this.getRecord();
+					//var column = this.getColumn();
+					//var datatable = this.getDataTable();
+					if (this.value == newValue) { callback(); }
+					YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", {
+						success:function(o) {
+							if(o.status === 200) {
+								// HTTP 200 OK
+								callback(true, newValue);
+							} else {
+								alert(o.statusText);
+								//callback();
+							}
+						},
+						failure:function(o) {
+							alert(o.statusText);
+							callback();
+						},
+						scope:this
+					}, "type=gene&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&seqname=" + encodeURI(record.getData("3")) + "&accnum=" + encodeURI(record.getData("2"))
+					);
+				}})}';
+			}
+
+			case 2 
+			{
+				$columnList = ',"4","5","6","7","8","9"';
+				$tableOut = ',' . "\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
+				$tableOut .= ',' . "\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
+			}
+		}
+
 
 	$out .= '
 ]}
@@ -1073,7 +1251,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 		var i = oRecord.getCount();
 		';
 		if (defined($q->param('graph'))) {
-			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"/graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"/graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
+			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
 		elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
 		} else {
 			$out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
@@ -1088,7 +1266,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 			if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
 				out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
 			} else {
-				out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term='.SPECIES.'[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
+				out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
 			}
 		}
 		elCell.innerHTML = out.replace(/,\s*$/, "");
@@ -1097,77 +1275,25 @@ YAHOO.util.Event.addListener(window, "load", function() {
 		if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
 			elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
 		} else {
-			elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term='.SPECIES.'[ORGN]+AND+" + oData + "\">" + oData + "</a>";
+			elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
 		}
 	}
+	YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
+		elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=0\">" + oData + "</a>";
+	}
 	YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org='.SPECIES.'\" title=\"UCSC BLAT on '.SPECIES.' DNA\" target=\"_blank\">" + oData + "</a>";
+		elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("' . $speciesColumn . '") + "\" title=\"UCSC BLAT on " + oRecord.getData("' . $speciesColumn . '") + " DNA\" target=\"_blank\">" + oData + "</a>";
 	}
 	var myColumnDefs = [
 		{key:"0", sortable:true, resizeable:true, label:"'.$names[0].'", formatter:"formatProbe"},
 		{key:"1", sortable:true, resizeable:true, label:"'.$names[1].'"},
 		{key:"2", sortable:true, resizeable:true, label:"'.$names[2].'", formatter:"formatTranscript"}, 
-		{key:"3", sortable:true, resizeable:true, label:"'.$names[3].'", formatter:"formatGene"}'. ((@extra_fields) ? ',
-		{key:"4", sortable:true, resizeable:true, label:"'.$names[4].'",
-editor:new YAHOO.widget.TextareaCellEditor({
-disableBtns: false,
-asyncSubmitter: function(callback, newValue) { 
-	var record = this.getRecord();
-	//var column = this.getColumn();
-	//var datatable = this.getDataTable(); 
-	if (this.value == newValue) { callback(); } 
-	YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", { 
-		success:function(o) { 
-			if(o.status === 200) {
-				// HTTP 200 OK
-				callback(true, newValue); 
-			} else { 
-				alert(o.statusText);
-				//callback();
-			} 
-		}, 
-		failure:function(o) { 
-			alert(o.statusText); 
-			callback(); 
-		},
-		scope:this 
-	}, "type=probe&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&reporter=" + encodeURI(record.getData("0"))
-	);
-}})},
-		{key:"5", sortable:true, resizeable:true, label:"'.$names[5].'", formatter:"formatSequence"},
-		{key:"6", sortable:true, resizeable:true, label:"'.$names[6].'"},
-		{key:"7", sortable:true, resizeable:true, label:"'.$names[7].'",
-editor:new YAHOO.widget.TextareaCellEditor({
-disableBtns: false,
-asyncSubmitter: function(callback, newValue) {
-	var record = this.getRecord();
-	//var column = this.getColumn();
-	//var datatable = this.getDataTable();
-	if (this.value == newValue) { callback(); }
-	YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", {
-		success:function(o) {
-			if(o.status === 200) {
-				// HTTP 200 OK
-				callback(true, newValue);
-			} else {
-				alert(o.statusText);
-				//callback();
-			}
-		},
-		failure:function(o) {
-			alert(o.statusText);
-			callback();
-		},
-		scope:this
-	}, "type=gene&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&seqname=" + encodeURI(record.getData("3")) + "&accnum=" + encodeURI(record.getData("2"))
-	);
-}})}' : '') .'
-];
+		{key:"3", sortable:true, resizeable:true, label:"'.$names[3].'", formatter:"formatGene"}'. $tableOut.'];
 
 	var myDataSource = new YAHOO.util.DataSource(probelist.records);
 	myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
 	myDataSource.responseSchema = {
-		fields: ["0","1","2","3"'. ((@extra_fields) ? ',"4","5","6","7"' : '') . ']
+		fields: ["0","1","2","3"'. $columnList . ']
 	};
 	var myData_config = {
 		paginator: new YAHOO.widget.Paginator({
@@ -1203,10 +1329,13 @@ asyncSubmitter: function(callback, newValue) {
 	};
 	myDataTable.subscribe("renderEvent", function () {
 	';
-	if (defined($q->param('graph'))) {
+
+	if (defined($q->param('graph'))) 
+	{
 		$out .= '
-	graph_ul.innerHTML = graph_content;
-';
+		graph_ul.innerHTML = graph_content;
+		';
+
 	} else {
 		$out .=
 	'
@@ -1225,7 +1354,7 @@ asyncSubmitter: function(callback, newValue) {
 					imgFile = this.innerHTML;	// replaced ".text" with ".innerHTML" because of IE problem
 					var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
 					panel.setHeader(imgFile);
-					panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"580\" data=\"/graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"/graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"580\" /></object>");
+					panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object>");
 					manager.register(panel);
 					panel.render("container" + index);
 					// panel.show is unnecessary here because visible:true is set
@@ -1359,6 +1488,12 @@ sub form_compareExperiments {
 			-action=>$q->url(absolute=>1).'?a='.COMPAREEXPERIMENTS
 	),
 	$q->dl(
+		$q->dt('Ignore thresholds and use all probes:'),
+		$q->dd(
+			$q->checkbox(-name=>'chkIgnoreThesh',-id=>'chkIgnoreThesh',-value=>'1',-label=>'')
+		)
+	),
+	$q->dl(
 		$q->dt('Compare selected experiments:'),
 		$q->dd(
 			$q->submit(-name=>'submit',-value=>'Submit', -override=>1),
@@ -1370,21 +1505,34 @@ sub form_compareExperiments {
 
 #######################################################################################
 sub compare_experiments_js {
-	my $query_titles = '';
-	my $query_fs = 'SELECT fs, COUNT(*) as c FROM (SELECT BIT_OR(flag) AS fs FROM (';
-	my $query_fs_body = '';
+	#This flag tells us whether or not to ignore the thresholds.
+	my $ignoreThresholds 	= '';
+	$ignoreThresholds 	= ($q->param('chkIgnoreThesh')) if defined($q->param('chkIgnoreThesh'));
+	
+	my $thresholdQuery	= '';
+
+	my $query_titles 	= '';
+	my $query_fs 		= 'SELECT fs, COUNT(*) as c FROM (SELECT BIT_OR(flag) AS fs FROM (';
+	my $query_fs_body 	= '';
 	my (@eids, @reverses, @fcs, @pvals);
+
 	my $i;
 	for ($i = 1; defined($q->param("eid_$i")); $i++) 
 	{
 		my ($eid, $fc, $pval) = ($q->param("eid_$i"), $q->param("fc_$i"), $q->param("pval_$i"));
 		my $reverse = (defined($q->param("reverse_$i"))) ? 1 : 0;
+
 		# prepare the four arrays that will be used to display data
 		push @eids, $eid; push @reverses, $reverse; push @fcs, $fc; push @pvals, $pval;
 
 		# flagsum breakdown query
 		my $flag = 1 << $i - 1;
-		$query_fs_body .= "SELECT rid, $flag AS flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
+
+		#If we didn't get the input to ignore the threshold, add the thresholds.
+		$thresholdQuery	= " AND pvalue < $pval AND ABS(foldchange)  > $fc " if($ignoreThresholds ne "1");
+
+		$query_fs_body .= "SELECT rid, $flag AS flag FROM microarray WHERE eid=$eid $thresholdQuery UNION ALL ";
+
 		# account for sample order when building title query
 		my $title = ($reverse) ? 
 			"experiment.sample1, ' / ', experiment.sample2" :
@@ -1658,12 +1806,13 @@ sub show_tfs_js {
 	# The $fs parameter is the flagsum for which the data will be filtered
 	# If the $fs is zero or undefined, all data will be output
 	#
-	my $regex_split_on_commas = qr/ *, */;
-	my @eids = split($regex_split_on_commas, $q->param('eid'));
-	my @reverses = split($regex_split_on_commas, $q->param('rev'));
-	my @fcs = split($regex_split_on_commas, $q->param('fc'));
-	my @pvals = split($regex_split_on_commas, $q->param('pval'));
-	my $fs = $q->param('get');
+	my $regex_split_on_commas 	= qr/ *, */;
+	my @eids 			= split($regex_split_on_commas, $q->param('eid'));
+	my @reverses 			= split($regex_split_on_commas, $q->param('rev'));
+	my @fcs 			= split($regex_split_on_commas, $q->param('fc'));
+	my @pvals			= split($regex_split_on_commas, $q->param('pval'));
+	my $fs 				= $q->param('get');
+
 	if ($fs =~ m/^\d+ significant probes$/i) {
 		undef $fs;
 	} else {
@@ -1675,8 +1824,15 @@ sub show_tfs_js {
 	my $having = (defined($fs) && $fs) ? "HAVING abs_fs=$fs" : '';
 	my $num_start = 5;	# index of the column that is the beginning of the "numeric" half of the table (required for table sorting)
 	my $query = '   
-SELECT abs_fs, dir_fs, probe.reporter AS Probe, GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS Transcript, GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, %s FROM (
-SELECT rid, BIT_OR(abs_flag) AS abs_fs, BIT_OR(dir_flag) AS dir_fs FROM (
+SELECT 	abs_fs, 
+	dir_fs, 
+	probe.reporter AS Probe, 
+	GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS Transcript, 
+	GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
+	%s 
+	FROM (SELECT	rid, 
+			BIT_OR(abs_flag) AS abs_fs, 
+			BIT_OR(dir_flag) AS dir_fs FROM (
 ';
 	my $query_body = '';
 	my $query_proj = '';
@@ -1692,7 +1848,7 @@ SELECT rid, BIT_OR(abs_flag) AS abs_fs, BIT_OR(dir_flag) AS dir_fs FROM (
 		$query_proj .= ($reverses[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', " : "m$i.ratio AS \'$i: Ratio\', ";
 		if ($opts > 0) {
 			$query_proj .= ($reverses[$i-1]) ? "-m$i.foldchange AS \'$i: Fold Change\', " : "m$i.foldchange AS \'$i: Fold Change\', ";
-			$query_proj .= ($reverses[$i-1]) ? "m$i.intensity2 AS \'$i: Intensity-1\', m$i.intensity1 AS \'$i: Intensity-2\', " : "m$i.intensity1 AS \'$i: Intensity-1\', m$i.intensity2 AS \'$i: Intensity-2\', ";
+			$query_proj .= ($reverses[$i-1]) ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\', " : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\', ";
 			$query_proj .= "m$i.pvalue AS \'$i: P\', "; 
 		}
 		$query_body .= " 
@@ -1738,6 +1894,7 @@ LEFT JOIN gene ON annotates.gid=gene.gid
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
 ";
+
 	my $sth = $dbh->prepare(qq{$query}) or die $dbh->errstr;
 	my $rowcount_all = $sth->execute or die $dbh->errstr;
 
@@ -1749,7 +1906,10 @@ parsers: ["number", "string", "number", "number", "string"],
 records: [
 ';
 	for ($i = 0; $i < @eids; $i++) {
-		$out .= '{0:"' . ($i + 1) . '",1:"'.$ht->{$eids[$i]}->{title}.'",2:"'.$fcs[$i].'",3:"'.$pvals[$i].'",4:"';
+		my $currentTitle = $ht->{$eids[$i]}->{title};
+		$currentTitle    =~ s/"/\\"/g;
+
+		$out .= '{0:"' . ($i + 1) . '",1:"'.$currentTitle.'",2:"'.$fcs[$i].'",3:"'.$pvals[$i].'",4:"';
 		# test for bit presence and print out 1 if present, 0 if absent
 		if (defined($fs)) { $out .= (1 << $i & $fs) ? "x\"},\n" : "\"},\n" }
 		else { $out .= "\"},\n" }
@@ -1922,22 +2082,35 @@ sub get_annot_fields {
 	# takes two arguments which are references to hashes that will store field names of two tables:
 	# probe and gene
 	my ($probe_fields, $gene_fields) = @_;
+
 	# get fields from Probe table (except pid, rid)
-	my $sth = $dbh->prepare(qq{show columns from probe where Field not regexp "^[a-z]id\$"})
-		or die $dbh->errstr;
-	my $rowcount = $sth->execute or die $dbh->errstr;
-	while (my @row = $sth->fetchrow_array) {
-		$probe_fields->{$row[0]} = 1;
-	}
-	$sth->finish;
+	#my $sth = $dbh->prepare(qq{show columns from probe where Field not regexp "^[a-z]id\$"})
+	#	or die $dbh->errstr;
+	#my $rowcount = $sth->execute or die $dbh->errstr;
+	#while (my @row = $sth->fetchrow_array) {
+	#	$probe_fields->{$row[0]} = 1;
+	#}
+	#$sth->finish;
+
+	$probe_fields->{"Reporter ID"} 		= "reporter";
+	$probe_fields->{"Probe Sequence"} 	= "probe_sequence";
+	$probe_fields->{"Note From Probe"} 	= "note";
+
 	# get fields from Gene table (except pid, gid)
-	$sth = $dbh->prepare(qq{show columns from gene where Field not regexp "^[a-z]id\$"})
-		or die $dbh->errstr;
-	$rowcount = $sth->execute or die $dbh->errstr;
-	while (my @row = $sth->fetchrow_array) {
-		$gene_fields->{$row[0]} = 1;
-	}
-	$sth->finish;
+	#$sth = $dbh->prepare(qq{show columns from gene where Field not regexp "^[a-z]id\$"})
+	#	or die $dbh->errstr;
+	#$rowcount = $sth->execute or die $dbh->errstr;
+	#while (my @row = $sth->fetchrow_array) {
+	#	$gene_fields->{$row[0]} = 1;
+	#}
+	#$sth->finish;
+
+	$gene_fields->{"Gene Symbol"} 		= "seqname";
+	$gene_fields->{"Accession Number"}	= "accnum";
+	$gene_fields->{"Gene Name"} 		= "description";
+	$gene_fields->{"Source"} 		= "source";
+	$gene_fields->{"Gene Note"} 		= "gene_note";
+
 }
 #######################################################################################
 sub form_uploadAnnot {
@@ -1949,10 +2122,11 @@ sub form_uploadAnnot {
 	my $fieldlist;
 	my %platforms;
 	my %core_fields = (
-		'reporter' => 1,
-		'accnum' => 1,
-		'seqname' => 1
+		"Reporter ID" 		=> 1,
+		"Accession Number" 	=> 1,
+		"Gene Symbol" 		=> 1
 	);
+
 	# get a list of platforms and cutoff values
 	my $sth = $dbh->prepare(qq{select pid, pname from platform})
 		or die $dbh->errstr;
@@ -1964,18 +2138,23 @@ sub form_uploadAnnot {
 	$sth->finish;
 
 	my (%probe_fields, %gene_fields);
+
 	get_annot_fields(\%probe_fields, \%gene_fields);
-	foreach (keys %probe_fields) {
+
+	foreach (keys %probe_fields) 
+	{
 		$fieldlist .= $q->li({-class=>($core_fields{$_}) ? 'core' : 'list1', -id=>$_}, $_);
 	}
-	foreach (keys %gene_fields) {
+
+	foreach (keys %gene_fields) 
+	{
 		$fieldlist .= $q->li({-class=>($core_fields{$_}) ? 'core' : 'list1', -id=>$_}, $_);
 	}
 
 	print
 	$q->h2('<font size = "5">Upload Annotation</font>'),
-	$q->p('Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add transcript accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'),
-	$q->p('The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.');
+	$q->p('In order to upload new annotations or update existing annotations create a file with the fields you wish to update and a "key" to update on. The key fields are listed below in red and include (Reporter ID,Gene Symbol,Accession Number). The key will be used to find the record you wish to update. You may include multiple keys in a file and the smallest key will be used to match the record while the other keys will be updated to have the value included in the file.'),
+	$q->p('.');
 	print $q->div({-class=>'workarea'}, $q->h2('Available Fields:') .
 		$q->ul({-id=>'ul1', -class=>'draglist'}, $fieldlist));
 	print $q->div({-class=>'workarea'}, $q->h2('Fields in the Uploaded File:') .
@@ -1988,8 +2167,6 @@ sub form_uploadAnnot {
 	print $q->dl(
 		$q->dt("Platform:"),
 		$q->dd($q->popup_menu(-name=>'platform', -values=>[keys %platforms], -labels=>{%platforms}, -default=>$newpid)),
-		$q->dt("Update policy for annotations:"),
-		$q->dd($q->checkbox(-name=>'add', -checked=>0, -label=>'Add transcript accession numbers to existing probes')),
 		$q->dt("File to upload (tab-delimited):"),
 		$q->dd($q->filefield(-name=>'uploaded_file')),
 		$q->dt("&nbsp;"),
@@ -2002,12 +2179,114 @@ sub form_uploadAnnot {
 
 #######################################################################################
 sub uploadAnnot {
-	### Always backup first!!!
 
 	my @fields;
 	my $regex_split_on_commas = qr/ *, */;
+
+	#{0} - Reporter ID.
+	#{1} - Probe update statements.
+	#{2} - Gene update block.
+	#{3} - Gene update statements.
+	#{4} - Gene insert list.
+	#{5} - Gene value insert.
+	#{6} - Insert into probe fields.
+	#{7} - PID.
+	#{8} - Reporter.
+	#{9} - Probe field values.
+
+	my $GeneUpdateBlock = 
+		"	IF 	 (	
+					SELECT COUNT(1)
+					FROM gene 
+					INNER JOIN annotates ON annotates.gid = gene.gid
+					INNER JOIN probe ON probe.rid = annotates.rid
+					WHERE probe.reporter = {0}
+				  ) > 0
+			BEGIN
+				UPDATE gene SET {3} 
+				FROM gene 
+				INNER JOIN annotates ON annotates.gid = gene.gid
+				INNER JOIN probe ON probe.rid = annotates.rid 
+				WHERE reporter = {0}
+			END
+			ELSE
+			BEGIN
+				INSERT INTO GENE
+				({4}) 
+				values 
+				({5})
+				
+				insert into annotates 
+				(rid, gid)
+				SELECT 	rid,
+					LAST_INSERT_ID()
+				FROM 	probe 
+				WHERE reporter = {0}		
+			END
+		";
+
+	my $ReporterIDBaseInsert = 
+		"IF (SELECT COUNT(1) FROM probe WHERE reporter = {0}) > 0
+		BEGIN
+			UPDATE probe SET {1} WHERE reporter = {0}
+			" . $GeneUpdateBlock . "
+		END
+		ELSE
+		BEGIN
+			insert into probe 
+			(pid, reporter {6}) 
+			values 
+			({7}, {8} {9}) 
+
+			" . $GeneUpdateBlock . "
+			
+		END
+		;";
+
+
+
+	#{0} - Accnum.
+	#{1} - Gene update statements.
+	#{2} - Gene insert list.
+	#{3} - Gene insert values.
+	my $AccessionBaseInsert = 
+		"IF (SELECT COUNT(1) FROM gene WHERE accnum = {0}) > 0
+		BEGIN
+			UPDATE gene SET {1} WHERE accnum = {0}
+		END
+		ELSE
+		BEGIN
+			insert into gene 
+			(accnum, {2}) 
+			values 
+			({0}, {3}) 
+		END
+		";
+
+	#{0} - seqname.
+	#{1} - Gene update statements.
+	#{2} - Gene insert list.
+	#{3} - Gene insert values.
+	my $GeneBaseInsert = 
+		"IF EXISTS (SELECT seqname FROM gene WHERE seqname = {0})
+		BEGIN
+			UPDATE gene SET {1} WHERE accnum = {0}
+		END
+		ELSE
+		BEGIN
+			insert into gene 
+			(seqname, {2}) 
+			values 
+			({0}, {3}) 
+		END
+		";
+
+	#If we got field value from form split it on commas.
 	@fields = split($regex_split_on_commas, $q->param('fields')) if defined($q->param('fields'));
-	if (@fields < 2) {
+	
+	#We need at least two fields to update/create annotations.
+	if (@fields < 2) 
+	{
 		print $q->p('Too few fields specified -- nothing to update.');
 		return;
 	}
@@ -2021,13 +2300,17 @@ sub uploadAnnot {
 	#   The actual content of the field is matched in (.*) and referenced outside regex as $2.
 	my $regex_strip_quotes = qr/^("?)(.*)\1$/;
 
+	#Get the fields and their display name.
 	my (%probe_fields, %gene_fields);
 	get_annot_fields(\%probe_fields, \%gene_fields);
 
 	my $i = 0;
+
 	my %col;
+
 	# create a hash mapping record names to columns in the file
-	foreach (@fields) {
+	foreach (@fields) 
+	{
 		# if the assertion below fails, the field specified by the user 
 		# either doesn't exist or is protected.
 		assert($probe_fields{$_} || $gene_fields{$_});
@@ -2035,10 +2318,35 @@ sub uploadAnnot {
 		$i++;
 	}
 
-	# delete core fields from field hash
-	delete $probe_fields{reporter};
-	delete $gene_fields{accnum};
-	delete $gene_fields{seqname};
+	# probe table only is updated when this is defined and value is valid
+	my $reporter_index 		= $col{"Reporter ID"};	
+	my $accnum_index 		= $col{"Accession Number"};
+	my $seqname_index 		= $col{"Gene Symbol"};
+
+	my $outside_have_reporter 	= defined($reporter_index);
+	my $outside_have_accession	= defined($accnum_index);
+	my $outside_have_gene 		= defined($seqname_index);
+
+	my $pid_value 			= $q->param('platform');
+	
+	if (!$outside_have_reporter && !$outside_have_accession && !$outside_have_gene) 
+	{
+		print $q->p('No key fields specified -- cannot proceed with update.');
+		return;
+	}
+
+	if($outside_have_reporter)
+	{
+		delete $probe_fields{"Reporter ID"};
+	}
+	elsif($outside_have_accession)
+	{
+		delete $gene_fields{"Accession Number"};
+	}
+	elsif($outside_have_gene)
+	{
+		delete $gene_fields{"Gene Symbol"};
+	}
 
 	# create two slices of specified fields, one for each table
 	my @slice_probe = @col{keys %probe_fields};
@@ -2049,24 +2357,31 @@ sub uploadAnnot {
 
 	my $gene_titles = '';
 	foreach (@slice_gene) { $gene_titles .= ','.$fields[$_] }
+
 	my $probe_titles = '';
 	foreach (@slice_probe) { $probe_titles .= ','.$fields[$_] }
 
-	my $reporter_index = $col{reporter};	# probe table only is updated when this is defined and value is valid
-	my $outside_have_reporter = defined($reporter_index);
-	my $accnum_index = $col{accnum};
-	my $seqname_index = $col{seqname};
-	my $outside_have_gene = defined($accnum_index) || defined($seqname_index);
-	my $pid_value = $q->param('platform');
-	my $replace_accnum = $outside_have_reporter && $outside_have_gene && !defined($q->param('add'));
-	if (!$outside_have_reporter && !$outside_have_gene) {
-		print $q->p('No core fields specified -- cannot proceed with update.');
-		return;
-	}
 	my $update_gene;
+
+	#Create a file to hold all of our SQL statements.
+	#Get time to make our unique ID.
+	my $time      	= time();
+	#Make idea with the time and ID of the running application.
+	my $processID 	= $time. '_' . getppid();
+
+	#We need to create this output directory.
+	my $direc_out	 = "/var/www/temp_files/$processID/";
+	system("mkdir $direc_out");
+
+	#This is where we put the temp file we will import.
+	my $outputFileName 	= $direc_out . "AnnotationCommands";
+
+	#Open file we are writing to server.
+	open(OUTPUTTOSERVER,">$outputFileName");
 
 	# Access uploaded file
 	my $fh = $q->upload('uploaded_file');
+
 	# Perl 6 will allow setting $/ to a regular expression,
 	# which would remove the need to read the whole file at once.
 	local $/;	# sets input record separator to undefined, allowing "slurp" mode
@@ -2074,171 +2389,163 @@ sub uploadAnnot {
 	close($fh);
 	my @lines = split(/\s*(?:\r|\n)/, $whole_file);	# split on CRs or LFs while also removing preceding white space
 
-	#my $clock0 = clock();
-	foreach (@lines) {
+	foreach (@lines) 
+	{
 		my @row = split(/ *\t */);	# split on a tab surrounded by any number (including zero) of blanks
 		my @sql;
 
-		my $have_reporter = 0;
+		my $probe_values 	= '';
+		my $probe_updates 	= '';
+		my $have_reporter 	= 0;
+		my $currentStatement 	= '';
+		my $geneInsertColumns 	= '';
+		my $geneInsertValues 	= '';
 
-		# probe fields -- updated only when reporter (core field for probe table) is specified
-		if ($outside_have_reporter) {
-			my $reporter_value;
-			my $probe_values = '';
-			my $probe_duplicates = '';
-			foreach (@slice_probe) {
-				my $value = $row[$_];
-				# alternative one-liner:
-				# $value = ($value && $value =~ $regex_strip_quotes && $2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-				if ($value) {
-					$value =~ $regex_strip_quotes;
-					$value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-				} else {
-					$value = 'NULL';
-				}
-				#$row[$_] = $value;
-				$probe_values .= ','.$value;
-				$probe_duplicates .= ','.$fields[$_].'='.$value;
-			}
-			if (defined($reporter_index)) {
-				$reporter_value = $row[$reporter_index];
-				if ($reporter_value) {
-					$reporter_value =~ $regex_strip_quotes;
-					$reporter_value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-				} else {
-					$reporter_value = 'NULL';
-				}
-				$have_reporter++ if $reporter_value ne 'NULL';
-			}
-			if ($have_reporter) {
-				# TODO: ensure new rows are not inserted into the Probe table
-				# unless we are explicitly setting up a new platform.
-				#
-				# if reporter was not specified, will not be able to obtain rid and update the "annotates" table
-				push @sql, qq{insert into probe (pid, reporter $probe_titles) values ($pid_value, $reporter_value $probe_values) on duplicate key update rid=LAST_INSERT_ID(rid) $probe_duplicates};
-				push @sql, qq{set \@rid:=LAST_INSERT_ID()};
-				# only delete "annotates" content, not the "gene" content.
-				# Then, when everything is done, can go over the entire "gene" table and try to delete records.
-				# Successful delete means the records were orphaned (not pointed to from the "annotates" table).
-				push (@sql, qq{delete quick ignore from annotates where rid=\@rid}) if $replace_accnum;
-			}
+		#Create the parts of the update/insert statement that assign values to the probe table.
+		foreach (@slice_probe) 
+		{
+			my $value = cleanSQLString($row[$_]);
+
+			$probe_values .= ','.$value;
+			$probe_updates .= ','.$probe_fields{$fields[$_]}.'='.$value;
 		}
 
-		my @accnum_array;
-		my $have_seqname = 0;
-		my $seqname_value;
-
-		# gene fields -- updated when any of the core fields are specified
-		foreach (@slice_gene) {
-			my $value = $row[$_];
-			if ($value) {
-				$value =~ $regex_strip_quotes;
-				$value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-			} else {
-				$value = 'NULL';
-			}
+		#Clean the gene data.
+		foreach (@slice_gene) 
+		{
+			my $value = cleanSQLString($row[$_]);
 			$row[$_] = $value;
 		}
-		if ($outside_have_gene) {
-			my $gene_values = '';
-			$update_gene = '';
-			foreach (@slice_gene) {
-				$gene_values .= ','.$row[$_];
-				$update_gene .= ','.$fields[$_].'='.$row[$_];
-			}
-			if (defined($seqname_index)) {
-				$seqname_value = $row[$seqname_index];
-				if ($seqname_value) {
-					$seqname_value =~ $regex_strip_quotes;
-					$seqname_value = ($2 && $2 ne '#N/A' && $2 ne 'Data not found') ? $dbh->quote($2) : 'NULL';
-				} else {
-					$seqname_value = 'NULL';
-				}
-				$have_seqname++ if $seqname_value ne 'NULL';
-			}
-			if (defined($accnum_index)) {
-				# The two lines below split the value matched by the regular expression (stored in $2)
-				# on a comma surrounded by any number (including zero) of blanks, delete invalid members 
-				# from the resulting array, quote each member with DBI::quote, and assign the array to @accnum_array.
-				$row[$accnum_index] =~ $regex_strip_quotes;
-				@accnum_array = map { $dbh->quote($_) } grep { $_ && $_ ne '#N/A' } split($regex_split_on_commas, $2);
 
-				# Iterate over the resulting array
-				if ($have_reporter && @accnum_array) {
-					push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
-					foreach (@accnum_array) {
-						push @sql, qq{insert into gene (accnum, seqname $gene_titles) values ($_, $seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
-						push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
-					}
-				}
-			}
-			if ($have_reporter && !@accnum_array && $have_seqname) {
-				# have gene symbol but not transcript accession number
-				push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
-				push @sql, qq{insert into gene (seqname $gene_titles) values ($seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
-				push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
-			}
-		}
-		if (@slice_gene) {
-			if (!$outside_have_gene) {
-				# if $outside_have_gene is true, $update_gene string has been formed already
-				$update_gene = '';
-				foreach (@slice_gene) {
-					# title1 = value1, title2 = value2, ...
-					$update_gene .= ','.$fields[$_] .'='.$row[$_];
-				}
-			}
-			$update_gene =~ s/^,//;      # strip leading comma
-			if ($have_reporter) {
-				if (!@accnum_array && !$have_seqname && !$replace_accnum) {
-					# if $replace_accnum was specified, all rows from annotates table where rid=@rid
-					# have already been deleted, so no genes would be updated anyway
-					push @sql, qq{update gene natural join annotates set $update_gene where rid=\@rid};
-				}
-			} else {
-				if (!@accnum_array && $have_seqname) {
-					my $eq_seqname = ($seqname_value eq 'NULL') ? 'is NULL' : "=$seqname_value";
-					push @sql, qq{update gene set $update_gene where seqname $eq_seqname and pid=$pid_value};
-				} elsif (@accnum_array && !$have_seqname) {
-					foreach (@accnum_array) {
-						my $eq_accnum = ($_ eq 'NULL') ? 'is NULL' : "=$_";
-						push @sql, qq{update gene set $update_gene where accnum $eq_accnum and pid=$pid_value};
-					}
-				} elsif (@accnum_array && $have_seqname) {
-					my $eq_seqname = ($seqname_value eq 'NULL') ? 'is NULL' : "=$seqname_value";
-					foreach (@accnum_array) {
-						my $eq_accnum = ($_ eq 'NULL') ? 'is NULL' : "=$_";
-						push @sql, qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname and pid=$pid_value};
-					}
-				}
-			}
+		#Create gene values.
+		my $gene_values = '';
+		$update_gene = '';
+		foreach (@slice_gene) 
+		{
+			$gene_values 		.= ','.$row[$_];
+			$update_gene 		.= ','.$gene_fields{$fields[$_]}.'='.$row[$_];
+			$geneInsertColumns 	.= ','.$gene_fields{$fields[$_]};
+			$geneInsertValues 	.= ','.$row[$_];
 		}
 
-		# execute the SQL statements
-		foreach(@sql) {
-			#warn $_;
+		#If we have the reporter that means we want to update by Reporter ID.
+		if ($outside_have_reporter) 
+		{
+			$currentStatement = $ReporterIDBaseInsert;
 
-			$dbh->do($_) or die $dbh->errstr;
+			my $reporter_value = cleanSQLString($row[$reporter_index]);
+			if (!$reporter_value) 
+			{
+				print $q->p('Invalid Reporter ID found -- cannot proceed with update.');
+				return;
+			}
+
+			$probe_updates 		=~ s/^,//;
+			$update_gene		=~ s/^,//;
+			$geneInsertColumns	=~ s/^,//;
+			$geneInsertValues	=~ s/^,//;
+print $reporter_value;
+			$currentStatement 	=~ s/\{2\}/$GeneUpdateBlock/g;
+			$currentStatement 	=~ s/\{0\}/$reporter_value/g;
+			$currentStatement 	=~ s/\{1\}/$probe_updates/g;
+			$currentStatement 	=~ s/\{3\}/$update_gene/g;
+			$currentStatement 	=~ s/\{4\}/$geneInsertColumns/g;
+			$currentStatement 	=~ s/\{5\}/$geneInsertValues/g;
+			$currentStatement 	=~ s/\{6\}/$probe_titles/g;
+			$currentStatement 	=~ s/\{7\}/$pid_value/g;
+			$currentStatement 	=~ s/\{8\}/$reporter_value/g;
+			$currentStatement 	=~ s/\{9\}/$probe_values/g;
+
 		}
+		elsif($outside_have_accession)
+		{
+			#{0} - Accnum.
+			#{1} - Gene update statements.
+			#{2} - Gene insert list.
+			#{3} - Gene insert values.
+
+			$currentStatement = $AccessionBaseInsert;
+
+			my $AccessionValue = cleanSQLString($row[$reporter_index]);
+
+			if (!$AccessionValue) 
+			{
+				print $q->p('Invalid Accession Number found -- cannot proceed with update.');
+				return;
+			}
+
+			$update_gene		=~ s/^,//;
+			$geneInsertColumns	=~ s/^,//;
+			$geneInsertValues	=~ s/^,//;
+
+			$currentStatement 	=~ s/\{0\}/\Q$AccessionValue\E/g;
+			$currentStatement 	=~ s/\{1\}/\Q$update_gene\E/g;
+			$currentStatement 	=~ s/\{2\}/\Q$geneInsertColumns\E/g;
+			$currentStatement 	=~ s/\{3\}/\Q$geneInsertValues\E/g;		
+		}
+		elsif($outside_have_gene)
+		{
+			#{0} - seqname.
+			#{1} - Gene update statements.
+			#{2} - Gene insert list.
+			#{3} - Gene insert values.
+
+			$currentStatement = $GeneBaseInsert;
+
+			my $GeneSymbolValue = cleanSQLString($row[$reporter_index]);
+
+			if (!$GeneSymbolValue) 
+			{
+				print $q->p('Invalid Gene Symbol found -- cannot proceed with update.');
+				return;
+			}
+
+			$update_gene		=~ s/^,//;
+			$geneInsertColumns	=~ s/^,//;
+			$geneInsertValues	=~ s/^,//;
+
+			$currentStatement 	=~ s/\{0\}/\Q$GeneSymbolValue\E/g;
+			$currentStatement 	=~ s/\{1\}/\Q$update_gene\E/g;
+			$currentStatement 	=~ s/\{2\}/\Q$geneInsertColumns\E/g;
+			$currentStatement 	=~ s/\{3\}/\Q$geneInsertValues\E/g;				
+		}
+
+		print OUTPUTTOSERVER $currentStatement;
+
 	}
-	#my $clock1 = clock();
+	close(OUTPUTTOSERVER);
+	
+	#Run the commands we just created.
+	$dbh->do("source  $outputFileName;") or die $dbh->errstr;
+	system("rm -rf $direc_out");
 
-	if ($outside_have_reporter && $replace_accnum) {
-		#warn "begin optimizing\n";
-		# have to "optimize" because some of the deletes above were performed with "ignore" option
-		$dbh->do(qq{optimize table annotates}) or die $dbh->errstr;
-		# in case any gene records have been orphaned, delete them
-		$dbh->do(qq{delete gene from gene left join annotates on gene.gid=annotates.gid where annotates.gid is NULL}) or die $dbh->errstr;
-		#warn "end optimizing\n";
-	}
 	my $count_lines = @lines;
-	#print $q->p(sprintf("%d lines processed in %g seconds", $count_lines, $clock1 - $clock0));
 	print $q->p(sprintf("%d lines processed.", $count_lines));
 	
 	#Flag the platform as being annotated.
 	my $annotateUpdate = "UPDATE platform SET isAnnotated = 1 WHERE pid = $pid_value";
 	$dbh->do($annotateUpdate) or die $dbh->errstr;
 }
+
+sub cleanSQLString
+{
+	my $value = shift;
+	my $regex_strip_quotes = qr/^("?)(.*)\1$/;
+
+	if ($value) 
+	{
+		$value =~ $regex_strip_quotes;
+		$value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
+	} 
+	else 
+	{
+		$value = 'NULL';
+	}
+
+	return $value;
+
+}
+
 #######################################################################################
 
 
@@ -2336,9 +2643,15 @@ sub manageStudies
 
 	}
 
-	if($ManageAction eq 'add' || $ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
+	if($ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
 	{
 		my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageStudy';
+		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+		print "$redirectString";
+	}
+	elsif($ManageAction eq 'add')
+	{
+		my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageExperiments&ManageAction=load&stid=' . $manageStudy->{_stid};
 		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
 		print "$redirectString";
 	}
@@ -2365,7 +2678,6 @@ sub form_manageExperiments
 			$manageExperiment->loadStudyData();
 			$manageExperiment->showExperiments();
 		}
-		
 		else
 		{
 			$manageExperiment->loadStudyData();
@@ -2384,21 +2696,10 @@ sub manageExperiments
 
 	switch ($ManageAction) 
 	{
-		case 'add' 
+		case 'addNew'
 		{
 			$manageExperiment->loadFromForm();
-			$manageExperiment->insertNewExperiment();
-			print "<br />Record added - Redirecting...<br />";
-		}
-		case 'edit' 
-		{
-			$manageExperiment->loadSingleExperiment();
-			$manageExperiment->editExperiment();
-		}
-		case 'editSubmit'
-		{
-			$manageExperiment->loadFromForm();
-			$manageExperiment->editSubmitExperiment();
+			$manageExperiment->addNewExperiment();
 			print "<br />Record updated - Redirecting...<br />";
 		}
 		case 'delete'
@@ -2415,11 +2716,41 @@ sub manageExperiments
 		}
 	}
 
-	if($ManageAction eq 'add' || $ManageAction eq 'delete' || $ManageAction eq 'addExisting' || $ManageAction eq 'editSubmit')
+	if($ManageAction eq 'delete' || $ManageAction eq 'addExisting' || $ManageAction eq 'addNew')
 	{
 		my $redirectSite   = $q->url(-absolute=>1)."?a=form_manageExperiments&ManageAction=load&stid=$manageExperiment->{_stid}";
 		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
 		print "$redirectString";
+	}
+
+}
+#######################################################################################
+
+#######################################################################################
+#This just displays the OutputData form.
+sub form_outputData
+{
+	$outputData = new SGX::OutputData($dbh,$q);
+	
+	$outputData->showExperiments();
+
+}
+
+#This performs the action that was asked for by the manage platforms form.
+sub outputData
+{
+	$outputData = new SGX::OutputData($dbh,$q);
+	my $outputAction = ($q->url_param('outputAction')) if defined($q->url_param('outputAction'));
+
+	switch ($outputAction) 
+	{
+		case 'runReport'
+		{
+			$outputData->loadFromForm();
+			$outputData->loadReportData();
+			$outputData->runReport();
+			#print "<br />Record updated - Redirecting...<br />";
+		}
 	}
 
 }

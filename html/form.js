@@ -115,3 +115,10 @@ function sgx_toggle(of,targets) {
 		}
          }
 }
+
+function validate_Number(of,checkFields)
+{
+	
+
+
+}

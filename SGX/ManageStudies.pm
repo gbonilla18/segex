@@ -315,6 +315,8 @@ sub insertNewStudy
 	$insertStatement 	=~ s/\{2\}/\Q$self->{_pid}\E/;
 
 	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
+
+	$self->{_stid} = $self->{_dbh}->{'mysql_insertid'};
 }
 
 sub deleteStudy
