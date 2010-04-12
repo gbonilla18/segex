@@ -1,13 +1,3 @@
-function onChange_allExperiments(checkedStatus){
-	if(checkedStatus)
-	{
-		document.getElementById("experiment_exist").readonly = true;
-	}
-	else
-	{
-		document.getElementById("experiment_exist").readonly = false;
-	}
-}
 function populateExistingStudy(id) {
 	obj = $(id);
 	for (var i in study) {

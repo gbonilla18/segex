@@ -59,7 +59,8 @@ sub new {
 		_ExistingExperimentList		=> {},
 		_ExistingExperimentValue 	=> (),
 		_Data				=> '',
-		_FieldNames			=> ''
+		_FieldNames			=> '',
+		_SelectedExperiment		=> ''
 	};
 
 	bless $self, $class;
@@ -113,11 +114,9 @@ sub showExperiments
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Study : '),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'study_exist', -id=>'study_exist',-values=>\@{$self->{_ExistingStudyValue}},-labels=>\%{$self->{_ExistingStudyList}},-default=>$self->{_SelectedStudy}, -onChange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
-		$self->{_FormObject}->dt('Use all Experiments : '),
-		$self->{_FormObject}->dd($self->{_FormObject}->checkbox(-name=>'allExperiments', -id=>'allExperiments', -onChange=>"onChange_allExperiments(this.checked);",-label=>"")),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'study_exist', -id=>'study_exist',-onChange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
 		$self->{_FormObject}->dt('Experiment : '),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist',-multiple=>'true', -id=>'experiment_exist',-values=>\@{$self->{_ExistingExperimentValue}}, -labels=>\%{$self->{_ExistingExperimentList}},-default=>$self->{_SelectedExperiment})),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist',-multiple=>'true', -id=>'experiment_exist')),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'RunReport',-id=>'RunReport',-value=>'Run Report'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
