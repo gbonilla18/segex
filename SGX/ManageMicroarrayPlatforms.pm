@@ -53,15 +53,15 @@ sub new {
 							WHEN isAnnotated THEN \'Y\' 
 							ELSE \'N\' 
 						END AS \'Is Annotated\',
-						COUNT(DISTINCT probe.rid) AS \'ProbeCount\',
-						SUM(IF(probe.probe_sequence IS NOT NULL,1,0)) AS \'Sequences Loaded\',
-						SUM(IF(annotates.gid IS NOT NULL,1,0)) AS \'Transcript IDs\',
-						SUM(IF(gene.seqname IS NOT NULL,1,0)) AS \'Gene Names\',
-						SUM(IF(gene.description IS NOT NULL AND gene.description <> \'\',1,0)) AS \'Gene Description\'	
+						COUNT(probe.rid) AS \'ProbeCount\',
+						SUM(IF(IFNULL(probe.probe_sequence,\'\') <> \'\' ,1,0)) AS \'Sequences Loaded\',
+						SUM(IF(IFNULL(annotates.gid,\'\') <> \'\',1,0)) AS \'Transcript IDs\',
+						SUM(IF(IFNULL(gene.seqname,\'\') <> \'\',1,0)) AS \'Gene Names\',
+						SUM(IF(IFNULL(gene.description,\'\') <> \'\',1,0)) AS \'Gene Description\'	
 					FROM platform
-					INNER JOIN probe 	ON probe.pid = platform.pid
+					LEFT JOIN probe 		ON probe.pid = platform.pid
 					LEFT JOIN annotates 	ON annotates.rid = probe.rid
-					LEFT JOIN gene 		ON gene.gid = annotates.gid
+					LEFT JOIN gene 			ON gene.gid = annotates.gid
 					GROUP BY pname, 
 					def_f_cutoff, 
 					def_p_cutoff, 

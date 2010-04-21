@@ -32,9 +32,10 @@ use SGX::ManageStudies;
 use SGX::ManageExperiments;
 use SGX::OutputData;
 use SGX::JavaScriptDeleteConfirm;
+use SGX::TFSDisplay;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.103";
+my $softwareVersion = "0.104";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -67,6 +68,7 @@ my $managePlatform;
 my $manageStudy;
 my $manageExperiment;
 my $outputData;
+my $TFSDisplay;
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
@@ -953,7 +955,7 @@ sub form_findProbes {
 		$q->dt('Pattern to match:'),
 		$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression'})),
 		$q->dt('Display options:'),
-		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2'], -default=>'1',-labels=>{'0'=>'Basic (names and IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data'})),
+		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2'], -default=>'1',-labels=>{'0'=>'Basic (names,IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data'})),
 		$q->dt('Graph(s):'),
 		$q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
 		$q->dt({id=>'graph_option_names'}, "Response variable:"),
@@ -1773,7 +1775,7 @@ sub compare_experiments {
 		'<h2 id="tfs_caption"></h2>',
 		$q->dl(
 			$q->dt('Data to display:'),
-			$q->dd($q->popup_menu(-name=>'opts',-values=>['0','1','2'], -default=>'0',-labels=>{'0'=>'Basic (ratios only)', '1'=>'Experiment data', '2'=>'Experiment data with annotations'})),
+			$q->dd($q->popup_menu(-name=>'opts',-values=>['0','1','2'], -default=>'0',-labels=>{'0'=>'Basic (ratios and p-value only)', '1'=>'Experiment data', '2'=>'Experiment data with annotations'})),
 			$q->dt({-id=>'tfs_all_dt'}, "&nbsp;"),
 			$q->dd({-id=>'tfs_all_dd'}, "&nbsp;")
 		),
@@ -1801,270 +1803,14 @@ sub dump_table {
 	$sth->finish;
 }
 #######################################################################################
+
+#######################################################################################
 sub show_tfs_js {
-	# The $output_format parameter is either 'html' or 'text';
-	# The $fs parameter is the flagsum for which the data will be filtered
-	# If the $fs is zero or undefined, all data will be output
-	#
-	my $regex_split_on_commas 	= qr/ *, */;
-	my @eids 			= split($regex_split_on_commas, $q->param('eid'));
-	my @reverses 			= split($regex_split_on_commas, $q->param('rev'));
-	my @fcs 			= split($regex_split_on_commas, $q->param('fc'));
-	my @pvals			= split($regex_split_on_commas, $q->param('pval'));
-	my $fs 				= $q->param('get');
-
-	if ($fs =~ m/^\d+ significant probes$/i) {
-		undef $fs;
-	} else {
-		$fs =~ s/^FS: //i;
-	}
-	my $opts = $q->param('opts');
-
-	# Build the SQL query that does the TFS calculation
-	my $having = (defined($fs) && $fs) ? "HAVING abs_fs=$fs" : '';
-	my $num_start = 5;	# index of the column that is the beginning of the "numeric" half of the table (required for table sorting)
-	my $query = '   
-SELECT 	abs_fs, 
-	dir_fs, 
-	probe.reporter AS Probe, 
-	GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS Transcript, 
-	GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
-	%s 
-	FROM (SELECT	rid, 
-			BIT_OR(abs_flag) AS abs_fs, 
-			BIT_OR(dir_flag) AS dir_fs FROM (
-';
-	my $query_body = '';
-	my $query_proj = '';
-	my $query_join = '';
-	my $query_titles = '';
-	my $i = 1; 
-	foreach my $eid (@eids) {
-		my ($fc, $pval) = ($fcs[$i-1], $pvals[$i-1]);
-		assert($fc);    # cannot be undef and cannot be zero
-		assert($pval);  # cannot be undef and cannot be zero
-		my $abs_flag = 1 << $i - 1;
-		my $dir_flag = ($reverses[$i-1]) ? "$abs_flag,0" : "0,$abs_flag";
-		$query_proj .= ($reverses[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', " : "m$i.ratio AS \'$i: Ratio\', ";
-		if ($opts > 0) {
-			$query_proj .= ($reverses[$i-1]) ? "-m$i.foldchange AS \'$i: Fold Change\', " : "m$i.foldchange AS \'$i: Fold Change\', ";
-			$query_proj .= ($reverses[$i-1]) ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\', " : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\', ";
-			$query_proj .= "m$i.pvalue AS \'$i: P\', "; 
-		}
-		$query_body .= " 
-SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL
-";
-		$query_join .= "
-LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$eid
-";
-		# account for sample order when building title query
-		my $title = ($reverses[$i-1]) ?
-			"experiment.sample1, ' / ', experiment.sample2" :
-			"experiment.sample2, ' / ', experiment.sample1";
-		$query_titles .= "
-SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL
-";
-		$i++;
-	}
-
-	# strip trailing 'UNION ALL' plus any trailing white space
-	$query_titles =~ s/UNION ALL\s*$//i;
-	my $sth_titles = $dbh->prepare(qq{$query_titles}) or die $dbh->errstr;
-	my $rowcount_titles = $sth_titles->execute or die $dbh->errstr;
-	assert($rowcount_titles == @eids);
-	my $ht = $sth_titles->fetchall_hashref('eid');
-	$sth_titles->finish;
-
-	# strip trailing 'UNION ALL' plus any trailing white space
-	$query_body =~ s/UNION ALL\s*$//i;
-	# strip trailing comma plus any trailing white space from ratio projection
-	$query_proj =~ s/,\s*$//;
-
-	if ($opts > 1) {
-		$num_start += 2;
-		$query_proj = 'probe.probe_sequence AS \'Probe Sequence\', GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\', '.$query_proj;
-	}
-	# pad TFS decimal portion with the correct number of zeroes
-	$query = sprintf($query, $query_proj) . $query_body . "
-) AS d1 GROUP BY rid $having) AS d2
-$query_join
-LEFT JOIN probe ON d2.rid=probe.rid
-LEFT JOIN annotates ON d2.rid=annotates.rid
-LEFT JOIN gene ON annotates.gid=gene.gid
-GROUP BY probe.rid
-ORDER BY abs_fs DESC
-";
-
-	my $sth = $dbh->prepare(qq{$query}) or die $dbh->errstr;
-	my $rowcount_all = $sth->execute or die $dbh->errstr;
-
-my $out = '
-var summary = {
-caption: "Experiments compared",
-headers: ["&nbsp;", "Experiment", "&#124;Fold Change&#124; &gt;", "P &lt;", "&nbsp;"],
-parsers: ["number", "string", "number", "number", "string"],
-records: [
-';
-	for ($i = 0; $i < @eids; $i++) {
-		my $currentTitle = $ht->{$eids[$i]}->{title};
-		$currentTitle    =~ s/"/\\"/g;
-
-		$out .= '{0:"' . ($i + 1) . '",1:"'.$currentTitle.'",2:"'.$fcs[$i].'",3:"'.$pvals[$i].'",4:"';
-		# test for bit presence and print out 1 if present, 0 if absent
-		if (defined($fs)) { $out .= (1 << $i & $fs) ? "x\"},\n" : "\"},\n" }
-		else { $out .= "\"},\n" }
-	}
-	$out =~ s/,\s*$//;	# strip trailing comma
-	$out .= '
-]};
-';
-
-# Fields with indexes less num_start are formatted as strings,
-# fields with indexes equal to or greater than num_start are formatted as numbers.
-my @table_header;
-my @table_parser;
-my @table_format;
-for (my $j = 2; $j < $num_start; $j++) {
-	push @table_header, $sth->{NAME}->[$j];
-	push @table_parser, 'string';
-	push @table_format, 'formatText';
+	 $TFSDisplay = new SGX::TFSDisplay($dbh,$q);;
+	 $TFSDisplay->loadTFSData();
+	 $TFSDisplay->displayTFSInfo();
 }
-
-for (my $j = $num_start; $j < @{$sth->{NAME}}; $j++) {
-	push @table_header, $sth->{NAME}->[$j];
-	push @table_parser, 'number';
-	push @table_format, 'formatNumber';
-}
-
-my $find_probes = $q->a({-target=>'_blank', -href=>$q->url(-absolute=>1).'?a='.FINDPROBES.'&graph=on&type=%1$s&text={0}', -title=>'Find all %1$ss related to %1$s {0}'}, '{0}');
-$find_probes =~ s/"/\\"/g;	# prepend all double quotes with backslashes
-my @format_template;
-push @format_template, sprintf($find_probes, 'probe');
-push @format_template, sprintf($find_probes, 'transcript');
-push @format_template, sprintf($find_probes, 'gene');
-
-$table_format[0] = 'formatProbe';
-$table_format[1] = 'formatTranscript';
-$table_format[2] = 'formatGene';
-if ($opts > 1) {
-	my $blat = $q->a({-target=>'_blank',-title=>'UCSC BLAT on DNA',-href=>'http://genome.ucsc.edu/cgi-bin/hgBlat?org='.SPECIES.'&type=DNA&userSeq={0}'}, '{0}');
-	$blat =~ s/"/\\"/g;      # prepend all double quotes with backslashes
-	$table_format[3] = 'formatProbeSequence';
-	$format_template[3] = $blat;
-}
-
-$out .= '
-var tfs = {
-caption: "Your selection includes '.$rowcount_all.' probes",
-headers: ["TFS", "'.join('","', @table_header).'" ],
-parsers: ["string", "'.join('","', @table_parser).'" ],
-formats: ["formatText", "'.join('","', @table_format).'" ],
-frm_tpl: ["", "'.join('","', @format_template).'" ],
-records: [
-';
-	# print table body
-	while (my @row = $sth->fetchrow_array) {
-		my $abs_fs = shift(@row);
-		my $dir_fs = shift(@row);
-
-		# Math::BigInt->badd(x,y) is used to add two very large numbers x and y
-		# actually Math::BigInt library is supposed to overload Perl addition operator,
-		# but if fails to do so for some reason in this CGI program.
-		my $TFS = sprintf("$abs_fs.%0".@eids.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,@eids), substr(unpack('b32', pack('V', $dir_fs)),0,@eids)));
-
-		$out .= "{0:\"$TFS\"";
-		foreach (@row) { $_ = '' if !defined $_ }
-		$row[2] =~ s/\"//g;	# strip off quotes from gene symbols
-		my $real_num_start = $num_start - 2; # TODO: verify why '2' is used here
-		for (my $j = 0; $j < $real_num_start; $j++) {
-			$out .= ','.($j + 1).':"'.$row[$j].'"';	# string value
-		}
-		for (my $j = $real_num_start; $j < @row; $j++) {
-			$out .=	','.($j + 1).':'.$row[$j];	# numeric value
-		}
-		$out .= "},\n";
-	}
-	$sth->finish;
-	$out =~ s/,\s*$//;	# strip trailing comma
-	$out .= '
-]};
-
-function export_table(e) {
-	var r = this.records;
-	var bl = this.headers.length;
-	var w = window.open("");
-	var d = w.document.open("text/html");
-	d.title = "Tab-Delimited Text";
-	d.write("<pre>");
-	for (var i=0, al = r.length; i < al; i++) {
-		for (var j=0; j < bl; j++) {
-			d.write(r[i][j] + "\t");
-		}
-		d.write("\n");
-	}
-	d.write("</pre>");
-	d.close();
-	w.focus();
-}
-YAHOO.util.Event.addListener("summ_astext", "click", export_table, summary, true);
-YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
-YAHOO.util.Event.addListener(window, "load", function() {
-	var Dom = YAHOO.util.Dom;
-	var Formatter = YAHOO.widget.DataTable.Formatter;
-	var lang = YAHOO.lang;
-
-	Dom.get("summary_caption").innerHTML = summary.caption;
-	var summary_table_defs = [];
-	var summary_schema_fields = [];
-	for (var i=0, sh = summary.headers, sp = summary.parsers, al=sh.length; i<al; i++) {
-		summary_table_defs.push({key:String(i), sortable:true, label:sh[i]});
-		summary_schema_fields.push({key:String(i), parser:sp[i]});
-	}
-	var summary_data = new YAHOO.util.DataSource(summary.records);
-	summary_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	summary_data.responseSchema = { fields: summary_schema_fields };
-	var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
-
-	var template_probe = tfs.frm_tpl[1];
-	var template_transcript = tfs.frm_tpl[2];
-	var template_gene = tfs.frm_tpl[3];
-	var template_probeseq = tfs.frm_tpl[4];
-	Formatter.formatProbe = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_probe, {"0":oData});
-	}
-	Formatter.formatTranscript = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_transcript, {"0":oData});
-	}
-	Formatter.formatGene = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_gene, {"0":oData});
-	}
-	Formatter.formatProbeSequence = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_probeseq, {"0":oData});
-	}
-	Formatter.formatNumber = function(elCell, oRecord, oColumn, oData) {
-		// Overrides the built-in formatter
-		elCell.innerHTML = oData.toPrecision(3);
-	}
-	Dom.get("tfs_caption").innerHTML = tfs.caption;
-	var tfs_table_defs = [];
-	var tfs_schema_fields = [];
-	for (var i=0, th = tfs.headers, tp = tfs.parsers, tf=tfs.formats, al=th.length; i<al; i++) {
-		tfs_table_defs.push({key:String(i), sortable:true, label:th[i], formatter:tf[i]});
-		tfs_schema_fields.push({key:String(i), parser:tp[i]});
-	}
-	var tfs_config = {
-		paginator: new YAHOO.widget.Paginator({
-			rowsPerPage: 50 
-		})
-	};
-	var tfs_data = new YAHOO.util.DataSource(tfs.records);
-	tfs_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	tfs_data.responseSchema = { fields: tfs_schema_fields };
-	var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
-});
-';
-	$out;
-}
+#######################################################################################
 
 #######################################################################################
 sub show_tfs {
@@ -2180,113 +1926,12 @@ sub form_uploadAnnot {
 #######################################################################################
 sub uploadAnnot {
 
+		### Always backup first!!!
+
 	my @fields;
 	my $regex_split_on_commas = qr/ *, */;
-
-	#{0} - Reporter ID.
-	#{1} - Probe update statements.
-	#{2} - Gene update block.
-	#{3} - Gene update statements.
-	#{4} - Gene insert list.
-	#{5} - Gene value insert.
-	#{6} - Insert into probe fields.
-	#{7} - PID.
-	#{8} - Reporter.
-	#{9} - Probe field values.
-
-	my $GeneUpdateBlock = 
-		"	IF 	 (	
-					SELECT COUNT(1)
-					FROM gene 
-					INNER JOIN annotates ON annotates.gid = gene.gid
-					INNER JOIN probe ON probe.rid = annotates.rid
-					WHERE probe.reporter = {0}
-				  ) > 0
-			BEGIN
-				UPDATE gene SET {3} 
-				FROM gene 
-				INNER JOIN annotates ON annotates.gid = gene.gid
-				INNER JOIN probe ON probe.rid = annotates.rid 
-				WHERE reporter = {0}
-			END
-			ELSE
-			BEGIN
-				INSERT INTO GENE
-				({4}) 
-				values 
-				({5})
-				
-				insert into annotates 
-				(rid, gid)
-				SELECT 	rid,
-					LAST_INSERT_ID()
-				FROM 	probe 
-				WHERE reporter = {0}		
-			END
-		";
-
-	my $ReporterIDBaseInsert = 
-		"IF (SELECT COUNT(1) FROM probe WHERE reporter = {0}) > 0
-		BEGIN
-			UPDATE probe SET {1} WHERE reporter = {0}
-			" . $GeneUpdateBlock . "
-		END
-		ELSE
-		BEGIN
-			insert into probe 
-			(pid, reporter {6}) 
-			values 
-			({7}, {8} {9}) 
-
-			" . $GeneUpdateBlock . "
-			
-		END
-		;";
-
-
-
-	#{0} - Accnum.
-	#{1} - Gene update statements.
-	#{2} - Gene insert list.
-	#{3} - Gene insert values.
-	my $AccessionBaseInsert = 
-		"IF (SELECT COUNT(1) FROM gene WHERE accnum = {0}) > 0
-		BEGIN
-			UPDATE gene SET {1} WHERE accnum = {0}
-		END
-		ELSE
-		BEGIN
-			insert into gene 
-			(accnum, {2}) 
-			values 
-			({0}, {3}) 
-		END
-		";
-
-	#{0} - seqname.
-	#{1} - Gene update statements.
-	#{2} - Gene insert list.
-	#{3} - Gene insert values.
-	my $GeneBaseInsert = 
-		"IF EXISTS (SELECT seqname FROM gene WHERE seqname = {0})
-		BEGIN
-			UPDATE gene SET {1} WHERE accnum = {0}
-		END
-		ELSE
-		BEGIN
-			insert into gene 
-			(seqname, {2}) 
-			values 
-			({0}, {3}) 
-		END
-		";
-
-	#If we got field value from form split it on commas.
 	@fields = split($regex_split_on_commas, $q->param('fields')) if defined($q->param('fields'));
-	
-	#We need at least two fields to update/create annotations.
-	if (@fields < 2) 
-	{
+	if (@fields < 2) {
 		print $q->p('Too few fields specified -- nothing to update.');
 		return;
 	}
@@ -2300,17 +1945,13 @@ sub uploadAnnot {
 	#   The actual content of the field is matched in (.*) and referenced outside regex as $2.
 	my $regex_strip_quotes = qr/^("?)(.*)\1$/;
 
-	#Get the fields and their display name.
 	my (%probe_fields, %gene_fields);
 	get_annot_fields(\%probe_fields, \%gene_fields);
 
 	my $i = 0;
-
 	my %col;
-
 	# create a hash mapping record names to columns in the file
-	foreach (@fields) 
-	{
+	foreach (@fields) {
 		# if the assertion below fails, the field specified by the user 
 		# either doesn't exist or is protected.
 		assert($probe_fields{$_} || $gene_fields{$_});
@@ -2318,35 +1959,10 @@ sub uploadAnnot {
 		$i++;
 	}
 
-	# probe table only is updated when this is defined and value is valid
-	my $reporter_index 		= $col{"Reporter ID"};	
-	my $accnum_index 		= $col{"Accession Number"};
-	my $seqname_index 		= $col{"Gene Symbol"};
-
-	my $outside_have_reporter 	= defined($reporter_index);
-	my $outside_have_accession	= defined($accnum_index);
-	my $outside_have_gene 		= defined($seqname_index);
-
-	my $pid_value 			= $q->param('platform');
-	
-	if (!$outside_have_reporter && !$outside_have_accession && !$outside_have_gene) 
-	{
-		print $q->p('No key fields specified -- cannot proceed with update.');
-		return;
-	}
-
-	if($outside_have_reporter)
-	{
-		delete $probe_fields{"Reporter ID"};
-	}
-	elsif($outside_have_accession)
-	{
-		delete $gene_fields{"Accession Number"};
-	}
-	elsif($outside_have_gene)
-	{
-		delete $gene_fields{"Gene Symbol"};
-	}
+	# delete core fields from field hash
+	delete $probe_fields{reporter};
+	delete $gene_fields{accnum};
+	delete $gene_fields{seqname};
 
 	# create two slices of specified fields, one for each table
 	my @slice_probe = @col{keys %probe_fields};
@@ -2357,31 +1973,24 @@ sub uploadAnnot {
 
 	my $gene_titles = '';
 	foreach (@slice_gene) { $gene_titles .= ','.$fields[$_] }
-
 	my $probe_titles = '';
 	foreach (@slice_probe) { $probe_titles .= ','.$fields[$_] }
 
+	my $reporter_index = $col{reporter};	# probe table only is updated when this is defined and value is valid
+	my $outside_have_reporter = defined($reporter_index);
+	my $accnum_index = $col{accnum};
+	my $seqname_index = $col{seqname};
+	my $outside_have_gene = defined($accnum_index) || defined($seqname_index);
+	my $pid_value = $q->param('platform');
+	my $replace_accnum = $outside_have_reporter && $outside_have_gene && !defined($q->param('add'));
+	if (!$outside_have_reporter && !$outside_have_gene) {
+		print $q->p('No core fields specified -- cannot proceed with update.');
+		return;
+	}
 	my $update_gene;
-
-	#Create a file to hold all of our SQL statements.
-	#Get time to make our unique ID.
-	my $time      	= time();
-	#Make idea with the time and ID of the running application.
-	my $processID 	= $time. '_' . getppid();
-
-	#We need to create this output directory.
-	my $direc_out	 = "/var/www/temp_files/$processID/";
-	system("mkdir $direc_out");
-
-	#This is where we put the temp file we will import.
-	my $outputFileName 	= $direc_out . "AnnotationCommands";
-
-	#Open file we are writing to server.
-	open(OUTPUTTOSERVER,">$outputFileName");
 
 	# Access uploaded file
 	my $fh = $q->upload('uploaded_file');
-
 	# Perl 6 will allow setting $/ to a regular expression,
 	# which would remove the need to read the whole file at once.
 	local $/;	# sets input record separator to undefined, allowing "slurp" mode
@@ -2389,142 +1998,171 @@ sub uploadAnnot {
 	close($fh);
 	my @lines = split(/\s*(?:\r|\n)/, $whole_file);	# split on CRs or LFs while also removing preceding white space
 
-	foreach (@lines) 
-	{
+	#my $clock0 = clock();
+	foreach (@lines) {
 		my @row = split(/ *\t */);	# split on a tab surrounded by any number (including zero) of blanks
 		my @sql;
 
-		my $probe_values 	= '';
-		my $probe_updates 	= '';
-		my $have_reporter 	= 0;
-		my $currentStatement 	= '';
-		my $geneInsertColumns 	= '';
-		my $geneInsertValues 	= '';
+		my $have_reporter = 0;
 
-		#Create the parts of the update/insert statement that assign values to the probe table.
-		foreach (@slice_probe) 
-		{
-			my $value = cleanSQLString($row[$_]);
-
-			$probe_values .= ','.$value;
-			$probe_updates .= ','.$probe_fields{$fields[$_]}.'='.$value;
+		# probe fields -- updated only when reporter (core field for probe table) is specified
+		if ($outside_have_reporter) {
+			my $reporter_value;
+			my $probe_values = '';
+			my $probe_duplicates = '';
+			foreach (@slice_probe) {
+				my $value = $row[$_];
+				# alternative one-liner:
+				# $value = ($value && $value =~ $regex_strip_quotes && $2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
+				if ($value) {
+					$value =~ $regex_strip_quotes;
+					$value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
+				} else {
+					$value = 'NULL';
+				}
+				#$row[$_] = $value;
+				$probe_values .= ','.$value;
+				$probe_duplicates .= ','.$fields[$_].'='.$value;
+			}
+			if (defined($reporter_index)) {
+				$reporter_value = $row[$reporter_index];
+				if ($reporter_value) {
+					$reporter_value =~ $regex_strip_quotes;
+					$reporter_value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
+				} else {
+					$reporter_value = 'NULL';
+				}
+				$have_reporter++ if $reporter_value ne 'NULL';
+			}
+			if ($have_reporter) {
+				# TODO: ensure new rows are not inserted into the Probe table
+				# unless we are explicitly setting up a new platform.
+				#
+				# if reporter was not specified, will not be able to obtain rid and update the "annotates" table
+				push @sql, qq{insert into probe (pid, reporter $probe_titles) values ($pid_value, $reporter_value $probe_values) on duplicate key update rid=LAST_INSERT_ID(rid) $probe_duplicates};
+				push @sql, qq{set \@rid:=LAST_INSERT_ID()};
+				# only delete "annotates" content, not the "gene" content.
+				# Then, when everything is done, can go over the entire "gene" table and try to delete records.
+				# Successful delete means the records were orphaned (not pointed to from the "annotates" table).
+				push (@sql, qq{delete quick ignore from annotates where rid=\@rid}) if $replace_accnum;
+			}
 		}
 
-		#Clean the gene data.
-		foreach (@slice_gene) 
-		{
-			my $value = cleanSQLString($row[$_]);
+		my @accnum_array;
+		my $have_seqname = 0;
+		my $seqname_value;
+
+		# gene fields -- updated when any of the core fields are specified
+		foreach (@slice_gene) {
+			my $value = $row[$_];
+			if ($value) {
+				$value =~ $regex_strip_quotes;
+				$value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
+			} else {
+				$value = 'NULL';
+			}
 			$row[$_] = $value;
 		}
-
-		#Create gene values.
-		my $gene_values = '';
-		$update_gene = '';
-		foreach (@slice_gene) 
-		{
-			$gene_values 		.= ','.$row[$_];
-			$update_gene 		.= ','.$gene_fields{$fields[$_]}.'='.$row[$_];
-			$geneInsertColumns 	.= ','.$gene_fields{$fields[$_]};
-			$geneInsertValues 	.= ','.$row[$_];
-		}
-
-		#If we have the reporter that means we want to update by Reporter ID.
-		if ($outside_have_reporter) 
-		{
-			$currentStatement = $ReporterIDBaseInsert;
-
-			my $reporter_value = cleanSQLString($row[$reporter_index]);
-			if (!$reporter_value) 
-			{
-				print $q->p('Invalid Reporter ID found -- cannot proceed with update.');
-				return;
+		if ($outside_have_gene) {
+			my $gene_values = '';
+			$update_gene = '';
+			foreach (@slice_gene) {
+				$gene_values .= ','.$row[$_];
+				$update_gene .= ','.$fields[$_].'='.$row[$_];
 			}
-
-			$probe_updates 		=~ s/^,//;
-			$update_gene		=~ s/^,//;
-			$geneInsertColumns	=~ s/^,//;
-			$geneInsertValues	=~ s/^,//;
-print $reporter_value;
-			$currentStatement 	=~ s/\{2\}/$GeneUpdateBlock/g;
-			$currentStatement 	=~ s/\{0\}/$reporter_value/g;
-			$currentStatement 	=~ s/\{1\}/$probe_updates/g;
-			$currentStatement 	=~ s/\{3\}/$update_gene/g;
-			$currentStatement 	=~ s/\{4\}/$geneInsertColumns/g;
-			$currentStatement 	=~ s/\{5\}/$geneInsertValues/g;
-			$currentStatement 	=~ s/\{6\}/$probe_titles/g;
-			$currentStatement 	=~ s/\{7\}/$pid_value/g;
-			$currentStatement 	=~ s/\{8\}/$reporter_value/g;
-			$currentStatement 	=~ s/\{9\}/$probe_values/g;
-
-		}
-		elsif($outside_have_accession)
-		{
-			#{0} - Accnum.
-			#{1} - Gene update statements.
-			#{2} - Gene insert list.
-			#{3} - Gene insert values.
-
-			$currentStatement = $AccessionBaseInsert;
-
-			my $AccessionValue = cleanSQLString($row[$reporter_index]);
-
-			if (!$AccessionValue) 
-			{
-				print $q->p('Invalid Accession Number found -- cannot proceed with update.');
-				return;
+			if (defined($seqname_index)) {
+				$seqname_value = $row[$seqname_index];
+				if ($seqname_value) {
+					$seqname_value =~ $regex_strip_quotes;
+					$seqname_value = ($2 && $2 ne '#N/A' && $2 ne 'Data not found') ? $dbh->quote($2) : 'NULL';
+				} else {
+					$seqname_value = 'NULL';
+				}
+				$have_seqname++ if $seqname_value ne 'NULL';
 			}
+			if (defined($accnum_index)) {
+				# The two lines below split the value matched by the regular expression (stored in $2)
+				# on a comma surrounded by any number (including zero) of blanks, delete invalid members 
+				# from the resulting array, quote each member with DBI::quote, and assign the array to @accnum_array.
+				$row[$accnum_index] =~ $regex_strip_quotes;
+				@accnum_array = map { $dbh->quote($_) } grep { $_ && $_ ne '#N/A' } split($regex_split_on_commas, $2);
 
-			$update_gene		=~ s/^,//;
-			$geneInsertColumns	=~ s/^,//;
-			$geneInsertValues	=~ s/^,//;
-
-			$currentStatement 	=~ s/\{0\}/\Q$AccessionValue\E/g;
-			$currentStatement 	=~ s/\{1\}/\Q$update_gene\E/g;
-			$currentStatement 	=~ s/\{2\}/\Q$geneInsertColumns\E/g;
-			$currentStatement 	=~ s/\{3\}/\Q$geneInsertValues\E/g;		
-		}
-		elsif($outside_have_gene)
-		{
-			#{0} - seqname.
-			#{1} - Gene update statements.
-			#{2} - Gene insert list.
-			#{3} - Gene insert values.
-
-			$currentStatement = $GeneBaseInsert;
-
-			my $GeneSymbolValue = cleanSQLString($row[$reporter_index]);
-
-			if (!$GeneSymbolValue) 
-			{
-				print $q->p('Invalid Gene Symbol found -- cannot proceed with update.');
-				return;
+				# Iterate over the resulting array
+				if ($have_reporter && @accnum_array) {
+					push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
+					foreach (@accnum_array) {
+						push @sql, qq{insert into gene (accnum, seqname $gene_titles) values ($_, $seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
+						push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
+					}
+				}
 			}
-
-			$update_gene		=~ s/^,//;
-			$geneInsertColumns	=~ s/^,//;
-			$geneInsertValues	=~ s/^,//;
-
-			$currentStatement 	=~ s/\{0\}/\Q$GeneSymbolValue\E/g;
-			$currentStatement 	=~ s/\{1\}/\Q$update_gene\E/g;
-			$currentStatement 	=~ s/\{2\}/\Q$geneInsertColumns\E/g;
-			$currentStatement 	=~ s/\{3\}/\Q$geneInsertValues\E/g;				
+			if ($have_reporter && !@accnum_array && $have_seqname) {
+				# have gene symbol but not transcript accession number
+				push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
+				push @sql, qq{insert into gene (seqname $gene_titles) values ($seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
+				push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
+			}
+		}
+		if (@slice_gene) {
+			if (!$outside_have_gene) {
+				# if $outside_have_gene is true, $update_gene string has been formed already
+				$update_gene = '';
+				foreach (@slice_gene) {
+					# title1 = value1, title2 = value2, ...
+					$update_gene .= ','.$fields[$_] .'='.$row[$_];
+				}
+			}
+			$update_gene =~ s/^,//;      # strip leading comma
+			if ($have_reporter) {
+				if (!@accnum_array && !$have_seqname && !$replace_accnum) {
+					# if $replace_accnum was specified, all rows from annotates table where rid=@rid
+					# have already been deleted, so no genes would be updated anyway
+					push @sql, qq{update gene natural join annotates set $update_gene where rid=\@rid};
+				}
+			} else {
+				if (!@accnum_array && $have_seqname) {
+					my $eq_seqname = ($seqname_value eq 'NULL') ? 'is NULL' : "=$seqname_value";
+					push @sql, qq{update gene set $update_gene where seqname $eq_seqname and pid=$pid_value};
+				} elsif (@accnum_array && !$have_seqname) {
+					foreach (@accnum_array) {
+						my $eq_accnum = ($_ eq 'NULL') ? 'is NULL' : "=$_";
+						push @sql, qq{update gene set $update_gene where accnum $eq_accnum and pid=$pid_value};
+					}
+				} elsif (@accnum_array && $have_seqname) {
+					my $eq_seqname = ($seqname_value eq 'NULL') ? 'is NULL' : "=$seqname_value";
+					foreach (@accnum_array) {
+						my $eq_accnum = ($_ eq 'NULL') ? 'is NULL' : "=$_";
+						push @sql, qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname and pid=$pid_value};
+					}
+				}
+			}
 		}
 
-		print OUTPUTTOSERVER $currentStatement;
+		# execute the SQL statements
+		foreach(@sql) {
+			#warn $_;
 
+			$dbh->do($_) or die $dbh->errstr;
+		}
 	}
-	close(OUTPUTTOSERVER);
-	
-	#Run the commands we just created.
-	$dbh->do("source  $outputFileName;") or die $dbh->errstr;
-	system("rm -rf $direc_out");
+	#my $clock1 = clock();
 
+	if ($outside_have_reporter && $replace_accnum) {
+		#warn "begin optimizing\n";
+		# have to "optimize" because some of the deletes above were performed with "ignore" option
+		$dbh->do(qq{optimize table annotates}) or die $dbh->errstr;
+		# in case any gene records have been orphaned, delete them
+		$dbh->do(qq{delete gene from gene left join annotates on gene.gid=annotates.gid where annotates.gid is NULL}) or die $dbh->errstr;
+		#warn "end optimizing\n";
+	}
 	my $count_lines = @lines;
+	#print $q->p(sprintf("%d lines processed in %g seconds", $count_lines, $clock1 - $clock0));
 	print $q->p(sprintf("%d lines processed.", $count_lines));
 	
 	#Flag the platform as being annotated.
 	my $annotateUpdate = "UPDATE platform SET isAnnotated = 1 WHERE pid = $pid_value";
 	$dbh->do($annotateUpdate) or die $dbh->errstr;
+
 }
 
 sub cleanSQLString

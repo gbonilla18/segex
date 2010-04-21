@@ -33,154 +33,13 @@ sub new {
 	# This is the constructor
 	my $class = shift;
 
-	my @deleteStatementList;
-	my @addExistingExperimentList;
-
-	push @deleteStatementList,'DELETE FROM microarray WHERE eid = {0};';
-	push @deleteStatementList,'DELETE FROM experiment WHERE eid = {0};';
-
-	push @addExistingExperimentList,'INSERT INTO experiment (sample1,sample2,stid,ExperimentDescription,AdditionalInformation) SELECT sample1,sample2,{1},ExperimentDescription,AdditionalInformation FROM experiment WHERE eid = {0};';
-	push @addExistingExperimentList,'INSERT INTO microarray (eid,rid,ratio,foldchange,pvalue,intensity2,intensity1) SELECT LAST_INSERT_ID(),rid,ratio,foldchange,pvalue,intensity2,intensity1 FROM microarray WHERE eid = {0};';
-
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
-		_LoadQuery	=> "	SELECT 	experiment.eid,
-						study.pid,
-						experiment.sample1,
-						experiment.sample2,
-						COUNT(1),
-						ExperimentDescription,
-						AdditionalInformation
-					FROM	experiment 
-					INNER JOIN study ON study.stid = experiment.stid
-					LEFT JOIN microarray ON microarray.eid = experiment.eid
-					WHERE experiment.stid = {0}
-					GROUP BY experiment.eid,
-						study.pid,
-						experiment.sample1,
-						experiment.sample2,
-						ExperimentDescription,
-						AdditionalInformation;
-				   ",
-		_LoadSingleQuery=> "SELECT	eid,
-						sample1,
-						sample2,
-						ExperimentDescription,
-						AdditionalInformation
-					FROM	experiment 
-					INNER JOIN study ON study.stid = experiment.stid
-					WHERE	experiment.eid = {0}
-					GROUP BY experiment.eid,
-						experiment.sample1,
-						experiment.sample2,
-						ExperimentDescription,
-						AdditionalInformation;
-				",
-		_UpdateQuery	=> 'UPDATE experiment SET ExperimentDescription = \'{0}\', AdditionalInformation = \'{1}\', sample1 = \'{2}\', sample2 = \'{3}\' WHERE eid = {4};',
-		_InsertQuery	=> 'INSERT INTO experiment (sample1,sample2,stid,ExperimentDescription,AdditionalInformation) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\',\'{4}\');',
-		_DeleteQuery	=> \@deleteStatementList,
-		_StudyQuery	=> 'SELECT stid,description FROM study;',
-		_ExistingStudyQuery 		=> 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
-		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment WHERE stid IN (SELECT stid FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0})) AND stid <> {0};",
-		_PlatformQuery			=> 'SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;',
-		_AddExistingExperiment 		=> \@addExistingExperimentList,
-		_RecordCount	=> 0,
-		_Records	=> '',
-		_FieldNames	=> '',
-		_Data		=> '',
-		_stid		=> '',
-		_description	=> '',
-		_pubmed		=> '',
-		_pid		=> '',
-		_eid		=> '',
-		_studyList	=> {},
-		_studyValue	=> (),
-		_ExistingExperimentList	=> {},
-		_ExistingExperimentValue => (),
-		_sample1	=> '',
-		_sample2	=> '',
-		_ExperimentDescription => '',
-		_AdditionalInformation => '',
-		_SelectedStudy	=> 0,
-		_SelectExperiment => 0
-	};
+		};
 
 	bless $self, $class;
 	return $self;
-}
-
-#Loads all expriments from a specific study.
-sub loadAllExperimentsFromStudy
-{
-	my $self 	= shift;
-	my $loadQuery 	= $self->{_LoadQuery};
-
-	$loadQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/g;
-
-	$self->{_Records} 	= $self->{_dbh}->prepare($loadQuery) or die $self->{_dbh}->errstr;
-	$self->{_RecordCount}	= $self->{_Records}->execute or die $self->{_dbh}->errstr;
-	$self->{_FieldNames} 	= $self->{_Records}->{NAME};
-	$self->{_Data} 		= $self->{_Records}->fetchall_arrayref;
-	$self->{_Records}->finish;
-}
-
-#Loads a single platform from the database based on the URL parameter.
-sub loadSingleExperiment
-{
-	#Grab object and id from URL.
-	my $self 	= shift;
-	$self->{_eid} 	= $self->{_FormObject}->url_param('id');
-	$self->{_stid}	= ($self->{_FormObject}->url_param('stid')) if defined($self->{_FormObject}->url_param('stid'));
-	
-	#Use a regex to replace the ID in the query to load a single platform.
-	my $singleItemQuery 	= $self->{_LoadSingleQuery};
-	$singleItemQuery 	=~ s/\{0\}/\Q$self->{_eid}\E/g;
-
-	#Run the SPROC and get the data into the object.
-	$self->{_Records} 	= $self->{_dbh}->prepare($singleItemQuery) or die $self->{_dbh}->errstr;
-	$self->{_RecordCount}	= $self->{_Records}->execute or die $self->{_dbh}->errstr;
-	$self->{_Data} 		= $self->{_Records}->fetchall_arrayref;
-
-	foreach (@{$self->{_Data}})
-	{
-		$self->{_sample1}		= $_->[1];
-		$self->{_sample2}		= $_->[2];
-		$self->{_ExperimentDescription}	= $_->[3];
-		$self->{_AdditionalInformation}	= $_->[4];
-	}
-
-	$self->{_Records}->finish;
-}
-
-#Loads information into the object that is used to create the study dropdown.
-sub loadStudyData
-{
-	my $self		= shift;
-
-	my $studyDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_StudyQuery},0);
-
-	$studyDropDown->loadDropDownValues();
-
-	$self->{_studyList} 	= $studyDropDown->{_dropDownList};
-	$self->{_studyValue} 	= $studyDropDown->{_dropDownValue};
-}
-
-#Load the data from the submitted form.
-sub loadFromForm
-{
-	my $self = shift;
-
-	$self->{_eid}			= ($self->{_FormObject}->param('eid')) 				if defined($self->{_FormObject}->param('eid'));
-	$self->{_stid}			= ($self->{_FormObject}->param('stid'))				if defined($self->{_FormObject}->param('stid'));
-	$self->{_stid}			= ($self->{_FormObject}->url_param('stid'))			if defined($self->{_FormObject}->url_param('stid'));	
-	$self->{_eid}			= ($self->{_FormObject}->url_param('id')) 			if defined($self->{_FormObject}->url_param('id'));
-	$self->{_sample1}		= ($self->{_FormObject}->param('Sample1'))			if defined($self->{_FormObject}->param('Sample1'));
-	$self->{_sample2}		= ($self->{_FormObject}->param('Sample2'))			if defined($self->{_FormObject}->param('Sample2'));
-	$self->{_ExperimentDescription}	= ($self->{_FormObject}->param('ExperimentDescription'))	if defined($self->{_FormObject}->param('ExperimentDescription'));
-	$self->{_AdditionalInformation}	= ($self->{_FormObject}->param('AdditionalInformation'))	if defined($self->{_FormObject}->param('AdditionalInformation'));
-	$self->{_SelectedStudy}		= ($self->{_FormObject}->param('study_exist'))			if defined($self->{_FormObject}->param('study_exist'));
-	$self->{_SelectedExperiment}	= ($self->{_FormObject}->param('experiment_exist'))		if defined($self->{_FormObject}->param('experiment_exist'));
 }
 
 #######################################################################################
@@ -439,7 +298,7 @@ sub printTableInformation
 		var myColumnDefs = [
 		{key:"0", sortable:true, resizeable:true, label:"Sample 1"},
 		{key:"1", sortable:true, resizeable:true, label:"Sample 2"},
-		{key:"2", sortable:true, resizeable:true, label:"Probe Count"},
+		{key:"2", sortable:true, resizeable:true, label:"Experiment Data Count"},
 		{key:"5", sortable:false, resizeable:true, label:"Experiment Description"},
 		{key:"6", sortable:false, resizeable:true, label:"Additional Information"},
 		{key:"3", sortable:false, resizeable:true, label:"Delete Experiment",formatter:"formatExperimentDeleteLink"}
@@ -451,10 +310,10 @@ sub printJavaScriptRecordsForExistingDropDowns
 	my $self 		= shift;
 
 	my $studyQuery 		= $self->{_ExistingStudyQuery};
-	$studyQuery 		=~ s/\{0\}/\Q$self->{_stid}\E/g;	
+	$studyQuery 		=~ s/\{0\}/\Q$self->{_stid}\E/;	
 
 	my $experimentQuery	= $self->{_ExistingExperimentQuery};
-	$experimentQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/g;	
+	$experimentQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/;	
 
 	my $tempRecords 	= $self->{_dbh}->prepare($studyQuery) or die $self->{_dbh}->errstr;
 	my $tempRecordCount	= $tempRecords->execute or die $self->{_dbh}->errstr;
@@ -632,10 +491,7 @@ sub addNewExperiment
 		#Run the command to drop the temp table.
 		$self->{_dbh}->do($dropStatement) or die $self->{_dbh}->errstr;
 		#--------------------------------------------
-		
-		#Remove the temp directory.
-		system("rm -rf $direc_out");
-				
+
 		if($rowsInserted < 2)
 		{
 			print "Experiment data could not be added. Please verify you are using the correct annotations for the platform. <br />\n";
