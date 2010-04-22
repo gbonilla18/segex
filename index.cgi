@@ -74,27 +74,27 @@ my $TFSDisplay;
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
 # but then the URIs would not be human-readable anymore.
 # ===== User Management ==================================
-use constant FORM			=> 'form_';# this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
-use constant LOGIN			=> 'login';
-use constant LOGOUT			=> 'logout';
+use constant FORM				=> 'form_';# this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
+use constant LOGIN				=> 'login';
+use constant LOGOUT				=> 'logout';
 use constant DEFAULT_ACTION		=> 'mainPage';
 use constant UPDATEPROFILE		=> 'updateProfile';
-use constant MANAGEPLATFORMS		=> 'managePlatforms';
+use constant MANAGEPLATFORMS	=> 'managePlatforms';
 use constant MANAGESTUDIES		=> 'manageStudy';
-use constant MANAGEEXPERIMENTS		=> 'manageExperiments';
+use constant MANAGEEXPERIMENTS	=> 'manageExperiments';
 use constant OUTPUTDATA			=> 'outputData';
 use constant CHANGEPASSWORD		=> 'changePassword';
 use constant CHANGEEMAIL		=> 'changeEmail';
 use constant RESETPASSWORD		=> 'resetPassword';
 use constant REGISTERUSER		=> 'registerUser';
 use constant VERIFYEMAIL		=> 'verifyEmail';
-use constant QUIT			=> 'quit';
-use constant DUMP			=> 'dump';
+use constant QUIT				=> 'quit';
+use constant DUMP				=> 'dump';
 use constant DOWNLOADTFS		=> 'getTFS';
 use constant SHOWSCHEMA			=> 'showSchema';
-use constant HELP			=> 'help';
-use constant ABOUT			=> 'about';
-use constant COMPAREEXPERIMENTS		=> 'Compare Selected';	# submit button text
+use constant HELP				=> 'help';
+use constant ABOUT				=> 'about';
+use constant COMPAREEXPERIMENTS	=> 'Compare Selected';	# submit button text
 use constant FINDPROBES			=> 'Search';		# submit button text
 use constant UPDATEPROBE		=> 'updateCell';
 use constant UPLOADANNOT		=> 'uploadAnnot';
@@ -1806,7 +1806,7 @@ sub dump_table {
 
 #######################################################################################
 sub show_tfs_js {
-	 $TFSDisplay = new SGX::TFSDisplay($dbh,$q);;
+	 $TFSDisplay = new SGX::TFSDisplay($dbh,$q);
 	 $TFSDisplay->loadTFSData();
 	 $TFSDisplay->displayTFSInfo();
 }
@@ -1814,14 +1814,13 @@ sub show_tfs_js {
 
 #######################################################################################
 sub show_tfs {
-	print qq{
-<h2 id="summary_caption"></h2>
-<div><a id="summ_astext">View as plain text</a></div>
-<div id="summary_table" class="table_cont"></div>
-<h2 id="tfs_caption"></h2>
-<div><a id="tfs_astext">View as plain text</a></div>
-<div id="tfs_table" class="table_cont"></div>
-};
+	print 	'<h2 id="summary_caption"></h2>';
+	print	'<a href="' . $q->url(-query=>1) . '&CSV=1" target = "_blank">Output all data in CSV</a>';
+	print	'<div><a id="summ_astext">View as plain text</a></div>';
+	print	'<div id="summary_table" class="table_cont"></div>';
+	print	'<h2 id="tfs_caption"></h2>';
+	print	'<div><a id="tfs_astext">View as plain text</a></div>';
+	print	'<div id="tfs_table" class="table_cont"></div>';
 }
 #######################################################################################
 sub get_annot_fields {

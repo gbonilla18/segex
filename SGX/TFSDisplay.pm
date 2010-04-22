@@ -27,6 +27,8 @@ package SGX::TFSDisplay;
 use strict;
 use warnings;
 
+use Data::Dumper;
+
 sub new {
 	# This is the constructor
 	my $class = shift;
@@ -66,10 +68,16 @@ sub loadTFSData
 	# If the $self->{_fs} is zero or undefined, all data will be output
 	#
 	my $regex_split_on_commas 	= qr/ *, */;
-	$self->{_eids}			= \split($regex_split_on_commas, $self->{_FormObject}->param('eid'));
-	$self->{_reverses} 		= \split($regex_split_on_commas, $self->{_FormObject}->param('rev'));
-	$self->{_fcs} 			= \split($regex_split_on_commas, $self->{_FormObject}->param('fc'));
-	$self->{_pvals}			= \split($regex_split_on_commas, $self->{_FormObject}->param('pval'));
+	my @eidsArray 			= split($regex_split_on_commas, $self->{_FormObject}->param('eid'));
+	my @reversesArray		= split($regex_split_on_commas, $self->{_FormObject}->param('rev'));
+	my @fcsArray			= split($regex_split_on_commas, $self->{_FormObject}->param('fc'));
+	my @pvalArray			= split($regex_split_on_commas, $self->{_FormObject}->param('pval'));	
+	
+	$self->{_eids}			= \@eidsArray;
+	$self->{_reverses} 		= \@reversesArray;
+	$self->{_fcs} 			= \@fcsArray;
+	$self->{_pvals}			= \@pvalArray;
+	
 	$self->{_fs} 			= $self->{_FormObject}->param('get');
 	$self->{_outType}		= $self->{_FormObject}->param('outType');
 	$self->{_opts} 			= $self->{_FormObject}->param('opts');
@@ -99,7 +107,8 @@ SELECT 	abs_fs,
 	my $query_join = '';
 	my $query_titles = '';
 	my $i = 1; 
-	foreach my $eid ($self->{_eids}) {
+
+	foreach my $eid (@{$self->{_eids}}) {
 		my ($fc, $pval) = (${$self->{_fcs}}[$i-1],  ${$self->{_pvals}}[$i-1]);
 		my $abs_flag = 1 << $i - 1;
 		my $dir_flag = ($self->{_reverses}[$i-1]) ? "$abs_flag,0" : "0,$abs_flag";
@@ -127,7 +136,7 @@ SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NAT
 	
 	# strip trailing 'UNION ALL' plus any trailing white space
 	$query_titles =~ s/UNION ALL\s*$//i;
-	
+
 	$self->{_headerTitles} 	= $self->{_dbh}->prepare(qq{$query_titles}) or die $self->{_dbh}->errstr;
 	$self->{_headerCount} 	= $self->{_headerTitles}->execute or die $self->{_dbh}->errstr;
 	$self->{_headerRecords} 	= $self->{_headerTitles}->fetchall_hashref('eid');
@@ -157,7 +166,6 @@ ORDER BY abs_fs DESC
 	$self->{_Records} = $self->{_dbh}->prepare(qq{$query}) or die $self->{_dbh}->errstr;
 	$self->{_RowCountAll} = $self->{_Records}->execute or die $self->{_dbh}->errstr;
 
-
 }
 #######################################################################################
 
@@ -176,11 +184,12 @@ headers: ["&nbsp;", "Experiment", "&#124;Fold Change&#124; &gt;", "P &lt;", "&nb
 parsers: ["number", "string", "number", "number", "string"],
 records: [
 ';
-	for ($i = 0; $i < $self->{_eids}; $i++) {
-		my $currentTitle = my $self->{_headerRecords}->{$self->{_eids}[$i]}->{title};
+
+	for ($i = 0; $i < @{$self->{_eids}}; $i++) {
+		my $currentTitle = $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title};
 		$currentTitle    =~ s/"/\\"/g;
 
-		$out .= '{0:"' . ($i + 1) . '",1:"'.$currentTitle.'",2:"'.$self->{_fcs}[$i].'",3:"'. $self->{_pvals}[$i].'",4:"';
+		$out .= '{0:"' . ($i + 1) . '",1:"'.$currentTitle.'",2:"'.${$self->{_fcs}}[$i].'",3:"'. ${$self->{_pvals}}[$i].'",4:"';
 		# test for bit presence and print out 1 if present, 0 if absent
 		if (defined($self->{_fs})) { $out .= (1 << $i & $self->{_fs}) ? "x\"},\n" : "\"},\n" }
 		else { $out .= "\"},\n" }
@@ -219,7 +228,7 @@ $table_format[1] = 'formatTranscript';
 $table_format[2] = 'formatGene';
 
 if ($self->{_opts} > 1) {
-	my $blat = $self->{_FormObject}->a({-target=>'_blank',-title=>'UCSC BLAT on DNA',-href=>'http://genome.ucsc.edu/cgi-bin/hgBlat?org={1}&type=DNA&userSeq={0}'}, '{0}','{1}');
+	my $blat = $self->{_FormObject}->a({-target=>'_blank',-title=>'UCSC BLAT on DNA',-href=>'http://genome.ucsc.edu/cgi-bin/hgBlat?org={1}&type=DNA&userSeq={0}'}, '{0}');
 	$blat =~ s/"/\\"/g;      # prepend all double quotes with backslashes
 	$table_format[3] = 'formatProbeSequence';
 	$format_template[3] = $blat;
@@ -242,7 +251,7 @@ records: [
 		# Math::BigInt->badd(x,y) is used to add two very large numbers x and y
 		# actually Math::BigInt library is supposed to overload Perl addition operator,
 		# but if fails to do so for some reason in this CGI program.
-		my $TFS = sprintf("$abs_fs.%0".$self->{_eids}.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,$self->{_eids}), substr(unpack('b32', pack('V', $dir_fs)),0,$self->{_eids})));
+		my $TFS = sprintf("$abs_fs.%0".@{$self->{_eids}}.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,@{$self->{_eids}}), substr(unpack('b32', pack('V', $dir_fs)),0,@{$self->{_eids}})));
 
 		$out .= "{0:\"$TFS\"";
 		foreach (@row) { $_ = '' if !defined $_ }
@@ -260,6 +269,7 @@ records: [
 	$out =~ s/,\s*$//;	# strip trailing comma
 	$out .= '
 ]};
+
 
 function export_table(e) {
 	var r = this.records;
@@ -311,8 +321,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
 		elCell.innerHTML = lang.substitute(template_gene, {"0":oData});
 	}
 	Formatter.formatProbeSequence = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_probeseq, {"0":oData});
-		elCell.innerHTML = lang.substitute(elCell.innerHTML, {"1":oRecord.getData("6")});
+		elCell.innerHTML = lang.substitute(lang.substitute(template_probeseq, {"0":oData}),{"1":oRecord.getData("6")});
+
 	}
 	Formatter.formatNumber = function(elCell, oRecord, oColumn, oData) {
 		// Overrides the built-in formatter

@@ -92,10 +92,10 @@ sub loadAllPlatforms
 {
 	my $self = shift;
 
-	$self->{_Records} 	= $self->{_dbh}->prepare($self->{_LoadQuery}) or die $self->{_dbh}->errstr;
+	$self->{_Records} 		= $self->{_dbh}->prepare($self->{_LoadQuery}) or die $self->{_dbh}->errstr;
 	$self->{_RecordCount}	= $self->{_Records}->execute or die $self->{_dbh}->errstr;
 	$self->{_FieldNames} 	= $self->{_Records}->{NAME};
-	$self->{_Data} 		= $self->{_Records}->fetchall_arrayref;
+	$self->{_Data} 			= $self->{_Records}->fetchall_arrayref;
 	$self->{_Records}->finish;
 }
 

@@ -597,7 +597,7 @@ sub addNewExperiment
 					";
 
 		#This is the mysql command to get results from temp file into the microarray table.
-		my $insertStatement 	= "INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity2,intensity1)
+		$insertStatement 	= "INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity2,intensity1)
 		SELECT	probe.rid,
 			" . $self->{_eid} . " as eid,
 			temptable.ratio,
