@@ -118,10 +118,10 @@ sub loadSinglePlatform
 	
 	foreach (@{$self->{_Data}})
 	{
-		$self->{_PName}		= $_->[0];
+		$self->{_PName}			= $_->[0];
 		$self->{_def_f_cutoff}	= $_->[1];
 		$self->{_def_p_cutoff}	= $_->[2];
-		$self->{_Species}	= $_->[3];		
+		$self->{_Species}		= $_->[3];		
 	}
 
 	$self->{_Records}->finish;

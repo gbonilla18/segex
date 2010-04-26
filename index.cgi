@@ -1806,9 +1806,23 @@ sub dump_table {
 
 #######################################################################################
 sub show_tfs_js {
-	 $TFSDisplay = new SGX::TFSDisplay($dbh,$q);
-	 $TFSDisplay->loadTFSData();
-	 $TFSDisplay->displayTFSInfo();
+
+	if(defined($q->url_param('CSV')))
+	{
+		$s->commit;
+		$TFSDisplay = new SGX::TFSDisplay($dbh,$q);
+		$TFSDisplay->loadDataFromSubmission();
+		$TFSDisplay->getPlatformData();
+		$TFSDisplay->loadAllData();
+		$TFSDisplay->displayTFSInfoCSV();
+	}
+	else
+	{
+		$TFSDisplay = new SGX::TFSDisplay($dbh,$q);
+		$TFSDisplay->loadDataFromSubmission();
+		$TFSDisplay->loadTFSData();
+		$TFSDisplay->displayTFSInfo();
+	}
 }
 #######################################################################################
 
