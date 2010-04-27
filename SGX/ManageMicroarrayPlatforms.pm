@@ -242,7 +242,7 @@ sub printTableInformation
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatPlatformDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Delete Platform\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			elCell.innerHTML = "<a title=\"Delete Platform\" onClick = \"alert(\'This feature has been disabled till password protection can be implemented.\');return false;\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
 		}
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSPlatformList.caption;

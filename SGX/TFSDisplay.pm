@@ -53,6 +53,7 @@ sub new {
 		_outType		=> '',
 		_numStart		=> 0,
 		_opts			=> '',
+		_allProbes		=> '',
 		_LoadQuery	=> 'select 	platform.pname, 
 								platform.def_f_cutoff, 
 								platform.def_p_cutoff, 
@@ -106,6 +107,7 @@ sub loadTFSData
 	$self->{_fcs} 			= \@fcsArray;
 	$self->{_pvals}			= \@pvalArray;
 	
+	$self->{_allProbes}		= $self->{_FormObject}->param('allProbes');
 	$self->{_fs} 			= $self->{_FormObject}->param('get');
 	$self->{_outType}		= $self->{_FormObject}->param('outType');
 	$self->{_opts} 			= $self->{_FormObject}->param('opts');
@@ -117,7 +119,7 @@ sub loadTFSData
 	}
 
 	# Build the SQL query that does the TFS calculation
-	my $having = (defined($self->{_fs}) && $self->{_fs}) ? "HAVING abs_fs=$self->{_fs}" : '';
+	my $having = (defined($self->{_fs})) ? "HAVING abs_fs=$self->{_fs}" : '';
 	$self->{_numStart} = 5;	# index of the column that is the beginning of the "numeric" half of the table (required for table sorting)
 	my $query = '   
 SELECT 	abs_fs, 
@@ -136,29 +138,33 @@ SELECT 	abs_fs,
 	my $query_titles = '';
 	my $i = 1; 
 
-	foreach my $eid (@{$self->{_eids}}) {
+	foreach my $eid (@{$self->{_eids}}) 
+	{
 		my ($fc, $pval) = (${$self->{_fcs}}[$i-1],  ${$self->{_pvals}}[$i-1]);
 		my $abs_flag = 1 << $i - 1;
 		my $dir_flag = ($self->{_reverses}[$i-1]) ? "$abs_flag,0" : "0,$abs_flag";
 		$query_proj .= ($self->{_reverses}[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', " : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue,";
-		if ($self->{_opts} > 0) {
+		
+		if ($self->{_opts} > 0) 
+		{
 			$query_proj .= ($self->{_reverses}[$i-1]) ? "-m$i.foldchange AS \'$i: Fold Change\', " : "m$i.foldchange AS \'$i: Fold Change\', ";
 			$query_proj .= ($self->{_reverses}[$i-1]) ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\', " : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\', ";
 			$query_proj .= "m$i.pvalue AS \'$i: P\', "; 
 		}
-		$query_body .= " 
-SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL
-";
-		$query_join .= "
-LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$eid
-";
+		
+		$query_body .= " SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
+		$query_join .= " LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$eid ";
+		
+		#This is part of the query when we are including all probes. 
+		if($self->{_allProbes} eq "1")
+		{
+			$query_body .= "SELECT rid, 0 AS abs_flag,0 AS dir_flag FROM microarray WHERE eid=$eid AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc) UNION ALL ";
+		}
+				
 		# account for sample order when building title query
-		my $title = ($self->{_reverses}[$i-1]) ?
-			"experiment.sample1, ' / ', experiment.sample2" :
-			"experiment.sample2, ' / ', experiment.sample1";
-		$query_titles .= "
-SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL
-";
+		my $title = ($self->{_reverses}[$i-1]) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
+		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
+		
 		$i++;
 	}
 	
@@ -190,6 +196,8 @@ LEFT JOIN platform 	ON platform.pid = probe.pid
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
 ";
+
+
 
 	$self->{_Records} = $self->{_dbh}->prepare(qq{$query}) or die $self->{_dbh}->errstr;
 	$self->{_RowCountAll} = $self->{_Records}->execute or die $self->{_dbh}->errstr;
@@ -243,6 +251,7 @@ sub loadDataFromSubmission
 	$self->{_fs} 			= $self->{_FormObject}->param('get');
 	$self->{_outType}		= $self->{_FormObject}->param('outType');
 	$self->{_opts} 			= $self->{_FormObject}->param('opts');
+	$self->{_allProbes}		= $self->{_FormObject}->param('allProbes');
 	
 }
 #######################################################################################
@@ -299,6 +308,12 @@ sub loadAllData
 		
 		$query_body .= " SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
 		$query_join .= " LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$eid ";
+		
+		#This is part of the query when we are including all probes. 
+		if($self->{_allProbes} eq "1")
+		{
+			$query_body .= "SELECT rid, 0 AS abs_flag,0 AS dir_flag FROM microarray WHERE eid=$eid AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc) UNION ALL ";
+		}		
 		
 		# account for sample order when building title query
 		my $title = ($self->{_reverses}[$i-1]) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";

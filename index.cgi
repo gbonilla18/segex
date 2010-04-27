@@ -1490,9 +1490,9 @@ sub form_compareExperiments {
 			-action=>$q->url(absolute=>1).'?a='.COMPAREEXPERIMENTS
 	),
 	$q->dl(
-		$q->dt('Ignore thresholds and use all probes:'),
+		$q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
 		$q->dd(
-			$q->checkbox(-name=>'chkIgnoreThesh',-id=>'chkIgnoreThesh',-value=>'1',-label=>'')
+			$q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')
 		)
 	),
 	$q->dl(
@@ -1508,10 +1508,11 @@ sub form_compareExperiments {
 #######################################################################################
 sub compare_experiments_js {
 	#This flag tells us whether or not to ignore the thresholds.
-	my $ignoreThresholds 	= '';
-	$ignoreThresholds 	= ($q->param('chkIgnoreThesh')) if defined($q->param('chkIgnoreThesh'));
+	my $allProbes 		= '';
+	$allProbes 			= ($q->param('chkAllProbes')) if defined($q->param('chkAllProbes'));
 	
-	my $thresholdQuery	= '';
+	my $thresholdQuery			= '';
+	my $allProbeThresholdQuery	= '';
 
 	my $query_titles 	= '';
 	my $query_fs 		= 'SELECT fs, COUNT(*) as c FROM (SELECT BIT_OR(flag) AS fs FROM (';
@@ -1524,16 +1525,25 @@ sub compare_experiments_js {
 		my ($eid, $fc, $pval) = ($q->param("eid_$i"), $q->param("fc_$i"), $q->param("pval_$i"));
 		my $reverse = (defined($q->param("reverse_$i"))) ? 1 : 0;
 
-		# prepare the four arrays that will be used to display data
-		push @eids, $eid; push @reverses, $reverse; push @fcs, $fc; push @pvals, $pval;
+		#Prepare the four arrays that will be used to display data
+		push @eids, 	$eid; 
+		push @reverses, $reverse; 
+		push @fcs, 		$fc; 
+		push @pvals, 	$pval;
 
-		# flagsum breakdown query
+		#Flagsum breakdown query
 		my $flag = 1 << $i - 1;
 
-		#If we didn't get the input to ignore the threshold, add the thresholds.
-		$thresholdQuery	= " AND pvalue < $pval AND ABS(foldchange)  > $fc " if($ignoreThresholds ne "1");
+		#This is the normal threshold.
+		$thresholdQuery	= " AND pvalue < $pval AND ABS(foldchange)  > $fc ";
 
 		$query_fs_body .= "SELECT rid, $flag AS flag FROM microarray WHERE eid=$eid $thresholdQuery UNION ALL ";
+		
+		#This is part of the query when we are including all probes. 
+		if($allProbes eq "1")
+		{
+			$query_fs_body .= "SELECT rid, 0 AS flag FROM microarray WHERE eid=$eid AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$eid $thresholdQuery) UNION ALL ";
+		}
 
 		# account for sample order when building title query
 		my $title = ($reverse) ? 
@@ -1642,6 +1652,7 @@ var eid="'.join(',',@eids).'";
 var rev="'.join(',',@reverses).'";
 var fc="'.join(',',@fcs).'";
 var pval="'.join(',',@pvals).'";
+var allProbes = "' . $allProbes . '";
 
 var summary = {
 caption: "Experiments compared",
@@ -1709,6 +1720,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 	Dom.get("rev").value = rev;
 	Dom.get("fc").value = fc;
 	Dom.get("pval").value = pval;
+	Dom.get("allProbes").value = allProbes;
 	Dom.get("venn").innerHTML = venn;
 	Dom.get("summary_caption").innerHTML = summary.caption;
 	var summary_table_defs = [
@@ -1772,6 +1784,7 @@ sub compare_experiments {
 		$q->hidden(-name=>'rev', -id=>'rev'),
 		$q->hidden(-name=>'fc', -id=>'fc'),
 		$q->hidden(-name=>'pval', -id=>'pval'),
+		$q->hidden(-name=>'allProbes', -id=>'allProbes'),
 		'<h2 id="tfs_caption"></h2>',
 		$q->dl(
 			$q->dt('Data to display:'),
@@ -1829,7 +1842,7 @@ sub show_tfs_js {
 #######################################################################################
 sub show_tfs {
 	print 	'<h2 id="summary_caption"></h2>';
-	print	'<a href="' . $q->url(-query=>1) . '&CSV=1" target = "_blank">Output all data in CSV</a>';
+	print	'<a href="' . $q->url(-query=>1) . '&CSV=1" target = "_blank">Output all data in CSV</a><br /><br />';
 	print	'<div><a id="summ_astext">View as plain text</a></div>';
 	print	'<div id="summary_table" class="table_cont"></div>';
 	print	'<h2 id="tfs_caption"></h2>';
