@@ -1925,8 +1925,9 @@ sub form_uploadAnnot {
 
 	print
 	$q->h2('<font size = "5">Upload Annotation</font>'),
-	$q->p('In order to upload new annotations or update existing annotations create a file with the fields you wish to update and a "key" to update on. The key fields are listed below in red and include (Reporter ID,Gene Symbol,Accession Number). The key will be used to find the record you wish to update. You may include multiple keys in a file and the smallest key will be used to match the record while the other keys will be updated to have the value included in the file.'),
-	$q->p('.');
+	$q->p('Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add transcript accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'),
+	$q->p('The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.');
+
 	print $q->div({-class=>'workarea'}, $q->h2('Available Fields:') .
 		$q->ul({-id=>'ul1', -class=>'draglist'}, $fieldlist));
 	print $q->div({-class=>'workarea'}, $q->h2('Fields in the Uploaded File:') .
