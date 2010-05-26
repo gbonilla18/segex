@@ -35,7 +35,7 @@ use SGX::JavaScriptDeleteConfirm;
 use SGX::TFSDisplay;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.104";
+my $softwareVersion = "0.105";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -608,8 +608,6 @@ if ($s->is_authorized('user')) {
 				-title=>'Manage Studies'}, 'Manage Studies');
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEEXPERIMENTS,
 				-title=>'Manage Experiments'}, 'Manage Experiments');
-	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.OUTPUTDATA,
-				-title=>'Output Data'}, 'Output Data');
 }
 if ($s->is_authorized('admin')) {
 	# add admin options
@@ -636,7 +634,7 @@ cgi_start_html();
 
 #print $q->h1('Welcome to '.PROJECT_NAME),
 #	$q->h2('The database for sex-specific gene expression');
-print $q->img({src=>IMAGES_PATH."/logo_DEV.png", width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
+print $q->img({src=>IMAGES_PATH."logo_DEV.png", width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
 
 print $q->ul({-id=>'menu'},$q->li(\@menu));
 
@@ -1743,11 +1741,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
 	YAHOO.widget.DataTable.Formatter.formatDownload = function(elCell, oRecord, oColumn, oData) {
 		var fs = oRecord.getData("0");
-		elCell.innerHTML = "<input type=\"submit\" name=\"get\" value=\"FS: " + fs + "\" />";
+		elCell.innerHTML = "<input type=\"submit\" name=\"get\" value=\"TFS: " + fs + "\" />&nbsp;&nbsp;&nbsp;<input type=\"submit\" name=\"CSV\" value=\"(TFS: " + fs + " CSV)\" />";
 	}
 	Dom.get("tfs_caption").innerHTML = tfs.caption;
 	Dom.get("tfs_all_dt").innerHTML = "View probes significant in at least one experiment:";
-	Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" value=\"'.$rep_count.' significant probes\" />";
+	Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" value=\"'.$rep_count.' significant probes\" /><input type=\"submit\" name=\"CSV\" value=\"(CSV)\" />";
 	var tfs_table_defs = [
 '.$tfs_defs.'
 	];
@@ -1982,7 +1980,7 @@ sub uploadAnnot {
 		# if the assertion below fails, the field specified by the user 
 		# either doesn't exist or is protected.
 		assert($probe_fields{$_} || $gene_fields{$_});
-		$col{$_} = $i;
+		$col{$probe_fields{$_}} = $i;
 		$i++;
 	}
 

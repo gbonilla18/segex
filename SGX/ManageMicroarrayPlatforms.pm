@@ -45,19 +45,19 @@ sub new {
 		_dbh		=> shift,
 		_FormObject	=> shift,
 		_LoadQuery	=> 'select 	platform.pname, 
-						platform.def_f_cutoff, 
-						platform.def_p_cutoff, 
-						platform.species,
+						platform.def_f_cutoff AS \'Default Fold Change\', 
+						platform.def_p_cutoff AS \'Default P-Value\', 
+						platform.species AS \'Species\',
 						platform.pid,
 						CASE 
 							WHEN isAnnotated THEN \'Y\' 
 							ELSE \'N\' 
-						END AS \'Is Annotated\',
-						COUNT(probe.rid) AS \'ProbeCount\',
-						SUM(IF(IFNULL(probe.probe_sequence,\'\') <> \'\' ,1,0)) AS \'Sequences Loaded\',
-						SUM(IF(IFNULL(annotates.gid,\'\') <> \'\',1,0)) AS \'Transcript IDs\',
-						SUM(IF(IFNULL(gene.seqname,\'\') <> \'\',1,0)) AS \'Gene Names\',
-						SUM(IF(IFNULL(gene.description,\'\') <> \'\',1,0)) AS \'Gene Description\'	
+						END AS \'Annotated\',
+						COUNT(probe.rid) AS \'Probe Count\',
+						SUM(IF(IFNULL(probe.probe_sequence,\'\') <> \'\' ,1,0)) AS \'Probe Sequences Loaded\',
+						SUM(IF(IFNULL(annotates.gid,\'\') <> \'\',1,0)) AS \'Probes with Annotations\',
+						SUM(IF(IFNULL(gene.seqname,\'\') <> \'\',1,0)) AS \'Gene Symbol\',
+						SUM(IF(IFNULL(gene.description,\'\') <> \'\',1,0)) AS \'Gene Name\'	
 					FROM platform
 					LEFT JOIN probe 		ON probe.pid = platform.pid
 					LEFT JOIN annotates 	ON annotates.rid = probe.rid
@@ -254,10 +254,10 @@ sub printTableInformation
 		{key:"5", sortable:true, resizeable:true, label:"'.$names[5].'"},
 		{key:"4", sortable:false, resizeable:true, label:"Delete Platform",formatter:"formatPlatformDeleteLink"},
 		{key:"6", sortable:false, resizeable:true, label:"Probe Count"},
-		{key:"7", sortable:false, resizeable:true, label:"Sequences Loaded"},
-		{key:"8", sortable:false, resizeable:true, label:"Transcript IDs"},
-		{key:"9", sortable:false, resizeable:true, label:"Gene Names"},
-		{key:"10", sortable:false, resizeable:true, label:"Gene Description"}
+		{key:"7", sortable:false, resizeable:true, label:"Probe Sequences Loaded"},
+		{key:"8", sortable:false, resizeable:true, label:"Probes with Annotations"},
+		{key:"9", sortable:false, resizeable:true, label:"Gene Symbols"},
+		{key:"10", sortable:false, resizeable:true, label:"Gene Names"}
 		];' . "\n";
 }
 

@@ -112,12 +112,15 @@ sub loadTFSData
 	$self->{_outType}		= $self->{_FormObject}->param('outType');
 	$self->{_opts} 			= $self->{_FormObject}->param('opts');
 	
-	if ($self->{_fs} =~ m/^\d+ significant probes$/i) {
+	if ($self->{_fs} =~ m/^\d+ significant probes$/i) 
+	{
 		undef $self->{_fs};
-	} else {
-		$self->{_fs} =~ s/^FS: //i;
+	} 
+	else 
+	{
+		$self->{_fs} =~ s/^TFS: //i;
 	}
-
+	
 	# Build the SQL query that does the TFS calculation
 	my $having = (defined($self->{_fs})) ? "HAVING abs_fs=$self->{_fs}" : '';
 	$self->{_numStart} = 5;	# index of the column that is the beginning of the "numeric" half of the table (required for table sorting)
@@ -143,7 +146,7 @@ SELECT 	abs_fs,
 		my ($fc, $pval) = (${$self->{_fcs}}[$i-1],  ${$self->{_pvals}}[$i-1]);
 		my $abs_flag = 1 << $i - 1;
 		my $dir_flag = ($self->{_reverses}[$i-1]) ? "$abs_flag,0" : "0,$abs_flag";
-		$query_proj .= ($self->{_reverses}[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', " : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue,";
+		$query_proj .= ($self->{_reverses}[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue, " : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue,";
 		
 		if ($self->{_opts} > 0) 
 		{
@@ -196,8 +199,6 @@ LEFT JOIN platform 	ON platform.pid = probe.pid
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
 ";
-
-
 
 	$self->{_Records} = $self->{_dbh}->prepare(qq{$query}) or die $self->{_dbh}->errstr;
 	$self->{_RowCountAll} = $self->{_Records}->execute or die $self->{_dbh}->errstr;
@@ -273,6 +274,21 @@ sub loadAllData
 		$self->{_fs} =~ s/^FS: //i;
 	}
 	
+	if(defined($self->{_FormObject}->param('CSV')))
+	{
+		if($self->{_FormObject}->param('CSV') =~ m/^(CSV)$/i)
+		{
+			undef $self->{_fs};
+		}
+		else
+		{
+			if($self->{_FormObject}->param('CSV') =~ m/^\(TFS\:\s*(\d*)\s*CSV\)/i)
+			{
+				$self->{_fs} = $1;
+			}
+		}
+	}	
+	
 	#This is the query for the experiment data.
 	my $query = '   
 		SELECT 	abs_fs, 
@@ -300,7 +316,7 @@ sub loadAllData
 		my $abs_flag = 1 << $i - 1;
 		my $dir_flag = ($self->{_reverses}[$i-1]) ? "$abs_flag,0" : "0,$abs_flag";
 		
-		$query_proj .= ($self->{_reverses}[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', " : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue,";
+		$query_proj .= ($self->{_reverses}[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue, " : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue,";
 		$query_proj .= ($self->{_reverses}[$i-1]) ? "-m$i.foldchange AS \'$i: Fold Change\', " : "m$i.foldchange AS \'$i: Fold Change\', ";
 		$query_proj .= ($self->{_reverses}[$i-1]) ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\', " : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\', ";
 		$query_proj .= "m$i.pvalue AS \'$i: P\', "; 

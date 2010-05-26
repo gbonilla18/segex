@@ -539,8 +539,10 @@ sub addNewExperiment
 
 		#Get time to make our unique ID.
 		my $time      	= time();
+
 		#Make idea with the time and ID of the running application.
 		my $processID 	= $time. '_' . getppid();
+
 		#Regex to strip quotes.
 		my $regex_strip_quotes = qr/^("?)(.*)\1$/;
 
@@ -557,16 +559,18 @@ sub addNewExperiment
 		#Check each line in the uploaded file and write it to our temp file.
 		while ( <$uploadedFile> )
 		{
-			my @row = split(/\s*,\s*/);
+			my @row = split(/ *\t */);
 
 			#The first line should be "Reporter Name" in the first column. We don't process this line.
 			if(!($row[0] eq '"Reporter Name"'))
 			{
-				if($row[0] =~ $regex_strip_quotes)
-				{
-					$row[0] = $2;
-				}
-			
+				if($row[0] =~ $regex_strip_quotes){$row[0] = $2;$row[0] =~ s/,//g;}
+				if($row[1] =~ $regex_strip_quotes){$row[1] = $2;$row[1] =~ s/,//g;}
+				if($row[2] =~ $regex_strip_quotes){$row[2] = $2;$row[2] =~ s/,//g;}
+				if($row[3] =~ $regex_strip_quotes){$row[3] = $2;$row[3] =~ s/,//g;}
+				if($row[4] =~ $regex_strip_quotes){$row[4] = $2;$row[4] =~ s/,//g;}
+				if($row[5] =~ $regex_strip_quotes){$row[5] = $2 . "\n";$row[5] =~ s/,//g;}
+
 				#Make sure we have a value for each column.
 				if(!exists($row[0]) || !exists($row[1]) || !exists($row[2]) || !exists($row[3]) || !exists($row[4]) || !exists($row[5]))
 				{
@@ -574,7 +578,7 @@ sub addNewExperiment
 					exit;
 				}
 
-				print OUTPUTTOSERVER $self->{_stid} . ',' . $row[0] . ',' . $row[1] . ',' . $row[2] . ',' . $row[3] . ',' . $row[4] . ',' . $row[5];
+				print OUTPUTTOSERVER $self->{_stid} . '|' . $row[0] . '|' . $row[1] . '|' . $row[2] . '|' . $row[3] . '|' . $row[4] . '|' . $row[5];
 	
 			}
 		}
@@ -591,7 +595,7 @@ sub addNewExperiment
 		my $inputStatement	= "
 						LOAD DATA LOCAL INFILE '$outputFileName'
 						INTO TABLE $processID
-						FIELDS TERMINATED BY ','
+						FIELDS TERMINATED BY '|'
 						LINES TERMINATED BY '\n'
 						(stid,Reporter, ratio, foldchange,pvalue,intensity1,intensity2); 
 					";
@@ -634,7 +638,7 @@ sub addNewExperiment
 		#--------------------------------------------
 		
 		#Remove the temp directory.
-		system("rm -rf $direc_out");
+		#system("rm -rf $direc_out");
 				
 		if($rowsInserted < 2)
 		{
