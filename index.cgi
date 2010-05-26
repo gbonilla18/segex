@@ -634,7 +634,7 @@ cgi_start_html();
 
 #print $q->h1('Welcome to '.PROJECT_NAME),
 #	$q->h2('The database for sex-specific gene expression');
-print $q->img({src=>IMAGES_PATH."logo_DEV.png", width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
+print $q->img({src=>IMAGES_PATH."/logo_DEV.png", width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
 
 print $q->ul({-id=>'menu'},$q->li(\@menu));
 
