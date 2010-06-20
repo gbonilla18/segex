@@ -638,7 +638,7 @@ sub addNewExperiment
 		#--------------------------------------------
 		
 		#Remove the temp directory.
-		#system("rm -rf $direc_out");
+		system("rm -rf $direc_out");
 				
 		if($rowsInserted < 2)
 		{
