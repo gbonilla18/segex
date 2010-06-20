@@ -33,9 +33,10 @@ use SGX::ManageExperiments;
 use SGX::OutputData;
 use SGX::JavaScriptDeleteConfirm;
 use SGX::TFSDisplay;
+use SGX::FindProbes;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.105";
+my $softwareVersion = "0.106";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -69,6 +70,7 @@ my $manageStudy;
 my $manageExperiment;
 my $outputData;
 my $TFSDisplay;
+my $findProbes;
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
@@ -972,41 +974,50 @@ sub findProbes_js
 	my $match 		= (defined($q->param('match'))) ? $q->param('match') : 'full';
 	my $opts 		= (defined($q->param('opts'))) ? $q->param('opts') : 1;
 	my $speciesColumn	= 5;
-	
-	#These are used when we want to return experiment data in the find probes.
-	my $AllExperimentQuery	= '';
-	my $AllExperimentGroup 	= '';
-	my $AllExperimentSelect = '';
 
 	my @extra_fields;
 
 	switch ($opts) {
 	case 0 {}
 	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Specificity - Comment\'') }
-	case 2 {
-			#Add items to select statement so we can get all the data for the experiments.
-			$AllExperimentSelect =",concat(study.description, ': ', experiment.sample2, '/', experiment.sample1),microarray.eid,coalesce(probe.probe_sequence, g0.probe_sequence) AS 'Probe Sequence',platform.def_p_cutoff,platform.def_f_cutoff ";
-
-			#Add a join to the microarray table so we know what experiments this probe was a part of.
-			$AllExperimentQuery = 'inner join microarray on microarray.rid = coalesce(probe.rid, g0.rid) ';
-			$AllExperimentQuery .= 'inner join experiment on experiment.eid = microarray.eid ';
-			$AllExperimentQuery .= 'inner join study on study.stid = experiment.stid ';
-			
-			#Add a group by for newly added items.
-			$AllExperimentGroup = ",study.description, ': ', experiment.sample2, '/', experiment.sample1,microarray.eid,coalesce(probe.probe_sequence, g0.probe_sequence),platform.def_p_cutoff,platform.def_f_cutoff "
-		}
+	case 2 {}
 	}
 
 	my $extra_sql = (@extra_fields) ? ', '.join(', ', @extra_fields) : '';
 
 	my $qtext;
-	switch ($match) {
-	case 'full'	{ $qtext = '^'.$text.'$' }
-	case 'prefix'	{ $qtext = '^'.$text }
-	case 'part'	{ $qtext = $text } 
-	else		{ assert(0) }
-	}
+	
+	#Split the input on commas.
+	my @textSplit = split(/\,/,$text);
+	
+	my $searchesFound = @textSplit;
+	my $out = "";
 
+	if($searchesFound < 2)
+	{
+		switch ($match) 
+		{
+			case 'full'		{ $qtext = '^'.$textSplit[0].'$' }
+			case 'prefix'	{ $qtext = '^'.$textSplit[0] }
+			case 'part'		{ $qtext = $textSplit[0] } 
+			else			{ assert(0) }
+		}
+	}
+	else
+	{
+		$qtext = '^';
+		foreach(@textSplit)
+		{
+			$qtext .= "$_|";
+		}
+		
+		$qtext =~ s/\|$//;
+		
+		$qtext .= '$';
+	}
+	
+	#$out .= $searchesFound > 1;	
+	
 	my $g0_sql;
 	switch ($type) 
 	{
@@ -1059,7 +1070,7 @@ sub findProbes_js
 		}
 	}
 
-	my $sth = $dbh->prepare(qq{
+	my $probeSQLStatement = qq{
 			select distinct 
 				coalesce(probe.reporter, g0.reporter) as Probe, 
 				pname as Platform,
@@ -1067,313 +1078,327 @@ sub findProbes_js
 				if(isnull(g0.seqname),'',g0.seqname) as 'Gene'
 				$extra_sql,
 				platform.species
-				$AllExperimentSelect
 				from
 				($g0_sql) as g0
 			left join (annotates natural join probe) on annotates.gid=g0.gid
 			left join platform on platform.pid=coalesce(probe.pid, g0.pid)
-			$AllExperimentQuery
-			group by coalesce(probe.rid, g0.rid) $AllExperimentGroup
-			})
-		or die $dbh->errstr;
-	#warn $sth->{Statement};
+			group by coalesce(probe.rid, g0.rid)
+			};
 
-	my $rowcount = $sth->execute($qtext, $qtext)
-		or die $dbh->errstr;
+	if($opts==2)
+	{
+		$s->commit;
+		#print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+		$findProbes = new SGX::FindProbes($dbh,$q);
+		$findProbes->setInsideTableQuery($g0_sql);
+		$findProbes->loadProbeData($qtext);
+		$findProbes->loadExperimentData();
+		$findProbes->fillPlatformHash();
+		$findProbes->printFindProbeCSV();
+		exit;
+	}
+	else
+	{
+		my $sth = $dbh->prepare($probeSQLStatement) or die $dbh->errstr;
+		#warn $sth->{Statement};	
+		
+		my $rowcount = $sth->execute($qtext, $qtext)
+			or die $dbh->errstr;
 
-	my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
+		my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
 
-	my $out = "
-var probelist = {
-caption: \"$caption\",
-records: [
-";
+		$out .= "
+	var probelist = {
+	caption: \"$caption\",
+	records: [
+	";
 
-	my @names = @{$sth->{NAME}};	# cache the field name array
+		my @names = @{$sth->{NAME}};	# cache the field name array
 
-	my $data = $sth->fetchall_arrayref;
-	$sth->finish;
+		my $data = $sth->fetchall_arrayref;
+		$sth->finish;
 
-	# data are sent as a JSON object plus Javascript code (at the moment)
-	foreach (sort {$a->[3] cmp $b->[3]} @$data) {
-		foreach (@$_) {
-			$_ = '' if !defined $_;
-			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
-					# TODO: perhaps escape quotation marks instead of removing them
+		# data are sent as a JSON object plus Javascript code (at the moment)
+		foreach (sort {$a->[3] cmp $b->[3]} @$data) {
+			foreach (@$_) {
+				$_ = '' if !defined $_;
+				$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
+						# TODO: perhaps escape quotation marks instead of removing them
+			}
+
+			# TODO: add a species table to the schema. Each Experiment table entry (a single microarray)
+			# will then have a foreign key to species (because expression microarrays are species-specific).
+			# Will also need species reference from either Probe table or Gene table or both (or something similar).
+			# the following NCBI search shows only genes specific to a given species:
+			# http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
+			$out .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'"';
+
+
+			switch ($opts) 
+			{
+				case 0 
+				{
+					$speciesColumn = 5;
+					$out .= ',5:"'.$_->[5].'"';
+				}
+
+				case 1 
+				{ 
+					$speciesColumn = 8;
+					$out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'"';
+				}
+
+				case 2 
+				{
+					$speciesColumn = 4;
+					$out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'"';
+				}
+			}
+			$out .= "},\n";
 		}
+		$out =~ s/,\s*$//;	# strip trailing comma
 
-		# TODO: add a species table to the schema. Each Experiment table entry (a single microarray)
-		# will then have a foreign key to species (because expression microarrays are species-specific).
-		# Will also need species reference from either Probe table or Gene table or both (or something similar).
-		# the following NCBI search shows only genes specific to a given species:
-		# http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
-		$out .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'"';
+		my $tableOut = '';
+		my $columnList = '';
 
-
+		#We need different 
 		switch ($opts) 
-		{
-			case 0 
 			{
-				$speciesColumn = 5;
-				$out .= ',5:"'.$_->[5].'"';
-			}
+				case 0 
+				{
+					$tableOut = '';
+				}
 
-			case 1 
-			{ 
-				$speciesColumn = 8;
-				$out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'"';
-			}
+				case 1 
+				{ 
+					$columnList = ',"4","5","6","7","8"';
+					$tableOut = ',
+							{key:"4", sortable:true, resizeable:true, label:"'.$names[4].'",
+					editor:new YAHOO.widget.TextareaCellEditor({
+					disableBtns: false,
+					asyncSubmitter: function(callback, newValue) { 
+						var record = this.getRecord();
+						//var column = this.getColumn();
+						//var datatable = this.getDataTable(); 
+						if (this.value == newValue) { callback(); } 
 
-			case 2 
-			{
-				$speciesColumn = 4;
-				$out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'"';
-			}
-		}
-		$out .= "},\n";
-	}
-	$out =~ s/,\s*$//;	# strip trailing comma
+						YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", { 
+							success:function(o) { 
+								if(o.status === 200) {
+									// HTTP 200 OK
+									callback(true, newValue); 
+								} else { 
+									alert(o.statusText);
+									//callback();
+								} 
+							}, 
+							failure:function(o) { 
+								alert(o.statusText); 
+								callback(); 
+							},
+							scope:this 
+						}, "type=probe&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&reporter=" + encodeURI(record.getData("0"))
+						);
+					}})},
+							{key:"5", sortable:true, resizeable:true, label:"'.$names[5].'", formatter:"formatSequence"},
+							{key:"6", sortable:true, resizeable:true, label:"'.$names[6].'"},
+							{key:"7", sortable:true, resizeable:true, label:"'.$names[7].'",
 
-	my $tableOut = '';
-	my $columnList = '';
-
-	#We need different 
-	switch ($opts) 
-		{
-			case 0 
-			{
-				$tableOut = '';
-			}
-
-			case 1 
-			{ 
-				$columnList = ',"4","5","6","7","8"';
-				$tableOut = ',
-						{key:"4", sortable:true, resizeable:true, label:"'.$names[4].'",
-				editor:new YAHOO.widget.TextareaCellEditor({
-				disableBtns: false,
-				asyncSubmitter: function(callback, newValue) { 
-					var record = this.getRecord();
-					//var column = this.getColumn();
-					//var datatable = this.getDataTable(); 
-					if (this.value == newValue) { callback(); } 
-
-					YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", { 
-						success:function(o) { 
-							if(o.status === 200) {
-								// HTTP 200 OK
-								callback(true, newValue); 
-							} else { 
+					editor:new YAHOO.widget.TextareaCellEditor({
+					disableBtns: false,
+					asyncSubmitter: function(callback, newValue) {
+						var record = this.getRecord();
+						//var column = this.getColumn();
+						//var datatable = this.getDataTable();
+						if (this.value == newValue) { callback(); }
+						YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", {
+							success:function(o) {
+								if(o.status === 200) {
+									// HTTP 200 OK
+									callback(true, newValue);
+								} else {
+									alert(o.statusText);
+									//callback();
+								}
+							},
+							failure:function(o) {
 								alert(o.statusText);
-								//callback();
-							} 
-						}, 
-						failure:function(o) { 
-							alert(o.statusText); 
-							callback(); 
-						},
-						scope:this 
-					}, "type=probe&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&reporter=" + encodeURI(record.getData("0"))
-					);
-				}})},
-						{key:"5", sortable:true, resizeable:true, label:"'.$names[5].'", formatter:"formatSequence"},
-						{key:"6", sortable:true, resizeable:true, label:"'.$names[6].'"},
-						{key:"7", sortable:true, resizeable:true, label:"'.$names[7].'",
+								callback();
+							},
+							scope:this
+						}, "type=gene&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&seqname=" + encodeURI(record.getData("3")) + "&accnum=" + encodeURI(record.getData("2"))
+						);
+					}})}';
+				}
 
-				editor:new YAHOO.widget.TextareaCellEditor({
-				disableBtns: false,
-				asyncSubmitter: function(callback, newValue) {
-					var record = this.getRecord();
-					//var column = this.getColumn();
-					//var datatable = this.getDataTable();
-					if (this.value == newValue) { callback(); }
-					YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", {
-						success:function(o) {
-							if(o.status === 200) {
-								// HTTP 200 OK
-								callback(true, newValue);
-							} else {
-								alert(o.statusText);
-								//callback();
-							}
-						},
-						failure:function(o) {
-							alert(o.statusText);
-							callback();
-						},
-						scope:this
-					}, "type=gene&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&seqname=" + encodeURI(record.getData("3")) + "&accnum=" + encodeURI(record.getData("2"))
-					);
-				}})}';
+				case 2 
+				{
+					$columnList = ',"4","5","6","7","8","9"';
+					$tableOut = ',' . "\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
+					$tableOut .= ',' . "\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
+				}
 			}
 
-			case 2 
-			{
-				$columnList = ',"4","5","6","7","8","9"';
-				$tableOut = ',' . "\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
-				$tableOut .= ',' . "\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
+
+		$out .= '
+	]}
+
+	function export_table(e) {
+		var r = this.records;
+		var bl = this.headers.length;
+		var w = window.open("");
+		var d = w.document.open("text/html");
+		d.title = "Tab-Delimited Text";
+		d.write("<pre>");
+		for (var i=0, al = r.length; i < al; i++) {
+			for (var j=0; j < bl; j++) {
+				d.write(r[i][j] + "\t");
 			}
+			d.write("\n");
 		}
-
-
-	$out .= '
-]}
-
-function export_table(e) {
-	var r = this.records;
-	var bl = this.headers.length;
-	var w = window.open("");
-	var d = w.document.open("text/html");
-	d.title = "Tab-Delimited Text";
-	d.write("<pre>");
-	for (var i=0, al = r.length; i < al; i++) {
-		for (var j=0; j < bl; j++) {
-			d.write(r[i][j] + "\t");
-		}
-		d.write("\n");
+		d.write("</pre>");
+		d.close();
+		w.focus();
 	}
-	d.write("</pre>");
-	d.close();
-	w.focus();
-}
 
-YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
-YAHOO.util.Event.addListener(window, "load", function() {
-	';
-	if (defined($q->param('graph'))) {
-		$out .= 'var graph_content = "";
-	var graph_ul = YAHOO.util.Dom.get("graphs");';
-	}
-	$out .= '
-	YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
-
-	YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
-		var i = oRecord.getCount();
+	YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
+	YAHOO.util.Event.addListener(window, "load", function() {
 		';
 		if (defined($q->param('graph'))) {
-			$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
-		elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
-		} else {
-			$out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
+			$out .= 'var graph_content = "";
+		var graph_ul = YAHOO.util.Dom.get("graphs");';
 		}
-	$out .= '
-	}
-	YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
-		var a = oData.split(/ *, */);
-		var out = "";
-		for (var i=0, al=a.length; i < al; i++) {
-			var b = a[i];
-			if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
-				out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
+		$out .= '
+		YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
+
+		YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
+			var i = oRecord.getCount();
+			';
+			if (defined($q->param('graph'))) {
+				$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
+			elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
 			} else {
-				out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
+				$out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
+			}
+		$out .= '
+		}
+		YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
+			var a = oData.split(/ *, */);
+			var out = "";
+			for (var i=0, al=a.length; i < al; i++) {
+				var b = a[i];
+				if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
+					out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
+				} else {
+					out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
+				}
+			}
+			elCell.innerHTML = out.replace(/,\s*$/, "");
+		}
+		YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
+			if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
+				elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
+			} else {
+				elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
 			}
 		}
-		elCell.innerHTML = out.replace(/,\s*$/, "");
-	}
-	YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
-		if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
-			elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
-		} else {
-			elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
+		YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
+			elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
 		}
-	}
-	YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
-	}
-	YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("' . $speciesColumn . '") + "\" title=\"UCSC BLAT on " + oRecord.getData("' . $speciesColumn . '") + " DNA\" target=\"_blank\">" + oData + "</a>";
-	}
-	var myColumnDefs = [
-		{key:"0", sortable:true, resizeable:true, label:"'.$names[0].'", formatter:"formatProbe"},
-		{key:"1", sortable:true, resizeable:true, label:"'.$names[1].'"},
-		{key:"2", sortable:true, resizeable:true, label:"'.$names[2].'", formatter:"formatTranscript"}, 
-		{key:"3", sortable:true, resizeable:true, label:"'.$names[3].'", formatter:"formatGene"}'. $tableOut.'];
+		YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
+			elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("' . $speciesColumn . '") + "\" title=\"UCSC BLAT on " + oRecord.getData("' . $speciesColumn . '") + " DNA\" target=\"_blank\">" + oData + "</a>";
+		}
+		var myColumnDefs = [
+			{key:"0", sortable:true, resizeable:true, label:"'.$names[0].'", formatter:"formatProbe"},
+			{key:"1", sortable:true, resizeable:true, label:"'.$names[1].'"},
+			{key:"2", sortable:true, resizeable:true, label:"'.$names[2].'", formatter:"formatTranscript"}, 
+			{key:"3", sortable:true, resizeable:true, label:"'.$names[3].'", formatter:"formatGene"}'. $tableOut.'];
 
-	var myDataSource = new YAHOO.util.DataSource(probelist.records);
-	myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	myDataSource.responseSchema = {
-		fields: ["0","1","2","3"'. $columnList . ']
-	};
-	var myData_config = {
-		paginator: new YAHOO.widget.Paginator({
-			rowsPerPage: 50 
-		})
-	};
+		var myDataSource = new YAHOO.util.DataSource(probelist.records);
+		myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+		myDataSource.responseSchema = {
+			fields: ["0","1","2","3"'. $columnList . ']
+		};
+		var myData_config = {
+			paginator: new YAHOO.widget.Paginator({
+				rowsPerPage: 50 
+			})
+		};
 
-	var myDataTable = new YAHOO.widget.DataTable("probetable", myColumnDefs, myDataSource, myData_config);
+		var myDataTable = new YAHOO.widget.DataTable("probetable", myColumnDefs, myDataSource, myData_config);
 
-	// Set up editing flow 
-	var highlightEditableCell = function(oArgs) { 
-	    var elCell = oArgs.target; 
-	    if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
-		this.highlightCell(elCell); 
-	    } 
-	}; 
-	myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
-	myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
-	myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
+		// Set up editing flow 
+		var highlightEditableCell = function(oArgs) { 
+			var elCell = oArgs.target; 
+			if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
+			this.highlightCell(elCell); 
+			} 
+		}; 
+		myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
+		myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
+		myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
 
-	var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
-	var nl = nodes.length;
+		var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
+		var nl = nodes.length;
 
-	// Ideally, would want to use a "pre-formatter" event to clear graph_content
-	// TODO: fix the fact that when cells are updated via cell editor, the graphs are rebuilt unnecessarily.
-	myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
-		graph_content = "";
-		return true;
-	};
-	myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
-		graph_content = "";
-		return true;
-	};
-	myDataTable.subscribe("renderEvent", function () {
-	';
-
-	if (defined($q->param('graph'))) 
-	{
-		$out .= '
-		graph_ul.innerHTML = graph_content;
+		// Ideally, would want to use a "pre-formatter" event to clear graph_content
+		// TODO: fix the fact that when cells are updated via cell editor, the graphs are rebuilt unnecessarily.
+		myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
+			graph_content = "";
+			return true;
+		};
+		myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
+			graph_content = "";
+			return true;
+		};
+		myDataTable.subscribe("renderEvent", function () {
 		';
 
-	} else {
-		$out .=
-	'
-		// if the line below is moved to window.load closure,
-		// panels will no longer show up after sorting
-		var manager = new YAHOO.widget.OverlayManager();
-		var myEvent = YAHOO.util.Event;
-		var i;
-		var imgFile;
-		for (i = 0; i < nl; i++) {
-			myEvent.addListener("show" + i, "click", function () {
-				var index = this.getAttribute("id").substring(4);
-				var panel_old = manager.find("panel" + index);
+		if (defined($q->param('graph'))) 
+		{
+			$out .= '
+			graph_ul.innerHTML = graph_content;
+			';
 
-				if (panel_old === null) {
-					imgFile = this.innerHTML;	// replaced ".text" with ".innerHTML" because of IE problem
-					var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
-					panel.setHeader(imgFile);
-					panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object>");
-					manager.register(panel);
-					panel.render("container" + index);
-					// panel.show is unnecessary here because visible:true is set
-				} else {
-					panel_old.show();
-				}
-			}, nodes[i], true);
-		}
-	'};
-	$out .= '
+		} else {
+			$out .=
+		'
+			// if the line below is moved to window.load closure,
+			// panels will no longer show up after sorting
+			var manager = new YAHOO.widget.OverlayManager();
+			var myEvent = YAHOO.util.Event;
+			var i;
+			var imgFile;
+			for (i = 0; i < nl; i++) {
+				myEvent.addListener("show" + i, "click", function () {
+					var index = this.getAttribute("id").substring(4);
+					var panel_old = manager.find("panel" + index);
+
+					if (panel_old === null) {
+						imgFile = this.innerHTML;	// replaced ".text" with ".innerHTML" because of IE problem
+						var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
+						panel.setHeader(imgFile);
+						panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object>");
+						manager.register(panel);
+						panel.render("container" + index);
+						// panel.show is unnecessary here because visible:true is set
+					} else {
+						panel_old.show();
+					}
+				}, nodes[i], true);
+			}
+		'};
+		$out .= '
+		});
+
+		return {
+			oDS: myDataSource,
+			oDT: myDataTable
+		};
 	});
-
-	return {
-		oDS: myDataSource,
-		oDT: myDataTable
-	};
-});
-';
-	$out;
+	';
+		$out;
+	}
 }
 #######################################################################################
 sub findProbes {
@@ -1878,7 +1903,7 @@ sub get_annot_fields {
 	$gene_fields->{"Gene Symbol"} 		= "seqname";
 	$gene_fields->{"Accession Number"}	= "accnum";
 	$gene_fields->{"Gene Name"} 		= "description";
-	$gene_fields->{"Source"} 		= "source";
+	$gene_fields->{"Source"} 			= "source";
 	$gene_fields->{"Gene Note"} 		= "gene_note";
 
 }
@@ -1980,7 +2005,7 @@ sub uploadAnnot {
 		# if the assertion below fails, the field specified by the user 
 		# either doesn't exist or is protected.
 		assert($probe_fields{$_} || $gene_fields{$_});
-		$col{$probe_fields{$_}} = $i;
+		$col{$_} = $i;
 		$i++;
 	}
 
@@ -1992,7 +2017,7 @@ sub uploadAnnot {
 	# create two slices of specified fields, one for each table
 	my @slice_probe = @col{keys %probe_fields};
 	my @slice_gene = @col{keys %gene_fields};
-
+	
 	@slice_probe = grep { defined($_) } @slice_probe;	# remove undef elements
 	@slice_gene = grep { defined($_) } @slice_gene;		# remove undef elements
 
@@ -2166,7 +2191,7 @@ sub uploadAnnot {
 		# execute the SQL statements
 		foreach(@sql) {
 			#warn $_;
-
+			#print $_;
 			$dbh->do($_) or die $dbh->errstr;
 		}
 	}
