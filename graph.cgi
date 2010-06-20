@@ -92,8 +92,7 @@ select distinct rid from probe where reporter='$reporter'
 ) as d3 on microarray.rid=d3.rid NATURAL JOIN experiment NATURAL JOIN study
 })
 	or die $dbh->errstr;
-$rowcount = $sth->execute
-	or die $dbh->errstr;
+$rowcount = $sth->execute or die $dbh->errstr;
 
 my @labels;
 my @y;
