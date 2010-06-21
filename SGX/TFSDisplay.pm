@@ -218,7 +218,9 @@ sub getPlatformData
 	#Use a regex to replace the ID in the query to load a single platform.
 	my $singleItemQuery 	= $self->{_LoadQuery};
 	$singleItemQuery 		=~ s/\{0\}/\Q$eidList\E/;	
-	$singleItemQuery 		=~ s/\\\,/\,/;	
+	$singleItemQuery 		=~ s/\\\,/\,/g;	
+	
+
 	
 	$self->{_RecordsPlatform}	= $self->{_dbh}->prepare($singleItemQuery ) or die $self->{_dbh}->errstr;
 	$self->{_PlatformCount}		= $self->{_RecordsPlatform}->execute or die $self->{_dbh}->errstr;
@@ -651,7 +653,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 	}
 	var tfs_config = {
 		paginator: new YAHOO.widget.Paginator({
-			rowsPerPage: 50 
+			rowsPerPage: 500 
 		})
 	};
 	var tfs_data = new YAHOO.util.DataSource(tfs.records);

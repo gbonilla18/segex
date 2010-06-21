@@ -239,7 +239,7 @@ sub showExperiments
 			-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageExperiments&ManageAction=addNew&stid=' . $self->{_stid},
 			-onsubmit=>'return validate_fields(this, [\'Sample1\',\'Sample2\',\'uploaded_data_file\']);'
 		) .
-		$self->{_FormObject}->p('In order to upload experiment data the file must be in .CSV (Comma separated value) format and the columns be as follows.')
+		$self->{_FormObject}->p('In order to upload experiment data the file must be in a tab separated format and the columns be as follows.')
 		.
 		$self->{_FormObject}->p('<b>Reporter Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2</b>')
 		.
@@ -257,8 +257,7 @@ sub showExperiments
 			$self->{_FormObject}->dt("Data File to upload:"),
 			$self->{_FormObject}->dd($self->{_FormObject}->filefield(-name=>'uploaded_data_file',-id=>'uploaded_data_file')),
 			$self->{_FormObject}->dt('&nbsp;'),
-			$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / ')
-			)
+			$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / '))
 		) .
 		$self->{_FormObject}->end_form;
 
@@ -627,6 +626,7 @@ sub addNewExperiment
 		$self->{_dbh}->do($inputStatement) or die $self->{_dbh}->errstr;
 
 		my $rowsInserted = $self->{_dbh}->do($insertStatement);
+		
 		#Run the command to insert the data.
 		if(!$rowsInserted)
 		{
