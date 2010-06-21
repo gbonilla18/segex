@@ -948,14 +948,14 @@ sub form_findProbes {
 		-action=>$q->url(absolute=>1),
 		-enctype=>'application/x-www-form-urlencoded') .
 	$q->p('<font size="5">Find Probes</font>') .
-	#$q->p('This function will find all probes that reference the same gene symbol as the reporter ID entered below and plot fold change or log ratio.') .
+	$q->p('Enter search text below to find the data for that probe. The textbox will allow a comma separated list of values to obtain information on multiple probes.') .
 	$q->dl(
 		$q->dt('Search string:'),
 		$q->dd($q->textfield(-tabindex=>1, -name=>'text'), ' in ', $q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),
 		$q->dt('Pattern to match:'),
 		$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression'})),
 		$q->dt('Display options:'),
-		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2'], -default=>'1',-labels=>{'0'=>'Basic (names,IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data'})),
+		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2'], -default=>'1',-labels=>{'0'=>'Basic (names,IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data (CSV)'})),
 		$q->dt('Graph(s):'),
 		$q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
 		$q->dt({id=>'graph_option_names'}, "Response variable:"),
@@ -1865,7 +1865,7 @@ sub show_tfs_js {
 #######################################################################################
 sub show_tfs {
 	print 	'<h2 id="summary_caption"></h2>';
-	print	'<a href="' . $q->url(-query=>1) . '&CSV=1" target = "_blank">Output all data in CSV</a><br /><br />';
+	#print	'<a href="' . $q->url(-query=>1) . '&CSV=1" target = "_blank">Output all data in CSV</a><br /><br />';
 	print	'<div><a id="summ_astext">View as plain text</a></div>';
 	print	'<div id="summary_table" class="table_cont"></div>';
 	print	'<h2 id="tfs_caption"></h2>';
@@ -1980,8 +1980,13 @@ sub uploadAnnot {
 
 	my @fields;
 	my $regex_split_on_commas = qr/ *, */;
+	
+	#Fields is an array of the fields from the input box.
 	@fields = split($regex_split_on_commas, $q->param('fields')) if defined($q->param('fields'));
-	if (@fields < 2) {
+	
+	#If the user didn't select enough fields on the input screen, warn them.
+	if (@fields < 2) 
+	{
 		print $q->p('Too few fields specified -- nothing to update.');
 		return;
 	}
@@ -1995,48 +2000,68 @@ sub uploadAnnot {
 	#   The actual content of the field is matched in (.*) and referenced outside regex as $2.
 	my $regex_strip_quotes = qr/^("?)(.*)\1$/;
 
+	#Create two hashes that hold hash{Long Name} = DBName
 	my (%probe_fields, %gene_fields);
+	
 	get_annot_fields(\%probe_fields, \%gene_fields);
 
 	my $i = 0;
+	
+	#This hash will hold hash{DBName} = index
 	my %col;
-	# create a hash mapping record names to columns in the file
-	foreach (@fields) {
+	
+	#Create a hash mapping record names to columns in the file
+	foreach (@fields) 
+	{
 		# if the assertion below fails, the field specified by the user 
 		# either doesn't exist or is protected.
 		assert($probe_fields{$_} || $gene_fields{$_});
-		$col{$_} = $i;
+		
+		if($probe_fields{$_})
+		{
+			$col{$probe_fields{$_}} = $i;
+		}
+		
+		if($gene_fields{$_})
+		{
+			$col{$gene_fields{$_}} = $i;
+		}
+
 		$i++;
 	}
-
+	
 	# delete core fields from field hash
-	delete $probe_fields{reporter};
-	delete $gene_fields{accnum};
-	delete $gene_fields{seqname};
-
+	delete $probe_fields{"Reporter ID"};
+	delete $gene_fields{"Accession Number"};
+	delete $gene_fields{"Gene Symbol"};
+	
 	# create two slices of specified fields, one for each table
-	my @slice_probe = @col{keys %probe_fields};
-	my @slice_gene = @col{keys %gene_fields};
+	my @slice_probe = @col{%probe_fields};
+	my @slice_gene = @col{%gene_fields};
 	
 	@slice_probe = grep { defined($_) } @slice_probe;	# remove undef elements
 	@slice_gene = grep { defined($_) } @slice_gene;		# remove undef elements
-
+	
 	my $gene_titles = '';
-	foreach (@slice_gene) { $gene_titles .= ','.$fields[$_] }
+	foreach (@slice_gene) { $gene_titles .= ','.$gene_fields{$fields[$_]} }
+	
 	my $probe_titles = '';
-	foreach (@slice_probe) { $probe_titles .= ','.$fields[$_] }
-
-	my $reporter_index = $col{reporter};	# probe table only is updated when this is defined and value is valid
-	my $outside_have_reporter = defined($reporter_index);
-	my $accnum_index = $col{accnum};
-	my $seqname_index = $col{seqname};
-	my $outside_have_gene = defined($accnum_index) || defined($seqname_index);
-	my $pid_value = $q->param('platform');
-	my $replace_accnum = $outside_have_reporter && $outside_have_gene && !defined($q->param('add'));
-	if (!$outside_have_reporter && !$outside_have_gene) {
+	foreach (@slice_probe) { $probe_titles .= ','.$probe_fields{$fields[$_]} }
+	
+	my $reporter_index 			= $col{reporter};	# probe table only is updated when this is defined and value is valid
+	my $outside_have_reporter 	= defined($reporter_index);
+	my $accnum_index 			= $col{accnum};
+	my $seqname_index 			= $col{seqname};
+	my $outside_have_gene 		= defined($accnum_index) || defined($seqname_index);
+	my $pid_value 				= $q->param('platform');
+	my $replace_accnum 			= $outside_have_reporter && $outside_have_gene && !defined($q->param('add'));
+	
+	if (!$outside_have_reporter && !$outside_have_gene) 
+	{
 		print $q->p('No core fields specified -- cannot proceed with update.');
 		return;
 	}
+	
 	my $update_gene;
 
 	# Access uploaded file
@@ -2072,7 +2097,7 @@ sub uploadAnnot {
 				}
 				#$row[$_] = $value;
 				$probe_values .= ','.$value;
-				$probe_duplicates .= ','.$fields[$_].'='.$value;
+				$probe_duplicates .= ','.$probe_fields{$fields[$_]}.'='.$value;
 			}
 			if (defined($reporter_index)) {
 				$reporter_value = $row[$reporter_index];
@@ -2118,7 +2143,7 @@ sub uploadAnnot {
 			$update_gene = '';
 			foreach (@slice_gene) {
 				$gene_values .= ','.$row[$_];
-				$update_gene .= ','.$fields[$_].'='.$row[$_];
+				$update_gene .= ','.$gene_fields{$fields[$_]}.'='.$row[$_];
 			}
 			if (defined($seqname_index)) {
 				$seqname_value = $row[$seqname_index];
@@ -2159,7 +2184,7 @@ sub uploadAnnot {
 				$update_gene = '';
 				foreach (@slice_gene) {
 					# title1 = value1, title2 = value2, ...
-					$update_gene .= ','.$fields[$_] .'='.$row[$_];
+					$update_gene .= ','.$gene_fields{$fields[$_]} .'='.$row[$_];
 				}
 			}
 			$update_gene =~ s/^,//;      # strip leading comma
