@@ -36,7 +36,7 @@ use SGX::TFSDisplay;
 use SGX::FindProbes;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.106";
+my $softwareVersion = "0.107";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -948,15 +948,17 @@ sub form_findProbes {
 		-action=>$q->url(absolute=>1),
 		-enctype=>'application/x-www-form-urlencoded') .
 	$q->p('<font size="5">Find Probes</font>') .
-	$q->p('Enter search text below to find the data for that probe. The textbox will allow a comma separated list of values to obtain information on multiple probes.') .
+	$q->p('Enter search text below to find the data for that probe. The textbox will allow a comma separated list of values, or one value per line, to obtain information on multiple probes.') .
 	$q->dl(
-		$q->dt('Search string:'),
-		$q->dd($q->textfield(-tabindex=>1, -name=>'text'), ' in ', $q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),
-		$q->dt('Pattern to match:'),
+		$q->dt('Search string(s):'),
+		$q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
+		$q->dt('Search type :'),
+		$q->dd($q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),
+		$q->dt('Pattern to match :'),
 		$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression'})),
-		$q->dt('Display options:'),
-		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2'], -default=>'1',-labels=>{'0'=>'Basic (names,IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data (CSV)'})),
-		$q->dt('Graph(s):'),
+		$q->dt('Display options :'),
+		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2','3'], -default=>'1',-labels=>{'0'=>'Basic (names,IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data (CSV)', '3'=>'Full annotation with experiment data'})),
+		$q->dt('Graph(s) :'),
 		$q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
 		$q->dt({id=>'graph_option_names'}, "Response variable:"),
 		$q->dd({id=>'graph_option_values'}, $q->radio_group(-tabindex=>5, -name=>'trans', -values=>['fold','ln'], -default=>'fold', -linebreak=>'true', -labels=>{fold=>'Fold Change +/- 1', ln=>'Log2 Ratio'})),
@@ -987,10 +989,25 @@ sub findProbes_js
 
 	my $qtext;
 	
-	#Split the input on commas.
-	my @textSplit = split(/\,/,$text);
+	#This will be the array that holds all the splitted items.
+	my @textSplit;	
 	
+	#If we find a comma, split on that, otherwise we split on new lines.
+	if($text =~ m/,/)
+	{
+		#Split the input on commas.	
+		@textSplit = split(/\,/,trim($text));
+	}
+	else
+	{
+		#Split the input on the new line.	
+		@textSplit = split(/\r\n/,$text);
+	}
+	
+	#Get the count of how many search terms were found.
 	my $searchesFound = @textSplit;
+	
+	#This will be the string we output.
 	my $out = "";
 
 	if($searchesFound < 2)
@@ -1005,18 +1022,24 @@ sub findProbes_js
 	}
 	else
 	{
+		#Begining of the SQL regex.
 		$qtext = '^';
+		
+		#Add the search items seperated by a bar.
 		foreach(@textSplit)
 		{
-			$qtext .= "$_|";
+			if($_)
+			{
+				$qtext .= trim($_) . "|";
+			}
 		}
 		
+		#Remove the double backslashes.
 		$qtext =~ s/\|$//;
 		
+		#Add the closing regex character.
 		$qtext .= '$';
 	}
-	
-	#$out .= $searchesFound > 1;	
 	
 	my $g0_sql;
 	switch ($type) 
@@ -1101,9 +1124,8 @@ sub findProbes_js
 	{
 		my $sth = $dbh->prepare($probeSQLStatement) or die $dbh->errstr;
 		#warn $sth->{Statement};	
-		
-		my $rowcount = $sth->execute($qtext, $qtext)
-			or die $dbh->errstr;
+
+		my $rowcount = $sth->execute($qtext, $qtext) or die $dbh->errstr;
 
 		my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
 
@@ -2466,5 +2488,25 @@ sub outputData
 		}
 	}
 
+}
+#######################################################################################
+
+#######################################################################################
+# Perl trim function to remove whitespace from the start and end of the string
+sub trim($)
+{
+	my $string = shift;
+	
+	$string =~ s/^\s+//;
+	$string =~ s/\s+$//;
+	
+	$string =~ s/\n+$//;
+	$string =~ s/^\n+//;	
+	
+	$string =~ s/\r+$//;
+	$string =~ s/^\r+//;	
+
+
+	return $string;
 }
 #######################################################################################
