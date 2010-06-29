@@ -155,6 +155,15 @@ sub loadProbeData
 	
 	$self->{_ProbeHash} 	= {};
 	
+	my $DataCount			= @{$self->{_Data}};
+	
+	if($DataCount < 1)
+	{
+		print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+		print "No records found! Please click back on your browser and search again!";
+		exit;
+	}
+	
 	foreach (sort {$a->[1] cmp $b->[1]} @{$self->{_Data}}) 
 	{
 		foreach (@$_) 
@@ -299,7 +308,12 @@ sub printFindProbeCSV
 					#Split the output string.
 					my @splitExperimentName = split(/\|/,$value);
 					
-					$experimentList .= "$splitExperimentName[1],,,,,";
+					#Current experiment name.
+					my $currentExperimentName = $splitExperimentName[1];
+					$currentExperimentName =~ s/\,//g;					
+					
+					$experimentList .= "$currentExperimentName,,,,,,";
+										
 					$experimentCount ++;
 				}
 			}
@@ -320,7 +334,7 @@ sub printFindProbeCSV
 			#For each experiment we print a header.
 			for (my $count = 1; $count <= $experimentCount; $count++) 
 			{
-				$outLine .= "Ratio,FC,P-Val,Intensity1,Intensity2,";
+				$outLine .= ",Ratio,FC,P-Val,Intensity1,Intensity2,";
 			}
 			
 			$outLine =~ s/\,$//;
@@ -329,7 +343,6 @@ sub printFindProbeCSV
 					
 		}
 		
-		
 		#This is the line of data we will output. We need to trim the trailing comma.
 		my $outRow = '';		
 		
@@ -337,7 +350,7 @@ sub printFindProbeCSV
 		$outRow .= "$value,";
 		
 		#Print the probe info.
-		$outRow .= "$splitPlatformID[1],$splitPlatformID[2],$splitPlatformID[3],";
+		$outRow .= "$splitPlatformID[1],$splitPlatformID[2],$splitPlatformID[3],,";
 				
 		#For this reporter we print out a column for all the experiments that we have data for.
 		foreach my $EIDvalue (sort {$self->{_EIDHash}{$a} cmp $self->{_EIDHash}{$b} } keys %{$self->{_EIDHash}})
@@ -356,19 +369,13 @@ sub printFindProbeCSV
 				{
 					$outRow .= "$_,";
 				}
+				
+				$outRow .= ",";
 			}
 		}
 		
-		$outRow =~ s/\,$//;
-		
 		print "$outRow\n";
 	}
-	
-
-	#print Dumper($self->{_ProbeHash});	
-	#print Dumper($self->{_EIDHash});
-	#print Dumper($self->{_ProbeExperimentHash});
-	#print Dumper($self->{_ExperimentListHash});
 }
 #######################################################################################
 
