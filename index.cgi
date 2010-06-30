@@ -949,22 +949,24 @@ sub form_findProbes {
 		-enctype=>'application/x-www-form-urlencoded') .
 	$q->p('<font size="5">Find Probes</font>') .
 	$q->p('Enter search text below to find the data for that probe. The textbox will allow a comma separated list of values, or one value per line, to obtain information on multiple probes.') .
+	$q->p('Regular Expression Example: "^cyp.b" would retrieve all genes starting with cyp.b where the period represents any one character. More examples can be found at <a href="http://en.wikipedia.org/wiki/Regular_expression_examples">Wikipedia Examples</a>.') .
 	$q->dl(
 		$q->dt('Search string(s):'),
 		$q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
 		$q->dt('Search type :'),
 		$q->dd($q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),
 		$q->dt('Pattern to match :'),
-		$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression'})),
+		$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression*'})),
 		$q->dt('Display options :'),
-		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2','3'], -default=>'1',-labels=>{'0'=>'Basic (names,IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data (CSV)', '3'=>'Full annotation with experiment data'})),
+		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2','3'], -default=>'1',-labels=>{'0'=>'Basic (names,IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data (CSV)', '3'=>'Full annotation with experiment data (Not implemented yet)'})),
 		$q->dt('Graph(s) :'),
 		$q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
 		$q->dt({id=>'graph_option_names'}, "Response variable:"),
 		$q->dd({id=>'graph_option_values'}, $q->radio_group(-tabindex=>5, -name=>'trans', -values=>['fold','ln'], -default=>'fold', -linebreak=>'true', -labels=>{fold=>'Fold Change +/- 1', ln=>'Log2 Ratio'})),
 		$q->dt('&nbsp;'),
-		$q->dd($q->submit(-tabindex=>6, -name=>'a', -value=>FINDPROBES, -override=>1))
-	) .
+		$q->dd($q->submit(-tabindex=>6, -name=>'a', -value=>FINDPROBES, -override=>1)),
+	) 
+	.
 	$q->endform;
 }
 #######################################################################################
