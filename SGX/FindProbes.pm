@@ -298,7 +298,7 @@ sub printFindProbeCSV
 			my $experimentList = ",,,,,";
 			
 			#Use this to keep track of the number of experiments we scrawl out.
-			my $experimentCount = 0;
+			my $experimentCount = 1;
 			
 			#Loop through the list of experiments and print out the ones for this platform.
 			foreach my $value (sort {$self->{_ExperimentListHash}{$a} cmp $self->{_ExperimentListHash}{$b} } keys %{$self->{_ExperimentListHash}})
@@ -312,8 +312,10 @@ sub printFindProbeCSV
 					my $currentExperimentName = $splitExperimentName[1];
 					$currentExperimentName =~ s/\,//g;					
 					
-					$experimentList .= "$currentExperimentName,,,,,,";
-										
+					#Print out current Experiment name with its index.
+					print "$experimentCount : $currentExperimentName\n";
+					
+					#Increment the experiment counter.
 					$experimentCount ++;
 				}
 			}
@@ -332,9 +334,9 @@ sub printFindProbeCSV
 			my $outLine = "";
 			
 			#For each experiment we print a header.
-			for (my $count = 1; $count <= $experimentCount; $count++) 
+			for (my $count = 1; $count < $experimentCount; $count++) 
 			{
-				$outLine .= ",Ratio,FC,P-Val,Intensity1,Intensity2,";
+				$outLine .= ",$count:Ratio,$count:FC,$count:P-Val,$count:Intensity1,$count:Intensity2,";
 			}
 			
 			$outLine =~ s/\,$//;

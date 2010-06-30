@@ -318,7 +318,7 @@ sub loadAllData
 		my $abs_flag = 1 << $i - 1;
 		my $dir_flag = ($self->{_reverses}[$i-1]) ? "$abs_flag,0" : "0,$abs_flag";
 		
-		$query_proj .= ($self->{_reverses}[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue, " : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue,";
+		$query_proj .= ($self->{_reverses}[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', " : "m$i.ratio AS \'$i: Ratio\', ";
 		$query_proj .= ($self->{_reverses}[$i-1]) ? "-m$i.foldchange AS \'$i: Fold Change\', " : "m$i.foldchange AS \'$i: Fold Change\', ";
 		$query_proj .= ($self->{_reverses}[$i-1]) ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\', " : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\', ";
 		$query_proj .= "m$i.pvalue AS \'$i: P\', "; 
@@ -419,7 +419,7 @@ sub displayTFSInfoCSV
 	#Print Experiment info.
 	for (my $i = 0; $i < @{$self->{_eids}}; $i++) 
 	{
-		$currentLine .=  $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title} . ",";
+		$currentLine .=  $i+1 . ":" . $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title} . ",";
 		$currentLine .=  ${$self->{_fcs}}[$i] . ",";
 		$currentLine .=  ${$self->{_pvals}}[$i] . ",";
 		
@@ -444,7 +444,7 @@ sub displayTFSInfoCSV
 	foreach my $eid (@{$self->{_eids}}) 
 	{
 		$experimentCounter++;
-		$currentLine .= "$experimentCounter:Ratio,pvalue,$experimentCounter:Fold Change,$experimentCounter:Intensity-1,$experimentCounter:Intensity-2,$experimentCounter:P,";
+		$currentLine .= "$experimentCounter:Ratio,$experimentCounter:Fold Change,$experimentCounter:Intensity-1,$experimentCounter:Intensity-2,$experimentCounter:P,";
 	}
 	
 	#Strip trailing comma.		
@@ -469,8 +469,12 @@ sub displayTFSInfoCSV
 	
 		foreach (@$row) 
 		{
+			my $currentItem = $_;
+			
+			#Remove commas from anything we put in the sheet.
+			$currentItem =~ s/,//g;
 		
-			$currentLine .= $_ . ",";
+			$currentLine .= $currentItem . ",";
 		}
 
 		#Strip trailing comma.		
