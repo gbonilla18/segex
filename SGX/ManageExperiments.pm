@@ -61,7 +61,8 @@ sub new {
 						experiment.sample1,
 						experiment.sample2,
 						ExperimentDescription,
-						AdditionalInformation;
+						AdditionalInformation
+					ORDER BY experiment.eid ASC;
 				   ",
 		_LoadSingleQuery=> "SELECT	eid,
 						sample1,
@@ -75,14 +76,15 @@ sub new {
 						experiment.sample1,
 						experiment.sample2,
 						ExperimentDescription,
-						AdditionalInformation;
+						AdditionalInformation
+					ORDER BY experiment.eid ASC;
 				",
 		_UpdateQuery	=> 'UPDATE experiment SET ExperimentDescription = \'{0}\', AdditionalInformation = \'{1}\', sample1 = \'{2}\', sample2 = \'{3}\' WHERE eid = {4};',
 		_InsertQuery	=> 'INSERT INTO experiment (sample1,sample2,stid,ExperimentDescription,AdditionalInformation) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\',\'{4}\');',
 		_DeleteQuery	=> \@deleteStatementList,
 		_StudyQuery	=> 'SELECT stid,description FROM study;',
 		_ExistingStudyQuery 		=> 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
-		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment WHERE stid IN (SELECT stid FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0})) AND stid <> {0};",
+		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment WHERE stid IN (SELECT stid FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0})) AND stid <> {0} ORDER BY experiment.eid ASC;",
 		_PlatformQuery			=> 'SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;',
 		_AddExistingExperiment 		=> \@addExistingExperimentList,
 		_RecordCount	=> 0,
@@ -383,7 +385,7 @@ sub printJSRecords
 	my $tempRecordList = '';
 
 	#Loop through data and load into JavaScript array.
-	foreach (sort {$a->[3] cmp $b->[3]} @{$self->{_Data}}) 
+	foreach (@{$self->{_Data}}) 
 	{
 		foreach (@$_) 
 		{

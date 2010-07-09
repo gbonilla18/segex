@@ -50,7 +50,6 @@ sub new {
 		_ExperimentRec		=> '',
 		_ExperimentCount	=> 0,
 		_ExperimentData		=> '',
-		_EIDHash		=> '',
 		_InsideTableQuery 	=> '',
 		_PlatformInfoQuery	=> "SELECT	pid,
 							pname
@@ -60,8 +59,8 @@ sub new {
 				select DISTINCT 
 					coalesce(probe.reporter, g0.reporter) as Probe,
 					platform.pid,					
-					group_concat(DISTINCT IF(ISNULL(g0.accnum),'',g0.accnum) ORDER BY g0.seqname ASC separator ',') AS 'Accession',
-					IF(ISNULL(g0.seqname),'',g0.seqname)                                                            AS 'Gene',
+					group_concat(DISTINCT IF(ISNULL(g0.accnum),'NONE',g0.accnum) ORDER BY g0.seqname ASC separator ' # ') AS 'Accession',
+					IF(ISNULL(g0.seqname),'NONE',g0.seqname)                                                            AS 'Gene',
 					coalesce(probe.probe_sequence, g0.probe_sequence) AS 'Probe Sequence'					
 					from
 					({0}) as g0
@@ -70,6 +69,7 @@ sub new {
 			group by coalesce(probe.rid, g0.rid)
 							",
 		_ExperimentListHash 	=> '',
+		_ExperimentNameListHash 	=> '',
 		_ExperimentDataQuery 	=> "
 					select 	experiment.eid, 
 						microarray.ratio,
@@ -87,6 +87,7 @@ sub new {
 					) as d3 on microarray.rid=d3.rid 
 					NATURAL JOIN experiment 
 					NATURAL JOIN study
+					ORDER BY experiment.eid ASC
 					"
 	};
 
@@ -188,9 +189,9 @@ sub loadExperimentData
 	my $transform					= '';
 	my $sql_trans					= '';
 	
-	$self->{_ProbeExperimentHash}	= {};
-	$self->{_EIDHash}				= {};
-	$self->{_ExperimentListHash}	= {};
+	$self->{_ProbeExperimentHash}		= {};
+	$self->{_ExperimentListHash}		= {};
+	$self->{_ExperimentNameListHash}	= {};
 	
 	#Grab the format for the output from the form.
 	$transform 	= ($self->{_FormObject}->param('trans')) 	if defined($self->{_FormObject}->param('trans'));
@@ -239,11 +240,12 @@ sub loadExperimentData
 			#Add this experiment to the hash which will have all the experiments and their data for a given reporter.
 			$tempHash{$_->[0]} = $experimentDataString;
 
-			#Keep a hash of experiment names and PID.
-			${$self->{_ExperimentListHash}{$_->[0] . "|" . $_->[6]}} = $currentPID;
+			#Keep a hash of EID and PID.
+			${$self->{_ExperimentListHash}{$_->[0]}} = $currentPID;
+
+			#Keep a hash of experiment names and EID.			
+			${$self->{_ExperimentNameListHash}{$_->[0]}} = $_->[6];
 			
-			#Keep a hash of unique experiment ID's and their platforms.
-			${$self->{_EIDHash}}{$_->[0]} = $currentPID;			
 		}
 
 		#Add the hash of experiment data to the hash of reporters.
@@ -297,31 +299,35 @@ sub printFindProbeCSV
 			#String representing the list of experiment names.
 			my $experimentList = ",,,,,";
 			
-			#Use this to keep track of the number of experiments we scrawl out.
-			my $experimentCount = 1;
+			#Temporarily hold the string we are to output so we can trim the trailing ",".
+			my $outLine = "";
 			
 			#Loop through the list of experiments and print out the ones for this platform.
-			foreach my $value (sort {$self->{_ExperimentListHash}{$a} cmp $self->{_ExperimentListHash}{$b} } keys %{$self->{_ExperimentListHash}})
+			foreach my $value (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
 			{
 				if(${$self->{_ExperimentListHash}{$value}} == $currentPID)
 				{
-					#Split the output string.
-					my @splitExperimentName = split(/\|/,$value);
 					
 					#Current experiment name.
-					my $currentExperimentName = $splitExperimentName[1];
-					$currentExperimentName =~ s/\,//g;					
+					my $currentExperimentName = ${$self->{_ExperimentNameListHash}{$value}};
+					$currentExperimentName =~ s/\,//g;
 					
-					#Print out current Experiment name with its index.
-					print "$experimentCount : $currentExperimentName\n";
+					#Print out current Experiment name with its eid.
+					print "$value : $currentExperimentName\n";
 					
-					#Increment the experiment counter.
-					$experimentCount ++;
+					#The list of experiments goes with the Ratio line for each block of 5 columns.
+					$experimentList .= "$value : $currentExperimentName,,,,,,";					
+					
+					#Form the line that goes above the data. Each experiment gets a set of 5 columns.
+					$outLine .= ",$value:Ratio,$value:FC,$value:P-Val,$value:Intensity1,$value:Intensity2,";					
 				}
 			}
 			
 			#Trim trailing comma off experiment list.
 			$experimentList =~ s/\,$//;
+			
+			#Trim trailing comma off data row header.
+			$outLine =~ s/\,$//;
 			
 			#Print list of experiments.
 			print $experimentList;
@@ -330,17 +336,6 @@ sub printFindProbeCSV
 			#Print header line for probe rows.
 			print "Reporter ID,Accession Number, Gene Name,Probe Sequence,";
 			
-			#Temporarily hold the string we are to output so we can trim the trailing ",".
-			my $outLine = "";
-			
-			#For each experiment we print a header.
-			for (my $count = 1; $count < $experimentCount; $count++) 
-			{
-				$outLine .= ",$count:Ratio,$count:FC,$count:P-Val,$count:Intensity1,$count:Intensity2,";
-			}
-			
-			$outLine =~ s/\,$//;
-
 			print "$outLine\n";
 					
 		}
@@ -350,15 +345,19 @@ sub printFindProbeCSV
 		
 		#Print the probe ID.
 		$outRow .= "$value,";
+
+		#Trim any commas out of the Gene Name.
+		my $geneName 	= $splitPlatformID[2];
+		$geneName 		=~ s/\,//;
 		
-		#Print the probe info.
-		$outRow .= "$splitPlatformID[1],$splitPlatformID[2],$splitPlatformID[3],,";
+		#Print the probe info. (Accession,Gene Name, Probe Sequence).
+		$outRow .= "$splitPlatformID[1],$geneName,$splitPlatformID[3],,";
 				
 		#For this reporter we print out a column for all the experiments that we have data for.
-		foreach my $EIDvalue (sort {$self->{_EIDHash}{$a} cmp $self->{_EIDHash}{$b} } keys %{$self->{_EIDHash}})
+		foreach my $EIDvalue (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
 		{
 			#Only try to see the EID's for platform $currentPID.
-			if($self->{_EIDHash}{$EIDvalue} == $currentPID)
+			if(${$self->{_ExperimentListHash}{$EIDvalue}} == $currentPID)
 			{
 				my %currentProbeExperimentHash;
 				%currentProbeExperimentHash = %{${$self->{_ProbeExperimentHash}}{$value}};
