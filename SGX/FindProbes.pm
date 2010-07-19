@@ -51,6 +51,7 @@ sub new {
 		_ExperimentCount	=> 0,
 		_ExperimentData		=> '',
 		_InsideTableQuery 	=> '',
+		_SearchItems		=> '',
 		_PlatformInfoQuery	=> "SELECT	pid,
 							pname
 					    FROM	platform",
@@ -88,7 +89,8 @@ sub new {
 					NATURAL JOIN experiment 
 					NATURAL JOIN study
 					ORDER BY experiment.eid ASC
-					"
+					",
+		_ReporterList		=> ''
 	};
 
 	#Reporter,Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}	
@@ -98,7 +100,142 @@ sub new {
 }
 
 #######################################################################################
-#This gets set in the index based on input parameters.
+#This is the code that generates part of the SQL statement.
+#######################################################################################
+sub createInsideTableQuery
+{
+	my $self		= shift;
+
+	my $text 		= $self->{_FormObject}->param('text') or die "You did not specify what to search for";	# must be always set -- no defaults
+	my $type 		= $self->{_FormObject}->param('type') or die "You did not specify where to search";	# must be always set -- no defaults
+	my $trans 		= (defined($self->{_FormObject}->param('trans'))) ? $self->{_FormObject}->param('trans') : 'fold';
+	my $match 		= (defined($self->{_FormObject}->param('match'))) ? $self->{_FormObject}->param('match') : 'full';
+	my $opts 		= (defined($self->{_FormObject}->param('opts'))) ? $self->{_FormObject}->param('opts') : 1;
+	my $speciesColumn	= 5;
+
+	my @extra_fields;
+
+	switch ($opts) {
+	case 0 {}
+	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Specificity - Comment\'') }
+	case 2 {}
+	}
+
+	my $extra_sql = (@extra_fields) ? ', '.join(', ', @extra_fields) : '';
+
+	my $qtext;
+	
+	#This will be the array that holds all the splitted items.
+	my @textSplit;	
+	
+	#If we find a comma, split on that, otherwise we split on new lines.
+	if($text =~ m/,/)
+	{
+		#Split the input on commas.	
+		@textSplit = split(/\,/,trim($text));
+	}
+	else
+	{
+		#Split the input on the new line.	
+		@textSplit = split(/\r\n/,$text);
+	}
+	
+	#Get the count of how many search terms were found.
+	my $searchesFound = @textSplit;
+	
+	#This will be the string we output.
+	my $out = "";
+
+	if($searchesFound < 2)
+	{
+		switch ($match) 
+		{
+			case 'full'		{ $qtext = '^'.$textSplit[0].'$' }
+			case 'prefix'	{ $qtext = '^'.$textSplit[0] }
+			case 'part'		{ $qtext = $textSplit[0] } 
+			else			{ assert(0) }
+		}
+	}
+	else
+	{
+		#Begining of the SQL regex.
+		$qtext = '^';
+		
+		#Add the search items seperated by a bar.
+		foreach(@textSplit)
+		{
+			if($_)
+			{
+				$qtext .= trim($_) . "|";
+			}
+		}
+		
+		#Remove the double backslashes.
+		$qtext =~ s/\|$//;
+		
+		#Add the closing regex character.
+		$qtext .= '$';
+	}
+	
+	my $g0_sql;
+	switch ($type) 
+	{
+		case 'probe' 
+		{
+			$g0_sql = "
+			select rid, reporter, note, probe_sequence, g1.pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join 
+			(select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, accnum from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid where reporter REGEXP ?) as g1
+			on g2.accnum=g1.accnum where rid is not NULL
+			
+			union
+
+			select rid, reporter, note, probe_sequence, g3.pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, seqname from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid where reporter REGEXP ?) as g3
+			on g4.seqname=g3.seqname where rid is not NULL
+			";
+
+		}
+		case 'gene' 
+		{
+			$g0_sql = "
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
+			(select distinct accnum from gene where seqname REGEXP ? and accnum is not NULL) as g1
+			on g2.accnum=g1.accnum where g2.gid is not NULL
+
+			union
+
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct seqname from gene where seqname REGEXP ? and seqname is not NULL) as g3
+			on g4.seqname=g3.seqname where g4.gid is not NULL
+			";
+		}
+		case 'transcript' 
+		{
+			$g0_sql = "
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
+			(select distinct accnum from gene where accnum REGEXP ? and accnum is not NULL) as g1
+			on g2.accnum=g1.accnum where g2.gid is not NULL
+
+			union
+
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct seqname from gene where accnum REGEXP ? and seqname is not NULL) as g3
+			on g4.seqname=g3.seqname where g4.gid is not NULL
+			";
+		} 
+		else 
+		{
+			assert(0); # shouldn't happen
+		}
+	}
+	
+	$self->{_InsideTableQuery} 	= $g0_sql;
+	$self->{_SearchItems} 		= $qtext;
+}
+#######################################################################################
+
+#######################################################################################
+#This gets set in the index.cgi page based on input parameters.
 #######################################################################################
 sub setInsideTableQuery
 {
@@ -106,6 +243,28 @@ sub setInsideTableQuery
 	my $tableQuery 	= shift;
 	
 	$self->{_InsideTableQuery} = $tableQuery;
+}
+#######################################################################################
+
+#######################################################################################
+#Return the inside table query.
+#######################################################################################
+sub getInsideTableQuery
+{
+	my $self		= shift;
+		
+	return $self->{_InsideTableQuery};
+}
+#######################################################################################
+
+#######################################################################################
+#Return the search terms used in the query.
+#######################################################################################
+sub getQueryTerms
+{
+	my $self		= shift;
+
+	return $self->{_SearchItems};
 }
 #######################################################################################
 
@@ -157,7 +316,7 @@ sub loadProbeData
 	$self->{_ProbeHash} 	= {};
 	
 	my $DataCount			= @{$self->{_Data}};
-	
+
 	if($DataCount < 1)
 	{
 		print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
@@ -254,6 +413,7 @@ sub loadExperimentData
 	}
 	
 }
+#######################################################################################
 
 #######################################################################################
 #Print the data from the hashes into a CSV file.
@@ -266,6 +426,9 @@ sub printFindProbeCSV
 	#Clear our headers so all we get back is the CSV file.
 	print $self->{_FormObject}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
 
+	#Print a line to tell us what report this is.
+	print "Find Probes Report," . localtime . "\n\n";	
+	
 	#Sort the hash so the PID's are together.
 	foreach my $value (sort {$self->{_ProbeHash}{$a} cmp $self->{_ProbeHash}{$b} } keys %{$self->{_ProbeHash}})
 	{
@@ -379,5 +542,34 @@ sub printFindProbeCSV
 	}
 }
 #######################################################################################
+
+#######################################################################################
+#Loop through the list of Reporters we are filtering on and create a list.
+#######################################################################################
+sub setProbeList
+{
+	my $self 					= shift;
+	$self->{_ReporterList}		= '';
+	
+	foreach(keys %{$self->{_ProbeHash}})
+	{
+		$self->{_ReporterList} .= "'$_',";
+	}
+	
+	#Trim trailing comma off.
+	$self->{_ReporterList} =~ s/\,$//;	
+}
+#######################################################################################
+
+#######################################################################################
+#Loop through the list of Reporters we are filtering on and create a list.
+#######################################################################################
+sub getProbeList
+{
+	my $self 					= shift;
+	return $self->{_ReporterList};
+}
+#######################################################################################
+
 
 1;

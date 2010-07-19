@@ -54,6 +54,7 @@ sub new {
 		_numStart		=> 0,
 		_opts			=> '',
 		_allProbes		=> '',
+		_searchFilters	=> '',
 		_LoadQuery	=> 'select 	platform.pname, 
 								platform.def_f_cutoff, 
 								platform.def_p_cutoff, 
@@ -108,6 +109,8 @@ sub loadTFSData
 	$self->{_pvals}			= \@pvalArray;
 	
 	$self->{_allProbes}		= $self->{_FormObject}->param('allProbes');
+	$self->{_searchFilters}	= '';	
+	$self->{_searchFilters}	= $self->{_FormObject}->param('searchFilter');
 	$self->{_fs} 			= $self->{_FormObject}->param('get');
 	$self->{_outType}		= $self->{_FormObject}->param('outType');
 	$self->{_opts} 			= $self->{_FormObject}->param('opts');
@@ -125,7 +128,7 @@ sub loadTFSData
 	my $having = (defined($self->{_fs})) ? "HAVING abs_fs=$self->{_fs}" : '';
 	$self->{_numStart} = 5;	# index of the column that is the beginning of the "numeric" half of the table (required for table sorting)
 	my $query = '   
-SELECT 	abs_fs, 
+	SELECT 	abs_fs, 
 	dir_fs, 
 	probe.reporter AS Probe, 
 	GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS Transcript, 
@@ -135,6 +138,15 @@ SELECT 	abs_fs,
 			BIT_OR(abs_flag) AS abs_fs, 
 			BIT_OR(dir_flag) AS dir_fs FROM (
 ';
+	
+	#If we got a list to filter on, build the string.
+	my $probeListQuery	= '';
+	
+	if($self->{_searchFilters} ne '')
+	{
+		$probeListQuery	= " WHERE rid IN (SELECT rid FROM probe WHERE reporter in (" . $self->{_searchFilters} . ")) ";
+	}
+
 	my $query_body = '';
 	my $query_proj = '';
 	my $query_join = '';
@@ -188,9 +200,16 @@ SELECT 	abs_fs,
 		$self->{_numStart} += 3;
 		$query_proj = 'probe.probe_sequence AS \'Probe Sequence\', GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\', platform.species AS \'Species\', '.$query_proj;
 	}
+	
 	# pad TFS decimal portion with the correct number of zeroes
 	$query = sprintf($query, $query_proj) . $query_body . "
-) AS d1 GROUP BY rid $having) AS d2
+) AS d1 
+
+$probeListQuery
+
+GROUP BY rid $having
+
+) AS d2
 $query_join
 LEFT JOIN probe 	ON d2.rid		= probe.rid
 LEFT JOIN annotates ON d2.rid		= annotates.rid
@@ -199,7 +218,7 @@ LEFT JOIN platform 	ON platform.pid = probe.pid
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
 ";
-
+	
 	$self->{_Records} = $self->{_dbh}->prepare(qq{$query}) or die $self->{_dbh}->errstr;
 	$self->{_RowCountAll} = $self->{_Records}->execute or die $self->{_dbh}->errstr;
 
@@ -255,6 +274,8 @@ sub loadDataFromSubmission
 	$self->{_outType}		= $self->{_FormObject}->param('outType');
 	$self->{_opts} 			= $self->{_FormObject}->param('opts');
 	$self->{_allProbes}		= $self->{_FormObject}->param('allProbes');
+	$self->{_searchFilters}	= '';	
+	$self->{_searchFilters}	= $self->{_FormObject}->param('searchFilter');
 	
 }
 #######################################################################################
@@ -309,7 +330,14 @@ sub loadAllData
 	my $query_proj = '';
 	my $query_join = '';
 	my $query_titles = '';
-	
+	my $probeListQuery	= '';
+
+	#If we got a list to filter on, build the string.	
+	if($self->{_searchFilters} ne '')
+	{
+		$probeListQuery	= " WHERE rid IN (SELECT rid FROM probe WHERE reporter in (" . $self->{_searchFilters} . ")) ";
+	}
+
 	my $i = 1; 
 
 	foreach my $eid (@{$self->{_eids}})
@@ -357,7 +385,9 @@ sub loadAllData
 
 	# pad TFS decimal portion with the correct number of zeroes
 	$query = sprintf($query, $query_proj) . $query_body . "
-	) AS d1 GROUP BY rid $having) AS d2
+	) AS d1 
+	$probeListQuery
+	GROUP BY rid $having) AS d2
 	$query_join
 	LEFT JOIN probe 	ON d2.rid		= probe.rid
 	LEFT JOIN annotates ON d2.rid		= annotates.rid
@@ -393,6 +423,9 @@ sub displayTFSInfoCSV
 	#Clear our headers so all we get back is the CSV file.
 	print $self->{_FormObject}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
 
+	#Print a line to tell us what report this is.
+	print "Compare Experiments Report," . localtime . "\n\n";
+	
 	#Print Platform header.
 	print "pname,def_f_cutoff,def_p_cutoff,species,Is Annotated, Probe Count, Sequences Loaded, Transcript IDs, Gene Names, Gene Description\n";
 	
@@ -413,15 +446,24 @@ sub displayTFSInfoCSV
 		
 	}
 	
+	#Print a blank line.
+	print "\n";
+	
 	#Print Experiment info header.
 	print "Experiment,|Fold Change| >, P\n";
+	
+	#This is the line with the experiment name and eid above the data columns.
+	my $experimentNameHeader = ",,,,,,,";
 	
 	#Print Experiment info.
 	for (my $i = 0; $i < @{$self->{_eids}}; $i++) 
 	{
-		$currentLine .=  $i+1 . ":" . $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title} . ",";
+		$currentLine .=  ${$self->{_eids}}[$i] . ":" . $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title} . ",";
 		$currentLine .=  ${$self->{_fcs}}[$i] . ",";
 		$currentLine .=  ${$self->{_pvals}}[$i] . ",";
+		
+		#Form the line the displays experiment names above data columns.
+		$experimentNameHeader .= ${$self->{_eids}}[$i] . ":" . $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title} . ",,,,,";
 		
 		#Test for bit presence and print out 1 if present, 0 if absent
 		if (defined($self->{_fs})) 
@@ -436,15 +478,21 @@ sub displayTFSInfoCSV
 		$currentLine = "";
 	}
 	
+	#Print a blank line.
+	print "\n";
+	
+	#Print header line.
+	print "$experimentNameHeader\n";
+	
 	#Experiment Data header.
-	$currentLine = "TFS,Probe,Transcript,Gene,Probe Sequence,Gene Description,Species,";
+	$currentLine = "TFS,Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description,Species,";
 	
 	my $experimentCounter = 0;
 	
 	foreach my $eid (@{$self->{_eids}}) 
 	{
 		$experimentCounter++;
-		$currentLine .= "$experimentCounter:Ratio,$experimentCounter:Fold Change,$experimentCounter:Intensity-1,$experimentCounter:Intensity-2,$experimentCounter:P,";
+		$currentLine .= "$eid:Ratio,$eid:Fold Change,$eid:Intensity-1,$eid:Intensity-2,$eid:P,";
 	}
 	
 	#Strip trailing comma.		
