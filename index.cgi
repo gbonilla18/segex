@@ -36,7 +36,7 @@ use SGX::TFSDisplay;
 use SGX::FindProbes;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.107";
+my $softwareVersion = "0.108";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -1110,6 +1110,7 @@ sub findProbes_js
 			group by coalesce(probe.rid, g0.rid)
 			};
 
+			
 	if($opts==2)
 	{
 		$s->commit;
@@ -1499,7 +1500,7 @@ var study = {};
 	$sth->finish;
 
 	# get a list of all experiments
-	$sth = $dbh->prepare(qq{select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc from study natural join experiment})
+	$sth = $dbh->prepare(qq{select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc from study natural join experiment order by eid})
 		or die $dbh->errstr;
 	$rowcount = $sth->execute
 		or die $dbh->errstr;
@@ -1538,10 +1539,21 @@ sub form_compareExperiments {
 	),
 	$q->dl(
 		$q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
-		$q->dd(
-			$q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')
-		)
+		$q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')),
+		$q->dt('Filter by a list of genes:'),
+		$q->dd($q->checkbox(-name=>'chkUseGeneList',-id=>'chkUseGeneList',-label=>'',-value=>'1',-onclick=>'toggleSearchOptions();'))		
 	),
+	$q->dl(
+		$q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
+			$q->dt('Search string(s):'),
+			$q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
+			$q->dt('Search type :'),
+			$q->dd($q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),
+			$q->dt('Pattern to match :'),
+			$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression*'})),
+			)
+	)
+	,	
 	$q->dl(
 		$q->dt('Compare selected experiments:'),
 		$q->dd(
@@ -1558,9 +1570,24 @@ sub compare_experiments_js {
 	my $allProbes 		= '';
 	$allProbes 			= ($q->param('chkAllProbes')) if defined($q->param('chkAllProbes'));
 	
-	my $thresholdQuery			= '';
-	my $allProbeThresholdQuery	= '';
+	my $searchFilter	= '';
+	$searchFilter 		= ($q->param('chkUseGeneList')) if defined($q->param('chkUseGeneList'));
 
+	my $probeListQuery	= '';
+	my $probeList		= '';
+	
+	if($searchFilter eq "1")
+	{
+		$findProbes = new SGX::FindProbes($dbh,$q);
+		$findProbes->createInsideTableQuery();
+		$findProbes->loadProbeData($findProbes->getQueryTerms);
+		$findProbes->setProbeList();
+		$probeList 	= $findProbes->getProbeList();
+		$probeListQuery	= " WHERE rid IN (SELECT rid FROM probe WHERE reporter in ($probeList)) ";
+	}
+
+	#If we are filtering, generate the SQL statement for the rid's.	
+	my $thresholdQuery			= '';
 	my $query_titles 	= '';
 	my $query_fs 		= 'SELECT fs, COUNT(*) as c FROM (SELECT BIT_OR(flag) AS fs FROM (';
 	my $query_fs_body 	= '';
@@ -1586,16 +1613,15 @@ sub compare_experiments_js {
 
 		$query_fs_body .= "SELECT rid, $flag AS flag FROM microarray WHERE eid=$eid $thresholdQuery UNION ALL ";
 		
-		#This is part of the query when we are including all probes. 
+		#This is part of the query when we are including all probes.
 		if($allProbes eq "1")
 		{
 			$query_fs_body .= "SELECT rid, 0 AS flag FROM microarray WHERE eid=$eid AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$eid $thresholdQuery) UNION ALL ";
 		}
 
 		# account for sample order when building title query
-		my $title = ($reverse) ? 
-			"experiment.sample1, ' / ', experiment.sample2" :
-			"experiment.sample2, ' / ', experiment.sample1";
+		my $title = ($reverse) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
+		
 		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
 	}
 
@@ -1603,8 +1629,9 @@ sub compare_experiments_js {
 
 	# strip trailing 'UNION ALL' plus any trailing white space
 	$query_fs_body =~ s/UNION ALL\s*$//i;
-	$query_fs = sprintf($query_fs, $exp_count) . $query_fs_body . ') AS d1 GROUP BY rid) AS d2 GROUP BY fs';
+	$query_fs = sprintf($query_fs, $exp_count) . $query_fs_body . ") AS d1 $probeListQuery GROUP BY rid) AS d2 GROUP BY fs";
 
+	#Run the Flag Sum Query.
 	my $sth_fs = $dbh->prepare(qq{$query_fs}) or die $dbh->errstr;
 	my $rowcount_fs = $sth_fs->execute or die $dbh->errstr;
 	my $h = $sth_fs->fetchall_hashref('fs');
@@ -1700,6 +1727,7 @@ var rev="'.join(',',@reverses).'";
 var fc="'.join(',',@fcs).'";
 var pval="'.join(',',@pvals).'";
 var allProbes = "' . $allProbes . '";
+var searchFilter = "' . $probeList . '";
 
 var summary = {
 caption: "Experiments compared",
@@ -1768,6 +1796,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 	Dom.get("fc").value = fc;
 	Dom.get("pval").value = pval;
 	Dom.get("allProbes").value = allProbes;
+	Dom.get("searchFilter").value = searchFilter;
 	Dom.get("venn").innerHTML = venn;
 	Dom.get("summary_caption").innerHTML = summary.caption;
 	var summary_table_defs = [
@@ -1811,6 +1840,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 	var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
 });
 ';
+	
 	$out;
 }
 #######################################################################################
@@ -1832,6 +1862,7 @@ sub compare_experiments {
 		$q->hidden(-name=>'fc', -id=>'fc'),
 		$q->hidden(-name=>'pval', -id=>'pval'),
 		$q->hidden(-name=>'allProbes', -id=>'allProbes'),
+		$q->hidden(-name=>'searchFilter', -id=>'searchFilter'),
 		'<h2 id="tfs_caption"></h2>',
 		$q->dl(
 			$q->dt('Data to display:'),

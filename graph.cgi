@@ -85,12 +85,12 @@ $sth->finish;
 my $title_text = "$seqname Differential Expression Reported by $reporter";
 my $xtitle_text = 'Experiment';
 $sth = $dbh->prepare(qq{
-select CONCAT(study.description, ': ', experiment.sample2, '/', experiment.sample1) AS label, $sql_trans as y, pvalue from microarray 
+select CONCAT(experiment.eid, ' - ' ,study.description, ': ', experiment.sample2, '/', experiment.sample1) AS label, $sql_trans as y, pvalue from microarray 
 right join 
 (
 select distinct rid from probe where reporter='$reporter'
 ) as d3 on microarray.rid=d3.rid NATURAL JOIN experiment NATURAL JOIN study
-})
+ ORDER BY experiment.eid ASC})
 	or die $dbh->errstr;
 $rowcount = $sth->execute or die $dbh->errstr;
 
