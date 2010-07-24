@@ -1541,7 +1541,7 @@ sub form_compareExperiments {
 		$q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
 		$q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')),
 		$q->dt('Filter by a list of genes:'),
-		$q->dd($q->checkbox(-name=>'chkUseGeneList',-id=>'chkUseGeneList',-label=>'',-value=>'1',-onclick=>'toggleSearchOptions();'))		
+		$q->dd($q->checkbox(-name=>'chkUseGeneList',-id=>'chkUseGeneList',-label=>'',-value=>'1',-onclick=>'toggleSearchOptions();',-disabled => 'disabled'))		
 	),
 	$q->dl(
 		$q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
@@ -2200,6 +2200,7 @@ sub uploadAnnot {
 				$gene_values .= ','.$row[$_];
 				$update_gene .= ','.$gene_fields{$fields[$_]}.'='.$row[$_];
 			}
+
 			if (defined($seqname_index)) {
 				$seqname_value = $row[$seqname_index];
 				if ($seqname_value) {
