@@ -550,7 +550,7 @@ sub addNewExperiment
 		#We need to create this output directory.
 		my $direc_out	 = "/var/www/temp_files/$processID/";
 		system("mkdir $direc_out");
-
+		print "$direc_out";
 		#This is where we put the temp file we will import.
 		my $outputFileName 	= $direc_out . "StudyData";
 
@@ -640,7 +640,7 @@ sub addNewExperiment
 		#--------------------------------------------
 		
 		#Remove the temp directory.
-		system("rm -rf $direc_out");
+		#system("rm -rf $direc_out");
 				
 		if($rowsInserted < 2)
 		{
