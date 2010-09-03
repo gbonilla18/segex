@@ -36,7 +36,7 @@ use SGX::TFSDisplay;
 use SGX::FindProbes;
 
 # ===== USER AUTHENTICATION =============================================
-my $softwareVersion = "0.108";
+my $softwareVersion = "0.11";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -197,6 +197,17 @@ while (defined($action)) { switch ($action) {
 	}
 	case MANAGESTUDIES {
 		if ($s->is_authorized('user')) {
+
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
+			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+
 
 			$content = \&manageStudies;
 
@@ -1541,7 +1552,7 @@ sub form_compareExperiments {
 		$q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
 		$q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')),
 		$q->dt('Filter by a list of genes:'),
-		$q->dd($q->checkbox(-name=>'chkUseGeneList',-id=>'chkUseGeneList',-label=>'',-value=>'1',-onclick=>'toggleSearchOptions();',-disabled => 'disabled'))		
+		$q->dd($q->checkbox(-name=>'chkUseGeneList',-id=>'chkUseGeneList',-label=>'',-value=>'1',-onclick=>'toggleSearchOptions();'))		
 	),
 	$q->dl(
 		$q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
@@ -2391,6 +2402,12 @@ sub manageStudies
 			$manageStudy->insertNewStudy();
 			print "<br />Record added - Redirecting...<br />";
 		}
+		case 'addExisting'
+		{
+			$manageExperiment->loadFromForm();
+			$manageExperiment->addExistingExperiment();
+			print "<br />Record added - Redirecting...<br />";
+		}
 		case 'delete'
 		{
 			$manageStudy->loadFromForm();
@@ -2401,6 +2418,7 @@ sub manageStudies
 		{
 			$manageStudy->loadSingleStudy();
 			$manageStudy->loadPlatformData();
+			$manageStudy->loadAllExperimentsFromStudy();
 			$manageStudy->editStudy();
 		}
 		case 'editSubmit'
@@ -2445,11 +2463,13 @@ sub form_manageExperiments
 			$manageExperiment->loadFromForm();
 			$manageExperiment->loadAllExperimentsFromStudy();
 			$manageExperiment->loadStudyData();
+			$manageExperiment->loadPlatformData();
 			$manageExperiment->showExperiments();
 		}
 		else
 		{
 			$manageExperiment->loadStudyData();
+			$manageExperiment->loadPlatformData();
 			$manageExperiment->showExperiments();
 		}
 
@@ -2476,12 +2496,6 @@ sub manageExperiments
 			$manageExperiment->loadFromForm();
 			$manageExperiment->deleteExperiment();
 			print "<br />Record deleted - Redirecting...<br />";
-		}
-		case 'addExisting'
-		{
-			$manageExperiment->loadFromForm();
-			$manageExperiment->addExistingExperiment();
-			print "<br />Record added - Redirecting...<br />";
 		}
 	}
 
