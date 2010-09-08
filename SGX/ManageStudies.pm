@@ -191,10 +191,10 @@ sub loadFromForm
 {
 	my $self = shift;
 
-	$self->{_description}	= ($self->{_FormObject}->param('description')) 	if defined($self->{_FormObject}->param('description'));
-	$self->{_pubmed}	= ($self->{_FormObject}->param('pubmed')) 	if defined($self->{_FormObject}->param('pubmed'));
-	$self->{_pid}		= ($self->{_FormObject}->param('platform')) 	if defined($self->{_FormObject}->param('platform'));
-	$self->{_stid}		= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
+	$self->{_description}		= ($self->{_FormObject}->param('description')) 	if defined($self->{_FormObject}->param('description'));
+	$self->{_pubmed}		= ($self->{_FormObject}->param('pubmed')) 	if defined($self->{_FormObject}->param('pubmed'));
+	$self->{_pid}			= ($self->{_FormObject}->param('platform')) 	if defined($self->{_FormObject}->param('platform'));
+	$self->{_stid}			= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
 	$self->{_SelectedStudy}		= ($self->{_FormObject}->param('study_exist'))			if defined($self->{_FormObject}->param('study_exist'));
 	$self->{_SelectedExperiment}	= ($self->{_FormObject}->param('experiment_exist'))		if defined($self->{_FormObject}->param('experiment_exist'));
 
@@ -433,8 +433,8 @@ sub editStudy
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
 		-name=>'AddExistingForm',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageExperiments&ManageAction=addExisting&stid=' . $self->{_stid},
-		-onsubmit=>'return validate_fields(this);'
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=addExisting&id=' . $self->{_stid},
+		-onsubmit=>"return validate_fields(this,'');"
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Study : '),
@@ -445,7 +445,7 @@ sub editStudy
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
 	) .
-	$self->{_FormObject}->end_form;	
+	$self->{_FormObject}->end_form;
 
 }
 

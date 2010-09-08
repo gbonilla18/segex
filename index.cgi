@@ -2404,8 +2404,8 @@ sub manageStudies
 		}
 		case 'addExisting'
 		{
-			$manageExperiment->loadFromForm();
-			$manageExperiment->addExistingExperiment();
+			$manageStudy->loadFromForm();
+			$manageStudy->addExistingExperiment();
 			print "<br />Record added - Redirecting...<br />";
 		}
 		case 'delete'
@@ -2436,7 +2436,7 @@ sub manageStudies
 		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
 		print "$redirectString";
 	}
-	elsif($ManageAction eq 'add')
+	elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting')
 	{
 		my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageExperiments&ManageAction=load&stid=' . $manageStudy->{_stid};
 		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";

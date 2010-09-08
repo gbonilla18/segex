@@ -48,11 +48,11 @@ sub new {
 						COUNT(1),
 						ExperimentDescription,
 						AdditionalInformation,
-						study.description,
+						IFNULL(study.description,'No Study'),
 						platform.pname
 					FROM	experiment 
-					INNER JOIN study ON study.stid = experiment.stid
-					INNER JOIN platform ON platform.pid = study.pid
+					LEFT JOIN study ON study.stid = experiment.stid
+					LEFT JOIN platform ON platform.pid = study.pid
 					LEFT JOIN microarray ON microarray.eid = experiment.eid
 					WHERE experiment.stid = {0}
 					GROUP BY experiment.eid,
@@ -70,13 +70,14 @@ sub new {
 						COUNT(1),
 						ExperimentDescription,
 						AdditionalInformation,
-						study.description,
+						IFNULL(study.description,'No Study'),
 						platform.pname						
 					FROM	experiment 
-					LEFT JOIN study ON study.stid = experiment.stid
-					INNER JOIN platform ON platform.pid = study.pid					
-					LEFT JOIN microarray ON microarray.eid = experiment.eid
-					WHERE (study.pid = {1} OR {1} = 0)
+					LEFT JOIN study 	ON study.stid = experiment.stid
+					LEFT JOIN platform 	ON platform.pid = study.pid					
+					LEFT JOIN microarray 	ON microarray.eid = experiment.eid
+					LEFT JOIN probe 	ON probe.rid = microarray.rid
+					WHERE (probe.pid = {1} OR {1} = 0)
 					GROUP BY experiment.eid,
 						study.pid,
 						experiment.sample1,
@@ -102,7 +103,6 @@ sub new {
 				",				   
 		
 		_UpdateQuery	=> 'UPDATE experiment SET ExperimentDescription = \'{0}\', AdditionalInformation = \'{1}\', sample1 = \'{2}\', sample2 = \'{3}\' WHERE eid = {4};',
-		_InsertQuery	=> 'INSERT INTO experiment (sample1,sample2,stid,ExperimentDescription,AdditionalInformation) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\',\'{4}\');',
 		_DeleteQuery	=> \@deleteStatementList,
 		_StudyQuery	=> 'SELECT 0,\'ALL\' UNION SELECT stid,description FROM study;',
 		_StudyPlatformQuery	=> 'SELECT pid,stid,description FROM study;',
@@ -223,10 +223,6 @@ sub loadFromForm
 	$self->{_stid}			= ($self->{_FormObject}->param('stid'))				if defined($self->{_FormObject}->param('stid'));
 	$self->{_stid}			= ($self->{_FormObject}->url_param('stid'))			if defined($self->{_FormObject}->url_param('stid'));	
 	$self->{_eid}			= ($self->{_FormObject}->url_param('id')) 			if defined($self->{_FormObject}->url_param('id'));
-	$self->{_sample1}		= ($self->{_FormObject}->param('Sample1'))			if defined($self->{_FormObject}->param('Sample1'));
-	$self->{_sample2}		= ($self->{_FormObject}->param('Sample2'))			if defined($self->{_FormObject}->param('Sample2'));
-	$self->{_ExperimentDescription}	= ($self->{_FormObject}->param('ExperimentDescription'))	if defined($self->{_FormObject}->param('ExperimentDescription'));
-	$self->{_AdditionalInformation}	= ($self->{_FormObject}->param('AdditionalInformation'))	if defined($self->{_FormObject}->param('AdditionalInformation'));
 }
 
 #######################################################################################
@@ -286,9 +282,10 @@ sub showExperiments
 
 		print 	"</script>\n";
 
-		my $addExperimentInfo = new AddExperiment();
+		my $addExperimentInfo = new SGX::AddExperiment($self->{_dbh},$self->{_FormObject},'manageExperiments');
+		$addExperimentInfo->loadFromForm();
+		$addExperimentInfo->loadPlatformData();
 		$addExperimentInfo->drawAddExperimentMenu();
-
 	}
 }
 
@@ -503,170 +500,12 @@ sub deleteExperiment
 }
 
 sub addNewExperiment
-{	
-	#Get reference to our object.
-	my $self 	= shift;
-
-	#The is the file handle of the uploaded file.
-	my $uploadedFile 	= $self->{_FormObject}->upload('uploaded_data_file');
-
-	if(!$uploadedFile)
-	{
-		print "File failed to upload. Please press the back button on your browser and try again.<br />\n";
-		exit;
-	}
-	else
-	{
-
-		my $insertStatement	= $self->{_InsertQuery};
-
-		$insertStatement 	=~ s/\{0\}/\Q$self->{_sample1}\E/;
-		$insertStatement 	=~ s/\{1\}/\Q$self->{_sample2}\E/;
-		$insertStatement 	=~ s/\{2\}/\Q$self->{_stid}\E/;
-		$insertStatement 	=~ s/\{3\}/\Q$self->{_ExperimentDescription}\E/;
-		$insertStatement 	=~ s/\{4\}/\Q$self->{_AdditionalInformation}\E/;
-
-		$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
-
-		$self->{_eid}		= $self->{_dbh}->{'mysql_insertid'};
-
-		#Get time to make our unique ID.
-		my $time      	= time();
-
-		#Make idea with the time and ID of the running application.
-		my $processID 	= $time. '_' . getppid();
-
-		#Regex to strip quotes.
-		my $regex_strip_quotes = qr/^("?)(.*)\1$/;
-
-		#We need to create this output directory.
-		my $direc_out	 = "/var/www/temp_files/$processID/";
-		system("mkdir $direc_out");
-		
-		#This is where we put the temp file we will import.
-		my $outputFileName 	= $direc_out . "StudyData";
-		
-		#This is the temp file we use to convert.
-		my $outputFileName_temp = $direc_out . "StudyData_temp";
-
-		#This is the temp file we use to convert.
-		my $outputFileName_final = $direc_out . "StudyData_final";
-		
-		#Open a file that we save the uploaded content to.
-		open(OUTPUTTEMP,">$outputFileName_temp");
-		
-		#Write the contents of the upload to the new file.
-		while ( <$uploadedFile> )
-		{
-			print OUTPUTTEMP;
-		}
-		
-		close(OUTPUTTEMP);
-		
-		#Run a conversion on the file we just uploaded.
-		system("perl -pe 's/\r\n|\n|\r/\n/g' $outputFileName_temp > $outputFileName_final");
-		
-		#Open the converted file that was uploaded.
-		open (FINALUPLOAD, "$outputFileName_final");
-		
-		#Open file we are writing to server.
-		open(OUTPUTTOSERVER,">$outputFileName");
-		
-		#Check each line in the uploaded file and write it to our temp file.
-		while ( <FINALUPLOAD> )
-		{
-			my @row = split(/ *\t */);
-
-			#The first line should be "Reporter Name" in the first column. We don't process this line.
-			if(!($row[0] eq '"Reporter Name"'))
-			{
-				if($row[0] =~ $regex_strip_quotes){$row[0] = $2;$row[0] =~ s/,//g;}
-				if($row[1] =~ $regex_strip_quotes){$row[1] = $2;$row[1] =~ s/,//g;}
-				if($row[2] =~ $regex_strip_quotes){$row[2] = $2;$row[2] =~ s/,//g;}
-				if($row[3] =~ $regex_strip_quotes){$row[3] = $2;$row[3] =~ s/,//g;}
-				if($row[4] =~ $regex_strip_quotes){$row[4] = $2;$row[4] =~ s/,//g;}
-				if($row[5] =~ $regex_strip_quotes){$row[5] = $2 . "\n";$row[5] =~ s/,//g;$row[5] =~ s/\"//g;}
-
-				#Make sure we have a value for each column.
-				if(!exists($row[0]) || !exists($row[1]) || !exists($row[2]) || !exists($row[3]) || !exists($row[4]) || !exists($row[5]))
-				{
-					print "File not found to be in correct format. Please press the back button on your browser and try again.<br />\n";
-					exit;
-				}
-
-				print OUTPUTTOSERVER $self->{_stid} . '|' . $row[0] . '|' . $row[1] . '|' . $row[2] . '|' . $row[3] . '|' . $row[4] . '|' . $row[5];
+{
+	my $self = shift;
 	
-			}
-		}
-
-		close(OUTPUTTOSERVER);
-		close(FINALUPLOAD);
-		#--------------------------------------------
-		#Now get the temp file into a temp MYSQL table.
-
-		#Command to create temp table.
-		my $createTableStatement = "CREATE TABLE $processID (stid INT(1),Reporter VARCHAR(150),ratio DOUBLE,foldchange DOUBLE,pvalue DOUBLE,intensity1 DOUBLE,intensity2 DOUBLE)";
-
-		#This is the mysql command to suck in the file.
-		my $inputStatement	= "
-						LOAD DATA LOCAL INFILE '$outputFileName'
-						INTO TABLE $processID
-						FIELDS TERMINATED BY '|'
-						LINES TERMINATED BY '\n'
-						(stid,Reporter, ratio, foldchange,pvalue,intensity1,intensity2); 
-					";
-
-		#This is the mysql command to get results from temp file into the microarray table.
-		$insertStatement 	= "INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity2,intensity1)
-		SELECT	probe.rid,
-			" . $self->{_eid} . " as eid,
-			temptable.ratio,
-			temptable.foldchange,
-			temptable.pvalue,
-			temptable.intensity2,
-			temptable.intensity1
-		FROM	 probe
-		INNER JOIN $processID AS temptable ON temptable.reporter = probe.reporter
-		INNER JOIN study 	ON study.stid 	= temptable.stid
-		INNER JOIN platform 	ON platform.pid = study.pid
-		WHERE	platform.pid = probe.pid;";
-
-		#This is the command to drop the temp table.
-		my $dropStatement = "DROP TABLE $processID;";
-		#--------------------------------------------
-
-		#---------------------------------------------
-		#Run the command to create the temp table.
-		$self->{_dbh}->do($createTableStatement) or die $self->{_dbh}->errstr;
-
-		#Run the command to suck in the data.
-		$self->{_dbh}->do($inputStatement) or die $self->{_dbh}->errstr;
-
-		my $rowsInserted = $self->{_dbh}->do($insertStatement);
-		
-		#Run the command to insert the data.
-		if(!$rowsInserted)
-		{
-			die $self->{_dbh}->errstr;
-		}
-
-		#Run the command to drop the temp table.
-		$self->{_dbh}->do($dropStatement) or die $self->{_dbh}->errstr;
-		#--------------------------------------------
-		
-		#Remove the temp directory.
-		system("rm -rf $direc_out");
-				
-		if($rowsInserted < 2)
-		{
-			print "Experiment data could not be added. Please verify you are using the correct annotations for the platform. <br />\n";
-			exit;
-		}
-		else
-		{
-			print "Experiment data added. $rowsInserted probes found. <br />\n";
-		}
-	}
+	my $addExperimentInfo = new SGX::AddExperiment($self->{_dbh},$self->{_FormObject},'manageExperiments');
+	$addExperimentInfo->loadFromForm();
+	$addExperimentInfo->addNewExperiment();
 }
 
 #######################################################################################
