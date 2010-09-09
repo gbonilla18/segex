@@ -41,9 +41,6 @@ sub new {
 	push @deleteStatementList,'DELETE FROM experiment WHERE stid = {0};';
 	push @deleteStatementList,'DELETE FROM study WHERE stid = {0};';
 
-	push @addExistingExperimentList,'INSERT INTO experiment (sample1,sample2,stid,ExperimentDescription,AdditionalInformation) SELECT sample1,sample2,{1},ExperimentDescription,AdditionalInformation FROM experiment WHERE eid = {0};';
-	push @addExistingExperimentList,'INSERT INTO microarray (eid,rid,ratio,foldchange,pvalue,intensity2,intensity1) SELECT LAST_INSERT_ID(),rid,ratio,foldchange,pvalue,intensity2,intensity1 FROM microarray WHERE eid = {0};';
-
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
@@ -63,10 +60,11 @@ sub new {
 						study.description,
 						platform.pname
 					FROM	experiment 
-					INNER JOIN study ON study.stid = experiment.stid
+					NATURAL JOIN StudyExperiment
+					NATURAL JOIN study
 					INNER JOIN platform ON platform.pid = study.pid
 					LEFT JOIN microarray ON microarray.eid = experiment.eid
-					WHERE experiment.stid = {0}
+					WHERE study.stid = {0}
 					GROUP BY experiment.eid,
 						study.pid,
 						experiment.sample1,
@@ -80,8 +78,8 @@ sub new {
 		_ExpFieldNames	=> '',
 		_ExpData	=> '',
 		_ExistingStudyQuery 		=> 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
-		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment WHERE stid IN (SELECT stid FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0})) AND stid <> {0} ORDER BY experiment.eid ASC;",	
-		_AddExistingExperiment 		=> \@addExistingExperimentList,
+		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0} ORDER BY experiment.eid ASC;",	
+		_AddExistingExperiment 		=> 'INSERT INTO StudyExperiment (stid,eid) VALUES ({1},{0});',
 		_RecordCount	=> 0,
 		_Records	=> '',
 		_FieldNames	=> '',
@@ -464,14 +462,14 @@ sub addExistingExperiment
 {
 	my $self = shift;
 
-	foreach (@{$self->{_AddExistingExperiment}})
-	{
-		my $insertStatement 	= $_;
-		$insertStatement	=~ s/\{0\}/\Q$self->{_SelectedExperiment}\E/;
-		$insertStatement	=~ s/\{1\}/\Q$self->{_stid}\E/;
+	my $insertStatement 	= $self->{_AddExistingExperiment};
+	$insertStatement	=~ s/\{0\}/\Q$self->{_SelectedExperiment}\E/;
+	$insertStatement	=~ s/\{1\}/\Q$self->{_stid}\E/;
 
-		$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
-	}
+	print $insertStatement;
+
+	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
+
 }
 
 sub printExperimentTableInformation
@@ -480,7 +478,7 @@ sub printExperimentTableInformation
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
 	my $studyID	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=delete&stid=' . $studyID . '&id=';
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudies&ManageAction=deleteExperiment&stid=' . $studyID . '&id=';
 
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 

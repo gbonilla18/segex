@@ -38,7 +38,7 @@ sub new {
 		_dbh					=> shift,
 		_FormObject				=> shift,
 		_QueryingPage			=> shift,
-		_InsertQuery			=> 'INSERT INTO experiment (sample1,sample2,stid,ExperimentDescription,AdditionalInformation) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\',\'{4}\');',		
+		_InsertQuery			=> 'INSERT INTO experiment (sample1,sample2,ExperimentDescription,AdditionalInformation) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\');',		
 		_stid					=> '',
 		_pid					=> '',
 		_PlatformQuery			=> "SELECT 0,\'ALL\' UNION SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;",		
@@ -137,9 +137,8 @@ sub addNewExperiment
 
 		$insertStatement 	=~ s/\{0\}/\Q$self->{_sample1}\E/;
 		$insertStatement 	=~ s/\{1\}/\Q$self->{_sample2}\E/;
-		$insertStatement 	=~ s/\{2\}/\Q$self->{_stid}\E/;
-		$insertStatement 	=~ s/\{3\}/\Q$self->{_ExperimentDescription}\E/;
-		$insertStatement 	=~ s/\{4\}/\Q$self->{_AdditionalInformation}\E/;
+		$insertStatement 	=~ s/\{2\}/\Q$self->{_ExperimentDescription}\E/;
+		$insertStatement 	=~ s/\{3\}/\Q$self->{_AdditionalInformation}\E/;
 
 		$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
 

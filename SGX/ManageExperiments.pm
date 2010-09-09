@@ -36,6 +36,7 @@ sub new {
 	my @deleteStatementList;
 
 	push @deleteStatementList,'DELETE FROM microarray WHERE eid = {0};';
+	push @deleteStatementList,'DELETE FROM StudyExperiment WHERE eid = {0};';
 	push @deleteStatementList,'DELETE FROM experiment WHERE eid = {0};';
 
 	my $self = {
@@ -51,10 +52,11 @@ sub new {
 						IFNULL(study.description,'No Study'),
 						platform.pname
 					FROM	experiment 
-					LEFT JOIN study ON study.stid = experiment.stid
+					LEFT JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
+					LEFT JOIN study ON study.stid = StudyExperiment.stid
 					LEFT JOIN platform ON platform.pid = study.pid
 					LEFT JOIN microarray ON microarray.eid = experiment.eid
-					WHERE experiment.stid = {0}
+					WHERE study.stid = {0}
 					GROUP BY experiment.eid,
 						study.pid,
 						experiment.sample1,
@@ -73,7 +75,8 @@ sub new {
 						IFNULL(study.description,'No Study'),
 						platform.pname						
 					FROM	experiment 
-					LEFT JOIN study 	ON study.stid = experiment.stid
+					LEFT JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
+					LEFT JOIN study ON study.stid = StudyExperiment.stid
 					LEFT JOIN platform 	ON platform.pid = study.pid					
 					LEFT JOIN microarray 	ON microarray.eid = experiment.eid
 					LEFT JOIN probe 	ON probe.rid = microarray.rid
@@ -92,7 +95,8 @@ sub new {
 						ExperimentDescription,
 						AdditionalInformation
 					FROM	experiment 
-					INNER JOIN study ON study.stid = experiment.stid
+					NATURAL JOIN StudyExperiment
+					NATURAL JOIN study
 					WHERE	experiment.eid = {0}
 					GROUP BY experiment.eid,
 						experiment.sample1,
@@ -218,6 +222,8 @@ sub loadFromForm
 {
 	my $self = shift;
 
+	$self->{_pid}			= ($self->{_FormObject}->param('platform_addNew'))		if defined($self->{_FormObject}->param('platform_addNew'));	
+	$self->{_pid}			= ($self->{_FormObject}->url_param('pid')) 			if defined($self->{_FormObject}->url_param('pid'));
 	$self->{_pid}			= ($self->{_FormObject}->param('platform_load'))		if defined($self->{_FormObject}->param('platform_load'));
 	$self->{_eid}			= ($self->{_FormObject}->param('eid')) 				if defined($self->{_FormObject}->param('eid'));
 	$self->{_stid}			= ($self->{_FormObject}->param('stid'))				if defined($self->{_FormObject}->param('stid'));

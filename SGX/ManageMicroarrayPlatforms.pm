@@ -35,7 +35,8 @@ sub new {
 	my @deleteStatementList;
 
 	push @deleteStatementList,'DELETE FROM annotates WHERE rid IN (SELECT rid FROM probe WHERE pid = {0});';
-	push @deleteStatementList,'DELETE FROM experiment WHERE stid IN (SELECT stid FROM study WHERE pid = {0});';
+	push @deleteStatementList,'DELETE FROM experiment WHERE eid IN (SELECT eid FROM StudyExperiemnt WHERE stid IN (SELECT stid FROM study WHERE pid = {0}));';
+	push @deleteStatementList,'DELETE FROM StudyExperiemnt WHERE stid IN (SELECT stid FROM study WHERE pid = {0});';
 	push @deleteStatementList,'DELETE FROM microarray WHERE rid in (SELECT rid FROM probe WHERE pid = {0});';
 	push @deleteStatementList,'DELETE FROM probe WHERE pid = {0};';
 	push @deleteStatementList,'DELETE FROM study WHERE pid = {0};';

@@ -72,7 +72,7 @@ sub new {
 							INNER JOIN probe 		ON probe.pid = platform.pid
 							LEFT JOIN annotates 	ON annotates.rid = probe.rid
 							LEFT JOIN gene 			ON gene.gid = annotates.gid
-							WHERE platform.pid IN (SELECT DISTINCT study.pid FROM study INNER JOIN experiment ON experiment.stid = study.stid AND experiment.eid IN ({0}))
+							WHERE platform.pid IN (SELECT DISTINCT study.pid FROM study NATURAL JOIN StudyExperiment NATURAL JOIN experiment WHERE experiment.eid IN ({0}))
 							GROUP BY pname, 
 							def_f_cutoff, 
 							def_p_cutoff, 
@@ -178,7 +178,7 @@ sub loadTFSData
 				
 		# account for sample order when building title query
 		my $title = ($self->{_reverses}[$i-1]) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
-		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
+		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
 		
 		$i++;
 	}
@@ -364,7 +364,7 @@ sub loadAllData
 		# account for sample order when building title query
 		my $title = ($self->{_reverses}[$i-1]) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
 			
-		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
+		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
 		
 		$i++;
 	}

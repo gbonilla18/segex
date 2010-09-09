@@ -1511,7 +1511,7 @@ var study = {};
 	$sth->finish;
 
 	# get a list of all experiments
-	$sth = $dbh->prepare(qq{select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc from study natural join experiment order by eid})
+	$sth = $dbh->prepare(qq{select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc from study natural join StudyExperiment natural join experiment order by eid})
 		or die $dbh->errstr;
 	$rowcount = $sth->execute
 		or die $dbh->errstr;
@@ -1633,7 +1633,7 @@ sub compare_experiments_js {
 		# account for sample order when building title query
 		my $title = ($reverse) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
 		
-		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
+		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
 	}
 
 	my $exp_count = $i - 1;	# number of experiments being compared
@@ -2499,9 +2499,9 @@ sub manageExperiments
 		}
 	}
 
-	if($ManageAction eq 'delete' || $ManageAction eq 'addExisting' || $ManageAction eq 'addNew')
+	if($ManageAction eq 'delete' || $ManageAction eq 'addNew')
 	{
-		my $redirectSite   = $q->url(-absolute=>1)."?a=form_manageExperiments&ManageAction=load&stid=$manageExperiment->{_stid}";
+		my $redirectSite   = $q->url(-absolute=>1)."?a=form_manageExperiments&ManageAction=load&stid=$manageExperiment->{_stid}&pid=$manageExperiment->{_pid}";
 		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
 		print "$redirectString";
 	}

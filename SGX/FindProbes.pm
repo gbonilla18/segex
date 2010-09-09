@@ -87,6 +87,7 @@ sub new {
 						where reporter='{0}'
 					) as d3 on microarray.rid=d3.rid 
 					NATURAL JOIN experiment 
+					NATURAL JOIN StudyExperiment
 					NATURAL JOIN study
 					ORDER BY experiment.eid ASC
 					",

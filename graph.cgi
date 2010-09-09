@@ -89,7 +89,7 @@ select CONCAT(experiment.eid, ' - ' ,study.description, ': ', experiment.sample2
 right join 
 (
 select distinct rid from probe where reporter='$reporter'
-) as d3 on microarray.rid=d3.rid NATURAL JOIN experiment NATURAL JOIN study
+) as d3 on microarray.rid=d3.rid NATURAL JOIN experiment NATURAL JOIN StudyExperiment NATURAL JOIN study
  ORDER BY experiment.eid ASC})
 	or die $dbh->errstr;
 $rowcount = $sth->execute or die $dbh->errstr;
