@@ -159,23 +159,17 @@ sub createInsideTableQuery
 	}
 	else
 	{
-		#Begining of the SQL regex.
-		$qtext = '^';
-		
 		#Add the search items seperated by a bar.
 		foreach(@textSplit)
 		{
 			if($_)
 			{
-				$qtext .= trim($_) . "|";
+				$qtext .= '^' . trim($_) . '$|';
 			}
 		}
 		
-		#Remove the double backslashes.
+		#Remove the last bar.
 		$qtext =~ s/\|$//;
-		
-		#Add the closing regex character.
-		$qtext .= '$';
 	}
 	
 	my $g0_sql;
@@ -306,7 +300,7 @@ sub loadProbeData
 	
 	$probeQuery 				=~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
 	$probeQuery 				=~ s/\\//g;
-	
+
 	$self->{_ProbeRecords}	= $self->{_dbh}->prepare($probeQuery) 				or die $self->{_dbh}->errstr;
 	$self->{_ProbeCount}	= $self->{_ProbeRecords}->execute($qtext, $qtext) 	or die $self->{_dbh}->errstr;	
 	$self->{_ProbeColNames} = @{$self->{_ProbeRecords}->{NAME}};
@@ -317,7 +311,7 @@ sub loadProbeData
 	$self->{_ProbeHash} 	= {};
 	
 	my $DataCount			= @{$self->{_Data}};
-
+	
 	if($DataCount < 1)
 	{
 		print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
@@ -512,7 +506,7 @@ sub printFindProbeCSV
 
 		#Trim any commas out of the Gene Name.
 		my $geneName 	= $splitPlatformID[2];
-		$geneName 		=~ s/\,//;
+		$geneName 		=~ s/\,//g;
 		
 		#Print the probe info. (Accession,Gene Name, Probe Sequence).
 		$outRow .= "$splitPlatformID[1],$geneName,$splitPlatformID[3],,";

@@ -1861,8 +1861,8 @@ sub compare_experiments {
 		'<h2 id="summary_caption"></h2>',
 		'<div id="summary_table" class="table_cont"></div>',
 		$q->start_form(
-			-method=>'GET',
-			-action=>$q->url(-absolute=>1),
+			-method=>'POST',
+			-action=>$q->url(-absolute=>1) . "?a=" . DOWNLOADTFS,
 			-target=>'_blank',
 			-class=>'getTFS',
 			-enctype=>'application/x-www-form-urlencoded'
@@ -1909,7 +1909,7 @@ sub dump_table {
 #######################################################################################
 sub show_tfs_js {
 
-	if(defined($q->url_param('CSV')))
+	if(defined($q->param('CSV')))
 	{
 		$s->commit;
 		$TFSDisplay = new SGX::TFSDisplay($dbh,$q);

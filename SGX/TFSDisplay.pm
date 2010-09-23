@@ -422,6 +422,7 @@ sub displayTFSInfoCSV
 		
 	#Clear our headers so all we get back is the CSV file.
 	print $self->{_FormObject}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
+	#print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
 
 	#Print a line to tell us what report this is.
 	print "Compare Experiments Report," . localtime . "\n\n";
@@ -480,7 +481,45 @@ sub displayTFSInfoCSV
 	
 	#Print a blank line.
 	print "\n";
+
+	#Print TFS list along with distinct counts.
+	my %TFSCounts;
+
+	#Loop through data and create a hash entry for each TFS, increment the counter.
+	foreach my $row(@{$self->{_Data}}) 
+	{
 	
+		my $abs_fs = shift(@$row);
+		my $dir_fs = shift(@$row);
+
+		unshift @$row,$dir_fs;
+		unshift @$row,$abs_fs;
+		
+		# Math::BigInt->badd(x,y) is used to add two very large numbers x and y
+		# actually Math::BigInt library is supposed to overload Perl addition operator,
+		# but if fails to do so for some reason in this CGI program.
+		my $currentTFS = sprintf("$abs_fs.%0".@{$self->{_eids}}.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,@{$self->{_eids}}), substr(unpack('b32', pack('V', $dir_fs)),0,@{$self->{_eids}})));
+
+		#Increment our counter if it exists.
+		if(exists $TFSCounts{$currentTFS} && defined $TFSCounts{$currentTFS})
+		{
+			$TFSCounts{$currentTFS} = $TFSCounts{$currentTFS} + 1;
+		}
+		else
+		{
+			$TFSCounts{$currentTFS} = 1;
+		}
+	}
+
+	foreach my $TFS(keys %TFSCounts) 
+	{
+		print "$TFS : $TFSCounts{$TFS}\n";
+	}
+	
+	#Print a blank line.
+	print "\n";
+
+
 	#Print header line.
 	print "$experimentNameHeader\n";
 	
