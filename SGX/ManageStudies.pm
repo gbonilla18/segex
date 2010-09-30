@@ -37,8 +37,7 @@ sub new {
 	my @deleteStatementList;
 	my @addExistingExperimentList;
 
-	push @deleteStatementList,'DELETE FROM microarray WHERE eid in (SELECT eid FROM experiment WHERE stid = {0});';
-	push @deleteStatementList,'DELETE FROM experiment WHERE stid = {0};';
+	push @deleteStatementList,'DELETE FROM StudyExperiment WHERE stid = {0};';
 	push @deleteStatementList,'DELETE FROM study WHERE stid = {0};';
 
 	my $self = {
@@ -46,7 +45,7 @@ sub new {
 		_FormObject	=> shift,
 		_LoadQuery	=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid AND platform.isAnnotated;',
 		_LoadSingleQuery=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid WHERE study.stid = {0};',
-		_UpdateQuery	=> 'UPDATE study SET description = \'{0}\', pubmed = \'{1}\', pid = \'{2}\' WHERE stid = {3};',
+		_UpdateQuery	=> 'UPDATE study SET description = \'{0}\', pubmed = \'{1}\' WHERE stid = {3};',
 		_InsertQuery	=> 'INSERT INTO study (description,pubmed,pid) VALUES (\'{0}\',\'{1}\',\'{2}\');',
 		_DeleteQuery	=> \@deleteStatementList,
 		_PlatformQuery	=> 'SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform WHERE isAnnotated;',
@@ -80,6 +79,8 @@ sub new {
 		_ExistingStudyQuery 		=> 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
 		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0} ORDER BY experiment.eid ASC;",	
 		_AddExistingExperiment 		=> 'INSERT INTO StudyExperiment (stid,eid) VALUES ({1},{0});',
+		_RemoveExperiment		=> 'DELETE FROM StudyExperiment WHERE stid = {0} AND eid = {1};',
+		_deleteEid	=> '',
 		_RecordCount	=> 0,
 		_Records	=> '',
 		_FieldNames	=> '',
@@ -195,6 +196,7 @@ sub loadFromForm
 	$self->{_stid}			= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
 	$self->{_SelectedStudy}		= ($self->{_FormObject}->param('study_exist'))			if defined($self->{_FormObject}->param('study_exist'));
 	$self->{_SelectedExperiment}	= ($self->{_FormObject}->param('experiment_exist'))		if defined($self->{_FormObject}->param('experiment_exist'));
+	$self->{_deleteEid}		= ($self->{_FormObject}->url_param('removeid'))			if defined($self->{_FormObject}->url_param('removeid'));
 
 }
 
@@ -382,6 +384,18 @@ sub deleteStudy
 	}
 }
 
+sub removeExperiment
+{
+	my $self = shift;
+
+	my $deleteStatement 	= $self->{_RemoveExperiment};
+
+	$deleteStatement 	=~ s/\{0\}/\Q$self->{_stid}\E/;
+	$deleteStatement 	=~ s/\{1\}/\Q$self->{_deleteEid}\E/;
+		
+	$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+}
+
 sub editStudy
 {
 	my $self = shift;
@@ -399,7 +413,7 @@ sub editStudy
 		$self->{_FormObject}->dt('pubmed:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pubmed',-id=>'pubmed',-maxlength=>20,-value=>$self->{_pubmed})),
 		$self->{_FormObject}->dt('platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}}, -readonly => 'readonly',-default=>$self->{_pid})),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}}, -disabled => 'disabled',-default=>$self->{_pid})),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'editSaveStudy',-id=>'editSaveStudy',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
@@ -466,8 +480,6 @@ sub addExistingExperiment
 	$insertStatement	=~ s/\{0\}/\Q$self->{_SelectedExperiment}\E/;
 	$insertStatement	=~ s/\{1\}/\Q$self->{_stid}\E/;
 
-	print $insertStatement;
-
 	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
 
 }
@@ -478,12 +490,12 @@ sub printExperimentTableInformation
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
 	my $studyID	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudies&ManageAction=deleteExperiment&stid=' . $studyID . '&id=';
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudy&ManageAction=deleteExperiment&id=' . $studyID . '&removeid=';
 
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Delete Experiment\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			elCell.innerHTML = "<a title=\"Remove\" onClick = \"return removeExperimentConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Remove</a>";
 		}
 
 		var myExperimentColumnDefs = [
@@ -493,7 +505,7 @@ sub printExperimentTableInformation
 		{key:"2", sortable:true, resizeable:true, label:"Probe Count"},
 		{key:"5", sortable:false, resizeable:true, label:"Experiment Description"},
 		{key:"6", sortable:false, resizeable:true, label:"Additional Information"},
-		{key:"3", sortable:false, resizeable:true, label:"Delete Experiment",formatter:"formatExperimentDeleteLink"}
+		{key:"3", sortable:false, resizeable:true, label:"Remove Experiment",formatter:"formatExperimentDeleteLink"}
 		];' . "\n";
 }
 
@@ -588,7 +600,6 @@ sub editSubmitStudy
 	
 	$updateStatement 	=~ s/\{0\}/\Q$self->{_description}\E/;
 	$updateStatement 	=~ s/\{1\}/\Q$self->{_pubmed}\E/;
-	$updateStatement 	=~ s/\{2\}/\Q$self->{_pid}\E/;
 	$updateStatement 	=~ s/\{3\}/\Q$self->{_stid}\E/;
 
 	$self->{_dbh}->do($updateStatement) or die $self->{_dbh}->errstr;

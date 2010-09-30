@@ -65,6 +65,31 @@ sub new {
 						AdditionalInformation
 					ORDER BY experiment.eid ASC;
 				   ",
+		_LoadUnassignedQuery		=> "	SELECT 	experiment.eid,
+						study.pid,
+						experiment.sample1,
+						experiment.sample2,
+						COUNT(1),
+						ExperimentDescription,
+						AdditionalInformation,
+						IFNULL(study.description,'No Study'),
+						platform.pname						
+					FROM	experiment 
+					LEFT JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
+					LEFT JOIN study ON study.stid = StudyExperiment.stid
+					LEFT JOIN platform 	ON platform.pid = study.pid					
+					LEFT JOIN microarray 	ON microarray.eid = experiment.eid
+					LEFT JOIN probe 	ON probe.rid = microarray.rid
+					WHERE (probe.pid = {1} OR {1} = 0)
+					AND StudyExperiment.stid IS NULL
+					GROUP BY experiment.eid,
+						study.pid,
+						experiment.sample1,
+						experiment.sample2,
+						ExperimentDescription,
+						AdditionalInformation
+					ORDER BY experiment.eid ASC;
+				   ",
 		_LoadAllExperimentsQuery	=> "	SELECT 	experiment.eid,
 						study.pid,
 						experiment.sample1,
@@ -108,7 +133,7 @@ sub new {
 		
 		_UpdateQuery	=> 'UPDATE experiment SET ExperimentDescription = \'{0}\', AdditionalInformation = \'{1}\', sample1 = \'{2}\', sample2 = \'{3}\' WHERE eid = {4};',
 		_DeleteQuery	=> \@deleteStatementList,
-		_StudyQuery	=> 'SELECT 0,\'ALL\' UNION SELECT stid,description FROM study;',
+		_StudyQuery	=> 'SELECT 0,\'ALL\' UNION SELECT -1,\'NONE\' UNION SELECT stid,description FROM study;',
 		_StudyPlatformQuery	=> 'SELECT pid,stid,description FROM study;',
 		_PlatformQuery			=> "SELECT 0,\'ALL\' UNION SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;",
 		_PlatformList		=> '',
@@ -147,6 +172,10 @@ sub loadAllExperimentsFromStudy
 	if($self->{_stid} == 0)
 	{
 		$loadQuery = $self->{_LoadAllExperimentsQuery};
+	}
+	elsif($self->{_stid} == -1)
+	{
+		$loadQuery = $self->{_LoadUnassignedQuery};
 	}
 	else
 	{
@@ -229,6 +258,7 @@ sub loadFromForm
 	$self->{_stid}			= ($self->{_FormObject}->param('stid'))				if defined($self->{_FormObject}->param('stid'));
 	$self->{_stid}			= ($self->{_FormObject}->url_param('stid'))			if defined($self->{_FormObject}->url_param('stid'));	
 	$self->{_eid}			= ($self->{_FormObject}->url_param('id')) 			if defined($self->{_FormObject}->url_param('id'));
+
 }
 
 #######################################################################################
@@ -256,7 +286,7 @@ sub showExperiments
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_load',-id=>'platform_load',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}},onChange=>"populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));")),	
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_load',-id=>'platform_load',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}},onChange=>"populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));",-default=>$self->{_pid})),	
 		$self->{_FormObject}->dt('Study:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'stid',-id=>'stid',-values=>\@{$self->{_studyValue}},-labels=>\%{$self->{_studyList}},-default=>$self->{_stid})),
 		$self->{_FormObject}->dt('&nbsp;'),
@@ -439,10 +469,6 @@ sub printTableInformation
 		YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
 			elCell.innerHTML = "<a title=\"Delete Experiment\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
-		}
-		YAHOO.widget.DataTable.Formatter.formatExperimentEditLink = function(elCell, oRecord, oColumn, oData) 
-		{
-			elCell.innerHTML = "<a title=\"Edit Experiment\" target=\"_self\" href=\"' . $editURL . '" + oData + "\">Edit</a>";
 		}
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSStudyList.caption;

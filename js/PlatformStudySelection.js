@@ -13,7 +13,12 @@ function populateSelectFilterStudy(obj, pid_object) {
 	var new_opt = document.createElement("option");
 	new_opt.setAttribute('value', '0');
 	new_opt.innerHTML = 'ALL';
-	obj.appendChild(new_opt);		
+	obj.appendChild(new_opt);
+
+	new_opt = document.createElement("option");
+	new_opt.setAttribute('value', '-1');
+	new_opt.innerHTML = 'NONE';
+	obj.appendChild(new_opt);			
 		
         // now add new ones
         for (var i in studies) {
@@ -21,7 +26,7 @@ function populateSelectFilterStudy(obj, pid_object) {
 		if(studies[i][1] == pid || pid=='0')
 		{
                 	var new_opt = document.createElement("option");
-	                new_opt.setAttribute('value', studies[i][1]);
+	                new_opt.setAttribute('value', i);
 	                new_opt.innerHTML = studies[i][0];
 	                obj.appendChild(new_opt);
 		}

@@ -2414,12 +2414,21 @@ sub manageStudies
 			$manageStudy->deleteStudy();
 			print "<br />Record deleted - Redirecting...<br />";
 		}
+		case 'deleteExperiment'
+		{
+			$manageStudy->loadFromForm();
+			$manageStudy->removeExperiment();
+			print "<br />Record removed - Redirecting...<br />";
+		}
 		case 'edit'
 		{
 			$manageStudy->loadSingleStudy();
 			$manageStudy->loadPlatformData();
 			$manageStudy->loadAllExperimentsFromStudy();
 			$manageStudy->editStudy();
+
+			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+			$javaScriptDeleteConfirm->drawJavaScriptCode();
 		}
 		case 'editSubmit'
 		{
@@ -2436,9 +2445,9 @@ sub manageStudies
 		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
 		print "$redirectString";
 	}
-	elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting')
+	elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting' || $ManageAction eq 'deleteExperiment')
 	{
-		my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageExperiments&ManageAction=load&stid=' . $manageStudy->{_stid};
+		my $redirectSite   = $q->url(-absolute=>1).'?a=manageStudy&ManageAction=edit&id=' . $manageStudy->{_stid};
 		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
 		print "$redirectString";
 	}

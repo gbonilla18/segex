@@ -50,6 +50,11 @@ sub new {
 							return false;
 						}
 					}
+					function removeExperimentConfirmation()
+					{
+						var confirmReturn;
+						return confirm("Are you sure you want to remove this experiment from this study?");
+					}
 				</script>
 				' 
 	};
