@@ -26,6 +26,8 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 package SGX::ManageExperiments;
 
 use SGX::DropDownData;
+use SGX::DrawingJavaScript;
+use Data::Dumper;
 use strict;
 use warnings;
 
@@ -49,8 +51,9 @@ sub new {
 						COUNT(1),
 						ExperimentDescription,
 						AdditionalInformation,
-						IFNULL(study.description,'No Study'),
-						platform.pname
+						IFNULL(study.description,'Unassigned Study'),
+						platform.pname,
+						IFNULL(study.stid,0)
 					FROM	experiment 
 					LEFT JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
 					LEFT JOIN study ON study.stid = StudyExperiment.stid
@@ -72,14 +75,16 @@ sub new {
 						COUNT(1),
 						ExperimentDescription,
 						AdditionalInformation,
-						IFNULL(study.description,'No Study'),
-						platform.pname						
+						IFNULL(study.description,'Unassigned Study'),
+						IFNULL(platform.pname,IFNULL(probe_platform.pname,'Unable to find platform.')),
+						IFNULL(study.stid,0)
 					FROM	experiment 
 					LEFT JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
 					LEFT JOIN study ON study.stid = StudyExperiment.stid
 					LEFT JOIN platform 	ON platform.pid = study.pid					
 					LEFT JOIN microarray 	ON microarray.eid = experiment.eid
 					LEFT JOIN probe 	ON probe.rid = microarray.rid
+					LEFT JOIN platform probe_platform ON probe_platform.pid = probe.pid
 					WHERE (probe.pid = {1} OR {1} = 0)
 					AND StudyExperiment.stid IS NULL
 					GROUP BY experiment.eid,
@@ -97,14 +102,16 @@ sub new {
 						COUNT(1),
 						ExperimentDescription,
 						AdditionalInformation,
-						IFNULL(study.description,'No Study'),
-						platform.pname						
+						IFNULL(study.description,'Unassigned Study'),
+						IFNULL(platform.pname,IFNULL(probe_platform.pname,'Unable to find platform.')),
+						IFNULL(study.stid,0)
 					FROM	experiment 
 					LEFT JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
 					LEFT JOIN study ON study.stid = StudyExperiment.stid
 					LEFT JOIN platform 	ON platform.pid = study.pid					
 					LEFT JOIN microarray 	ON microarray.eid = experiment.eid
 					LEFT JOIN probe 	ON probe.rid = microarray.rid
+					LEFT JOIN platform probe_platform ON probe_platform.pid = probe.pid
 					WHERE (probe.pid = {1} OR {1} = 0)
 					GROUP BY experiment.eid,
 						study.pid,
@@ -133,9 +140,10 @@ sub new {
 		
 		_UpdateQuery	=> 'UPDATE experiment SET ExperimentDescription = \'{0}\', AdditionalInformation = \'{1}\', sample1 = \'{2}\', sample2 = \'{3}\' WHERE eid = {4};',
 		_DeleteQuery	=> \@deleteStatementList,
-		_StudyQuery	=> 'SELECT 0,\'ALL\' UNION SELECT -1,\'NONE\' UNION SELECT stid,description FROM study;',
+		_RemoveQuery	=> 'DELETE FROM StudyExperiment WHERE stid = {0} AND eid = {1};',
+		_StudyQuery	=> 'SELECT 0,\'All Studies\' UNION SELECT -1,\'Unassigned Study\' UNION SELECT stid,description FROM study;',
 		_StudyPlatformQuery	=> 'SELECT pid,stid,description FROM study;',
-		_PlatformQuery			=> "SELECT 0,\'ALL\' UNION SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;",
+		_PlatformQuery			=> "SELECT 0,\'All Platforms\' UNION SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;",
 		_PlatformList		=> '',
 		_PlatformValues		=> '',
 		_RecordCount	=> 0,
@@ -272,6 +280,7 @@ sub showExperiments
 
 	#This block of logic controls our double dropdowns for platform/study.
 	print	'<script src="./js/PlatformStudySelection.js" type="text/javascript"></script>';
+	print	'<script src="./js/AJAX.js" type="text/javascript"></script>';
 	print	"<script type=\"text/javascript\">\n";
 	printJavaScriptRecordsForFilterDropDowns($self);	
 	print 	"</script>\n";		
@@ -290,7 +299,7 @@ sub showExperiments
 		$self->{_FormObject}->dt('Study:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'stid',-id=>'stid',-values=>\@{$self->{_studyValue}},-labels=>\%{$self->{_studyList}},-default=>$self->{_stid})),
 		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'SelectStudy',-id=>'SelectStudy',-value=>'Load Study'),$self->{_FormObject}->span({-class=>'separator'})
+		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'SelectStudy',-id=>'SelectStudy',-value=>'Load'),$self->{_FormObject}->span({-class=>'separator'})
 		)
 	) .
 	$self->{_FormObject}->end_form;
@@ -312,7 +321,7 @@ sub showExperiments
 		print	"<script type=\"text/javascript\">\n";
 		print $JSStudyList;
 
-		printTableInformation($self->{_FieldNames},$self->{_FormObject},$self->{_stid});
+		printTableInformation($self->{_FieldNames},$self->{_FormObject});
 		printExportTable();	
 		printDrawResultsTableJS();
 
@@ -354,70 +363,27 @@ function export_table(e) {
 
 }
 
-sub printTextCellEditor
-{
-	my $self = shift;
-
-	print '
-	YAHOO.widget.TextareaCellEditor
-	(
-		{
-			disableBtns: false,
-			asyncSubmitter: function(callback, newValue) 
-			{ 
-				var record = this.getRecord();
-				if (this.value == newValue) 
-				{ 
-					callback(); 
-				} 
-
-				YAHOO.util.Connect.asyncRequest
-				(
-					"POST", 
-					"'.$self->{_FormObject}->url(-absolute=>1).'?a=updateCell", 
-					{ 
-						success:function(o) 
-						{ 
-							if(o.status === 200) 
-							{
-								// HTTP 200 OK
-								callback(true, newValue); 
-							} 
-							else 
-							{ 
-								alert(o.statusText);
-								//callback();
-							} 
-						}, 
-						failure:function(o) 
-						{ 
-							alert(o.statusText); 
-							callback(); 
-						},
-						scope:this 
-					}, 
-					"type=probe&note=" + 
-						escape(newValue) + 
-						"&pname=" + 
-						encodeURI(record.getData("1")) + 
-						"&reporter=" + 
-						encodeURI(record.getData("0"))
-				);
-			}
-		}
-	);';
-
-
-}
-
 sub printDrawResultsTableJS
 {
 	print	'
 	var myDataSource 		= new YAHOO.util.DataSource(JSStudyList.records);
 	myDataSource.responseType 	= YAHOO.util.DataSource.TYPE_JSARRAY;
-	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5","6","7","8"]};
+	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5","6","7","8","9"]};
 	var myData_config 		= {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
-	var myDataTable 		= new YAHOO.widget.DataTable("StudyTable", myColumnDefs, myDataSource, myData_config);' . "\n";
+	var myDataTable 		= new YAHOO.widget.DataTable("StudyTable", myColumnDefs, myDataSource, myData_config);' . "\n" . '
+	
+	// Set up editing flow 
+	var highlightEditableCell = function(oArgs) { 
+		var elCell = oArgs.target; 
+		if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
+		this.highlightCell(elCell); 
+		} 
+	}; 
+	
+	myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
+	myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
+	myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
+	';	
 }
 
 sub printJSRecords
@@ -433,8 +399,8 @@ sub printJSRecords
 			$_ = '' if !defined $_;
 			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
 		}
-		#eid,pid,sample1,sample2,count(1),ExperimentDescription,AdditionalInfo,Study Description,platform name
-		$tempRecordList .= '{0:"'.$_->[2].'",1:"'.$_->[3].'",2:"'.$_->[4].'",3:"'.$_->[0].'",4:"' . $_->[0] . '",5:"' . $_->[5] . '",6:"' . $_->[6] . '",7:"' . $_->[7] . '",8:"' . $_->[8] . '"},';
+		#eid,pid,sample1,sample2,count(1),ExperimentDescription,AdditionalInfo,Study Description,platform name,stid
+		$tempRecordList .= '{0:"'.$_->[2].'",1:"'.$_->[3].'",2:"'.$_->[4].'",3:"'.$_->[0].'",4:"' . $_->[0] . '",5:"' . $_->[5] . '",6:"' . $_->[6] . '",7:"' . $_->[7] . '",8:"' . $_->[8] . '",9:"' . $_->[9] . '"},';
 	}
 	$tempRecordList =~ s/,\s*$//;	# strip trailing comma
 
@@ -461,25 +427,52 @@ sub printTableInformation
 	my $arrayRef 	= shift;
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
-	my $studyID	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=delete&stid=' . $studyID . '&id=';
-	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=edit&stid=' . $studyID . '&id=';
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=delete&id=';
+	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageExperiments&ManageAction=edit&stid=&id=';
+	
+	#This is the code to use the AJAXy update box for description..
+	my $postBackURLDescr			= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParametersDesc = '"type=experiment&desc=" + escape(newValue) + "&add=" + encodeURI(record.getData("6")) + "&eid=" + encodeURI(record.getData("3"))';
+	my $textCellEditorObjectDescr	= new SGX::DrawingJavaScript($postBackURLDescr,$postBackQueryParametersDesc);
 
+	#This is the code to use the AJAXy update box for Additional Info..
+	my $postBackURLAdd 				= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParametersAdd 	= '"type=experiment&desc=" + encodeURI(record.getData("5")) + "&add=" + escape(newValue) + "&eid=" + encodeURI(record.getData("3"))';
+	my $textCellEditorObjectAdd		= new SGX::DrawingJavaScript($postBackURLAdd,$postBackQueryParametersAdd);
+
+	#This is the code to use the AJAXy update box for Sample1..
+	my $postBackURLSample1				= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParametersSample1 	= '"type=experimentSamples&S1=" + escape(newValue) + "&S2=" + encodeURI(record.getData("1")) + "&eid=" + encodeURI(record.getData("3"))';
+	my $textCellEditorObjectSample1		= new SGX::DrawingJavaScript($postBackURLSample1,$postBackQueryParametersSample1);
+
+	#This is the code to use the AJAXy update box for Sample2..
+	my $postBackURLSample2				= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParametersSample2 	= '"type=experimentSamples&S1=" + encodeURI(record.getData("0")) + "&S2=" + escape(newValue) + "&eid=" + encodeURI(record.getData("3"))';
+	my $textCellEditorObjectSample2		= new SGX::DrawingJavaScript($postBackURLSample2,$postBackQueryParametersSample2);
+	
 	print	'
+	
 		YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Delete Experiment\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			if(oRecord.getData("9") == 0)
+			{
+				elCell.innerHTML = "<a title=\"Delete\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "\">Delete</a>";
+			}
+			else
+			{
+				elCell.innerHTML = "<a title=\"Remove\" onClick = \"return removeExperimentConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "\">Remove</a>";
+			}
 		}
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSStudyList.caption;
 		var myColumnDefs = [
 		{key:"3", sortable:true, resizeable:true, label:"Experiment Number"},
-		{key:"0", sortable:true, resizeable:true, label:"Sample 1"},
-		{key:"1", sortable:true, resizeable:true, label:"Sample 2"},
+		{key:"0", sortable:true, resizeable:true, label:"Sample 1",editor:' . $textCellEditorObjectSample1->printTextCellEditorCode() . '},
+		{key:"1", sortable:true, resizeable:true, label:"Sample 2",editor:' . $textCellEditorObjectSample2->printTextCellEditorCode() . '},
 		{key:"2", sortable:true, resizeable:true, label:"Probe Count"},
-		{key:"5", sortable:false, resizeable:true, label:"Experiment Description"},
-		{key:"6", sortable:false, resizeable:true, label:"Additional Information"},
-		{key:"3", sortable:false, resizeable:true, label:"Delete Experiment",formatter:"formatExperimentDeleteLink"},
+		{key:"5", sortable:false, resizeable:true, label:"Experiment Description",editor:' . $textCellEditorObjectDescr->printTextCellEditorCode() . '},
+		{key:"6", sortable:false, resizeable:true, label:"Additional Information",editor:' . $textCellEditorObjectAdd->printTextCellEditorCode() . '},
+		{key:"3", sortable:false, resizeable:true, label:"Delete\/Remove Experiment",formatter:"formatExperimentDeleteLink"},
 		{key:"7", sortable:true, resizeable:true, label:"Study Description"},
 		{key:"8", sortable:true, resizeable:true, label:"Platform Name"}
 		];' . "\n";
@@ -522,12 +515,24 @@ sub deleteExperiment
 {
 	my $self = shift;
 
-	foreach (@{$self->{_DeleteQuery}})
+	#If our study = 0, we delete, otherwise we just remove it from the study.
+	if($self->{_stid} ne "0")
 	{
-		my $deleteStatement 	= $_;
-		$deleteStatement 	=~ s/\{0\}/\Q$self->{_eid}\E/;
+		my $deleteStatement 	= $self->{_RemoveQuery};
+		$deleteStatement 	=~ s/\{0\}/\Q$self->{_stid}\E/;
+		$deleteStatement 	=~ s/\{1\}/\Q$self->{_eid}\E/;
 		
-		$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+		$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;		
+	}
+	else
+	{
+		foreach (@{$self->{_DeleteQuery}})
+		{
+			my $deleteStatement 	= $_;
+			$deleteStatement 	=~ s/\{0\}/\Q$self->{_eid}\E/;
+			
+			$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
+		}
 	}
 }
 

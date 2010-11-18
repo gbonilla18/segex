@@ -242,7 +242,7 @@ sub addNewExperiment
 		FROM	 probe
 		INNER JOIN $processID AS temptable ON temptable.reporter = probe.reporter
 		WHERE	probe.pid = " . $self->{_pid} . ";";
-
+		
 		#This is the command to drop the temp table.
 		my $dropStatement = "DROP TABLE $processID;";
 		#--------------------------------------------

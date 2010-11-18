@@ -29,6 +29,7 @@ use strict;
 use warnings;
 
 use SGX::AddExperiment;
+use SGX::DrawingJavaScript;
 
 sub new {
 	# This is the constructor
@@ -44,6 +45,7 @@ sub new {
 		_dbh		=> shift,
 		_FormObject	=> shift,
 		_LoadQuery	=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid AND platform.isAnnotated;',
+		_LoadQueryPID	=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid AND platform.isAnnotated WHERE platform.pid = {0};',
 		_LoadSingleQuery=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid WHERE study.stid = {0};',
 		_UpdateQuery	=> 'UPDATE study SET description = \'{0}\', pubmed = \'{1}\' WHERE stid = {3};',
 		_InsertQuery	=> 'INSERT INTO study (description,pubmed,pid) VALUES (\'{0}\',\'{1}\',\'{2}\');',
@@ -89,8 +91,11 @@ sub new {
 		_description	=> '',
 		_pubmed		=> '',
 		_pid		=> '',
+		_pid_Load	=> '',
 		_platformList	=> {},
-		_platformValue	=> ()
+		_platformValue	=> (),
+		_platformListAll  => {},
+		_platformValueAll => ()		
 	};
 
 	bless $self, $class;
@@ -102,7 +107,19 @@ sub loadAllStudies
 {
 	my $self = shift;
 
-	$self->{_Records} 	= $self->{_dbh}->prepare($self->{_LoadQuery}) or die $self->{_dbh}->errstr;
+	my $loadingQuery = '';
+	
+	if($self->{_pid_Load} eq "-1")
+	{
+		$loadingQuery 	= $self->{_LoadQueryPID};
+		$loadingQuery 	=~ s/\{0\}/\Q$self->{_pid_Load}\E/;
+	}
+	else
+	{
+		$loadingQuery = $self->{_LoadQuery};
+	}
+	
+	$self->{_Records} 	= $self->{_dbh}->prepare($loadingQuery) or die $self->{_dbh}->errstr;
 	$self->{_RecordCount}	= $self->{_Records}->execute or die $self->{_dbh}->errstr;
 	$self->{_FieldNames} 	= $self->{_Records}->{NAME};
 	$self->{_Data} 		= $self->{_Records}->fetchall_arrayref;
@@ -156,10 +173,14 @@ sub loadAllExperimentsFromStudy
 sub loadPlatformData
 {
 	my $self		= shift;
+	my $loadAll		= shift;
 	#Temp variables used to create the hash and array for the dropdown.
 	my %platformLabel;
 	my @platformValue;
 
+	my %platformLabelAll;
+	my @platformValueAll;	
+	
 	#Variables used to temporarily hold the database information.
 	my $tempRecords		= '';
 	my $tempRecordCount	= '';
@@ -171,15 +192,23 @@ sub loadPlatformData
 	#Grab all platforms and build the hash and array for drop down.
 	@tempPlatforms 		= @{$tempRecords->fetchall_arrayref};
 
+	$platformLabelAll{'-1'} = "All Platforms";
+	push(@platformValueAll,'-1');
+	
 	foreach (sort {$a->[0] cmp $b->[0]} @tempPlatforms)
 	{
 		$platformLabel{$_->[0]} = $_->[1];
+		$platformLabelAll{$_->[0]} = $_->[1];
 		push(@platformValue,$_->[0]);
+		push(@platformValueAll,$_->[0]);
 	}
 
 	#Assign members variables reference to the hash and array.
 	$self->{_platformList} 		= \%platformLabel;
 	$self->{_platformValue} 	= \@platformValue;
+	
+	$self->{_platformListAll}	= \%platformLabelAll;
+	$self->{_platformValueAll}	= \@platformValueAll;
 	
 	#Finish with database.
 	$tempRecords->finish;
@@ -190,13 +219,14 @@ sub loadFromForm
 {
 	my $self = shift;
 
-	$self->{_description}		= ($self->{_FormObject}->param('description')) 	if defined($self->{_FormObject}->param('description'));
-	$self->{_pubmed}		= ($self->{_FormObject}->param('pubmed')) 	if defined($self->{_FormObject}->param('pubmed'));
-	$self->{_pid}			= ($self->{_FormObject}->param('platform')) 	if defined($self->{_FormObject}->param('platform'));
-	$self->{_stid}			= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
-	$self->{_SelectedStudy}		= ($self->{_FormObject}->param('study_exist'))			if defined($self->{_FormObject}->param('study_exist'));
+	$self->{_description}			= ($self->{_FormObject}->param('description')) 	if defined($self->{_FormObject}->param('description'));
+	$self->{_pubmed}				= ($self->{_FormObject}->param('pubmed')) 	if defined($self->{_FormObject}->param('pubmed'));
+	$self->{_pid}					= ($self->{_FormObject}->param('platform')) 	if defined($self->{_FormObject}->param('platform'));
+	$self->{_pid_Load}				= ($self->{_FormObject}->param('platform_load')) 	if defined($self->{_FormObject}->param('platform_load'));
+	$self->{_stid}					= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
+	$self->{_SelectedStudy}			= ($self->{_FormObject}->param('study_exist'))			if defined($self->{_FormObject}->param('study_exist'));
 	$self->{_SelectedExperiment}	= ($self->{_FormObject}->param('experiment_exist'))		if defined($self->{_FormObject}->param('experiment_exist'));
-	$self->{_deleteEid}		= ($self->{_FormObject}->url_param('removeid'))			if defined($self->{_FormObject}->url_param('removeid'));
+	$self->{_deleteEid}				= ($self->{_FormObject}->url_param('removeid'))			if defined($self->{_FormObject}->url_param('removeid'));
 
 }
 
@@ -217,6 +247,22 @@ sub showStudies
 	};" . "\n";
 
 	print	'<font size="5">Manage Studies</font><br /><br />' . "\n";
+	
+	#Load the study dropdown to choose which experiments to load into table.
+	print $self->{_FormObject}->start_form(
+		-method=>'POST',
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=form_manageStudy&ManageAction=load',
+		-onsubmit=>'return validate_fields(this, [\'study\']);'
+	) .
+	$self->{_FormObject}->dl(
+		$self->{_FormObject}->dt('Platform:'),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_load',-id=>'platform_load',-values=>\@{$self->{_platformValueAll}},-labels=>\%{$self->{_platformListAll}},-default=>'-1')),
+		$self->{_FormObject}->dt('&nbsp;'),
+		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'SelectStudy',-id=>'SelectStudy',-value=>'Load'),$self->{_FormObject}->span({-class=>'separator'})
+		)
+	) .
+	$self->{_FormObject}->end_form;
+	
 	print	'<h2 name = "caption" id="caption"></h2>' . "\n";
 	print	'<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>' . "\n";
 	print	'<div id="StudyTable"></div>' . "\n";
@@ -285,7 +331,20 @@ sub printDrawResultsTableJS
 	myDataSource.responseType 	= YAHOO.util.DataSource.TYPE_JSARRAY;
 	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5"]};
 	var myData_config 		= {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
-	var myDataTable 		= new YAHOO.widget.DataTable("StudyTable", myColumnDefs, myDataSource, myData_config);' . "\n";
+	var myDataTable 		= new YAHOO.widget.DataTable("StudyTable", myColumnDefs, myDataSource, myData_config);' . "\n" . '
+	
+	// Set up editing flow 
+	var highlightEditableCell = function(oArgs) { 
+		var elCell = oArgs.target; 
+		if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
+		this.highlightCell(elCell); 
+		} 
+	}; 
+	
+	myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
+	myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
+	myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
+	';
 }
 
 sub printJSRecords
@@ -332,6 +391,16 @@ sub printTableInformation
 	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudy&ManageAction=delete&id=';
 	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageStudy&ManageAction=edit&id=';
 
+	#This is the code to use the AJAXy update box for description..
+	my $postBackURLDescr			= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParametersDesc = '"type=study&desc=" + escape(newValue) + "&pubmed=" + encodeURI(record.getData("1")) + "&stid=" + encodeURI(record.getData("4"))';
+	my $textCellEditorObjectDescr	= new SGX::DrawingJavaScript($postBackURLDescr,$postBackQueryParametersDesc);	
+	
+	#This is the code to use the AJAXy update box for PubMed..
+	my $postBackURLPubMed				= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParametersPubMed 	= '"type=study&desc=" + encodeURI(record.getData("0")) + "&pubmed=" + escape(newValue) + "&stid=" + encodeURI(record.getData("4"))';
+	my $textCellEditorObjectPubMed		= new SGX::DrawingJavaScript($postBackURLPubMed,$postBackQueryParametersPubMed);	
+	
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
@@ -344,8 +413,8 @@ sub printTableInformation
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSStudyList.caption;
 		var myColumnDefs = [
-		{key:"0", sortable:true, resizeable:true, label:"Description"},
-		{key:"1", sortable:true, resizeable:true, label:"PubMed"},
+		{key:"0", sortable:true, resizeable:true, label:"Description",editor:' . $textCellEditorObjectDescr->printTextCellEditorCode() . '},
+		{key:"1", sortable:true, resizeable:true, label:"PubMed",editor:' . $textCellEditorObjectPubMed->printTextCellEditorCode() . '},
 		{key:"2", sortable:true, resizeable:true, label:"Platform"}, 
 		{key:"3", sortable:true, resizeable:true, label:"Species"},
 		{key:"4", sortable:false, resizeable:true, label:"Delete Study",formatter:"formatStudyDeleteLink"},

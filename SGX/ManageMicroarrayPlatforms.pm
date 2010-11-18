@@ -28,6 +28,8 @@ package SGX::ManageMicroarrayPlatforms;
 use strict;
 use warnings;
 
+use SGX::DrawingJavaScript;
+
 sub new {
 	# This is the constructor
 	my $class = shift;
@@ -229,7 +231,20 @@ sub printDrawResultsTableJS
 	myDataSource.responseType 	= YAHOO.util.DataSource.TYPE_JSARRAY;
 	myDataSource.responseSchema 	= {fields: ["0","1","2","3","4","5","6","7","8","9","10"]};
 	var myData_config 		= {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
-	var myDataTable 		= new YAHOO.widget.DataTable("PlatformTable", myColumnDefs, myDataSource, myData_config);' . "\n";
+	var myDataTable 		= new YAHOO.widget.DataTable("PlatformTable", myColumnDefs, myDataSource, myData_config);' . "\n" . '
+	
+	// Set up editing flow 
+	var highlightEditableCell = function(oArgs) { 
+		var elCell = oArgs.target; 
+		if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
+		this.highlightCell(elCell); 
+		} 
+	}; 
+	
+	myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
+	myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
+	myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);';
+	
 }
 
 sub printTableInformation
@@ -240,6 +255,21 @@ sub printTableInformation
 	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=managePlatforms&ManageAction=delete&id=';
 	my $editURL	= $CGIRef->url(absolute=>1).'?a=managePlatforms&ManageAction=edit&id=';
 
+	#This is the code to use the AJAXy update box for platform name..
+	my $postBackURLpname				= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParameterspname 	= '"type=platform&pname=" + escape(newValue) + "&fold=" + encodeURI(record.getData("1")) + "&pvalue=" + encodeURI(record.getData("2")) + "&pid=" + encodeURI(record.getData("4"))';
+	my $textCellEditorObjectpname		= new SGX::DrawingJavaScript($postBackURLpname,$postBackQueryParameterspname);	
+	
+	#This is the code to use the AJAXy update box for Default Fold Change..
+	my $postBackURLfold				= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParametersfold	= '"type=platform&pname=" + encodeURI(record.getData("0")) + "&fold=" + escape(newValue) + "&pvalue=" + encodeURI(record.getData("2")) + "&pid=" + encodeURI(record.getData("4"))';
+	my $textCellEditorObjectfold	= new SGX::DrawingJavaScript($postBackURLfold,$postBackQueryParametersfold);		
+	
+	#This is the code to use the AJAXy update box for P-value..
+	my $postBackURLpvalue				= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
+	my $postBackQueryParameterspvalue	= '"type=platform&pname=" + encodeURI(record.getData("0")) + "&fold=" + encodeURI(record.getData("1")) + "&pvalue=" + escape(newValue) + "&pid=" + encodeURI(record.getData("4"))';
+	my $textCellEditorObjectpvalue		= new SGX::DrawingJavaScript($postBackURLpvalue,$postBackQueryParameterspvalue);		
+	
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatPlatformDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
@@ -248,9 +278,9 @@ sub printTableInformation
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSPlatformList.caption;
 		var myColumnDefs = [
-		{key:"0", sortable:true, resizeable:true, label:"'.$names[0].'"},
-		{key:"1", sortable:true, resizeable:true, label:"'.$names[1].'"},
-		{key:"2", sortable:true, resizeable:true, label:"'.$names[2].'"}, 
+		{key:"0", sortable:true, resizeable:true, label:"'.$names[0].'",editor:' . $textCellEditorObjectpname->printTextCellEditorCode() . '},
+		{key:"1", sortable:true, resizeable:true, label:"'.$names[1].'",editor:' . $textCellEditorObjectfold->printTextCellEditorCode() . '},
+		{key:"2", sortable:true, resizeable:true, label:"'.$names[2].'",editor:' . $textCellEditorObjectpvalue->printTextCellEditorCode() . '}, 
 		{key:"3", sortable:true, resizeable:true, label:"'.$names[3].'"},
 		{key:"5", sortable:true, resizeable:true, label:"'.$names[5].'"},
 		{key:"4", sortable:false, resizeable:true, label:"Delete Platform",formatter:"formatPlatformDeleteLink"},
