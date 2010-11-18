@@ -34,8 +34,9 @@ use SGX::OutputData;
 use SGX::JavaScriptDeleteConfirm;
 use SGX::TFSDisplay;
 use SGX::FindProbes;
+use SGX::ProjectManagement;
 
-# ===== USER AUTHENTICATION =============================================
+# ===== USER AUTHENTICATION ===================================================
 my $softwareVersion = "0.11";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
@@ -71,35 +72,37 @@ my $manageExperiment;
 my $outputData;
 my $TFSDisplay;
 my $findProbes;
+my $ProjectManagement;
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
 # but then the URIs would not be human-readable anymore.
 # ===== User Management ==================================
-use constant FORM				=> 'form_';# this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
-use constant LOGIN				=> 'login';
-use constant LOGOUT				=> 'logout';
+use constant FORM			=> 'form_';# this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
+use constant LOGIN			=> 'login';
+use constant LOGOUT			=> 'logout';
 use constant DEFAULT_ACTION		=> 'mainPage';
 use constant UPDATEPROFILE		=> 'updateProfile';
-use constant MANAGEPLATFORMS	=> 'managePlatforms';
+use constant MANAGEPLATFORMS		=> 'managePlatforms';
 use constant MANAGESTUDIES		=> 'manageStudy';
-use constant MANAGEEXPERIMENTS	=> 'manageExperiments';
+use constant MANAGEEXPERIMENTS		=> 'manageExperiments';
 use constant OUTPUTDATA			=> 'outputData';
 use constant CHANGEPASSWORD		=> 'changePassword';
 use constant CHANGEEMAIL		=> 'changeEmail';
 use constant RESETPASSWORD		=> 'resetPassword';
 use constant REGISTERUSER		=> 'registerUser';
 use constant VERIFYEMAIL		=> 'verifyEmail';
-use constant QUIT				=> 'quit';
-use constant DUMP				=> 'dump';
+use constant QUIT			=> 'quit';
+use constant DUMP			=> 'dump';
 use constant DOWNLOADTFS		=> 'getTFS';
 use constant SHOWSCHEMA			=> 'showSchema';
-use constant HELP				=> 'help';
-use constant ABOUT				=> 'about';
-use constant COMPAREEXPERIMENTS	=> 'Compare Selected';	# submit button text
+use constant HELP			=> 'help';
+use constant ABOUT			=> 'about';
+use constant COMPAREEXPERIMENTS		=> 'Compare Selected';	# submit button text
 use constant FINDPROBES			=> 'Search';		# submit button text
 use constant UPDATEPROBE		=> 'updateCell';
 use constant UPLOADANNOT		=> 'uploadAnnot';
+use constant CHANGEPROJECT		=> 'changeProject';
 
 my $action = (defined($q->url_param('a'))) ? $q->url_param('a') : DEFAULT_ACTION;
 
@@ -126,6 +129,15 @@ while (defined($action)) { switch ($action) {
 		if ($s->is_authorized('user')) {
 			$content = \&uploadAnnot;
 			$title = 'Complete';
+			$action = undef;	# final state
+		} else {
+			$action = FORM.LOGIN;
+		}
+	}
+	case CHANGEPROJECT {
+		if ($s->is_authorized('user')) {
+			$content = \&changeProject;
+			$title = 'Change Project';
 			$action = undef;	# final state
 		} else {
 			$action = FORM.LOGIN;
@@ -686,6 +698,7 @@ sub cgi_start_html {
 sub cgi_end_html {
 	print '</div>';
 	print footer();
+	print projectInfo();
 	print $q->end_html;
 }
 #######################################################################################
@@ -908,50 +921,97 @@ sub footer {
 	);
 }
 #######################################################################################
+sub projectInfo {
+	$ProjectManagement = new SGX::ProjectManagement($dbh,$q);
+	
+	$ProjectManagement->drawProjectInfoHeader();
+}
+#######################################################################################
 sub updateCell {
 	my $type = $q->param('type');
 	assert(defined($type));
 
-	switch ($type) {
-	case 'probe' {
-		my ($reporter, $pname, $note) = (
-			$dbh->quote($q->param('reporter')),
-			$dbh->quote($q->param('pname')),
-			$dbh->quote($q->param('note'))
-		);
-		return $dbh->do(qq{update probe left join platform on platform.pid=probe.pid set note=$note where reporter=$reporter and pname=$pname});
-	}
-	case 'gene' {
-		# tries to use gene symbol first as key field; if gene symbol is empty, switches to 
-		# transcript accession number.
-		my ($seqname, $pname, $note) = (
-			$q->param('seqname'),
-			$dbh->quote($q->param('pname')),
-			$dbh->quote($q->param('note'))
-		);
-		if (defined($seqname) && $seqname ne '') {
-			$seqname = $dbh->quote($seqname);
-			return $dbh->do(qq{update gene left join platform on platform.pid=gene.pid set gene_note=$note where seqname=$seqname and pname=$pname});
-		} else {
-			my $accnum_count = 0;
-			my @accnum = split(/ *, */, $q->param('accnum'));
-			foreach (@accnum) {
-				if (defined($_) && $_ ne '') {
-					$accnum_count++;
-					$_ = $dbh->quote($_);
-					$dbh->do(qq{update gene left join platform on platform.pid=gene.pid set gene_note=$note where accnum=$_ and pname=$pname});
+	switch ($type) 
+	{
+		case 'probe' 
+		{
+			my ($reporter, $pname, $note) = (
+				$dbh->quote($q->param('reporter')),
+				$dbh->quote($q->param('pname')),
+				$dbh->quote($q->param('note'))
+			);
+			return $dbh->do(qq{update probe left join platform on platform.pid=probe.pid set note=$note where reporter=$reporter and pname=$pname});
+		}
+		case 'gene' 
+		{
+			# tries to use gene symbol first as key field; if gene symbol is empty, switches to 
+			# transcript accession number.
+			my ($seqname, $pname, $note) = (
+				$q->param('seqname'),
+				$dbh->quote($q->param('pname')),
+				$dbh->quote($q->param('note'))
+			);
+			if (defined($seqname) && $seqname ne '') {
+				$seqname = $dbh->quote($seqname);
+				return $dbh->do(qq{update gene left join platform on platform.pid=gene.pid set gene_note=$note where seqname=$seqname and pname=$pname});
+			} else {
+				my $accnum_count = 0;
+				my @accnum = split(/ *, */, $q->param('accnum'));
+				foreach (@accnum) {
+					if (defined($_) && $_ ne '') {
+						$accnum_count++;
+						$_ = $dbh->quote($_);
+						$dbh->do(qq{update gene left join platform on platform.pid=gene.pid set gene_note=$note where accnum=$_ and pname=$pname});
+					}
+				}
+				if ($accnum_count > 0) {
+					return 1;
+				} else {
+					return 0;
 				}
 			}
-			if ($accnum_count > 0) {
-				return 1;
-			} else {
-				return 0;
-			}
+		}
+		case 'experiment' 
+		{
+			my ($eid, $description, $additional) = (
+				$dbh->quote($q->param('eid')),
+				$dbh->quote($q->param('desc')),
+				$dbh->quote($q->param('add'))
+			);
+			return $dbh->do(qq{update experiment set ExperimentDescription=$description,AdditionalInformation=$additional where eid=$eid});
+		}
+		case 'experimentSamples' 
+		{
+			my ($eid, $sample1, $sample2) = (
+				$dbh->quote($q->param('eid')),
+				$dbh->quote($q->param('S1')),
+				$dbh->quote($q->param('S2'))
+			);
+			return $dbh->do(qq{update experiment set sample1=$sample1,sample2=$sample2 where eid=$eid});
+		}
+		case 'study'
+		{
+			my ($stid, $desc, $pubmed) = (
+				$dbh->quote($q->param('stid')),
+				$dbh->quote($q->param('desc')),
+				$dbh->quote($q->param('pubmed'))
+			);
+			return $dbh->do(qq{update study set description=$desc,pubmed=$pubmed where stid=$stid});		
+		}
+		case 'platform'
+		{
+			my ($pid,$pname, $fold, $pvalue) = (
+				$dbh->quote($q->param('pid')),
+				$dbh->quote($q->param('pname')),
+				$dbh->quote($q->param('fold')),
+				$dbh->quote($q->param('pvalue'))
+			);
+			return $dbh->do(qq{update platform set pname=$pname,def_f_cutoff=$fold,def_p_cutoff=$pvalue where pid=$pid});		
+		}		
+		else {
+			assert(0);
 		}
 	}
-	else {
-		assert(0);
-	}}
 }
 #######################################################################################
 sub form_findProbes {
@@ -1126,13 +1186,25 @@ sub findProbes_js
 	{
 		$s->commit;
 		#print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-		$findProbes = new SGX::FindProbes($dbh,$q);
+		$findProbes = new SGX::FindProbes($dbh,$q,$type,$qtext);
 		$findProbes->setInsideTableQuery($g0_sql);
 		$findProbes->loadProbeData($qtext);
 		$findProbes->loadExperimentData();
 		$findProbes->fillPlatformHash();
 		$findProbes->printFindProbeCSV();
 		exit;
+	}
+	elsif($opts==3)
+	{
+		$s->commit;
+		#print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+		$findProbes = new SGX::FindProbes($dbh,$q,$type,$qtext);
+		$findProbes->setInsideTableQuery($g0_sql);
+		$findProbes->loadProbeData($qtext);
+		$findProbes->loadExperimentData();
+		$findProbes->fillPlatformHash();
+		$out = $findProbes->printFindProbeToScreen();
+		$out;
 	}
 	else
 	{
@@ -2436,7 +2508,17 @@ sub manageStudies
 			$manageStudy->editSubmitStudy();
 			print "<br />Record updated - Redirecting...<br />";
 		}
+		case 'load'
+		{
+			$manageStudy = new SGX::ManageStudies($dbh,$q);
+			$manageStudy->loadFromForm();
+			$manageStudy->loadAllStudies();
+			$manageStudy->loadPlatformData();
+			$manageStudy->showStudies();
 
+			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+			$javaScriptDeleteConfirm->drawJavaScriptCode();		
+		}
 	}
 
 	if($ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
@@ -2504,7 +2586,7 @@ sub manageExperiments
 		{
 			$manageExperiment->loadFromForm();
 			$manageExperiment->deleteExperiment();
-			print "<br />Record deleted - Redirecting...<br />";
+			print "<br />Record removed - Redirecting...<br />";
 		}
 	}
 
@@ -2547,6 +2629,32 @@ sub outputData
 
 }
 #######################################################################################
+
+#######################################################################################
+#This allows the user to change which projects are displaying.
+#######################################################################################
+sub changeProject
+{
+	$ProjectManagement = new SGX::ProjectManagement($dbh,$q);
+	
+	$ProjectManagement->loadProjectData();
+	$ProjectManagement->drawChangeProjectScreen();
+
+
+	my $ProjectManagementAction = ($q->url_param('projectAction')) if defined($q->url_param('projectAction'));
+
+	switch ($ProjectManagementAction) 
+	{
+		case 'change'
+		{
+			$ProjectManagement->changeProject();
+		}
+	}
+
+}
+#######################################################################################
+
+
 
 #######################################################################################
 # Perl trim function to remove whitespace from the start and end of the string
