@@ -8,17 +8,18 @@ function populateSelectFilterStudy(obj, pid_object) {
         while(obj.options[0]) {
                 obj.removeChild(obj.options[0]);
         }
-
+	
+	//Add 'Unassigned Studies'
+	new_opt = document.createElement("option");
+	new_opt.setAttribute('value', '-1');
+	new_opt.innerHTML = 'Unassigned Studies';
+	obj.appendChild(new_opt);			
+		
 	//Add 'ALL' Element.
 	var new_opt = document.createElement("option");
 	new_opt.setAttribute('value', '0');
-	new_opt.innerHTML = 'ALL';
+	new_opt.innerHTML = 'All Studies';
 	obj.appendChild(new_opt);
-
-	new_opt = document.createElement("option");
-	new_opt.setAttribute('value', '-1');
-	new_opt.innerHTML = 'NONE';
-	obj.appendChild(new_opt);			
 		
         // now add new ones
         for (var i in studies) {
