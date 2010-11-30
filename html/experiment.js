@@ -20,8 +20,8 @@ function getSelectStudies(stid) {
 function getSelectExperiments(stid, eid) {
         var option_string = '';   
         for (var i in study[stid][1]) {
-		var sel = (typeof eid != 'undefined' && eid == i) ? 'selected="selected"' : '' ;
-                option_string += '<option ' + sel + ' value="' + i + '">' + study[stid][1][i] + ' / ' + study[stid][2][i] + '</option>';
+		var sel = (typeof eid != 'undefined' && eid == stid + '|' + i) ? 'selected="selected"' : '' ;
+                option_string += '<option ' + sel + ' value="' + stid + '|' + i + '">' + study[stid][1][i] + ' / ' + study[stid][2][i] + '</option>';
         }
         return option_string;
 }
@@ -170,3 +170,8 @@ function toggleSearchOptions(){
 	}
 }
 
+function navigateToCSV()
+{
+	
+	
+}

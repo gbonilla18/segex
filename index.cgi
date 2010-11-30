@@ -1649,6 +1649,7 @@ sub form_compareExperiments {
 
 #######################################################################################
 sub compare_experiments_js {
+	#print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
 	#This flag tells us whether or not to ignore the thresholds.
 	my $allProbes 		= '';
 	$allProbes 			= ($q->param('chkAllProbes')) if defined($q->param('chkAllProbes'));
@@ -1670,7 +1671,7 @@ sub compare_experiments_js {
 	}
 
 	#If we are filtering, generate the SQL statement for the rid's.	
-	my $thresholdQuery			= '';
+	my $thresholdQuery	= '';
 	my $query_titles 	= '';
 	my $query_fs 		= 'SELECT fs, COUNT(*) as c FROM (SELECT BIT_OR(flag) AS fs FROM (';
 	my $query_fs_body 	= '';
@@ -1681,31 +1682,36 @@ sub compare_experiments_js {
 	{
 		my ($eid, $fc, $pval) = ($q->param("eid_$i"), $q->param("fc_$i"), $q->param("pval_$i"));
 		my $reverse = (defined($q->param("reverse_$i"))) ? 1 : 0;
-
+		
 		#Prepare the four arrays that will be used to display data
 		push @eids, 	$eid; 
 		push @reverses, $reverse; 
 		push @fcs, 		$fc; 
 		push @pvals, 	$pval;
 
+		my @IDSplit = split(/\|/,$eid);
+
+		my $currentSTID = $IDSplit[0];
+		my $currentEID = $IDSplit[1];		
+		
 		#Flagsum breakdown query
 		my $flag = 1 << $i - 1;
 
 		#This is the normal threshold.
 		$thresholdQuery	= " AND pvalue < $pval AND ABS(foldchange)  > $fc ";
 
-		$query_fs_body .= "SELECT rid, $flag AS flag FROM microarray WHERE eid=$eid $thresholdQuery UNION ALL ";
+		$query_fs_body .= "SELECT rid, $flag AS flag FROM microarray WHERE eid=$currentEID $thresholdQuery UNION ALL ";
 		
 		#This is part of the query when we are including all probes.
 		if($allProbes eq "1")
 		{
-			$query_fs_body .= "SELECT rid, 0 AS flag FROM microarray WHERE eid=$eid AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$eid $thresholdQuery) UNION ALL ";
+			$query_fs_body .= "SELECT rid, 0 AS flag FROM microarray WHERE eid=$currentEID AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$currentEID $thresholdQuery) UNION ALL ";
 		}
 
 		# account for sample order when building title query
 		my $title = ($reverse) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
 		
-		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
+		$query_titles .= " SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$currentEID AND StudyExperiment.stid=$currentSTID UNION ALL ";
 	}
 
 	my $exp_count = $i - 1;	# number of experiments being compared
@@ -1714,16 +1720,20 @@ sub compare_experiments_js {
 	$query_fs_body =~ s/UNION ALL\s*$//i;
 	$query_fs = sprintf($query_fs, $exp_count) . $query_fs_body . ") AS d1 $probeListQuery GROUP BY rid) AS d2 GROUP BY fs";
 
+
 	#Run the Flag Sum Query.
 	my $sth_fs = $dbh->prepare(qq{$query_fs}) or die $dbh->errstr;
 	my $rowcount_fs = $sth_fs->execute or die $dbh->errstr;
 	my $h = $sth_fs->fetchall_hashref('fs');
 	$sth_fs->finish;
 
+
+
 	# strip trailing 'UNION ALL' plus any trailing white space
 	$query_titles =~ s/UNION ALL\s*$//i;
 	my $sth_titles = $dbh->prepare(qq{$query_titles}) or die $dbh->errstr;
 	my $rowcount_titles = $sth_titles->execute or die $dbh->errstr;
+
 	assert($rowcount_titles == $exp_count);
 	my $ht = $sth_titles->fetchall_hashref('eid');
 	$sth_titles->finish;
@@ -1739,6 +1749,8 @@ sub compare_experiments_js {
 		}
 		$rep_count += $value->{c};
 	}
+
+
 
 	### Draw a 450x300 area-proportional Venn diagram using Google API if $exp_count is (2,3)
 	# http://code.google.com/apis/chart/types.html#venn
@@ -1760,12 +1772,18 @@ sub compare_experiments_js {
 		assert($A == $c[0] + $AB);
 		assert($B == $c[1] + $AB);
 
+		my @IDSplit1 = split(/\|/,$eids[0]);
+		my @IDSplit2 = split(/\|/,$eids[1]);
+
+		my $currentEID1 = $IDSplit1[1];		
+		my $currentEID2 = $IDSplit2[1];
+
 		my $scale = max($A, $B); # scale must be equal to the area of the largest circle
 		my @nums = ($A, $B, 0, $AB);
 		my $qstring = 'cht=v&amp;chd=t:'.join(',', @nums).'&amp;chds=0,'.$scale.
 			'&amp;chs=450x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='.
-			uri_escape('1. '.$ht->{$eids[0]}->{title}).'|'.
-			uri_escape('2. '.$ht->{$eids[1]}->{title});
+			uri_escape('1. '.$ht->{$currentEID1}->{title}).'|'.
+			uri_escape('2. '.$ht->{$currentEID2}->{title});
 
 		$out .= "var venn = '<img src=\"http://chart.apis.google.com/chart?$qstring\" />';\n";
 	}
@@ -1788,13 +1806,21 @@ sub compare_experiments_js {
 		assert($B == $c[1] + $c[2] + $c[5] + $ABC);
 		assert($C == $c[3] + $c[4] + $c[5] + $ABC);
 
+		my @IDSplit1 = split(/\|/,$eids[0]);
+		my @IDSplit2 = split(/\|/,$eids[1]);
+		my @IDSplit3 = split(/\|/,$eids[2]);
+
+		my $currentEID1 = $IDSplit1[1];		
+		my $currentEID2 = $IDSplit2[1];
+		my $currentEID3 = $IDSplit3[1];
+
 		my $scale = max($A, $B, $C); # scale must be equal to the area of the largest circle
 		my @nums = ($A, $B, $C, $AB, $AC, $BC, $ABC);
 		my $qstring = 'cht=v&amp;chd=t:'.join(',', @nums).'&amp;chds=0,'.$scale.
 			'&amp;chs=450x300&chtt=Significant+Probes+(Approx.)&amp;chco=ff0000,00ff00,0000ff&amp;chdl='.
-			uri_escape('1. '.$ht->{$eids[0]}->{title}).'|'.
-			uri_escape('2. '.$ht->{$eids[1]}->{title}).'|'.
-			uri_escape('3. '.$ht->{$eids[2]}->{title});
+			uri_escape('1. '.$ht->{$currentEID1}->{title}).'|'.
+			uri_escape('2. '.$ht->{$currentEID2}->{title}).'|'.
+			uri_escape('3. '.$ht->{$currentEID3}->{title});
 
 		$out .= "var venn = '<img src=\"http://chart.apis.google.com/chart?$qstring\" />';\n";
 	}
@@ -1819,10 +1845,15 @@ records: [
 
 	for ($i = 0; $i < @eids; $i++) 
 	{
-		my $escapedTitle	= '';
-		print '<tr><th>' . ($i + 1) . '</th><td>'.	$ht->{$eids[$i]}->{title} .'</td><td>'.$fcs[$i].'</td><td>'.$pvals[$i].'</td><td>'.$hc{$i}."</td></tr>\n";
+		my @IDSplit = split(/\|/,$eids[$i]);
 
-		$escapedTitle		= $ht->{$eids[$i]}->{title};
+		my $currentSTID = $IDSplit[0];
+		my $currentEID = $IDSplit[1];		
+		
+		my $escapedTitle	= '';
+		print '<tr><th>' . ($i + 1) . '</th><td>'.	$ht->{$currentEID}->{title} .'</td><td>'.$fcs[$i].'</td><td>'.$pvals[$i].'</td><td>'.$hc{$i}."</td></tr>\n";
+
+		$escapedTitle		= $ht->{$currentEID}->{title};
 		$escapedTitle		=~ s/\\/\\\\/g;
 		$escapedTitle		=~ s/"/\\\"/g;
 

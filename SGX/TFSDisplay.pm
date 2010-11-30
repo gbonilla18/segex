@@ -55,7 +55,7 @@ sub new {
 		_opts			=> '',
 		_allProbes		=> '',
 		_searchFilters	=> '',
-		_LoadQuery	=> 'select 	platform.pname, 
+		_LoadQuery	=> 'select 		DISTINCT platform.pname, 
 								platform.def_f_cutoff, 
 								platform.def_p_cutoff, 
 								platform.species,
@@ -109,8 +109,8 @@ sub loadTFSData
 	$self->{_pvals}			= \@pvalArray;
 	
 	$self->{_allProbes}		= $self->{_FormObject}->param('allProbes');
-	$self->{_searchFilters}	= '';	
-	$self->{_searchFilters}	= $self->{_FormObject}->param('searchFilter');
+	$self->{_searchFilters}		= '';	
+	$self->{_searchFilters}		= $self->{_FormObject}->param('searchFilter');
 	$self->{_fs} 			= $self->{_FormObject}->param('get');
 	$self->{_outType}		= $self->{_FormObject}->param('outType');
 	$self->{_opts} 			= $self->{_FormObject}->param('opts');
@@ -155,7 +155,13 @@ sub loadTFSData
 
 	foreach my $eid (@{$self->{_eids}}) 
 	{
+		#The EID is actually STID|EID. We need to split the string on '|' and extract the app
+		my @IDSplit = split(/\|/,$eid);
+		my $currentSTID = $IDSplit[0];
+		my $currentEID = $IDSplit[1];
+
 		my ($fc, $pval) = (${$self->{_fcs}}[$i-1],  ${$self->{_pvals}}[$i-1]);
+		
 		my $abs_flag = 1 << $i - 1;
 		my $dir_flag = ($self->{_reverses}[$i-1]) ? "$abs_flag,0" : "0,$abs_flag";
 		$query_proj .= ($self->{_reverses}[$i-1]) ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue, " : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue,";
@@ -167,18 +173,18 @@ sub loadTFSData
 			$query_proj .= "m$i.pvalue AS \'$i: P\', "; 
 		}
 		
-		$query_body .= " SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
-		$query_join .= " LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$eid ";
+		$query_body .= " SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
+		$query_join .= " LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID ";
 		
 		#This is part of the query when we are including all probes. 
 		if($self->{_allProbes} eq "1")
 		{
-			$query_body .= "SELECT rid, 0 AS abs_flag,0 AS dir_flag FROM microarray WHERE eid=$eid AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc) UNION ALL ";
+			$query_body .= "SELECT rid, 0 AS abs_flag,0 AS dir_flag FROM microarray WHERE eid=$currentEID AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange) > $fc) UNION ALL ";
 		}
 				
 		# account for sample order when building title query
 		my $title = ($self->{_reverses}[$i-1]) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
-		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
+		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$currentEID UNION ALL ";
 		
 		$i++;
 	}
@@ -232,14 +238,23 @@ sub getPlatformData
 {
 	my $self = shift;
 	
-	my $eidList	= join(",",@{$self->{_eids}});
+	my $eidList	= '';
 
-	#Use a regex to replace the ID in the query to load a single platform.
-	my $singleItemQuery 	= $self->{_LoadQuery};
+	foreach my $eid (@{$self->{_eids}}) 
+	{
+		#The EID is actually STID|EID. We need to split the string on '|' and extract.
+		my @IDSplit = split(/\|/,$eid);
+		my $currentEID = $IDSplit[1];
+
+		$eidList .= $currentEID . ",";
+	}
+
+	$eidList =~ s/,\s*$//;
+
+	#
+	my $singleItemQuery 		= $self->{_LoadQuery};
 	$singleItemQuery 		=~ s/\{0\}/\Q$eidList\E/;	
 	$singleItemQuery 		=~ s/\\\,/\,/g;	
-	
-
 	
 	$self->{_RecordsPlatform}	= $self->{_dbh}->prepare($singleItemQuery ) or die $self->{_dbh}->errstr;
 	$self->{_PlatformCount}		= $self->{_RecordsPlatform}->execute or die $self->{_dbh}->errstr;
@@ -342,6 +357,9 @@ sub loadAllData
 
 	foreach my $eid (@{$self->{_eids}})
 	{
+		my @IDSplit = split(/\|/,$eid);
+		my $currentEID = $IDSplit[1];
+
 		my ($fc, $pval) = (${$self->{_fcs}}[$i-1],  ${$self->{_pvals}}[$i-1]);
 		my $abs_flag = 1 << $i - 1;
 		my $dir_flag = ($self->{_reverses}[$i-1]) ? "$abs_flag,0" : "0,$abs_flag";
@@ -352,19 +370,19 @@ sub loadAllData
 		$query_proj .= "m$i.pvalue AS \'$i: P\', "; 
 
 		
-		$query_body .= " SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
-		$query_join .= " LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$eid ";
+		$query_body .= " SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
+		$query_join .= " LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID ";
 		
 		#This is part of the query when we are including all probes. 
 		if($self->{_allProbes} eq "1")
 		{
-			$query_body .= "SELECT rid, 0 AS abs_flag,0 AS dir_flag FROM microarray WHERE eid=$eid AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$eid AND pvalue < $pval AND ABS(foldchange) > $fc) UNION ALL ";
+			$query_body .= "SELECT rid, 0 AS abs_flag,0 AS dir_flag FROM microarray WHERE eid=$currentEID AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange) > $fc) UNION ALL ";
 		}		
 		
 		# account for sample order when building title query
 		my $title = ($self->{_reverses}[$i-1]) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
 			
-		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$eid UNION ALL ";
+		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$currentEID UNION ALL ";
 		
 		$i++;
 	}
@@ -459,12 +477,16 @@ sub displayTFSInfoCSV
 	#Print Experiment info.
 	for (my $i = 0; $i < @{$self->{_eids}}; $i++) 
 	{
-		$currentLine .=  ${$self->{_eids}}[$i] . ":" . $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title} . ",";
+
+		my @IDSplit = split(/\|/,${$self->{_eids}}[$i]);
+		my $currentEID = $IDSplit[1];
+		
+		$currentLine .=  $currentEID . ":" . $self->{_headerRecords}->{$currentEID}->{title} . ",";
 		$currentLine .=  ${$self->{_fcs}}[$i] . ",";
 		$currentLine .=  ${$self->{_pvals}}[$i] . ",";
 		
-		#Form the line the displays experiment names above data columns.
-		$experimentNameHeader .= ${$self->{_eids}}[$i] . ":" . $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title} . ",,,,,";
+		#Form the line that displays experiment names above data columns.
+		$experimentNameHeader .= $currentEID . ":" . $self->{_headerRecords}->{$currentEID}->{title} . ",,,,,";
 		
 		#Test for bit presence and print out 1 if present, 0 if absent
 		if (defined($self->{_fs})) 
@@ -533,8 +555,11 @@ sub displayTFSInfoCSV
 	
 	foreach my $eid (@{$self->{_eids}}) 
 	{
+		my @IDSplit = split(/\|/,$eid);
+		my $currentEID = $IDSplit[1];
+
 		$experimentCounter++;
-		$currentLine .= "$eid:Ratio,$eid:Fold Change,$eid:Intensity-1,$eid:Intensity-2,$eid:P,";
+		$currentLine .= "$currentEID:Ratio,$currentEID:Fold Change,$currentEID:Intensity-1,$currentEID:Intensity-2,$currentEID:P,";
 	}
 	
 	#Strip trailing comma.		
@@ -596,7 +621,11 @@ records: [
 ';
 
 	for ($i = 0; $i < @{$self->{_eids}}; $i++) {
-		my $currentTitle = $self->{_headerRecords}->{${$self->{_eids}}[$i]}->{title};
+
+		my @IDSplit = split(/\|/,${$self->{_eids}}[$i]);
+		my $currentEID = $IDSplit[1];
+
+		my $currentTitle = $self->{_headerRecords}->{$currentEID}->{title};
 		$currentTitle    =~ s/"/\\"/g;
 
 		$out .= '{0:"' . ($i + 1) . '",1:"'.$currentTitle.'",2:"'.${$self->{_fcs}}[$i].'",3:"'. ${$self->{_pvals}}[$i].'",4:"';
