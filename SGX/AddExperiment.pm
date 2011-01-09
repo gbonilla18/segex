@@ -41,7 +41,7 @@ sub new {
 		_InsertQuery			=> 'INSERT INTO experiment (sample1,sample2,ExperimentDescription,AdditionalInformation) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\');',		
 		_stid					=> '',
 		_pid					=> '',
-		_PlatformQuery			=> "SELECT 0,\'ALL\' UNION SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;",		
+		_PlatformQuery			=> "SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;",		
 		_platformList			=> {},
 		_platformValue			=> (),
 		_sample1				=> '',

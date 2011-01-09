@@ -79,7 +79,7 @@ sub new {
 		_ExpFieldNames	=> '',
 		_ExpData	=> '',
 		_ExistingStudyQuery 		=> 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
-		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0} ORDER BY experiment.eid ASC;",	
+		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0} AND eid NOT IN (SELECT eid FROM StudyExperiment WHERE stid = {0}) ORDER BY experiment.eid ASC;",	
 		_AddExistingExperiment 		=> 'INSERT INTO StudyExperiment (stid,eid) VALUES ({1},{0});',
 		_RemoveExperiment		=> 'DELETE FROM StudyExperiment WHERE stid = {0} AND eid = {1};',
 		_deleteEid	=> '',
@@ -102,21 +102,21 @@ sub new {
 	return $self;
 }
 
-#Loads all platforms into the object from the database.
+
 sub loadAllStudies
 {
 	my $self = shift;
 
 	my $loadingQuery = '';
 	
-	if($self->{_pid_Load} eq "-1")
+	if($self->{_pid_Load} eq "-1" || $self->{_pid_Load} eq "")
 	{
-		$loadingQuery 	= $self->{_LoadQueryPID};
-		$loadingQuery 	=~ s/\{0\}/\Q$self->{_pid_Load}\E/;
+		$loadingQuery = $self->{_LoadQuery};
 	}
 	else
 	{
-		$loadingQuery = $self->{_LoadQuery};
+		$loadingQuery 	= $self->{_LoadQueryPID};
+		$loadingQuery 	=~ s/\{0\}/\Q$self->{_pid_Load}\E/;
 	}
 	
 	$self->{_Records} 	= $self->{_dbh}->prepare($loadingQuery) or die $self->{_dbh}->errstr;
@@ -126,7 +126,7 @@ sub loadAllStudies
 	$self->{_Records}->finish;
 }
 
-#Loads a single platform from the database based on the URL parameter.
+
 sub loadSingleStudy
 {
 	#Grab object and id from URL.
@@ -251,7 +251,7 @@ sub showStudies
 	#Load the study dropdown to choose which experiments to load into table.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=form_manageStudy&ManageAction=load',
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=load',
 		-onsubmit=>'return validate_fields(this, [\'study\']);'
 	) .
 	$self->{_FormObject}->dl(
@@ -484,7 +484,7 @@ sub editStudy
 		$self->{_FormObject}->dt('platform:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}}, -disabled => 'disabled',-default=>$self->{_pid})),
 		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'editSaveStudy',-id=>'editSaveStudy',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'editSaveStudy',-id=>'editSaveStudy',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'})
 		)
 	);
 
@@ -626,7 +626,7 @@ sub printJavaScriptRecordsForExistingDropDowns
 
 	my $experimentQuery	= $self->{_ExistingExperimentQuery};
 	$experimentQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/g;	
-
+	
 	my $tempRecords 	= $self->{_dbh}->prepare($studyQuery) or die $self->{_dbh}->errstr;
 	my $tempRecordCount	= $tempRecords->execute or die $self->{_dbh}->errstr;
 

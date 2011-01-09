@@ -192,7 +192,7 @@ sub loadAllExperimentsFromStudy
 			
 	$loadQuery 	=~ s/\{0\}/\Q$self->{_stid}\E/g;
 	$loadQuery 	=~ s/\{1\}/\Q$self->{_pid}\E/g;
-
+	
 	$self->{_Records} 		= $self->{_dbh}->prepare($loadQuery) or die $self->{_dbh}->errstr;
 	$self->{_RecordCount}	= $self->{_Records}->execute or die $self->{_dbh}->errstr;
 	$self->{_FieldNames} 	= $self->{_Records}->{NAME};
@@ -259,14 +259,15 @@ sub loadFromForm
 {
 	my $self = shift;
 
-	$self->{_pid}			= ($self->{_FormObject}->param('platform_addNew'))		if defined($self->{_FormObject}->param('platform_addNew'));	
-	$self->{_pid}			= ($self->{_FormObject}->url_param('pid')) 			if defined($self->{_FormObject}->url_param('pid'));
-	$self->{_pid}			= ($self->{_FormObject}->param('platform_load'))		if defined($self->{_FormObject}->param('platform_load'));
-	$self->{_eid}			= ($self->{_FormObject}->param('eid')) 				if defined($self->{_FormObject}->param('eid'));
-	$self->{_stid}			= ($self->{_FormObject}->param('stid'))				if defined($self->{_FormObject}->param('stid'));
-	$self->{_stid}			= ($self->{_FormObject}->url_param('stid'))			if defined($self->{_FormObject}->url_param('stid'));	
-	$self->{_eid}			= ($self->{_FormObject}->url_param('id')) 			if defined($self->{_FormObject}->url_param('id'));
-
+	$self->{_pid}			= ($self->{_FormObject}->param('platform_addNew'))			if defined($self->{_FormObject}->param('platform_addNew'));	
+	$self->{_pid}			= ($self->{_FormObject}->url_param('pid')) 					if defined($self->{_FormObject}->url_param('pid'));
+	$self->{_pid}			= ($self->{_FormObject}->param('platform_load'))			if defined($self->{_FormObject}->param('platform_load'));
+	$self->{_eid}			= ($self->{_FormObject}->param('eid')) 						if defined($self->{_FormObject}->param('eid'));
+	$self->{_stid}			= ($self->{_FormObject}->param('stid'))						if defined($self->{_FormObject}->param('stid'));
+	$self->{_stid}			= ($self->{_FormObject}->url_param('stid'))					if defined($self->{_FormObject}->url_param('stid'));	
+	$self->{_eid}			= ($self->{_FormObject}->url_param('id')) 					if defined($self->{_FormObject}->url_param('id'));
+	$self->{_selectedstid}	= ($self->{_FormObject}->url_param('selectedstid')) 		if defined($self->{_FormObject}->url_param('selectedstid'));
+	$self->{_selectedpid}	= ($self->{_FormObject}->url_param('selectedpid')) 			if defined($self->{_FormObject}->url_param('selectedpid'));
 }
 
 #######################################################################################
@@ -400,7 +401,7 @@ sub printJSRecords
 			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
 		}
 		#eid,pid,sample1,sample2,count(1),ExperimentDescription,AdditionalInfo,Study Description,platform name,stid
-		$tempRecordList .= '{0:"'.$_->[2].'",1:"'.$_->[3].'",2:"'.$_->[4].'",3:"'.$_->[0].'",4:"' . $_->[0] . '",5:"' . $_->[5] . '",6:"' . $_->[6] . '",7:"' . $_->[7] . '",8:"' . $_->[8] . '",9:"' . $_->[9] . '"},';
+		$tempRecordList .= '{0:"'.$_->[2].'",1:"'.$_->[3].'",2:"'.$_->[4].'",3:"'.$_->[0].'",4:"' . $_->[0] . '",5:"' . $_->[5] . '",6:"' . $_->[6] . '",7:"' . $_->[7] . '",8:"' . $_->[8] . '",9:"' . $_->[9] . '",10:"' . $_->[1] . '"},';
 	}
 	$tempRecordList =~ s/,\s*$//;	# strip trailing comma
 
@@ -456,11 +457,11 @@ sub printTableInformation
 		{
 			if(oRecord.getData("9") == 0)
 			{
-				elCell.innerHTML = "<a title=\"Delete\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "\">Delete</a>";
+				elCell.innerHTML = "<a title=\"Delete\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "&selectedpid=" + document.forms[0].platform_load[document.forms[0].platform_load.selectedIndex].value + "&selectedstid=" + document.forms[0].stid[document.forms[0].stid.selectedIndex].value + "\">Delete</a>";
 			}
 			else
 			{
-				elCell.innerHTML = "<a title=\"Remove\" onClick = \"return removeExperimentConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "\">Remove</a>";
+				elCell.innerHTML = "<a title=\"Remove\" onClick = \"return removeExperimentConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "&selectedpid=" + document.forms[0].platform_load[document.forms[0].platform_load.selectedIndex].value + "&selectedstid=" + document.forms[0].stid[document.forms[0].stid.selectedIndex].value + "\">Remove</a>";
 			}
 		}
 
@@ -534,6 +535,10 @@ sub deleteExperiment
 			$self->{_dbh}->do($deleteStatement) or die $self->{_dbh}->errstr;
 		}
 	}
+	
+	#After deleting the experiments we change the current STID to whatever was selected in the dropdown before we deleted.
+	$self->{_stid} = $self->{_selectedstid};
+	$self->{_pid} = $self->{_selectedpid};
 }
 
 sub addNewExperiment
@@ -543,6 +548,8 @@ sub addNewExperiment
 	my $addExperimentInfo = new SGX::AddExperiment($self->{_dbh},$self->{_FormObject},'manageExperiments');
 	$addExperimentInfo->loadFromForm();
 	$addExperimentInfo->addNewExperiment();
+	
+	$self->{_stid} = "0";
 }
 
 #######################################################################################
