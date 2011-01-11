@@ -325,7 +325,16 @@ sub showExperiments
 		printTableInformation($self->{_FieldNames},$self->{_FormObject});
 		printExportTable();	
 		printDrawResultsTableJS();
-
+		
+		#Run this once when we first load to make sure dropdown is loaded correctly.
+		print "populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));";
+		
+		#Now we need to re-select the current StudyID, if we have one.
+		if(defined($self->{_stid}))
+		{
+			print "selectStudy(document.getElementById(\"stid\")," . $self->{_stid} . ");";
+		}
+		
 		print 	"</script>\n";
 
 		my $addExperimentInfo = new SGX::AddExperiment($self->{_dbh},$self->{_FormObject},'manageExperiments');

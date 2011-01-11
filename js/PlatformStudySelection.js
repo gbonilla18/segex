@@ -33,3 +33,14 @@ function populateSelectFilterStudy(obj, pid_object) {
 		}
         }
 }
+
+function selectStudy(obj,stid)
+{
+	for(var i in obj.options)
+	{
+		if(obj.options[i].value == stid)
+		{
+			obj.options[i].selected = true;
+		}
+	}
+}
