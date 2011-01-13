@@ -36,7 +36,7 @@ function populateSelectFilterStudy(obj, pid_object) {
 
 function selectStudy(obj,stid)
 {
-	for(var i in obj.options)
+	for(i=0;i<obj.options.length;i++)
 	{
 		if(obj.options[i].value == stid)
 		{
