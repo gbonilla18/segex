@@ -33,7 +33,7 @@ function populateSelectExperiments(obj, stid) {
         // now add new ones
         for (var i in study[stid][1]) {
                 var new_opt = document.createElement("option");
-                new_opt.setAttribute('value', i);
+                new_opt.setAttribute('value', stid + '|' + i);
                 //new_opt.text = study[stid][1][i] + ' / ' + study[stid][2][i]; // does not work in IE
                 new_opt.innerHTML = study[stid][1][i] + ' / ' + study[stid][2][i];
                 obj.appendChild(new_opt);
