@@ -81,10 +81,17 @@ function setSampleOrder(obj) {
 
         // get the currently selected study id
         opt = $("stid_" + exp_index).options;
+		
         var stid;
-        for (var i = 0, len = opt.length; i < len; ++i) {
-                 if (opt[i].selected) { stid = opt[i].value; break; } 
-        }
+		
+        for (var i = 0, len = opt.length; i < len; ++i) 
+		{
+			if (opt[i].selected) 
+			{ 
+				stid = opt[i].value; 
+				break;
+			} 
+		}
 
         // set sample order
         var num = (obj.checked) ? 2 : 1;
@@ -92,9 +99,10 @@ function setSampleOrder(obj) {
 
         // loop through all the experiment options and set sample order
         var opt = $("eid_" + exp_index).options;
-        for (var i = 0, len = opt.length; i < len; ++i) {
-                var eid = opt[i].value;
-                opt[i].text = study[stid][num][eid] + ' / ' + study[stid][denom][eid];
+        for (var i = 0, len = opt.length; i < len; ++i) 
+		{
+            var eid = opt[i].value.split("|")[1];
+            opt[i].text = study[stid][num][eid] + ' / ' + study[stid][denom][eid];
         }
 }
 function addExperiment() {
