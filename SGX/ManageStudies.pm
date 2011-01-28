@@ -78,7 +78,16 @@ sub new {
 		_ExpRecords	=> '',
 		_ExpFieldNames	=> '',
 		_ExpData	=> '',
-		_ExistingStudyQuery 		=> 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
+		_ExistingStudyQuery 			=> 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
+		_ExistingUnassignedStudyQuery 	=> "SELECT	DISTINCT experiment.eid,CONCAT(sample2,'/',sample1)
+											FROM experiment 
+											LEFT JOIN StudyExperiment 			ON experiment.eid = StudyExperiment.eid
+											INNER JOIN microarray 				ON microarray.eid = experiment.eid
+											INNER JOIN probe 					ON probe.rid = microarray.rid
+											INNER JOIN platform probe_platform 	ON probe_platform.pid = probe.pid
+											WHERE probe_platform.pid IN (SELECT pid FROM study WHERE stid = {0}) 
+											AND StudyExperiment.eid IS NULL
+											ORDER BY experiment.eid ASC;",	
 		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0} AND eid NOT IN (SELECT eid FROM StudyExperiment WHERE stid = {0}) ORDER BY experiment.eid ASC;",	
 		_AddExistingExperiment 		=> 'INSERT INTO StudyExperiment (stid,eid) VALUES ({1},{0});',
 		_RemoveExperiment		=> 'DELETE FROM StudyExperiment WHERE stid = {0} AND eid = {1};',
@@ -94,8 +103,10 @@ sub new {
 		_pid_Load	=> '',
 		_platformList	=> {},
 		_platformValue	=> (),
+		_unassignedList		=> {},
+		_unassignedValue	=> (),		
 		_platformListAll  => {},
-		_platformValueAll => ()		
+		_platformValueAll => ()	
 	};
 
 	bless $self, $class;
@@ -226,6 +237,7 @@ sub loadFromForm
 	$self->{_stid}					= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
 	$self->{_SelectedStudy}			= ($self->{_FormObject}->param('study_exist'))			if defined($self->{_FormObject}->param('study_exist'));
 	$self->{_SelectedExperiment}	= ($self->{_FormObject}->param('experiment_exist'))		if defined($self->{_FormObject}->param('experiment_exist'));
+	$self->{_SelectedExperiment}	= ($self->{_FormObject}->param('experiment_exist_unassigned'))		if defined($self->{_FormObject}->param('experiment_exist_unassigned'));
 	$self->{_deleteEid}				= ($self->{_FormObject}->url_param('removeid'))			if defined($self->{_FormObject}->url_param('removeid'));
 
 }
@@ -506,7 +518,9 @@ sub editStudy
 
 	print	'<script src="./js/AddExistingExperiment.js" type="text/javascript"></script>';
 	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Existing Experiment to this Study</h2>' . "\n";
-
+	
+	
+	print	'<br /><h2 name = "Add_Caption1" id = "Add_Caption1">Experiments already in a study.</h2>' . "\n";
 	print 	"<script>\n";
 	printJavaScriptRecordsForExistingDropDowns($self);
 	print 	"</script>\n";
@@ -528,6 +542,24 @@ sub editStudy
 	) .
 	$self->{_FormObject}->end_form;
 
+	#
+	print	'<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Experiments not a study.</h2>' . "\n";
+
+	print $self->{_FormObject}->start_form(
+		-method=>'POST',
+		-name=>'AddExistingUnassignedForm',
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=addExisting&id=' . $self->{_stid},
+		-onsubmit=>"return validate_fields(this,'');"
+	) .
+	$self->{_FormObject}->dl(
+		$self->{_FormObject}->dt('Experiment : '),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist_unassigned', -id=>'experiment_exist_unassigned',-values=>\@{$self->{_unassignedValue}}, -labels=>\%{$self->{_unassignedList}})),
+		$self->{_FormObject}->dt('&nbsp;'),
+		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+		)
+	) .
+	$self->{_FormObject}->end_form;	
+	
 }
 
 sub printDrawExperimentResultsTableJS
@@ -615,6 +647,20 @@ sub printJSExperimentHeaders
 	$tempHeaderList =~ s/,\s*$//;	# strip trailing comma
 
 	return $tempHeaderList;
+}
+
+sub buildUnassignedExperimentDropDown
+{
+	my $self		= shift;
+	my $unassignedQuery = $self->{_ExistingUnassignedStudyQuery};
+	$unassignedQuery	=~ s/\{0\}/\Q$self->{_stid}\E/;
+		
+	my $unassignedDropDown	= new SGX::DropDownData($self->{_dbh},$unassignedQuery,0);
+
+	$unassignedDropDown->loadDropDownValues();
+
+	$self->{_unassignedList} 	= $unassignedDropDown->{_dropDownList};
+	$self->{_unassignedValue} 	= $unassignedDropDown->{_dropDownValue};
 }
 
 sub printJavaScriptRecordsForExistingDropDowns
