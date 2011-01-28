@@ -64,7 +64,9 @@ sub new {
 					platform.pid,					
 					group_concat(DISTINCT IF(ISNULL(g0.accnum),'NONE',g0.accnum) ORDER BY g0.seqname ASC separator ' # ') AS 'Accession',
 					IF(ISNULL(g0.seqname),'NONE',g0.seqname)                                                            AS 'Gene',
-					coalesce(probe.probe_sequence, g0.probe_sequence) AS 'Probe Sequence'					
+					coalesce(probe.probe_sequence, g0.probe_sequence) AS 'Probe Sequence',
+					group_concat(distinct g0.description order by g0.seqname asc separator '; ') AS 'Gene Description',
+					group_concat(distinct gene_note order by g0.seqname asc separator '; ') AS 'Gene Ontology - Comment'					
 					from
 					({0}) as g0
 			left join (annotates natural join probe) on annotates.gid=g0.gid
@@ -323,13 +325,13 @@ sub loadProbeData
 	
 	foreach (sort {$a->[1] cmp $b->[1]} @{$self->{_Data}}) 
 	{
-		foreach (@$_) 
+		foreach (@$_)
 		{
 			$_ = '' if !defined $_;
 			$_ =~ s/"//g;
 		}
 		
-		${$self->{_ProbeHash}}{$_->[0]} = "$_->[1]|$_->[2]|$_->[3]|$_->[4]";
+		${$self->{_ProbeHash}}{$_->[0]} = "$_->[1]|$_->[2]|$_->[3]|$_->[4]|$_->[5]|$_->[6]|";
 	}	
 
 }
@@ -657,7 +659,7 @@ sub printFindProbeCSV
 			print "\n";
 			
 			#String representing the list of experiment names.
-			my $experimentList = ",,,,,";
+			my $experimentList = ",,,,,,,";
 			
 			#Temporarily hold the string we are to output so we can trim the trailing ",".
 			my $outLine = "";
@@ -694,7 +696,7 @@ sub printFindProbeCSV
 			print "\n";
 
 			#Print header line for probe rows.
-			print "Reporter ID,Accession Number, Gene Name,Probe Sequence,";
+			print "Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description,Gene Ontology,";
 			
 			print "$outLine\n";
 					
@@ -710,8 +712,14 @@ sub printFindProbeCSV
 		my $geneName 	= $splitPlatformID[2];
 		$geneName 		=~ s/\,//g;
 		
-		#Print the probe info. (Accession,Gene Name, Probe Sequence).
-		$outRow .= "$splitPlatformID[1],$geneName,$splitPlatformID[3],,";
+		my $geneDescription = $splitPlatformID[4];
+		$geneDescription	=~ s/\,//g;
+
+		my $geneOntology = $splitPlatformID[5];
+		$geneOntology	=~ s/\,//g;
+		
+		#Print the probe info. (Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology).
+		$outRow .= "$splitPlatformID[1],$geneName,$splitPlatformID[3],$geneDescription,$geneOntology,,";
 				
 		#For this reporter we print out a column for all the experiments that we have data for.
 		foreach my $EIDvalue (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
