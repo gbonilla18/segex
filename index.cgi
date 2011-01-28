@@ -1054,7 +1054,7 @@ sub findProbes_js
 
 	switch ($opts) {
 	case 0 {}
-	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Specificity - Comment\'') }
+	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
 	case 2 {}
 	}
 
@@ -2528,6 +2528,7 @@ sub manageStudies
 			$manageStudy->loadSingleStudy();
 			$manageStudy->loadPlatformData();
 			$manageStudy->loadAllExperimentsFromStudy();
+			$manageStudy->buildUnassignedExperimentDropDown();
 			$manageStudy->editStudy();
 
 			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
