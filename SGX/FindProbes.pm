@@ -122,7 +122,7 @@ sub createInsideTableQuery
 
 	switch ($opts) {
 	case 0 {}
-	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Specificity - Comment\'') }
+	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
 	case 2 {}
 	}
 
@@ -331,7 +331,11 @@ sub loadProbeData
 			$_ =~ s/"//g;
 		}
 		
-		${$self->{_ProbeHash}}{$_->[0]} = "$_->[1]|$_->[2]|$_->[3]|$_->[4]|$_->[5]|$_->[6]|";
+		#The GO field uses "|" to delimit, so we need to use something else.
+		my $GOField 	= "$_->[6]";
+		$GOField 		=~ s/\|/\;/g;		
+		
+		${$self->{_ProbeHash}}{$_->[0]} = "$_->[1]|$_->[2]|$_->[3]|$_->[4]|$_->[5]|$GOField|";
 	}	
 
 }
@@ -717,6 +721,7 @@ sub printFindProbeCSV
 
 		my $geneOntology = $splitPlatformID[5];
 		$geneOntology	=~ s/\,//g;
+		$geneOntology	=~ s/\;/\|/g;
 		
 		#Print the probe info. (Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology).
 		$outRow .= "$splitPlatformID[1],$geneName,$splitPlatformID[3],$geneDescription,$geneOntology,,";
