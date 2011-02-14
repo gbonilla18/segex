@@ -399,7 +399,7 @@ sub loadAllData
 	#This is the having part of the data query.
 	my $having = (defined($self->{_fs}) && $self->{_fs}) ? "HAVING abs_fs=$self->{_fs}" : '';
 	
-	$query_proj = 'probe.probe_sequence AS \'Probe Sequence\', GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\', platform.species AS \'Species\', '.$query_proj;
+	$query_proj = 'probe.probe_sequence AS \'Probe Sequence\', GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\',group_concat(distinct gene_note order by seqname asc separator\'; \') AS \'Gene Ontology - Comment\', platform.species AS \'Species\', '.$query_proj;
 
 	# pad TFS decimal portion with the correct number of zeroes
 	$query = sprintf($query, $query_proj) . $query_body . "
@@ -472,7 +472,7 @@ sub displayTFSInfoCSV
 	print "Experiment,|Fold Change| >, P\n";
 	
 	#This is the line with the experiment name and eid above the data columns.
-	my $experimentNameHeader = ",,,,,,,";
+	my $experimentNameHeader = ",,,,,,,,";
 	
 	#Print Experiment info.
 	for (my $i = 0; $i < @{$self->{_eids}}; $i++) 
@@ -549,7 +549,7 @@ sub displayTFSInfoCSV
 	print "$experimentNameHeader\n";
 	
 	#Experiment Data header.
-	$currentLine = "TFS,Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description,Species,";
+	$currentLine = "TFS,Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description, Gene Ontology,Species,";
 	
 	my $experimentCounter = 0;
 	
