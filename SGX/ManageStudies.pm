@@ -543,7 +543,7 @@ sub editStudy
 	$self->{_FormObject}->end_form;
 
 	#
-	print	'<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Experiments not a study.</h2>' . "\n";
+	print	'<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Experiments not in a study.</h2>' . "\n";
 
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
