@@ -33,7 +33,7 @@ function populateSelectExperiments(obj, stid) {
         // now add new ones
         for (var i in study[stid][1]) {
                 var new_opt = document.createElement("option");
-                new_opt.setAttribute('value', i);
+                new_opt.setAttribute('value', stid + '|' + i);
                 //new_opt.text = study[stid][1][i] + ' / ' + study[stid][2][i]; // does not work in IE
                 new_opt.innerHTML = study[stid][1][i] + ' / ' + study[stid][2][i];
                 obj.appendChild(new_opt);
@@ -76,15 +76,21 @@ function removeExperiment(obj) {
         }
 }
 function setSampleOrder(obj) {
-
         var exp_index = obj.getAttribute("id").replace(/^reverse_/,'');
 
         // get the currently selected study id
         opt = $("stid_" + exp_index).options;
+		
         var stid;
-        for (var i = 0, len = opt.length; i < len; ++i) {
-                 if (opt[i].selected) { stid = opt[i].value; break; } 
-        }
+		
+        for (var i = 0, len = opt.length; i < len; ++i) 
+		{
+			if (opt[i].selected) 
+			{ 
+				stid = opt[i].value; 
+				break;
+			} 
+		}
 
         // set sample order
         var num = (obj.checked) ? 2 : 1;
@@ -92,9 +98,10 @@ function setSampleOrder(obj) {
 
         // loop through all the experiment options and set sample order
         var opt = $("eid_" + exp_index).options;
-        for (var i = 0, len = opt.length; i < len; ++i) {
-                var eid = opt[i].value;
-                opt[i].text = study[stid][num][eid] + ' / ' + study[stid][denom][eid];
+        for (var i = 0, len = opt.length; i < len; ++i) 
+		{
+            var eid = opt[i].value.split("|")[1];
+            opt[i].text = study[stid][num][eid] + ' / ' + study[stid][denom][eid];
         }
 }
 function addExperiment() {
