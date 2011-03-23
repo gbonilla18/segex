@@ -538,7 +538,7 @@ sub displayTFSInfoCSV
 
 	foreach my $TFS(sort {$TFSCounts{$a} <=> $TFSCounts{$b} } keys %TFSCounts) 
 	{
-		print "'$TFS,$TFSCounts{$TFS}\n";
+		print "$TFS,$TFSCounts{$TFS}\n";
 	}
 	
 	#Print a blank line.
@@ -580,7 +580,7 @@ sub displayTFSInfoCSV
 		# but if fails to do so for some reason in this CGI program.
 		my $TFS = sprintf("$abs_fs.%0".@{$self->{_eids}}.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,@{$self->{_eids}}), substr(unpack('b32', pack('V', $dir_fs)),0,@{$self->{_eids}})));
 
-		$currentLine .= "'$TFS,";
+		$currentLine .= "$TFS,";
 	
 		foreach (@$row) 
 		{
