@@ -65,7 +65,8 @@ sub new {
 						experiment.sample1,
 						experiment.sample2,
 						ExperimentDescription,
-						AdditionalInformation
+						AdditionalInformation,
+						IFNULL(study.stid,0)
 					ORDER BY experiment.eid ASC;
 				   ",
 		_LoadUnassignedQuery		=> "	SELECT 	experiment.eid,
@@ -92,7 +93,8 @@ sub new {
 						experiment.sample1,
 						experiment.sample2,
 						ExperimentDescription,
-						AdditionalInformation
+						AdditionalInformation,
+						IFNULL(study.stid,0)
 					ORDER BY experiment.eid ASC;
 				   ",
 		_LoadAllExperimentsQuery	=> "	SELECT 	experiment.eid,
@@ -118,7 +120,8 @@ sub new {
 						experiment.sample1,
 						experiment.sample2,
 						ExperimentDescription,
-						AdditionalInformation
+						AdditionalInformation,
+						IFNULL(study.stid,0)
 					ORDER BY experiment.eid ASC;
 				   ",
 		_LoadSingleQuery=> "SELECT	eid,
