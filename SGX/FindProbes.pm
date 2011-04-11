@@ -73,7 +73,17 @@ sub new {
 			left join platform on platform.pid=coalesce(probe.pid, g0.pid)
 			group by coalesce(probe.rid, g0.rid)
 							",
+		_ProbeReporterQuery		=> "
+				select DISTINCT 
+					coalesce(probe.reporter, g0.reporter) as Probe					
+					from
+					({0}) as g0
+			left join (annotates natural join probe) on annotates.gid=g0.gid
+			left join platform on platform.pid=coalesce(probe.pid, g0.pid)
+			group by coalesce(probe.rid, g0.rid)
+							",							
 		_ExperimentListHash 	=> '',
+		_TempTableID			=> '',
 		_ExperimentNameListHash 	=> '',
 		_ExperimentDataQuery 	=> "
 					select 	experiment.eid, 
@@ -234,6 +244,146 @@ sub createInsideTableQuery
 #######################################################################################
 
 #######################################################################################
+#This is the code that generates part of the SQL statement (From a file instead of a list of genes).
+#######################################################################################
+sub createInsideTableQueryFromFile
+{
+	#Get the probe object.
+	my $self		= shift;
+
+	#This is the type of search.
+	my $type 		= $self->{_FormObject}->param('type') or die "You did not specify where to search";	# must be always set -- no defaults
+	
+	#The options will determine what columns we select.
+	my $opts 		= (defined($self->{_FormObject}->param('opts'))) ? $self->{_FormObject}->param('opts') : 1;
+	my $speciesColumn	= 5;
+
+	my @extra_fields;
+
+	switch ($opts) {
+	case 0 {}
+	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
+	case 2 {}
+	}
+
+	my $extra_sql = (@extra_fields) ? ', '.join(', ', @extra_fields) : '';
+
+	my $qtext;
+
+	#We need to get the list from the user into SQL, We need to do some temp table/file trickery for this.
+	#Get time to make our unique ID.
+	my $time      	= time();
+	#Make idea with the time and ID of the running application.
+	my $processID 	= $time. '_' . getppid();
+	#Regex to strip quotes.
+	my $regex_strip_quotes = qr/^("?)(.*)\1$/;
+	
+	#Store the temp Table id so we can drop the table later.
+	$self->{_TempTableID} = $processID;
+	
+	#We need to create this output directory.
+	my $direc_out	 = "/var/www/temp_files/$processID/";
+	system("mkdir $direc_out");
+
+	#This is where we put the temp file we will import.
+	my $outputFileName 	= $direc_out . "JoinFindProbes";
+
+	#Open file we are writing to server.
+	open(OUTPUTTOSERVER,">$outputFileName");
+
+	#This is the file that was uploaded.
+	my $uploadedFile = $self->{_FormObject}->param('gene_file');
+	
+	#Each line is an item to search on.
+	while ( <$uploadedFile> )
+	{
+		print OUTPUTTOSERVER $_;
+	}
+
+	close(OUTPUTTOSERVER);
+
+	#--------------------------------------------
+	#Now get the temp file into a temp MYSQL table.
+
+	#Command to create temp table.
+	my $createTableStatement = "CREATE TABLE $processID (searchField VARCHAR(200))";
+
+	#This is the mysql command to suck in the file.
+	my $inputStatement	= "
+					LOAD DATA LOCAL INFILE '$outputFileName'
+					INTO TABLE $processID
+					LINES TERMINATED BY '\n'
+					(searchField); 
+				";
+	#--------------------------------------------
+
+	#---------------------------------------------
+	#Run the command to create the temp table.
+	$self->{_dbh}->do($createTableStatement) or die $self->{_dbh}->errstr;
+
+	#Run the command to suck in the data.
+	$self->{_dbh}->do($inputStatement) or die $self->{_dbh}->errstr;
+	#--------------------------------------------
+
+	#When using the file from the user we join on the temp table we create.
+	my $g0_sql;
+	switch ($type) 
+	{
+		case 'probe' 
+		{
+			$g0_sql = "
+			select rid, reporter, note, probe_sequence, g1.pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join 
+			(select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, accnum from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid INNER JOIN $processID tempTable ON tempTable.searchField = reporter) as g1
+			on g2.accnum=g1.accnum where rid is not NULL
+			
+			union
+
+			select rid, reporter, note, probe_sequence, g3.pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, seqname from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid INNER JOIN $processID tempTable ON tempTable.searchField = reporter) as g3
+			on g4.seqname=g3.seqname where rid is not NULL
+			";
+
+		}
+		case 'gene' 
+		{
+			$g0_sql = "
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
+			(select distinct accnum from gene INNER JOIN $processID tempTable ON tempTable.searchField = seqname where accnum is not NULL) as g1
+			on g2.accnum=g1.accnum where g2.gid is not NULL
+
+			union
+
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct seqname from gene INNER JOIN $processID tempTable ON tempTable.searchField = seqname where seqname is not NULL) as g3
+			on g4.seqname=g3.seqname where g4.gid is not NULL
+			";
+		}
+		case 'transcript' 
+		{
+			$g0_sql = "
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
+			(select distinct accnum from gene INNER JOIN $processID tempTable ON tempTable.searchField = accnum where accnum is not NULL) as g1
+			on g2.accnum=g1.accnum where g2.gid is not NULL
+
+			union
+
+			select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
+			(select distinct seqname from gene INNER JOIN $processID tempTable ON tempTable.searchField = accnum where seqname is not NULL) as g3
+			on g4.seqname=g3.seqname where g4.gid is not NULL
+			";
+		} 
+		else 
+		{
+			assert(0); # shouldn't happen
+		}
+	}
+	
+	$self->{_InsideTableQuery} 	= $g0_sql;
+	$self->{_SearchItems} 		= $qtext;
+}
+#######################################################################################
+
+#######################################################################################
 #This gets set in the index.cgi page based on input parameters.
 #######################################################################################
 sub setInsideTableQuery
@@ -291,6 +441,64 @@ sub fillPlatformHash
 	}
 }
 #######################################################################################
+
+#######################################################################################
+#Get a list of the probes (Only the reporter field).
+#######################################################################################
+sub loadProbeReporterData
+{
+	my $self				= shift;
+	my $qtext				= shift;
+	
+	my $probeQuery				= $self->{_ProbeReporterQuery};
+	
+	$probeQuery 				=~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
+	$probeQuery 				=~ s/\\//g;
+
+	$self->{_ProbeRecords}	= $self->{_dbh}->prepare($probeQuery) 				or die $self->{_dbh}->errstr;
+	$self->{_ProbeCount}	= $self->{_ProbeRecords}->execute() 	or die $self->{_dbh}->errstr;	
+	$self->{_ProbeColNames} = @{$self->{_ProbeRecords}->{NAME}};
+	$self->{_Data}			= $self->{_ProbeRecords}->fetchall_arrayref;
+	
+	$self->{_ProbeRecords}->finish;
+	
+	$self->{_ProbeHash} 	= {};
+	
+	my $DataCount			= @{$self->{_Data}};
+	
+	#For the situation where we created a temp table for the user input, we need to drop that temp table.
+	#This is the command to drop the temp table.
+	my $dropStatement = "DROP TABLE " . $self->{_TempTableID} . ";";	
+	
+	#Run the command to drop the temp table.
+	$self->{_dbh}->do($dropStatement) or die $self->{_dbh}->errstr;
+	
+	if($DataCount < 1)
+	{
+		print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+		print "No records found! Please click back on your browser and search again!";
+		exit;
+	}
+	
+	foreach (@{$self->{_Data}}) 
+	{
+		foreach (@$_)
+		{
+			$_ = '' if !defined $_;
+			$_ =~ s/"//g;
+		}
+
+		$self->{_ReporterList} .= "'$_->[0]',";
+
+	}	
+
+	#Trim trailing comma off.
+	$self->{_ReporterList} =~ s/\,$//;	
+	
+	
+}
+#######################################################################################
+
 
 #######################################################################################
 #Get a list of the probes here so that we can get all experiment data for each probe in another query.
