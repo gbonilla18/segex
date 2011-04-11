@@ -1624,16 +1624,18 @@ sub form_compareExperiments {
 		$q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
 		$q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')),
 		$q->dt('Filter by a list of genes:'),
-		$q->dd($q->checkbox(-name=>'chkUseGeneList',-id=>'chkUseGeneList',-label=>'',-value=>'1',-onclick=>'toggleSearchOptions();'))		
+		$q->dd($q->checkbox(-name=>'chkUseGeneList',-id=>'chkUseGeneList',-label=>'',-value=>'1',-onclick=>'toggleSearchOptions();'))	
 	),
 	$q->dl(
 		$q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
+			$q->dt('Search type :'),
+			$q->dd($q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),		
+			$q->dt('Gene File:'),
+			$q->dd($q->filefield(-name=>'gene_file')),
 			$q->dt('Search string(s):'),
 			$q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
-			$q->dt('Search type :'),
-			$q->dd($q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),
 			$q->dt('Pattern to match :'),
-			$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression*'})),
+			$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression*'}))
 			)
 	)
 	,	
@@ -1657,10 +1659,22 @@ sub compare_experiments_js {
 	my $searchFilter	= '';
 	$searchFilter 		= ($q->param('chkUseGeneList')) if defined($q->param('chkUseGeneList'));
 
+	my $fileFilter		= '';
+	$fileFilter 		= ($q->param('gene_file')) if defined($q->param('gene_file'));	
+	
 	my $probeListQuery	= '';
 	my $probeList		= '';
 	
-	if($searchFilter eq "1")
+	if($fileFilter)
+	{
+		$findProbes = new SGX::FindProbes($dbh,$q);
+		$findProbes->createInsideTableQueryFromFile();
+		$findProbes->loadProbeReporterData($findProbes->getQueryTerms);
+		$probeList 	= $findProbes->getProbeList();
+		$probeListQuery	= " WHERE rid IN (SELECT rid FROM probe WHERE reporter in ($probeList)) ";
+		
+	}
+	elsif($searchFilter eq "1")
 	{
 		$findProbes = new SGX::FindProbes($dbh,$q);
 		$findProbes->createInsideTableQuery();
