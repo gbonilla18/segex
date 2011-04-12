@@ -185,7 +185,7 @@ sub showPlatforms
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('pname:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pname',-id=>'pname',-maxlength=>20)),
+		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pname',-id=>'pname',-maxlength=>120)),
 		$self->{_FormObject}->dt('def_f_cutoff:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'def_f_cutoff',-id=>'def_f_cutoff')),
 		$self->{_FormObject}->dt('def_p_cutoff:'),
@@ -334,7 +334,7 @@ sub editPlatform
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('pname:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pname',-id=>'pname',-maxlength=>20,-value=>$self->{_PName})),
+		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pname',-id=>'pname',-maxlength=>120,-value=>$self->{_PName})),
 		$self->{_FormObject}->dt('def_f_cutoff:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'def_f_cutoff',-id=>'def_f_cutoff',value=>$self->{_def_f_cutoff})),
 		$self->{_FormObject}->dt('def_p_cutoff:'),
