@@ -292,12 +292,18 @@ sub createInsideTableQueryFromFile
 	open(OUTPUTTOSERVER,">$outputFileName");
 
 	#This is the file that was uploaded.
-	my $uploadedFile = $self->{_FormObject}->param('gene_file');
+	my $uploadedFile = $self->{_FormObject}->upload('gene_file');
 	
 	#Each line is an item to search on.
 	while ( <$uploadedFile> )
 	{
-		print OUTPUTTOSERVER $_;
+		#Grab the current line (Or Whole file if file is using Mac line endings).
+		my $currentLine = $_;
+
+		#Replace all carriage returns, or carriage returns and line feed with just a line feed.
+		$currentLine =~ s/(\r\n|\r)/\n/g;
+	
+		print OUTPUTTOSERVER "$currentLine";
 	}
 
 	close(OUTPUTTOSERVER);
