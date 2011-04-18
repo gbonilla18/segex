@@ -184,7 +184,16 @@ sub loadTFSData
 				
 		# account for sample order when building title query
 		my $title = ($self->{_reverses}[$i-1]) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
-		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$currentEID UNION ALL ";
+		
+		$query_titles .= " SELECT 	experiment.eid, 
+									CONCAT(study.description, ': ', $title) AS title, 
+									CONCAT($title) AS experimentHeading,
+									study.description,
+									experiment.ExperimentDescription 
+							FROM experiment 
+							NATURAL JOIN StudyExperiment 
+							NATURAL JOIN study 
+							WHERE eid=$currentEID AND study.stid = $currentSTID UNION ALL ";
 		
 		$i++;
 	}
@@ -358,6 +367,8 @@ sub loadAllData
 	foreach my $eid (@{$self->{_eids}})
 	{
 		my @IDSplit = split(/\|/,$eid);
+		
+		my $currentSTID = $IDSplit[0];
 		my $currentEID = $IDSplit[1];
 
 		my ($fc, $pval) = (${$self->{_fcs}}[$i-1],  ${$self->{_pvals}}[$i-1]);
@@ -382,7 +393,7 @@ sub loadAllData
 		# account for sample order when building title query
 		my $title = ($self->{_reverses}[$i-1]) ? "experiment.sample1, ' / ', experiment.sample2" : "experiment.sample2, ' / ', experiment.sample1";
 			
-		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$currentEID UNION ALL ";
+		$query_titles .= " SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title, CONCAT($title) AS experimentHeading,study.description,experiment.ExperimentDescription FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$currentEID AND study.stid = $currentSTID UNION ALL ";
 		
 		$i++;
 	}
@@ -469,7 +480,7 @@ sub displayTFSInfoCSV
 	print "\n";
 	
 	#Print Experiment info header.
-	print "Experiment,|Fold Change| >, P\n";
+	print "Experiment Number,Study Description, Experiment Heading,Experiment Description,|Fold Change| >, P\n";
 	
 	#This is the line with the experiment name and eid above the data columns.
 	my $experimentNameHeader = ",,,,,,,,";
@@ -481,9 +492,12 @@ sub displayTFSInfoCSV
 		my @IDSplit = split(/\|/,${$self->{_eids}}[$i]);
 		my $currentEID = $IDSplit[1];
 		
-		$currentLine .=  $currentEID . ":" . $self->{_headerRecords}->{$currentEID}->{title} . ",";
-		$currentLine .=  ${$self->{_fcs}}[$i] . ",";
-		$currentLine .=  ${$self->{_pvals}}[$i] . ",";
+		$currentLine .= $currentEID . ",";
+		$currentLine .= $self->{_headerRecords}->{$currentEID}->{description} . ",";
+		$currentLine .= $self->{_headerRecords}->{$currentEID}->{experimentHeading} . ",";
+		$currentLine .= $self->{_headerRecords}->{$currentEID}->{ExperimentDescription} . ",";
+		$currentLine .= ${$self->{_fcs}}[$i] . ",";
+		$currentLine .= ${$self->{_pvals}}[$i] . ",";
 		
 		#Form the line that displays experiment names above data columns.
 		$experimentNameHeader .= $currentEID . ":" . $self->{_headerRecords}->{$currentEID}->{title} . ",,,,,";
@@ -615,8 +629,8 @@ sub displayTFSInfo
 my $out = '
 var summary = {
 caption: "Experiments compared",
-headers: ["&nbsp;", "Experiment", "&#124;Fold Change&#124; &gt;", "P &lt;", "&nbsp;"],
-parsers: ["number", "string", "number", "number", "string"],
+headers: ["&nbsp;","Experiment Number", "Study Description", "Sample2/Sample1", "Experiment Description", "&#124;Fold Change&#124; &gt;", "P &lt;", "&nbsp;"],
+parsers: ["number","number", "string", "string", "string", "number", "number", "string"],
 records: [
 ';
 
@@ -628,7 +642,12 @@ records: [
 		my $currentTitle = $self->{_headerRecords}->{$currentEID}->{title};
 		$currentTitle    =~ s/"/\\"/g;
 
-		$out .= '{0:"' . ($i + 1) . '",1:"'.$currentTitle.'",2:"'.${$self->{_fcs}}[$i].'",3:"'. ${$self->{_pvals}}[$i].'",4:"';
+		my $currentStudyDescription = $self->{_headerRecords}->{$currentEID}->{description};
+		my $currentExperimentHeading = $self->{_headerRecords}->{$currentEID}->{experimentHeading};
+		my $currentExperimentDescription = $self->{_headerRecords}->{$currentEID}->{ExperimentDescription};
+		
+		$out .= '{0:"' . ($i + 1) . '",1:"' . $currentEID . '",2:"' . $currentStudyDescription . '",3:"' . $currentExperimentHeading . '",4:"' . $currentExperimentDescription . '",5:"' . ${$self->{_fcs}}[$i] . '",6:"' . ${$self->{_pvals}}[$i].'",7:"';
+		
 		# test for bit presence and print out 1 if present, 0 if absent
 		if (defined($self->{_fs})) { $out .= (1 << $i & $self->{_fs}) ? "x\"},\n" : "\"},\n" }
 		else { $out .= "\"},\n" }
@@ -638,12 +657,22 @@ records: [
 ]};
 ';
 
+#0:Counter
+#1:EID
+#2:Study Description
+#3:Experiment Heading
+#4:Experiment Description
+#5:Fold Change
+#6:p-value
+
 # Fields with indexes less num_start are formatted as strings,
 # fields with indexes equal to or greater than num_start are formatted as numbers.
 my @table_header;
 my @table_parser;
 my @table_format;
-for (my $j = 2; $j < $self->{_numStart}; $j++) {
+
+for (my $j = 2; $j < $self->{_numStart}; $j++) 
+{
 	push @table_header, $self->{_Records}->{NAME}->[$j];
 	push @table_parser, 'string';
 	push @table_format, 'formatText';
@@ -657,6 +686,7 @@ for (my $j = $self->{_numStart}; $j < @{$self->{_Records}->{NAME}}; $j++) {
 
 my $find_probes = $self->{_FormObject}->a({-target=>'_blank', -href=>$self->{_FormObject}->url(-absolute=>1).'?a=Search&graph=on&type=%1$s&text={0}', -title=>'Find all %1$ss related to %1$s {0}'}, '{0}');
 $find_probes =~ s/"/\\"/g;	# prepend all double quotes with backslashes
+
 my @format_template;
 push @format_template, sprintf($find_probes, 'probe');
 push @format_template, sprintf($find_probes, 'transcript');
@@ -693,12 +723,17 @@ records: [
 		my $TFS = sprintf("$abs_fs.%0".@{$self->{_eids}}.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,@{$self->{_eids}}), substr(unpack('b32', pack('V', $dir_fs)),0,@{$self->{_eids}})));
 
 		$out .= "{0:\"$TFS\"";
+		
 		foreach (@row) { $_ = '' if !defined $_ }
+		
 		$row[2] =~ s/\"//g;	# strip off quotes from gene symbols
+		
 		my $real_num_start = $self->{_numStart} - 2; # TODO: verify why '2' is used here
+		
 		for (my $j = 0; $j < $real_num_start; $j++) {
 			$out .= ','.($j + 1).':"'.$row[$j].'"';	# string value
 		}
+		
 		for (my $j = $real_num_start; $j < @row; $j++) {
 			$out .=	','.($j + 1).':'.$row[$j];	# numeric value
 		}
