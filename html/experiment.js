@@ -166,6 +166,7 @@ var current_platform;
 var first_study;
 var experiment_count = 0; // how many experiments are displayed
 
+//Show the gene filter options.
 function toggleSearchOptions(){
 	if(document.getElementById("divSearchItemsDiv").style.display == '')
 	{
