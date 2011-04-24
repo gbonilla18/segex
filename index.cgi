@@ -1623,29 +1623,118 @@ sub form_compareExperiments {
 	$q->dl(
 		$q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
 		$q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')),
-		$q->dt('Filter by a list of genes:'),
-		$q->dd($q->checkbox(-name=>'chkUseGeneList',-id=>'chkUseGeneList',-label=>'',-value=>'1',-onclick=>'toggleSearchOptions();'))	
+		$q->dt('Filter:'),
+		$q->dd($q->radio_group(-tabindex=>2,-onChange=>'toggleFilterOptions(this.value);', -name=>'geneFilter', -values=>['none','file', 'list'], -default=>'none', -labels=>{none=>'none', file=>'file', list=>'list'}))
 	),
 	$q->dl(
 		$q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
-			$q->dt('Search type :'),
-			$q->dd($q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),		
-			$q->dt('Gene File:'),
-			$q->dd($q->filefield(-name=>'gene_file')),
-			$q->dt('Search string(s):'),
-			$q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
-			$q->dt('Pattern to match :'),
-			$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression*'}))
+			$q->table({-style=>'width:100%'},
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'&nbsp;'
+							)
+					),				
+				$q->TR(
+						$q->th({-id=>'tableheader1',-colspan=>'2'},
+							'<font style="font-size:150%">Search by file of terms</font>'
+							)
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'<hr />'
+							)
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'&nbsp;'
+							)
+					),						
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'<font color="red"><b>When uploading a file you will be limited to only full text matches. The uploaded file must be a .txt file with one line per search term.</b></font>'
+							)
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'&nbsp;'
+							)
+					),						
+				$q->TR(
+						$q->td({-id=>'tablecell2',-colspan=>'2'},'Gene File :',$q->filefield(-name=>'gene_file')),
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'&nbsp;'
+							)
+					)					
 			)
-	)
-	,	
-	$q->dl(
-		$q->dt('Compare selected experiments:'),
-		$q->dd(
-			$q->submit(-name=>'submit',-value=>'Submit', -override=>1),
-			$q->hidden(-name=>'a',-value=>COMPAREEXPERIMENTS, -override=>1)
 		)
 	),
+	$q->dl(
+		$q->div({-id=>'divSearchItemsDiv2',-name=>'divSearchItemsDiv2',-style=>'display:none;'},	
+			$q->table({-style=>'width:100%'},
+				$q->TR(
+						$q->th({-id=>'tableheader2',-colspan=>'2'},
+							'<font style="font-size:150%">Search by strings</font>'
+							)
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'<hr />'
+							)
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'Search type :',
+							$q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})
+							)
+					),					
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'&nbsp;'
+							)
+					),					
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'<font color="red"><b>Searches using this method may run slowly when inputting 25 terms!</b></font>'
+							)
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'&nbsp;'
+							)
+					),					
+				$q->TR(
+						$q->td({-id=>'tablecell1'},'Search string(s):'),
+						$q->td({-id=>'tablecell2'},$q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text'))						
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1'},'Pattern to match :'),
+						$q->td($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression*'}))						
+					),
+				$q->TR(
+						$q->td({-id=>'tablecell1',-colspan=>'2'},
+							'&nbsp;'
+							)
+					)					
+			)	
+		)
+	),
+	$q->table({-style=>'width:100%;border-width: 1px;'},	
+		$q->TR(
+				$q->td({-id=>'tablecell1'},
+						'<font style="font-size:150%">Compare selected experiments</font> : ',
+						$q->submit(-name=>'submit',-value=>'Submit', -override=>1),
+						$q->hidden(-name=>'a',-value=>COMPAREEXPERIMENTS, -override=>1)
+					)
+			)
+	),
+	$q->dl(
+		$q->dt('<br />')
+			),
+	$q->dl(
+		$q->dt('<br />')
+			),			
 	$q->endform;
 }
 
@@ -1659,22 +1748,21 @@ sub compare_experiments_js {
 	my $searchFilter	= '';
 	$searchFilter 		= ($q->param('chkUseGeneList')) if defined($q->param('chkUseGeneList'));
 
-	my $fileFilter		= '';
-	$fileFilter 		= ($q->param('gene_file')) if defined($q->param('gene_file'));	
+	my $filterType		= '';
+	$filterType 		= ($q->param('geneFilter')) if defined($q->param('geneFilter'));	
 	
 	my $probeListQuery	= '';
 	my $probeList		= '';
 	
-	if($fileFilter)
+	if($filterType eq "file")
 	{
 		$findProbes = new SGX::FindProbes($dbh,$q);
 		$findProbes->createInsideTableQueryFromFile();
 		$findProbes->loadProbeReporterData($findProbes->getQueryTerms);
 		$probeList 	= $findProbes->getProbeList();
 		$probeListQuery	= " WHERE rid IN (SELECT rid FROM probe WHERE reporter in ($probeList)) ";
-		
 	}
-	elsif($searchFilter eq "1")
+	elsif($filterType eq "list")
 	{
 		$findProbes = new SGX::FindProbes($dbh,$q);
 		$findProbes->createInsideTableQuery();
