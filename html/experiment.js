@@ -178,6 +178,26 @@ function toggleSearchOptions(){
 	}
 }
 
+function toggleFilterOptions(selectedRadio)
+{
+	if(selectedRadio == 'none')
+	{
+		document.getElementById("divSearchItemsDiv").style.display = 'none';
+		document.getElementById("divSearchItemsDiv2").style.display = 'none';
+	}
+	else if(selectedRadio == 'file')
+	{
+		document.getElementById("divSearchItemsDiv").style.display = '';
+		document.getElementById("divSearchItemsDiv2").style.display = 'none';		
+	}
+	else if(selectedRadio == 'list')
+	{
+		document.getElementById("divSearchItemsDiv").style.display = 'none';
+		document.getElementById("divSearchItemsDiv2").style.display = '';		
+	}	
+	
+}
+
 function navigateToCSV()
 {
 	
