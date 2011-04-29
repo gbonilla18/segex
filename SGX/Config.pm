@@ -1,7 +1,5 @@
 package SGX::Config;
 
-# This is a module for any debugging or testing subroutines.
-# Expect any code you put in here to be removed from the production version.
 # Don't forget to put the names of your exported subroutines into the EXPORT array
 
 use strict;
