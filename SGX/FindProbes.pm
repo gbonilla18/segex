@@ -52,6 +52,9 @@ sub new {
 		_ExperimentRec		=> '',
 		_ExperimentCount	=> 0,
 		_ExperimentData		=> '',
+		_FullExperimentRec		=> '',
+		_FullExperimentCount	=> 0,
+		_FullExperimentData		=> '',		
 		_InsideTableQuery 	=> '',
 		_SearchItems		=> '',
 		_PlatformInfoQuery	=> "SELECT	pid,
@@ -83,6 +86,7 @@ sub new {
 			group by coalesce(probe.rid, g0.rid)
 							",							
 		_ExperimentListHash 	=> '',
+		_ExperimentStudyListHash	=> '',		
 		_TempTableID			=> '',
 		_ExperimentNameListHash 	=> '',
 		_ExperimentDataQuery 	=> "
@@ -92,7 +96,9 @@ sub new {
 						microarray.pvalue,
 						IFNULL(microarray.intensity1,0),
 						IFNULL(microarray.intensity2,0),
-						concat(study.description, ': ', experiment.sample2, '/', experiment.sample1) AS 'Name'
+						concat(study.description, ': ', experiment.sample2, '/', experiment.sample1) AS 'Name',
+						study.stid,
+						study.pid
 					from	microarray 
 					right join 
 					(
@@ -567,6 +573,7 @@ sub loadExperimentData
 	
 	$self->{_ProbeExperimentHash}		= {};
 	$self->{_ExperimentListHash}		= {};
+	$self->{_ExperimentStudyListHash}	= {};
 	$self->{_ExperimentNameListHash}	= {};
 	
 	#Grab the format for the output from the form.
@@ -584,7 +591,7 @@ sub loadExperimentData
 			$sql_trans = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
 		}
 	}	
-	
+
 	foreach(keys %{$self->{_ProbeHash}})
 	{
 		my $tempReportQuery = $self->{_ExperimentDataQuery};
@@ -592,7 +599,7 @@ sub loadExperimentData
 		$tempReportQuery 				=~ s/\{0\}/\Q$_\E/;
 		$tempReportQuery 				=~ s/\{1\}/\Q$sql_trans\E/;
 		$tempReportQuery 				=~ s/\\//g;
-			
+
 		$self->{_ExperimentRec} 		= $self->{_dbh}->prepare($tempReportQuery) 	or die $self->{_dbh}->errstr;
 		$self->{_ExperimentCount} 		= $self->{_ExperimentRec}->execute() 		or die $self->{_dbh}->errstr;	
 		$self->{_ExperimentData}		= $self->{_ExperimentRec}->fetchall_arrayref;
@@ -617,8 +624,11 @@ sub loadExperimentData
 			$tempHash{$_->[0]} = $experimentDataString;
 
 			#Keep a hash of EID and PID.
-			${$self->{_ExperimentListHash}{$_->[0]}} = $currentPID;
+			${$self->{_ExperimentListHash}{$_->[0]}} = $_->[8];
 
+			#Keep a hash of EID and STID.
+			${$self->{_ExperimentStudyListHash}{$_->[0] . '|' . $_->[7]}} = 1;
+			
 			#Keep a hash of experiment names and EID.			
 			${$self->{_ExperimentNameListHash}{$_->[0]}} = $_->[6];
 			
@@ -875,25 +885,32 @@ sub printFindProbeCSV
 			#Print the name of the current platform.
 			print "\"${$self->{_PlatformInfoHash}{$currentPID}}\"";
 			print "\n";
+			print "Experiment Number,Study Description, Experiment Heading,Experiment Description\n";
 			
 			#String representing the list of experiment names.
 			my $experimentList = ",,,,,,,";
 			
 			#Temporarily hold the string we are to output so we can trim the trailing ",".
 			my $outLine = "";
-			
+
 			#Loop through the list of experiments and print out the ones for this platform.
 			foreach my $value (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
 			{
 				if(${$self->{_ExperimentListHash}{$value}} == $currentPID)
 				{
+					my $currentLine = "";
+				
+					$currentLine .= $value . ",";
+					$currentLine .= $self->{_FullExperimentData}->{$value}->{description} . ",";
+					$currentLine .= $self->{_FullExperimentData}->{$value}->{experimentHeading} . ",";
+					$currentLine .= $self->{_FullExperimentData}->{$value}->{ExperimentDescription};
 					
 					#Current experiment name.
 					my $currentExperimentName = ${$self->{_ExperimentNameListHash}{$value}};
 					$currentExperimentName =~ s/\,//g;
 					
-					#Print out current Experiment name with its eid.
-					print "$value : $currentExperimentName\n";
+					#Experiment Number,Study Description, Experiment Heading,Experiment Description
+					print "$currentLine\n";
 					
 					#The list of experiments goes with the Ratio line for each block of 5 columns.
 					$experimentList .= "$value : $currentExperimentName,,,,,,";					
@@ -1015,5 +1032,43 @@ sub trim($)
 }
 #######################################################################################
 
+#######################################################################################
+#Loop through the list of experiments we are displaying and get the information on each. We need eid and stid for each.
+#######################################################################################
+sub getFullExperimentData
+{
+	my $self 					= shift;
+	my $query_titles			= "";
+	
+	foreach my $currentRecord (keys %{$self->{_ExperimentStudyListHash}})
+	{	
+	
+		my @IDSplit = split(/\|/,$currentRecord);
+		
+		my $currentEID = $IDSplit[0];	
+		my $currentSTID = $IDSplit[1];
+	
+		$query_titles .= " SELECT 	experiment.eid, 
+									CONCAT(study.description, ': ', experiment.sample1, ' / ', experiment.sample2) AS title, 
+									CONCAT(experiment.sample1, ' / ', experiment.sample2) AS experimentHeading,
+									study.description,
+									experiment.ExperimentDescription 
+							FROM experiment 
+							NATURAL JOIN StudyExperiment 
+							NATURAL JOIN study 
+							WHERE eid=$currentEID AND study.stid = $currentSTID UNION ALL ";
+	}
+	
+	# strip trailing 'UNION ALL' plus any trailing white space
+	$query_titles =~ s/UNION ALL\s*$//i;
+	
+	$self->{_FullExperimentRec}		= $self->{_dbh}->prepare($query_titles) or die $self->{_dbh}->errstr;
+	$self->{_FullExperimentCount}	= $self->{_FullExperimentRec}->execute() 	or die $self->{_dbh}->errstr;	
+	$self->{_FullExperimentData}	= $self->{_FullExperimentRec}->fetchall_hashref('eid');
+	
+	$self->{_FullExperimentRec}->finish;
+
+}
+#######################################################################################
 
 1;
