@@ -1191,6 +1191,7 @@ sub findProbes_js
 		$findProbes->loadProbeData($qtext);
 		$findProbes->loadExperimentData();
 		$findProbes->fillPlatformHash();
+		$findProbes->getFullExperimentData();		
 		$findProbes->printFindProbeCSV();
 		exit;
 	}
