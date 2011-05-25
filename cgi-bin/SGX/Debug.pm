@@ -9,12 +9,14 @@ use warnings;
 use base qw/Exporter/;
 #use Data::Dumper;
 
+use constant LOG_PATH       => '/var/www/error_log/error_log';
+
 # CGI::Carp module sends warnings and errors to the browser;
 # this is for debugging purposes only -- it will be removed in
 # production code.
 BEGIN { 
         use CGI::Carp qw/carpout fatalsToBrowser warningsToBrowser/;
-        open(LOG, '>>/var/www/error_log/error_log')
+        open(LOG, '>>' . LOG_PATH)
                 or die "Unable to append to error_log: $!";
         carpout(*LOG);
 }
