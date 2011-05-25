@@ -37,7 +37,7 @@ use SGX::FindProbes;
 use SGX::ProjectManagement;
 
 # ===== USER AUTHENTICATION ===================================================
-my $softwareVersion = "0.11";
+my $softwareVersion = "0.1.12";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 		       -expire_in	=> 3600, # expire in 3600 seconds (1 hour)
@@ -53,15 +53,15 @@ my $q = CGI->new();
 my $error_string;
 my $title;
 my $css = [
-	{-src=>'./yui/build/reset-fonts/reset-fonts.css'},
-	{-src=>'./yui/build/container/assets/skins/sam/container.css'},
-	{-src=>'./yui/build/paginator/assets/skins/sam/paginator.css'},
-	{-src=>'./yui/build/datatable/assets/skins/sam/datatable.css'},
-	{-src=>'./html/style.css'}
+    {-src=>YUI_ROOT . '/build/reset-fonts/reset-fonts.css'},
+    {-src=>YUI_ROOT . '/build/container/assets/skins/sam/container.css'},
+    {-src=>YUI_ROOT . '/build/paginator/assets/skins/sam/paginator.css'},
+    {-src=>YUI_ROOT . '/build/datatable/assets/skins/sam/datatable.css'},
+    {-src=>CSS_DIR . '/style.css'}
 ];
 
-my $js = [{-type=>'text/javascript',-src=>'./html/prototype.js'},
-	  {-type=>'text/javascript',-src=>'./html/form.js'}];
+my $js = [{-type=>'text/javascript',-src=>JS_DIR . '/prototype.js'},
+      {-type=>'text/javascript',-src=>JS_DIR . '/form.js'}];
 
 my $content;	# this will be a reference to a subroutine that displays the main content
 
@@ -114,10 +114,10 @@ while (defined($action)) { switch ($action) {
 		# TODO: only admins should be allowed to perform this action
 		if ($s->is_authorized('user')) {
 			$title = 'Upload/Update Annotations';
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/animation/animation-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript',-src=>'./html/annot.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/animation/animation-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript',-src=>JS_DIR . '/annot.js'};
 			$content = \&form_uploadAnnot;
 			$action = undef;	# final state
 		} else {
@@ -160,15 +160,15 @@ while (defined($action)) { switch ($action) {
 	}
 	case FORM.MANAGEPLATFORMS {
 		if ($s->is_authorized('user')) {	
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 		
 			$content = \&form_managePlatforms;
 			$title = 'Platforms';
@@ -190,15 +190,15 @@ while (defined($action)) { switch ($action) {
 	}
 	case FORM.MANAGESTUDIES {
 		if ($s->is_authorized('user')) {	
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 
 			$content = \&form_manageStudies;
 			$title = 'Studies';
@@ -210,15 +210,15 @@ while (defined($action)) { switch ($action) {
 	case MANAGESTUDIES {
 		if ($s->is_authorized('user')) {
 
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 
 
 			$content = \&manageStudies;
@@ -231,15 +231,15 @@ while (defined($action)) { switch ($action) {
 	}	
 	case FORM.MANAGEEXPERIMENTS {
 		if ($s->is_authorized('user')) {	
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 
 			$content = \&form_manageExperiments;
 			$title = 'Experiments';
@@ -261,15 +261,15 @@ while (defined($action)) { switch ($action) {
 	}
 	case FORM.OUTPUTDATA {
 		if ($s->is_authorized('user')) {	
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 
 			$content = \&form_outputData;
 			$title = 'Output Data';
@@ -280,15 +280,15 @@ while (defined($action)) { switch ($action) {
 	}
 	case OUTPUTDATA {
 		if ($s->is_authorized('user')) {
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 
 			$content = \&outputData;
 
@@ -316,15 +316,15 @@ function init() {
 	case FINDPROBES				{
 		if ($s->is_authorized('user')) {
 			$title = 'Find Probes';
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/connection/connection-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/dragdrop/dragdrop-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/container/container-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/selector/selector-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 			push @$js, {-type=>'text/javascript',-code=>findProbes_js()};
 			$content = \&findProbes;
 			$action = undef;	# final state
@@ -348,12 +348,12 @@ function init() {
 		if ($s->is_authorized('user')) {
 			$title = 'View Slice';
 
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo/yahoo.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo/yahoo.js'};
 			push @$js, {-type=>'text/javascript',-code=>show_tfs_js()};
 
 			$content = \&show_tfs;
@@ -388,7 +388,7 @@ function init() {
 		if ($s->is_authorized('user')) {
 			$title = 'Compare Experiments';
 			push @$js, {-type=>'text/javascript',-code=>form_compareExperiments_js()};
-			push @$js, {-type=>'text/javascript',-src=>'./html/experiment.js'};
+            push @$js, {-type=>'text/javascript',-src=>JS_DIR . '/experiment.js'};
 			$content = \&form_compareExperiments;
 			$action = undef;	# final state
 		} else {
@@ -399,11 +399,11 @@ function init() {
 		if ($s->is_authorized('user')) {
 			$title = 'Compare Experiments';
 
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/yahoo-dom-event/yahoo-dom-event.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/element/element-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/paginator/paginator-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datasource/datasource-min.js'};
-			push @$js, {-type=>'text/javascript', -src=>'./yui/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
 			push @$js, {-type=>'text/javascript',-code=>compare_experiments_js()};
 
 			$content = \&compare_experiments;
@@ -659,7 +659,7 @@ cgi_start_html();
 
 #print $q->h1('Welcome to '.PROJECT_NAME),
 #	$q->h2('The database for sex-specific gene expression');
-print $q->img({src=>IMAGES_PATH."/logo_DEV.png", width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
+print $q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
 
 print $q->ul({-id=>'menu'},$q->li(\@menu));
 
@@ -690,7 +690,7 @@ sub cgi_start_html {
 			-style=>$css,
 			-script=>$js,
 			-class=>'yui-skin-sam',
-			-head=>[$q->Link({-type=>'image/x-icon',-href=>IMAGES_PATH.'/favicon.ico',-rel=>'icon'})]
+            -head=>[$q->Link({-type=>'image/x-icon',-href=>IMAGES_DIR.'/favicon.ico',-rel=>'icon'})]
 		);
 	print '<div id="content">';
 }
@@ -1534,7 +1534,7 @@ sub schema {
 <area shape="rect" title="Click to download Microarray table" alt="microarray" coords="16,0,127,180" href="'.$dump_url.'&amp;table=microarray" target="_blank">
 </map>
 ',
-	$q->img({src=>IMAGES_PATH.'/schema.png', width=>720, height=>720, usemap=>'#schema_Map', id=>'schema'});
+    $q->img({src=>IMAGES_DIR.'/schema.png', width=>720, height=>720, usemap=>'#schema_Map', id=>'schema'});
 }
 #######################################################################################
 sub form_compareExperiments_js {

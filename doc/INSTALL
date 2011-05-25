@@ -1,0 +1,135 @@
+============ DATABASE SETUP ===============
+
+1. Create empty database and add a dedicated user account. Note: in default
+MySQL instllation, the root password is empty (simply press enter to proceed).
+
+  mysql -u root -p
+  > create database segex_dev;
+  > create user 'segex_dev_user'@'localhost' identified by 'b00g3yk1d';
+  > grant insert,delete,update,select,create,drop
+    on segex_dev.* to 'segex_dev_user'@'localhost';
+
+2. Load database from backup
+
+  gunzip -c segex.sql.gz | mysql segex_dev -u root -p
+
+3. Update SGX/Config.pm module with correct database, user, and password
+information.
+
+TODO: create an interactive-prompt type interface for automating database
+creation and updating the Config.pm file.
+
+
+============ SOFTWARE INSTALL ===============
+
+==== A. Linux ====
+
+1. Change log file path in "Debug.pm" to a path actually present and writeable
+on the given system. On Linux, the path is "/var/www/error_log/error_log". Then
+one has to make sure that a CGI process has write access to said file. On
+Linux, Apache server process is owned by user under username "nobody". However,
+I recommend creating a separate log file so that more than one
+software/database instance could be set up on the same machine.
+
+  mkdir -p ~/log/apache2
+  cd  ~/log/apache2
+  touch segex_dev_log
+  sudo chown nobody:nobody segex_dev_log
+
+TODO: create an interactive-prompt type interface for entering log path.
+
+2. Copy files. Note: symlinks can be created instead of copying, however that
+would require FollowSymLinks directive to be set in the Apache configuration
+file for both CGI_ROOT and DOCUMENTS_ROOT directories.
+
+   # /cgi-bin/segex_dev
+   cd /var/www/cgi-bin
+   sudo cp -R /home/escherba/segex/cgi-bin segex_dev
+
+   # /yui
+   cd /var/www/
+   tar xvzf ~/tarballs/yui.tgz .
+
+   # /segex_dev/
+   mkdir segex_dev
+   cd segex_dev
+
+   # /segex_dev/css
+   sudo cp -R ~/segex/css .
+
+   # /segex_dev/js
+   sudo cp -R ~/segex/js .
+
+   # /segex_dev/images
+   sudo cp -R ~/segex/images .
+
+TODO: automate file copying: have user provide only two directories:
+CGI_ROOT and DOCUMENTS_ROOT. Create the subtree containing css/, images/, and
+js/ directories under DOCUMENTS_ROOT and the subtree corresponding to cgi-bin
+under CGI_ROOT.
+
+
+==== B. Mac OS X ====
+
+1. Change log file path in "Debug.pm" to a path actually present and writeable
+on the given system. On Mac OS X, the path is
+"/private/var/log/apache2/error_log". Then one has to make sure that a CGI
+process has write access to said file. On Mac OS X, Apache server process is
+owned by user under username "www". However, I recommend creating a separate
+log file so that more than one software/database instance could be set up on
+the same machine.
+
+  mkdir -p ~/log/apache2
+  cd  ~/log/apache2
+  touch segex_dev_log
+  sudo chown www:wheel segex_dev_log
+
+TODO: create an interactive-prompt type interface for entering log path.
+
+2. Check Perl dependencies. Apache::Session and DBD::mysql are not included in
+the default Perl installation on Mac OS X Snow Leopard. The commands below
+upgrade and reload the cpan executable before installing the CPAN modules:
+
+  sudo /usr/bin/cpan
+  > install CPAN
+  > reload cpan
+  > install Apache::Session
+  > install DBD::mysql
+
+Note: CPAN installation is built under ~/.cpan/build. If a build fails (for
+example, due to absence of PPC assembler on the latest Mac OS X), go to the
+corresponding subdirectory in ~/.cpan/build, make the appropriate changes to
+Makefile (for example, remove "-arch ppc" from build lines), run "sudo make"
+and "sudo make install". After this is done, running "install My::Module" in
+CPAN shell should print out something like: "My::Module is up to date (vx.xx)".
+
+
+3. Copy files. Note: symlinks can be created instead of copying, however that
+would require FollowSymLinks directive to be set in the Apache configuration
+file for both CGI_ROOT and DOCUMENTS_ROOT directories.
+
+   # /cgi-bin/segex_dev
+   cd /Library/WebServer/CGI-Executables
+   sudo cp -R ~/segex_dev/cgi-bin segex_dev
+
+   # /yui
+   cd /Library/WebServer/Documents
+   tar xvzf ~/tarballs/yui.tgz .
+
+   # /segex_dev/
+   mkdir segex_dev
+   cd segex_dev
+
+   # /segex_dev/css
+   sudo cp -R ~/segex/css .
+
+   # /segex_dev/images
+   sudo cp -R ~/segex/images .
+
+   # /segex_dev/js
+   sudo cp -R ~/segex/js .
+
+TODO: automate file copying: have user provide only two directories:
+CGI_ROOT and DOCUMENTS_ROOT. Create the subtree containing css/, images/, and
+js/ directories under DOCUMENTS_ROOT and the subtree corresponding to cgi-bin
+under CGI_ROOT.

@@ -22,12 +22,12 @@ use File::Basename;
 #	carpout(*LOG);
 #}
 
-our @EXPORT = qw/max min bounds label_format mysql_connect PROJECT_NAME CGIBIN_PATH HTML_PATH IMAGES_PATH SPECIES/;
+our @EXPORT = qw/max min bounds label_format mysql_connect PROJECT_NAME CGI_ROOT YUI_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR SPECIES/;
 
 sub mysql_connect {
 	# connects to the database and returns the handle
-	DBI->connect('dbi:mysql:group_2',
-		     'group_2_user',
+	DBI->connect('dbi:mysql:segex_dev',
+		     'segex_dev_user',
 		     'b00g3yk1d')
 	or die $DBI::errstr;
 }
@@ -49,10 +49,15 @@ sub regexp {
 
 use constant PROJECT_NAME       => 'SEGEX';
 use constant SPECIES		=> 'mouse'; # hardcoding species for now
-use constant CGIBIN_PATH	=> dirname($ENV{SCRIPT_NAME});  # current script path
-# the regular expression below drops the /cgi-bin prefix from the path
-use constant HTML_PATH		=> regexp(CGIBIN_PATH, 's/^\/cgi-bin//');
-use constant IMAGES_PATH	=> '/images'.HTML_PATH;
+
+# convert cgi root to documents root by dropping /cgi-bin prefix
+use constant CGI_ROOT	=> dirname($ENV{SCRIPT_NAME});  # current script path
+use constant DOCUMENTS_ROOT		=> regexp(CGI_ROOT, 's/^\/cgi-bin//');
+use constant YUI_ROOT		=> '/yui';
+
+use constant IMAGES_DIR	=> DOCUMENTS_ROOT . '/images';
+use constant JS_DIR	    => DOCUMENTS_ROOT . '/js';
+use constant CSS_DIR	    => DOCUMENTS_ROOT . '/css';
 
 # ===== VARIOUS FUNCTIONS (NOT STRICTLY CONFIGURATION CODE =========================
 
