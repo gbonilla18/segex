@@ -44,6 +44,7 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
+		_js_dir		=> shift,
 		_LoadQuery	=> "	SELECT 	experiment.eid,
 						study.pid,
 						experiment.sample1,
@@ -283,8 +284,8 @@ sub showExperiments
 	my $error_string = "";
 
 	#This block of logic controls our double dropdowns for platform/study.
-	print	'<script src="./js/PlatformStudySelection.js" type="text/javascript"></script>';
-	print	'<script src="./js/AJAX.js" type="text/javascript"></script>';
+	print	'<script src="' . $self->{_js_dir} . '/PlatformStudySelection.js" type="text/javascript"></script>';
+	print	'<script src="' . $self->{_js_dir} . '/AJAX.js" type="text/javascript"></script>';
 	print	"<script type=\"text/javascript\">\n";
 	printJavaScriptRecordsForFilterDropDowns($self);	
 	print 	"</script>\n";		

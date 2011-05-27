@@ -36,6 +36,7 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
+		_js_dir		=> shift,
 		_ExistingStudyQuery 		=> 'SELECT stid,description FROM study;',
 		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment;",
 		_ReportQuery			=> "	SELECT 	CONCAT(study.description,' - ',experiment.sample2,' / ',experiment.sample1) AS 'Identity',
@@ -97,7 +98,7 @@ sub showExperiments
 	my $error_string = "";
 
 	print	'<font size="5">Output Data</font><br /><br />' . "\n";
-	print	'<script src="./js/OutputData.js" type="text/javascript"></script>';
+	print	'<script src="' . $self->{_js_dir} . '/OutputData.js" type="text/javascript"></script>';
 	print	"<script type=\"text/javascript\">\n";
 
 	printJavaScriptRecordsForExistingDropDowns($self);

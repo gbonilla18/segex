@@ -2580,12 +2580,114 @@ sub managePlatforms
 }
 #######################################################################################
 
+#===  FUNCTION  ================================================================
+#         NAME:  form_manageProjects
+#      PURPOSE:  displays the Manage Projects form.
+#   PARAMETERS:  
+#      RETURNS:  
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+#sub form_manageProjects
+#{
+#	$manageProject = new SGX::ManageProjects($dbh,$q);
+#	$manageProject->loadAllProjects();
+#	$manageProject->showProjects();
+#
+#	my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+#	$javaScriptDeleteConfirm->drawJavaScriptCode();
+#}
+#===  FUNCTION  ================================================================
+#         NAME:  manageProjects
+#      PURPOSE:  performs the action that was asked for by the Manage Projects
+#      			 form
+#   PARAMETERS:  
+#      RETURNS:  
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+#sub manageProjects
+#{
+#	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
+#	$mp = new SGX::ManageProjects($dbh,$q);
+#
+#	switch ($ManageAction) 
+#	{
+#		case 'add' 
+#		{
+#			$mp->loadFromForm();
+#			$mp->insertNewProject();
+#			print "<br />Record added - Redirecting...<br />";
+#		}
+#		case 'addExisting'
+#		{
+#			$mp->loadFromForm();
+#			$mp->addExistingStudy();
+#			print "<br />Record added - Redirecting...<br />";
+#		}
+#		case 'delete'
+#		{
+#			$mp->loadFromForm();
+#			$mp->deleteProject();
+#			print "<br />Record deleted - Redirecting...<br />";
+#		}
+#		case 'deleteStudy'
+#		{
+#			$mp->loadFromForm();
+#			$mp->removeStudy();
+#			print "<br />Record removed - Redirecting...<br />";
+#		}
+#		case 'edit'
+#		{
+#			$mp->loadSingleProject();
+#			$mp->loadAllStudysFromProject();
+#			$mp->buildUnassignedStudyDropDown();
+#			$mp->editProject();
+#
+#			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+#			$javaScriptDeleteConfirm->drawJavaScriptCode();
+#		}
+#		case 'editSubmit'
+#		{
+#			$mp->loadFromForm();
+#			$mp->editSubmitProject();
+#			print "<br />Record updated - Redirecting...<br />";
+#		}
+#		case 'load'
+#		{
+#			$mp = new SGX::ManageProjects($dbh,$q);
+#			$mp->loadFromForm();
+#			$mp->loadAllProjects();
+#			$mp->showProjects();
+#
+#			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+#			$javaScriptDeleteConfirm->drawJavaScriptCode();		
+#		}
+#	}
+#
+#	if($ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
+#	{
+#		my $redirectSite   = $q->url(-absolute=>1).'?a=form_mp';
+#		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+#		print "$redirectString";
+#	}
+#	elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting' || $ManageAction eq 'deleteStudy')
+#	{
+#		my $redirectSite   = $q->url(-absolute=>1).'?a=mp&ManageAction=edit&id=' . $mp->{_stid};
+#		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+#		print "$redirectString";
+#	}
+#}
 
 #######################################################################################
 #This just displays the Manage studies form.
 sub form_manageStudies
 {
-	$manageStudy = new SGX::ManageStudies($dbh,$q);
+	$manageStudy = new SGX::ManageStudies($dbh,$q, JS_DIR);
 	$manageStudy->loadAllStudies();
 	$manageStudy->loadPlatformData();
 	$manageStudy->showStudies();
@@ -2594,11 +2696,11 @@ sub form_manageStudies
 	$javaScriptDeleteConfirm->drawJavaScriptCode();
 }
 
-#This performs the action that was asked for by the manage platforms form.
+#This performs the action that was asked for by the manage studies form.
 sub manageStudies
 {
 	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
-	$manageStudy = new SGX::ManageStudies($dbh,$q);
+	$manageStudy = new SGX::ManageStudies($dbh,$q, JS_DIR);
 
 	switch ($ManageAction) 
 	{
@@ -2676,7 +2778,7 @@ sub manageStudies
 #This just displays the Manage experiments form.
 sub form_manageExperiments
 {
-	$manageExperiment = new SGX::ManageExperiments($dbh,$q);
+	$manageExperiment = new SGX::ManageExperiments($dbh,$q, JS_DIR);
 	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
 
 	my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
@@ -2703,10 +2805,10 @@ sub form_manageExperiments
 
 }
 
-#This performs the action that was asked for by the manage platforms form.
+#This performs the action that was asked for by the manage experiments form.
 sub manageExperiments
 {
-	$manageExperiment = new SGX::ManageExperiments($dbh,$q);
+	$manageExperiment = new SGX::ManageExperiments($dbh,$q, JS_DIR);
 	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
 
 	switch ($ManageAction) 
@@ -2739,16 +2841,16 @@ sub manageExperiments
 #This just displays the OutputData form.
 sub form_outputData
 {
-	$outputData = new SGX::OutputData($dbh,$q);
+	$outputData = new SGX::OutputData($dbh,$q,JS_DIR);
 	
 	$outputData->showExperiments();
 
 }
 
-#This performs the action that was asked for by the manage platforms form.
+#This performs the action that was asked for by the OutputData form.
 sub outputData
 {
-	$outputData = new SGX::OutputData($dbh,$q);
+	$outputData = new SGX::OutputData($dbh,$q, JS_DIR);
 	my $outputAction = ($q->url_param('outputAction')) if defined($q->url_param('outputAction'));
 
 	switch ($outputAction) 

@@ -44,6 +44,7 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_FormObject	=> shift,
+		_js_dir		=> shift,
 		_LoadQuery	=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid AND platform.isAnnotated;',
 		_LoadQueryPID	=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid AND platform.isAnnotated WHERE platform.pid = {0};',
 		_LoadSingleQuery=> 'SELECT stid,description,pubmed,platform.pid,platform.pname,platform.species FROM study INNER JOIN platform ON platform.pid = study.pid WHERE study.stid = {0};',
@@ -516,7 +517,7 @@ sub editStudy
 	print 	"</script>\n";
 	print $self->{_FormObject}->end_form;
 
-	print	'<script src="./js/AddExistingExperiment.js" type="text/javascript"></script>';
+	print	'<script src="' . $self->{_js_dir} . '/AddExistingExperiment.js" type="text/javascript"></script>';
 	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Existing Experiment to this Study</h2>' . "\n";
 	
 	
