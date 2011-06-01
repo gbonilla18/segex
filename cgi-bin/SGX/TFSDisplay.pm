@@ -454,7 +454,7 @@ sub displayTFSInfoCSV
 	#print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
 
 	#Print a line to tell us what report this is.
-	print "Compare Experiments Report," . localtime . "\n\n";
+	print "Compare Experiments Report," . localtime() . "\n\n";
 	
 	#Print Platform header.
 	print "pname,def_f_cutoff,def_p_cutoff,species,Is Annotated, Probe Count, Sequences Loaded, Transcript IDs, Gene Names, Gene Description\n";

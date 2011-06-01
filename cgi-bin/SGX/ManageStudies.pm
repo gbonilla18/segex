@@ -79,14 +79,14 @@ sub new {
 		_ExpRecords	=> '',
 		_ExpFieldNames	=> '',
 		_ExpData	=> '',
-		_ExistingStudyQuery 			=> 'SELECT stid,description FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
+		_ExistingStudyQuery 			=> 'SELECT stid,description,pid FROM study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0};',
 		_ExistingUnassignedStudyQuery 	=> "SELECT	DISTINCT experiment.eid,CONCAT(sample2,'/',sample1)
 											FROM experiment 
 											LEFT JOIN StudyExperiment 			ON experiment.eid = StudyExperiment.eid
 											INNER JOIN microarray 				ON microarray.eid = experiment.eid
 											INNER JOIN probe 					ON probe.rid = microarray.rid
 											INNER JOIN platform probe_platform 	ON probe_platform.pid = probe.pid
-											WHERE probe_platform.pid IN (SELECT pid FROM study WHERE stid = {0}) 
+											WHERE probe_platform.pid IN (SELECT pid FROM study WHERE stid = ?) 
 											AND StudyExperiment.eid IS NULL
 											ORDER BY experiment.eid ASC;",	
 		_ExistingExperimentQuery 	=> "SELECT	stid,eid,sample2,sample1 FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE pid IN (SELECT pid FROM study WHERE stid = {0}) AND stid <> {0} AND eid NOT IN (SELECT eid FROM StudyExperiment WHERE stid = {0}) ORDER BY experiment.eid ASC;",	
@@ -264,7 +264,7 @@ sub showStudies
 	#Load the study dropdown to choose which experiments to load into table.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=load',
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudies&ManageAction=load',
 		-onsubmit=>'return validate_fields(this, [\'study\']);'
 	) .
 	$self->{_FormObject}->dl(
@@ -291,7 +291,7 @@ sub showStudies
 
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=add',
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudies&ManageAction=add',
 		-onsubmit=>'return validate_fields(this, [\'description\']);'
 	) .
 	$self->{_FormObject}->dl(
@@ -401,8 +401,8 @@ sub printTableInformation
 	my $arrayRef 	= shift;
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudy&ManageAction=delete&id=';
-	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageStudy&ManageAction=edit&id=';
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudies&ManageAction=delete&id=';
+	my $editURL	= $CGIRef->url(absolute=>1).'?a=manageStudies&ManageAction=edit&id=';
 
 	#This is the code to use the AJAXy update box for description..
 	my $postBackURLDescr			= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
@@ -485,7 +485,7 @@ sub editStudy
 	#Edit existing platform.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=editSubmit&id=' . $self->{_stid},
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudies&ManageAction=editSubmit&id=' . $self->{_stid},
 		-onsubmit=>'return validate_fields(this, [\'description\']);'
 	) .
 	$self->{_FormObject}->dl
@@ -529,7 +529,7 @@ sub editStudy
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
 		-name=>'AddExistingForm',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=addExisting&id=' . $self->{_stid},
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudies&ManageAction=addExisting&id=' . $self->{_stid},
 		-onsubmit=>"return validate_fields(this,'');"
 	) .
 	$self->{_FormObject}->dl(
@@ -549,7 +549,7 @@ sub editStudy
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
 		-name=>'AddExistingUnassignedForm',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudy&ManageAction=addExisting&id=' . $self->{_stid},
+		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudies&ManageAction=addExisting&id=' . $self->{_stid},
 		-onsubmit=>"return validate_fields(this,'');"
 	) .
 	$self->{_FormObject}->dl(
@@ -592,7 +592,7 @@ sub printExperimentTableInformation
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
 	my $studyID	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudy&ManageAction=deleteExperiment&id=' . $studyID . '&removeid=';
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=manageStudies&ManageAction=deleteExperiment&id=' . $studyID . '&removeid=';
 
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 
@@ -654,11 +654,11 @@ sub buildUnassignedExperimentDropDown
 {
 	my $self		= shift;
 	my $unassignedQuery = $self->{_ExistingUnassignedStudyQuery};
-	$unassignedQuery	=~ s/\{0\}/\Q$self->{_stid}\E/;
+	#$unassignedQuery	=~ s/\{0\}/\Q$self->{_stid}\E/;
 		
 	my $unassignedDropDown	= new SGX::DropDownData($self->{_dbh},$unassignedQuery,0);
 
-	$unassignedDropDown->loadDropDownValues();
+	$unassignedDropDown->loadDropDownValues($self->{_stid});
 
 	$self->{_unassignedList} 	= $unassignedDropDown->{_dropDownList};
 	$self->{_unassignedValue} 	= $unassignedDropDown->{_dropDownValue};

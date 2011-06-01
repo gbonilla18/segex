@@ -1,18 +1,17 @@
 #!/usr/bin/perl -w
 
-# TODO: 1) rename table "Microarray" to "Response"; 2) rename table "Experiment" to "Array",
-# 3) move "public" field from "Experiment/Array" to "Study". Consequence: if a particular experiment/array
-# needs to be released but other experiments/arrays from the same study need to stay private, the given experiment/array
-# will have to be referenced to from a separate, "public" study (can be a virtual link). 4) add "species" field to experiment/array table,
-# and to "Sample" table as well as a foreign key to a separate "Species" table.
-
-# always use strict option
 use strict;
 use warnings;
 
-# bundled modules
-# -nosticky option prevents CGI.pm from printing hidden .cgifields inside a form
-use CGI 2.47 qw/-nosticky/;	# do not add qw/:standard/ because we use object-oriented style
+#---------------------------------------------------------------------------
+# Bundled modules 
+#---------------------------------------------------------------------------
+
+# CGI options: -nosticky option prevents CGI.pm from printing hidden 
+# .cgifields inside a # form. We do not add qw/:standard/ because we use 
+# object-oriented style.
+#
+use CGI 2.47 qw/-nosticky/;
 use Switch;
 use URI::Escape;
 use Carp;
@@ -20,23 +19,28 @@ use Math::BigInt;
 #use Time::HiRes qw/clock/;
 use Data::Dumper;
 
+#---------------------------------------------------------------------------
+# Custom modules in SGX directory
+#---------------------------------------------------------------------------
 use lib 'SGX';
 
-# custom modules in SGX directory
 use SGX::Debug;		# all debugging code goes here
 use SGX::Config;	# all configuration for our project goes here
 use SGX::User 0.07;	# user authentication, sessions and cookies
 use SGX::Session 0.08;	# email verification
 use SGX::ManageMicroarrayPlatforms;
+use SGX::ManageProjects;
 use SGX::ManageStudies;
 use SGX::ManageExperiments;
 use SGX::OutputData;
 use SGX::JavaScriptDeleteConfirm;
 use SGX::TFSDisplay;
 use SGX::FindProbes;
-use SGX::ProjectManagement;
+use SGX::SwitchProjects;
 
-# ===== USER AUTHENTICATION ===================================================
+#---------------------------------------------------------------------------
+#  User Authentication
+#---------------------------------------------------------------------------
 my $softwareVersion = "0.1.12";
 my $dbh = mysql_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
@@ -46,9 +50,10 @@ my $s = SGX::User->new(-handle		=> $dbh,
 
 $s->restore;	# restore old session if it exists
 
-# ====== MAIN FLOW CONTROLLER =================================================
-# http://en.wikipedia.org/wiki/Finite_state_machine
 
+#---------------------------------------------------------------------------
+#  Main
+#---------------------------------------------------------------------------
 my $q = CGI->new();
 my $error_string;
 my $title;
@@ -72,7 +77,7 @@ my $manageExperiment;
 my $outputData;
 my $TFSDisplay;
 my $findProbes;
-my $ProjectManagement;
+my $SwitchProjects;
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
@@ -84,7 +89,8 @@ use constant LOGOUT			=> 'logout';
 use constant DEFAULT_ACTION		=> 'mainPage';
 use constant UPDATEPROFILE		=> 'updateProfile';
 use constant MANAGEPLATFORMS		=> 'managePlatforms';
-use constant MANAGESTUDIES		=> 'manageStudy';
+use constant MANAGEPROJECTS		=> 'manageProjects';
+use constant MANAGESTUDIES		=> 'manageStudies';
 use constant MANAGEEXPERIMENTS		=> 'manageExperiments';
 use constant OUTPUTDATA			=> 'outputData';
 use constant CHANGEPASSWORD		=> 'changePassword';
@@ -183,6 +189,47 @@ while (defined($action)) { switch ($action) {
 			$content = \&managePlatforms;
 
 			$title = 'Platforms';
+			$action = undef;	# final state
+		} else {
+			$action = FORM.LOGIN;
+		}
+	}
+	case FORM.MANAGEPROJECTS {
+		if ($s->is_authorized('user')) {	
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
+
+			$content = \&form_manageProjects;
+			$title = 'Projects';
+			$action = undef;	# final state
+		} else {
+			$action = FORM.LOGIN;
+		}
+	}
+	case MANAGEPROJECTS {
+		if ($s->is_authorized('user')) {
+
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
+            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
+
+
+			$content = \&manageProjects;
+
+			$title = 'Projects';
 			$action = undef;	# final state
 		} else {
 			$action = FORM.LOGIN;
@@ -594,7 +641,7 @@ function init() {
 	}
 	else {
 		# should not happen during normal operation
-		warn "Invalid action name specified: $action";
+		croak "Invalid action name specified: $action";
 		$action = DEFAULT_ACTION;
 	}
 }}
@@ -629,6 +676,8 @@ if ($s->is_authorized('user')) {
 				-title=>'Upload or Update Probe Annotations'}, 'Upload/Update Annotations');
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEPLATFORMS,
 				-title=>'Manage Platforms'}, 'Manage Platforms');
+	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEPROJECTS,
+				-title=>'Manage Projects'}, 'Manage Projects');
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGESTUDIES,
 				-title=>'Manage Studies'}, 'Manage Studies');
 	push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEEXPERIMENTS,
@@ -922,9 +971,8 @@ sub footer {
 }
 #######################################################################################
 sub projectInfo {
-	$ProjectManagement = new SGX::ProjectManagement($dbh,$q);
-	
-	$ProjectManagement->drawProjectInfoHeader();
+	$SwitchProjects = new SGX::SwitchProjects($dbh,$q);
+	$SwitchProjects->drawProjectInfoHeader();
 }
 #######################################################################################
 sub updateCell {
@@ -1007,9 +1055,21 @@ sub updateCell {
 				$dbh->quote($q->param('pvalue'))
 			);
 			return $dbh->do(qq{update platform set pname=$pname,def_f_cutoff=$fold,def_p_cutoff=$pvalue where pid=$pid});		
-		}		
-		else {
-			assert(0);
+		}
+		case 'project'
+		{
+			my $query = 'update project set prname=?, prdesc=? where prname=?';
+			my $sth = $dbh->prepare($query)
+				or die $dbh->errstr;
+			my $rc = $sth->execute($q->param('name'),
+						  $q->param('desc'),
+						  $q->param('old_name'))
+				or die $dbh->errstr;
+			return $rc;
+		}
+		else
+		{
+			croak "Unknown type $type\n";
 		}
 	}
 }
@@ -2590,15 +2650,16 @@ sub managePlatforms
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-#sub form_manageProjects
-#{
-#	$manageProject = new SGX::ManageProjects($dbh,$q);
-#	$manageProject->loadAllProjects();
-#	$manageProject->showProjects();
-#
-#	my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
-#	$javaScriptDeleteConfirm->drawJavaScriptCode();
-#}
+sub form_manageProjects
+{
+	my $mp = new SGX::ManageProjects($dbh,$q, JS_DIR);
+	$mp->loadAllProjects();
+	$mp->showProjects();
+
+	my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+	$javaScriptDeleteConfirm->drawJavaScriptCode();
+}
+
 #===  FUNCTION  ================================================================
 #         NAME:  manageProjects
 #      PURPOSE:  performs the action that was asked for by the Manage Projects
@@ -2610,87 +2671,88 @@ sub managePlatforms
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-#sub manageProjects
-#{
-#	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
-#	$mp = new SGX::ManageProjects($dbh,$q);
-#
-#	switch ($ManageAction) 
-#	{
-#		case 'add' 
-#		{
-#			$mp->loadFromForm();
-#			$mp->insertNewProject();
-#			print "<br />Record added - Redirecting...<br />";
-#		}
-#		case 'addExisting'
-#		{
-#			$mp->loadFromForm();
-#			$mp->addExistingStudy();
-#			print "<br />Record added - Redirecting...<br />";
-#		}
-#		case 'delete'
-#		{
-#			$mp->loadFromForm();
-#			$mp->deleteProject();
-#			print "<br />Record deleted - Redirecting...<br />";
-#		}
-#		case 'deleteStudy'
-#		{
-#			$mp->loadFromForm();
-#			$mp->removeStudy();
-#			print "<br />Record removed - Redirecting...<br />";
-#		}
-#		case 'edit'
-#		{
-#			$mp->loadSingleProject();
-#			$mp->loadAllStudysFromProject();
-#			$mp->buildUnassignedStudyDropDown();
-#			$mp->editProject();
-#
-#			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
-#			$javaScriptDeleteConfirm->drawJavaScriptCode();
-#		}
-#		case 'editSubmit'
-#		{
-#			$mp->loadFromForm();
-#			$mp->editSubmitProject();
-#			print "<br />Record updated - Redirecting...<br />";
-#		}
-#		case 'load'
-#		{
-#			$mp = new SGX::ManageProjects($dbh,$q);
-#			$mp->loadFromForm();
-#			$mp->loadAllProjects();
-#			$mp->showProjects();
-#
-#			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
-#			$javaScriptDeleteConfirm->drawJavaScriptCode();		
-#		}
-#	}
-#
-#	if($ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
-#	{
-#		my $redirectSite   = $q->url(-absolute=>1).'?a=form_mp';
-#		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-#		print "$redirectString";
-#	}
-#	elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting' || $ManageAction eq 'deleteStudy')
-#	{
-#		my $redirectSite   = $q->url(-absolute=>1).'?a=mp&ManageAction=edit&id=' . $mp->{_stid};
-#		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-#		print "$redirectString";
-#	}
-#}
+sub manageProjects
+{
+	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
+	my $mp = new SGX::ManageProjects($dbh,$q, JS_DIR);
+
+	switch ($ManageAction) 
+	{
+		case 'add' 
+		{
+			$mp->loadFromForm();
+			$mp->insertNewProject();
+			print "<br />Record added - Redirecting...<br />";
+		}
+		case 'addExisting'
+		{
+			$mp->loadFromForm();
+			$mp->addExistingStudy();
+			print "<br />Record added - Redirecting...<br />";
+		}
+		case 'delete'
+		{
+			$mp->loadFromForm();
+			$mp->deleteProject();
+			print "<br />Record deleted - Redirecting...<br />";
+		}
+		case 'deleteStudy'
+		{
+			$mp->loadFromForm();
+			$mp->removeStudy();
+			print "<br />Record removed - Redirecting...<br />";
+		}
+		case 'edit'
+		{
+			$mp->loadSingleProject();
+			$mp->loadUserData();
+			$mp->loadAllStudiesFromProject();
+			$mp->buildUnassignedStudyDropDown();
+			$mp->editProject();
+
+			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+			$javaScriptDeleteConfirm->drawJavaScriptCode();
+		}
+		case 'editSubmit'
+		{
+			$mp->loadFromForm();
+			$mp->editSubmitProject();
+			print "<br />Record updated - Redirecting...<br />";
+		}
+		case 'load'
+		{
+			$mp = new SGX::ManageProjects($dbh,$q);
+			$mp->loadFromForm();
+			$mp->loadAllProjects();
+			$mp->showProjects();
+
+			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
+			$javaScriptDeleteConfirm->drawJavaScriptCode();		
+		}
+	}
+
+	if($ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
+	{
+		my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageProjects';
+		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+		print "$redirectString";
+	}
+	elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting' || $ManageAction eq 'deleteStudy')
+	{
+		my $redirectSite   = $q->url(-absolute=>1).'?a=manageProjects&ManageAction=edit&id=' . $mp->{_prid};
+		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+		print "$redirectString";
+	}
+}
 
 #######################################################################################
 #This just displays the Manage studies form.
 sub form_manageStudies
 {
-	$manageStudy = new SGX::ManageStudies($dbh,$q, JS_DIR);
-	$manageStudy->loadAllStudies();
-	$manageStudy->loadPlatformData();
-	$manageStudy->showStudies();
+	my $ms = new SGX::ManageStudies($dbh,$q, JS_DIR);
+	$ms->loadAllStudies();
+	$ms->loadPlatformData();
+	$ms->showStudies();
 
 	my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
 	$javaScriptDeleteConfirm->drawJavaScriptCode();
@@ -2700,58 +2762,58 @@ sub form_manageStudies
 sub manageStudies
 {
 	my $ManageAction = ($q->url_param('ManageAction')) if defined($q->url_param('ManageAction'));
-	$manageStudy = new SGX::ManageStudies($dbh,$q, JS_DIR);
+	my $ms = new SGX::ManageStudies($dbh,$q, JS_DIR);
 
 	switch ($ManageAction) 
 	{
 		case 'add' 
 		{
-			$manageStudy->loadFromForm();
-			$manageStudy->insertNewStudy();
+			$ms->loadFromForm();
+			$ms->insertNewStudy();
 			print "<br />Record added - Redirecting...<br />";
 		}
 		case 'addExisting'
 		{
-			$manageStudy->loadFromForm();
-			$manageStudy->addExistingExperiment();
+			$ms->loadFromForm();
+			$ms->addExistingExperiment();
 			print "<br />Record added - Redirecting...<br />";
 		}
 		case 'delete'
 		{
-			$manageStudy->loadFromForm();
-			$manageStudy->deleteStudy();
+			$ms->loadFromForm();
+			$ms->deleteStudy();
 			print "<br />Record deleted - Redirecting...<br />";
 		}
 		case 'deleteExperiment'
 		{
-			$manageStudy->loadFromForm();
-			$manageStudy->removeExperiment();
+			$ms->loadFromForm();
+			$ms->removeExperiment();
 			print "<br />Record removed - Redirecting...<br />";
 		}
 		case 'edit'
 		{
-			$manageStudy->loadSingleStudy();
-			$manageStudy->loadPlatformData();
-			$manageStudy->loadAllExperimentsFromStudy();
-			$manageStudy->buildUnassignedExperimentDropDown();
-			$manageStudy->editStudy();
+			$ms->loadSingleStudy();
+			$ms->loadPlatformData();
+			$ms->loadAllExperimentsFromStudy();
+			$ms->buildUnassignedExperimentDropDown();
+			$ms->editStudy();
 
 			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
 			$javaScriptDeleteConfirm->drawJavaScriptCode();
 		}
 		case 'editSubmit'
 		{
-			$manageStudy->loadFromForm();
-			$manageStudy->editSubmitStudy();
+			$ms->loadFromForm();
+			$ms->editSubmitStudy();
 			print "<br />Record updated - Redirecting...<br />";
 		}
 		case 'load'
 		{
-			$manageStudy = new SGX::ManageStudies($dbh,$q);
-			$manageStudy->loadFromForm();
-			$manageStudy->loadAllStudies();
-			$manageStudy->loadPlatformData();
-			$manageStudy->showStudies();
+			$ms = new SGX::ManageStudies($dbh,$q);
+			$ms->loadFromForm();
+			$ms->loadAllStudies();
+			$ms->loadPlatformData();
+			$ms->showStudies();
 
 			my $javaScriptDeleteConfirm = new SGX::JavaScriptDeleteConfirm;
 			$javaScriptDeleteConfirm->drawJavaScriptCode();		
@@ -2766,7 +2828,7 @@ sub manageStudies
 	}
 	elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting' || $ManageAction eq 'deleteExperiment')
 	{
-		my $redirectSite   = $q->url(-absolute=>1).'?a=manageStudy&ManageAction=edit&id=' . $manageStudy->{_stid};
+		my $redirectSite   = $q->url(-absolute=>1).'?a=manageStudy&ManageAction=edit&id=' . $ms->{_stid};
 		my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
 		print "$redirectString";
 	}
@@ -2872,19 +2934,19 @@ sub outputData
 #######################################################################################
 sub changeProject
 {
-	$ProjectManagement = new SGX::ProjectManagement($dbh,$q);
+	$SwitchProjects = new SGX::SwitchProjects($dbh,$q);
 	
-	$ProjectManagement->loadProjectData();
-	$ProjectManagement->drawChangeProjectScreen();
+	$SwitchProjects->loadProjectData();
+	$SwitchProjects->drawChangeProjectScreen();
 
 
-	my $ProjectManagementAction = ($q->url_param('projectAction')) if defined($q->url_param('projectAction'));
+	my $SwitchProjectsAction = ($q->url_param('projectAction')) if defined($q->url_param('projectAction'));
 
-	switch ($ProjectManagementAction) 
+	switch ($SwitchProjectsAction) 
 	{
 		case 'change'
 		{
-			$ProjectManagement->changeProject();
+			$SwitchProjects->changeProject();
 		}
 	}
 

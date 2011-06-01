@@ -1,0 +1,55 @@
+TODO: 
+
+1) rename table "microarray" to "response"
+
+2) Tentative: move "public" field from "Experiment" to "Study". Consequence: if a particular 
+experiment needs to be released but other experiments from the same study need to stay private, 
+the given # experiment will have to be referenced to from a separate, "public" study (can be a 
+virtual link).
+
+3) add "species" field to the "experiment" table as well as a foreign key 
+to a separate "Species" table.
+
+4) start using DBI placeholders in SQL queries
+
+5) consider using prepare_cached() DBI function instead of prepare()
+
+6) abstract out reliance on local /js/ path in modules under SGX/.
+
+7) rewrite queries that rely on NATURAL JOIN statements into ones that don't
+
+8) use DBI::Profile to monitor performance of SQL statements
+
+9) Write tests?
+
+10) ManageStudies: 
+    a) why _LoadQueryPID does an inner join by annotated platform? What doesn't
+    it just list all studies (left join on platform)?
+
+    b) _ExistingUnassignedStudyQuery --  why do a natural join with "microarray"
+    table? Seems like a very roundabout way to get a list of experiments for a given
+    platform
+
+11) Concern about concepts used in SEGEX -- will these concepts be defined in a similar 
+way in labs run by other researchers? Discuss this with Dr. Waxman. Example:
+
+   a) Study has a pubmed id, however only plates belonging to the same platform can be 
+   a part of the same study. This seems problematic because it seems natural that a
+   published study may involve more than one platform (for example, a study could be
+   investigating how a certain protein is expressed under certain conditions in mice
+   vs rats vs humans).
+
+   b) This leads me to think that a better name for "study" would be "group" (of plates).
+   Alternatively, one could allow more than one platform to be a part of the same study.
+   As far as my understanding goes, Dr. Waxman'slargest concern about allowing this was
+   that one would never want to compare plates from different platforms using "Compare
+   Experiments" module (is this right?). However it doesn't look like making a small
+   modification to "Compare Experiments" module to allow it to recognize platforms  would
+   be very difficult.
+
+   c) The way I currently see this is: "study" is actually a group of plates of same type/platform,
+   "experiment" is actually a plate.
+
+12) abstract away common patterns in SGX/*.pm modules. For example, ManageStudies object
+is in many ways similar to ManageProjects. Formalize this similarity and abstract it away
+(to superclass perhaps?).

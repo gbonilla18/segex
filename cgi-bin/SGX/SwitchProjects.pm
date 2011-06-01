@@ -1,6 +1,6 @@
 =head1 NAME
 
-SGX::ProjectManagement
+SGX::SwitchProjects
 
 =head1 SYNOPSIS
 
@@ -22,7 +22,7 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 
 =cut
 
-package SGX::ProjectManagement;
+package SGX::SwitchProjects;
 
 use strict;
 use warnings;
@@ -38,9 +38,9 @@ sub new {
 	my $self = {
 		_dbh			=> shift,
 		_FormObject		=> shift,
-		_ProjectDropdownQuery	=> "SELECT ProjectID,ProjectName FROM Projects",
+		_ProjectDropdownQuery	=> "SELECT prid, prname FROM project",
 		_ProjectList		=> {},
-		_ProjectValue 		=> ()
+		_ProjectValue 		=> ''
 		};
 
 	bless $self, $class;
@@ -50,7 +50,8 @@ sub new {
 sub loadProjectData
 {
 	my $self		= shift;
-print $self->{_ProjectDropdownQuery};
+	#print $self->{_ProjectDropdownQuery};
+
 	my $projectDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_ProjectDropdownQuery},0);
 
 	$projectDropDown->loadDropDownValues();

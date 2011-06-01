@@ -854,7 +854,7 @@ sub printFindProbeCSV
 	print $self->{_FormObject}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
 
 	#Print a line to tell us what report this is.
-	print "Find Probes Report," . localtime . "\n\n";	
+	print "Find Probes Report," . localtime() . "\n\n";	
 	
 	#Sort the hash so the PID's are together.
 	foreach my $value (sort {$self->{_ProbeHash}{$a} cmp $self->{_ProbeHash}{$b} } keys %{$self->{_ProbeHash}})

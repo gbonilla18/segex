@@ -28,14 +28,28 @@ package SGX::DropDownData;
 use strict;
 use warnings;
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  DropDownData
+#       METHOD:  new
+#   PARAMETERS:  $dbh - database handle
+#   			 $query - query statement text (with or without placeholders)
+#   			 $includeBlank - boolean (allow blank value?)
+#      RETURNS:  $self
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  :NOTE:06/01/2011 03:32:37:es: preparing query once during
+#     			 construction
+#     SEE ALSO:  n/a
+#===============================================================================
 sub new {
-	# This is the constructor
 	my $class = shift;
+	my ($dbh, $query, $includeBlank) = @_;
 
+	my $sth = $dbh->prepare($query) or die $dbh->errstr;
 	my $self = {
-		_dbh		=> shift,
-		_LoadQuery	=> shift,
-		_includeBlank	=> shift,
+		_dbh			=> $dbh,
+		_includeBlank	=> $includeBlank,
+		_sth			=> $sth,
 		_dropDownList	=> {},
 		_dropDownValue	=> ()
 	};
@@ -44,25 +58,32 @@ sub new {
 	return $self;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  DropDownData
+#       METHOD:  loadDropDownValues
+#   PARAMETERS:  $self
+#   			 @params - array of parameters to be used to fill placeholders
+#   			 in the query statement
+#      RETURNS:  ????
+#  DESCRIPTION:  loads values by executing query
+#       THROWS:  no exceptions
+#     COMMENTS:  :NOTE:06/01/2011 03:31:28:es: allowing this method to be
+#     			 executed more than once
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadDropDownValues
 {
-	my $self		= shift;
-	my $dataQuery		= shift;
+	my ($self, @params) = @_;
+
+	my $rc = $self->{_sth}->execute(@params)
+		or die $self->{_dbh}->errstr;
+
+	#Grab all platforms and build the hash and array for drop down.
+	my @sthArray	= @{$self->{_sth}->fetchall_arrayref};
 
 	#Temp variables used to create the hash and array for the dropdown.
 	my %tempLabel;
 	my @tempValue;
-
-	#Variables used to temporarily hold the database information.
-	my $tempRecords		= '';
-	my $tempRecordCount	= '';
-	my @tempRecordsArray	= '';
-
-	$tempRecords 		= $self->{_dbh}->prepare($self->{_LoadQuery}) or die $self->{_dbh}->errstr;
-	$tempRecordCount	= $tempRecords->execute or die $self->{_dbh}->errstr;
-
-	#Grab all platforms and build the hash and array for drop down.
-	@tempRecordsArray	= @{$tempRecords->fetchall_arrayref};
 
 	#If the dropdown is to have blank values, add them.
 	if($self->{_includeBlank})
@@ -71,7 +92,7 @@ sub loadDropDownValues
 		push(@tempValue,"0");
 	}
 
-	foreach (sort {$a->[0] cmp $b->[0]} @tempRecordsArray)
+	foreach (sort {$a->[0] cmp $b->[0]} @sthArray)
 	{
 		$tempLabel{$_->[0]} = $_->[1];
 		push(@tempValue,$_->[0]);
@@ -82,7 +103,7 @@ sub loadDropDownValues
 	$self->{_dropDownValue}		= \@tempValue;
 	
 	#Finish with database.
-	$tempRecords->finish;	
+	$self->{_sth}->finish;
 }
 
 1;
