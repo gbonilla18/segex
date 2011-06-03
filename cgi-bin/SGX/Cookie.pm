@@ -1,3 +1,4 @@
+
 =head1 NAME
 
 SGX::Cookie
@@ -15,7 +16,7 @@ SGX::Cookie
   my $s = SGX::Cookie->new(-handle          =>$dbh, 
                        -expire_in       =>3600,
                        -check_ip        =>1,
-                       -cookie_name	=>'chocolate_chip');
+                       -cookie_name    =>'chocolate_chip');
 
   # restore previous session if it exists
   $s->restore;
@@ -23,7 +24,7 @@ SGX::Cookie
   # delete previous session, active session, or both if both exist
   $s->destroy;
 
-  $s->commit;	# necessary to make a cookie. Also flushes the session data
+  $s->commit;    # necessary to make a cookie. Also flushes the session data
 
   # can set another cookie by opening another session like this:
   my $t = SGX::Cookie->new(-cookie_name=>'girlscout_mint', -handle=>$dbh, -expire_in=>3600*48, -check_ip=> 0);
@@ -83,8 +84,9 @@ $VERSION = eval $VERSION;
 use base qw/SGX::Session/;
 use CGI::Cookie;
 use File::Basename;
+
 #use SGX::Debug;
-#use Data::Dumper;	# for debugging
+#use Data::Dumper;    # for debugging
 
 # Variables declared as "our" within a class (package) scope will be shared between
 # all instances of the class *and* can be addressed from the outside like so:
@@ -95,40 +97,48 @@ use File::Basename;
 our @cookies;
 
 sub new {
-	# This is the constructor
-	my $class = shift;
-	# The `active' property is temporary, until I find a more reliable
-	# way to tell whether a session is active.
 
-	my %p = @_;
+    # This is the constructor
+    my $class = shift;
 
-	my %cookies = fetch CGI::Cookie;
-	my $id; eval { $id = $cookies{$p{-cookie_name}}->value; };
+    # The `active' property is temporary, until I find a more reliable
+    # way to tell whether a session is active.
 
-	my $self = {
-		dbh             => $p{-handle},
-		ttl             => $p{-expire_in},
-		check_ip	=> $p{-check_ip},
-		old_session_id	=> $id,
-		cookie_name	=> $p{-cookie_name},
-		active          => 0,
-		object          => {},
-		data		=> {}
-	};
-	bless $self, $class;
-	return $self;
+    my %p = @_;
+
+    my %cookies = fetch CGI::Cookie;
+    my $id;
+    eval { $id = $cookies{ $p{-cookie_name} }->value; };
+
+    my $self = {
+        dbh            => $p{-handle},
+        ttl            => $p{-expire_in},
+        check_ip       => $p{-check_ip},
+        old_session_id => $id,
+        cookie_name    => $p{-cookie_name},
+        active         => 0,
+        object         => {},
+        data           => {}
+    };
+    bless $self, $class;
+    return $self;
 }
+
 sub commit {
-	# calls the parent method and bakes a cookie on success
-	my $self = shift;
-	if ($self->SUPER::commit) {
-                push @cookies, new CGI::Cookie(-name	=> $self->{cookie_name},
-                                               -value	=> $self->{data}->{_session_id},
-                                               -path	=> dirname($ENV{SCRIPT_NAME}));
-                #                               -domain	=> $ENV{SERVER_NAME},
-		#warn Dumper(\@cookies);
-	}
+
+    # calls the parent method and bakes a cookie on success
+    my $self = shift;
+    if ( $self->SUPER::commit ) {
+        push @cookies, new CGI::Cookie(
+            -name  => $self->{cookie_name},
+            -value => $self->{data}->{_session_id},
+            -path  => dirname( $ENV{SCRIPT_NAME} )
+        );
+
+        #   -domain    => $ENV{SERVER_NAME},
+        #warn Dumper(\@cookies);
+    }
 }
-1; # for require
+1;    # for require
 
 __END__

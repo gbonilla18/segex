@@ -153,16 +153,16 @@ sub new {
 		_RecordCount	=> 0,
 		_Records	=> '',
 		_FieldNames	=> '',
-		_Data		=> '',
+		_Data		=> undef,
 		_stid		=> '',
 		_description	=> '',
 		_pubmed		=> '',
 		_pid		=> '',
 		_eid		=> '',
 		_studyList	=> {},
-		_studyValue	=> (),
+		#_studyValue	=> (),
 		_ExistingExperimentList	=> {},
-		_ExistingExperimentValue => (),
+		#_ExistingExperimentValue => (),
 		_sample1	=> '',
 		_sample2	=> '',
 		_ExperimentDescription => '',
@@ -239,10 +239,10 @@ sub loadStudyData
 
 	my $studyDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_StudyQuery},0);
 
-	$studyDropDown->loadDropDownValues();
+	$self->{_studyList}     = $studyDropDown->loadDropDownValues();
 
-	$self->{_studyList} 	= $studyDropDown->{_dropDownList};
-	$self->{_studyValue} 	= $studyDropDown->{_dropDownValue};
+	#$self->{_studyList} 	= $studyDropDown->{_dropDownList};
+	#$self->{_studyValue} 	= $studyDropDown->{_dropDownValue};
 }
 
 #Loads information into the object that is used to create the study dropdown.
@@ -252,10 +252,10 @@ sub loadPlatformData
 
 	my $platformDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_PlatformQuery},0);
 
-	$platformDropDown->loadDropDownValues();
+	$self->{_platformList}  = $platformDropDown->loadDropDownValues();
 
-	$self->{_platformList} 	= $platformDropDown->{_dropDownList};
-	$self->{_platformValue} = $platformDropDown->{_dropDownValue};
+	#$self->{_platformList} 	= $platformDropDown->{_dropDownList};
+	#$self->{_platformValue} = $platformDropDown->{_dropDownValue};
 }
 
 #Load the data from the submitted form.
@@ -292,6 +292,9 @@ sub showExperiments
 	
 	print	'<font size="5">Manage Experiments</font><br /><br />' . "\n";
 
+	my @_studyValue = keys %{$self->{_studyList}};
+	my @_platformValue = keys %{$self->{_platformList}};
+
 	#Load the study dropdown to choose which experiments to load into table.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
@@ -300,9 +303,9 @@ sub showExperiments
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_load',-id=>'platform_load',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}},onChange=>"populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));",-default=>$self->{_pid})),	
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_load',-id=>'platform_load',-values=>\@_platformValue,-labels=>\%{$self->{_platformList}},onChange=>"populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));",-default=>$self->{_pid})),	
 		$self->{_FormObject}->dt('Study:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'stid',-id=>'stid',-values=>\@{$self->{_studyValue}},-labels=>\%{$self->{_studyList}},-default=>$self->{_stid})),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'stid',-id=>'stid',-values=>\@_studyValue,-labels=>\%{$self->{_studyList}},-default=>$self->{_stid})),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'SelectStudy',-id=>'SelectStudy',-value=>'Load'),$self->{_FormObject}->span({-class=>'separator'})
 		)
@@ -310,7 +313,7 @@ sub showExperiments
 	$self->{_FormObject}->end_form;
 	
 	#If we have selected and loaded an experiment, load the table.
-	if(!$self->{_Data} == '')
+	if(defined ($self->{_Data}))
 	{
 		my $JSStudyList = "var JSStudyList = 
 		{

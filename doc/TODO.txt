@@ -53,3 +53,5 @@ way in labs run by other researchers? Discuss this with Dr. Waxman. Example:
 12) abstract away common patterns in SGX/*.pm modules. For example, ManageStudies object
 is in many ways similar to ManageProjects. Formalize this similarity and abstract it away
 (to superclass perhaps?).
+
+13) UI: when no pull-down menus have no items in them, do not show the pulldowns at all.

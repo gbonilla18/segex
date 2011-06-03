@@ -43,7 +43,7 @@ sub new {
 		_pid					=> '',
 		_PlatformQuery			=> "SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform;",		
 		_platformList			=> {},
-		_platformValue			=> (),
+		#_platformValue			=> (),
 		_sample1				=> '',
 		_sample2				=> '',
 		_ExperimentDescription 	=> '',
@@ -74,10 +74,10 @@ sub loadPlatformData
 
 	my $platformDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_PlatformQuery},0);
 
-	$platformDropDown->loadDropDownValues();
+	$self->{_platformList}  = $platformDropDown->loadDropDownValues();
 	
-	$self->{_platformList} 	= $platformDropDown->{_dropDownList};
-	$self->{_platformValue} = $platformDropDown->{_dropDownValue};
+	#$self->{_platformList} 	= $platformDropDown->{_dropDownList};
+	#$self->{_platformValue} = $platformDropDown->{_dropDownValue};
 }
 
 sub drawAddExperimentMenu
@@ -85,6 +85,8 @@ sub drawAddExperimentMenu
 	my $self = shift;
 
 	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add New Experiment</h2>' . "\n";
+
+	my @_platformValue = keys %{$self->{_platformList}};
 
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
@@ -99,7 +101,7 @@ sub drawAddExperimentMenu
 	.
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_addNew',-id=>'platform_addNew',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}})),	
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_addNew',-id=>'platform_addNew',-values=>\@_platformValue,-labels=>\%{$self->{_platformList}})),	
 		$self->{_FormObject}->dt('Sample 1:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'Sample1',-id=>'Sample1',-maxlength=>120)),
 		$self->{_FormObject}->dt('Sample 2:'),

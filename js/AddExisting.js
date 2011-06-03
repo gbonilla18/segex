@@ -1,37 +1,33 @@
-function populateExistingStudy(id) {
-	obj = $(id);
-	for (var i in study) {
+function populateExisting(id, obj)
+{
+	var el = $(id);
+	for (var i in obj) {
 		var new_opt = document.createElement("option");
 		new_opt.setAttribute('value',i);
-		new_opt.innerHTML = study[i][0];
-		obj.appendChild(new_opt); 
+		new_opt.innerHTML = obj[i][0];
+		el.appendChild(new_opt); 
 	}
-
-	if(obj.length > 0)
+	if (el.length > 0)
 	{
-		current_platform = obj.options[obj.selectedIndex].value;
+		current_platform = el.options[el.selectedIndex].value;
 	}
 }
 
-function populateSelectExistingExperiments(obj, stid_object) {
-
-	if(stid_object.length > 0)
+function populateSelectExisting(el, id_el, obj) 
+{
+	if (id_el.length > 0)
 	{
-
-		var stid;
-
-		stid = stid_object.options[stid_object.selectedIndex].value;
-
+		var stid = id_el.options[id_el.selectedIndex].value;
 		// first remove all existing option elements
-		while(obj.options[0]) {
-		        obj.removeChild(obj.options[0]);
+		while (el.options[0]) {
+		        el.removeChild(el.options[0]);
 		}
 		// now add new ones
-		for (var i in study[stid][1]) {
-		        var new_opt = document.createElement("option");
+		for (var i in obj[stid][1]) {
+		        var new_opt = document.createElement('option');
 		        new_opt.setAttribute('value', i);
-		        new_opt.innerHTML = study[stid][1][i] + ' / ' + study[stid][2][i];
-		        obj.appendChild(new_opt);
+		        new_opt.innerHTML = obj[stid][1][i] + ' / ' + obj[stid][2][i];
+		        el.appendChild(new_opt);
 		}
 	}
 }

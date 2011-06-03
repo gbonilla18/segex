@@ -96,13 +96,15 @@ upgrade and reload the cpan executable before installing the CPAN modules:
   > install Apache::Session
   > install DBD::mysql
 
-Note: CPAN installation is built under ~/.cpan/build. If a build fails (for
-example, due to absence of PPC assembler on the latest Mac OS X), go to the
-corresponding subdirectory in ~/.cpan/build, make the appropriate changes to
-Makefile (for example, remove "-arch ppc" from build lines), run "sudo make"
-and "sudo make install". After this is done, running "install My::Module" in
-CPAN shell should print out something like: "My::Module is up to date (vx.xx)".
-
+Note: If you are running Mac OS X 10.6 and have Xcode 4 installed, you no 
+longer have PPC assembler required to build CPAN packages. To work around this,
+you can either (a) go to the corresponding subdirectory in ~/.cpan/build, remove
+all references to PPC architecture (e.g. "-arch ppc") and reinstall package with
+"sudo make" and "sudo make install". To ensure CPAN can see your module, type
+"install My::Module" in CPAN shell and press <Enter>. You should see a message,
+"My::Module is up to date (vx.xx)". Alternatively (b), create the following symlinks:
+sudo ln -s /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc /Developer/usr/libexec/gcc/darwin
+sudo ln -s /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc /usr/libexec/gcc/darwin
 
 3. Copy files. Note: symlinks can be created instead of copying, however that
 would require FollowSymLinks directive to be set in the Apache configuration

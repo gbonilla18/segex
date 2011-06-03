@@ -39,8 +39,8 @@ sub new {
 		_dbh			=> shift,
 		_FormObject		=> shift,
 		_ProjectDropdownQuery	=> "SELECT prid, prname FROM project",
-		_ProjectList		=> {},
-		_ProjectValue 		=> ''
+		_projectList		=> {},
+		#_ProjectValue 		=> ''
 		};
 
 	bless $self, $class;
@@ -54,10 +54,10 @@ sub loadProjectData
 
 	my $projectDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_ProjectDropdownQuery},0);
 
-	$projectDropDown->loadDropDownValues();
+	$self->{_ProjectList}   = $projectDropDown->loadDropDownValues();
 
-	$self->{_ProjectList} 	= $projectDropDown->{_dropDownList};
-	$self->{_ProjectQuery} 	= $projectDropDown->{_dropDownValue};
+	#$self->{_ProjectList} 	= $projectDropDown->{_dropDownList};
+	#$self->{_ProjectQuery} 	= $projectDropDown->{_dropDownValue};
 }
 
 #######################################################################################
@@ -84,6 +84,8 @@ sub drawChangeProjectScreen
 {
 	my $self = shift;
 
+	my @_projectValue = keys %{$self->{_projectList}};
+
 	#Load the study dropdown to choose which experiments to load into table.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
@@ -92,7 +94,7 @@ sub drawChangeProjectScreen
 	$self->{_FormObject}->dl
 		(
 		$self->{_FormObject}->dt('Project:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'project_load',-id=>'project_load',-values=>\@{$self->{_projectValue}},-labels=>\%{$self->{_projectList}})
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'project_load',-id=>'project_load',-values=>\@_projectValue,-labels=>\%{$self->{_projectList}})
 		)	
 	) .
 	$self->{_FormObject}->end_form;

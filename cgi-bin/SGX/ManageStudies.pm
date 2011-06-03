@@ -103,11 +103,11 @@ sub new {
 		_pid		=> '',
 		_pid_Load	=> '',
 		_platformList	=> {},
-		_platformValue	=> (),
+		#_platformValue	=> (),
 		_unassignedList		=> {},
-		_unassignedValue	=> (),		
+		#_unassignedValue	=> (),		
 		_platformListAll  => {},
-		_platformValueAll => ()	
+		#_platformValueAll => ()	
 	};
 
 	bless $self, $class;
@@ -188,10 +188,10 @@ sub loadPlatformData
 	my $loadAll		= shift;
 	#Temp variables used to create the hash and array for the dropdown.
 	my %platformLabel;
-	my @platformValue;
+	#my @platformValue;
 
 	my %platformLabelAll;
-	my @platformValueAll;	
+	#my @platformValueAll;	
 	
 	#Variables used to temporarily hold the database information.
 	my $tempRecords		= '';
@@ -205,22 +205,22 @@ sub loadPlatformData
 	@tempPlatforms 		= @{$tempRecords->fetchall_arrayref};
 
 	$platformLabelAll{'-1'} = "All Platforms";
-	push(@platformValueAll,'-1');
+	#push(@platformValueAll,'-1');
 	
 	foreach (sort {$a->[0] cmp $b->[0]} @tempPlatforms)
 	{
 		$platformLabel{$_->[0]} = $_->[1];
 		$platformLabelAll{$_->[0]} = $_->[1];
-		push(@platformValue,$_->[0]);
-		push(@platformValueAll,$_->[0]);
+		#push(@platformValue,$_->[0]);
+		#push(@platformValueAll,$_->[0]);
 	}
 
 	#Assign members variables reference to the hash and array.
 	$self->{_platformList} 		= \%platformLabel;
-	$self->{_platformValue} 	= \@platformValue;
+	#$self->{_platformValue} 	= \@platformValue;
 	
 	$self->{_platformListAll}	= \%platformLabelAll;
-	$self->{_platformValueAll}	= \@platformValueAll;
+	#$self->{_platformValueAll}	= \@platformValueAll;
 	
 	#Finish with database.
 	$tempRecords->finish;
@@ -260,7 +260,9 @@ sub showStudies
 	};" . "\n";
 
 	print	'<font size="5">Manage Studies</font><br /><br />' . "\n";
-	
+
+	my @_platformValueAll = keys %{$self->{_platformListAll}};
+
 	#Load the study dropdown to choose which experiments to load into table.
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
@@ -269,7 +271,7 @@ sub showStudies
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_load',-id=>'platform_load',-values=>\@{$self->{_platformValueAll}},-labels=>\%{$self->{_platformListAll}},-default=>'-1')),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_load',-id=>'platform_load',-values=>\@_platformValueAll,-labels=>\%{$self->{_platformListAll}},-default=>'-1')),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'SelectStudy',-id=>'SelectStudy',-value=>'Load'),$self->{_FormObject}->span({-class=>'separator'})
 		)
@@ -289,6 +291,8 @@ sub showStudies
 	print 	"</script>\n";
 	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Study</h2>' . "\n";
 
+	my @_platformValue = keys %{$self->{_platformList}};
+
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
 		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudies&ManageAction=add',
@@ -300,7 +304,7 @@ sub showStudies
 		$self->{_FormObject}->dt('pubmed:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pubmed',-id=>'pubmed',-maxlength=>20)),
 		$self->{_FormObject}->dt('platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}})),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@_platformValue,-labels=>\%{$self->{_platformList}})),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddStudy',-id=>'AddStudy',-value=>'Add Study'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
@@ -483,6 +487,8 @@ sub editStudy
 	my $self = shift;
 	print	'<font size="5">Editing Study</font><br /><br />' . "\n";
 	#Edit existing platform.
+	my @_platformValue = keys %{$self->{_platformList}};
+
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
 		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=manageStudies&ManageAction=editSubmit&id=' . $self->{_stid},
@@ -495,7 +501,7 @@ sub editStudy
 		$self->{_FormObject}->dt('pubmed:'),
 		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pubmed',-id=>'pubmed',-maxlength=>20,-value=>$self->{_pubmed})),
 		$self->{_FormObject}->dt('platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@{$self->{_platformValue}},-labels=>\%{$self->{_platformList}}, -disabled => 'disabled',-default=>$self->{_pid})),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform',-id=>'platform',-values=>\@_platformValue,-labels=>\%{$self->{_platformList}}, -disabled => 'disabled',-default=>$self->{_pid})),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'editSaveStudy',-id=>'editSaveStudy',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'})
 		)
@@ -517,7 +523,7 @@ sub editStudy
 	print 	"</script>\n";
 	print $self->{_FormObject}->end_form;
 
-	print	'<script src="' . $self->{_js_dir} . '/AddExistingExperiment.js" type="text/javascript"></script>';
+	print	'<script src="' . $self->{_js_dir} . '/AddExisting.js" type="text/javascript"></script>';
 	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Existing Experiment to this Study</h2>' . "\n";
 	
 	
@@ -525,6 +531,9 @@ sub editStudy
 	print 	"<script>\n";
 	printJavaScriptRecordsForExistingDropDowns($self);
 	print 	"</script>\n";
+
+	my @_ExistingStudyValue = keys %{$self->{_ExistingStudyList}};
+	my @_ExistingExperimentValue = keys %{$self->{_ExistingExperimentList}};
 
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
@@ -534,9 +543,12 @@ sub editStudy
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Study : '),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'study_exist', -id=>'study_exist',-values=>\@{$self->{_ExistingStudyValue}},-labels=>\%{$self->{_ExistingStudyList}},-default=>$self->{_SelectedStudy}, -onChange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'study_exist',
+                -id=>'study_exist',-values=>\@_ExistingStudyValue,-labels=>\%{$self->{_ExistingStudyList}},-default=>$self->{_SelectedStudy},
+                -onChange=>"populateSelectExisting(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"),
+                study);")),
 		$self->{_FormObject}->dt('Experiment : '),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist', -id=>'experiment_exist',-values=>\@{$self->{_ExistingExperimentValue}}, -labels=>\%{$self->{_ExistingExperimentList}},-default=>$self->{_SelectedExperiment})),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist', -id=>'experiment_exist',-values=>\@_ExistingExperimentValue, -labels=>\%{$self->{_ExistingExperimentList}},-default=>$self->{_SelectedExperiment})),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
@@ -546,6 +558,8 @@ sub editStudy
 	#
 	print	'<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Experiments not in a study.</h2>' . "\n";
 
+	my @_unassignedValue = keys %{$self->{_unassignedList}};
+
 	print $self->{_FormObject}->start_form(
 		-method=>'POST',
 		-name=>'AddExistingUnassignedForm',
@@ -554,7 +568,7 @@ sub editStudy
 	) .
 	$self->{_FormObject}->dl(
 		$self->{_FormObject}->dt('Experiment : '),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist_unassigned', -id=>'experiment_exist_unassigned',-values=>\@{$self->{_unassignedValue}}, -labels=>\%{$self->{_unassignedList}})),
+		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist_unassigned', -id=>'experiment_exist_unassigned',-values=>\@_unassignedValue, -labels=>\%{$self->{_unassignedList}})),
 		$self->{_FormObject}->dt('&nbsp;'),
 		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / ')
 		)
@@ -658,10 +672,10 @@ sub buildUnassignedExperimentDropDown
 		
 	my $unassignedDropDown	= new SGX::DropDownData($self->{_dbh},$unassignedQuery,0);
 
-	$unassignedDropDown->loadDropDownValues($self->{_stid});
+	$self->{_unassignedList}    = $unassignedDropDown->loadDropDownValues($self->{_stid});
 
-	$self->{_unassignedList} 	= $unassignedDropDown->{_dropDownList};
-	$self->{_unassignedValue} 	= $unassignedDropDown->{_dropDownValue};
+	#$self->{_unassignedList} 	= $unassignedDropDown->{_dropDownList};
+	#$self->{_unassignedValue} 	= $unassignedDropDown->{_dropDownValue};
 }
 
 sub printJavaScriptRecordsForExistingDropDowns
@@ -676,9 +690,6 @@ sub printJavaScriptRecordsForExistingDropDowns
 	
 	my $tempRecords 	= $self->{_dbh}->prepare($studyQuery) or die $self->{_dbh}->errstr;
 	my $tempRecordCount	= $tempRecords->execute or die $self->{_dbh}->errstr;
-
-	print	'Event.observe(window, "load", init);';
-	print 	"var study = {};";
 
 	my $out = "";
 
@@ -701,10 +712,12 @@ sub printJavaScriptRecordsForExistingDropDowns
 	}
 	$tempRecords->finish;
 
+	print	'Event.observe(window, "load", init);';
+	print 	"var study = {};";
 	print $out;
 	print 'function init() {';
-	print 'populateExistingStudy("study_exist");';
-	print 'populateSelectExistingExperiments(document.getElementById("experiment_exist"),document.getElementById("study_exist"));';
+	print 'populateExisting("study_exist", study);';
+	print 'populateSelectExisting(document.getElementById("experiment_exist"),document.getElementById("study_exist"), study);';
 	print '}';
 }
 

@@ -58,7 +58,7 @@ sub new {
 							ORDER BY experiment.eid;
 							",
 		_ExistingExperimentList		=> {},
-		_ExistingExperimentValue 	=> (),
+		#_ExistingExperimentValue 	=> (),
 		_Data				=> '',
 		_FieldNames			=> '',
 		_SelectedExperiment		=> ''

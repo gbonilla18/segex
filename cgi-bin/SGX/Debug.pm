@@ -8,6 +8,7 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 #use Data::Dumper;
+use Carp::Assert;
 
 use constant LOG_PATH       => '/Users/escherba/log/apache2/segex_dev_log';
 
@@ -22,17 +23,17 @@ BEGIN {
 }
 
 our @EXPORT = qw/assert/;
-
-sub assert {
-        # this is similar to the equinomial C function except it also checks for undef status.
-        my $arg = shift;
-        if (!defined($arg) || !$arg) {
-                # confess() from Carp module gives a traceback of callers.
-                # Since confess() will do things like writing values of runtime variables (which can contain
-                # passwords!) to the web server log, need to comment out the line below in production code
-		# or remove the SGX::Debug module from the project
-                confess 'Internal assertion failed: argument is undefined or condition is false';
-        }
-}
+#
+#sub assert {
+#        # this is similar to the equinomial C function except it also checks for undef status.
+#        my $arg = shift;
+#        if (!defined($arg) || !$arg) {
+#                # confess() from Carp module gives a traceback of callers.
+#                # Since confess() will do things like writing values of runtime variables (which can contain
+#                # passwords!) to the web server log, need to comment out the line below in production code
+#		# or remove the SGX::Debug module from the project
+#                confess 'Internal assertion failed: argument is undefined or condition is false';
+#        }
+#}
 
 1;

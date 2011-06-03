@@ -983,33 +983,44 @@ sub updateCell {
 	{
 		case 'probe' 
 		{
-			my ($reporter, $pname, $note) = (
-				$dbh->quote($q->param('reporter')),
-				$dbh->quote($q->param('pname')),
-				$dbh->quote($q->param('note'))
-			);
-			return $dbh->do(qq{update probe left join platform on platform.pid=probe.pid set note=$note where reporter=$reporter and pname=$pname});
+			my $rc = $dbh->do(
+				'update probe left join platform on platform.pid=probe.pid set note=? where reporter=? and pname=?', 
+				undef,
+				$q->param('note'),
+				$q->param('reporter'),
+				$q->param('pname')
+			) or die $dbh->errstr;
+			return $rc;
 		}
 		case 'gene' 
 		{
 			# tries to use gene symbol first as key field; if gene symbol is empty, switches to 
 			# transcript accession number.
-			my ($seqname, $pname, $note) = (
-				$q->param('seqname'),
-				$dbh->quote($q->param('pname')),
-				$dbh->quote($q->param('note'))
-			);
+			my $seqname = $q->param('seqname');
+			my $pname = $q->param('pname');
+			my $note = $q->param('note');
 			if (defined($seqname) && $seqname ne '') {
-				$seqname = $dbh->quote($seqname);
-				return $dbh->do(qq{update gene left join platform on platform.pid=gene.pid set gene_note=$note where seqname=$seqname and pname=$pname});
+				my $rc = $dbh->do(
+					'update gene left join platform on platform.pid=gene.pid set gene_note=? where seqname=? and pname=?',
+					undef,
+					$note,
+					$seqname,
+					$pname
+				) or die $dbh->errstr;
+				return $rc;
 			} else {
 				my $accnum_count = 0;
 				my @accnum = split(/ *, */, $q->param('accnum'));
 				foreach (@accnum) {
 					if (defined($_) && $_ ne '') {
 						$accnum_count++;
-						$_ = $dbh->quote($_);
-						$dbh->do(qq{update gene left join platform on platform.pid=gene.pid set gene_note=$note where accnum=$_ and pname=$pname});
+						$dbh->do(
+							'update gene left join platform on platform.pid=gene.pid set gene_note=? where accnum=? and pname=?',
+							undef,
+							$note,
+							$_,
+							$pname
+						) or die $dbh->errstr;
 					}
 				}
 				if ($accnum_count > 0) {
@@ -1021,60 +1032,89 @@ sub updateCell {
 		}
 		case 'experiment' 
 		{
-			my ($eid, $description, $additional) = (
-				$dbh->quote($q->param('eid')),
-				$dbh->quote($q->param('desc')),
-				$dbh->quote($q->param('add'))
-			);
-			return $dbh->do(qq{update experiment set ExperimentDescription=$description,AdditionalInformation=$additional where eid=$eid});
+			my $rc = $dbh->do(
+				'update experiment set ExperimentDescription=?, AdditionalInformation=? where eid=?',
+				undef,
+				$q->param('desc'),
+				$q->param('add'),
+				$q->param('eid')
+			) or die $dbh->errstr;
+			return $rc;
 		}
 		case 'experimentSamples' 
 		{
-			my ($eid, $sample1, $sample2) = (
-				$dbh->quote($q->param('eid')),
-				$dbh->quote($q->param('S1')),
-				$dbh->quote($q->param('S2'))
-			);
-			return $dbh->do(qq{update experiment set sample1=$sample1,sample2=$sample2 where eid=$eid});
+			my $rc = $dbh->do(
+				'update experiment set sample1=?, sample2=? where eid=?',
+				undef,
+				$q->param('S1'),
+				$q->param('S2'),
+				$q->param('eid')
+			) or die $dbh->errstr;
+			return $rc;
 		}
 		case 'study'
 		{
-			my ($stid, $desc, $pubmed) = (
-				$dbh->quote($q->param('stid')),
-				$dbh->quote($q->param('desc')),
-				$dbh->quote($q->param('pubmed'))
-			);
-			return $dbh->do(qq{update study set description=$desc,pubmed=$pubmed where stid=$stid});		
+			my $rc = $dbh->do(
+				'update study set description=?, pubmed=? where stid=?',
+				undef,
+				$q->param('desc'),
+				$q->param('pubmed'),
+				$q->param('stid')
+			) or die $dbh->errstr;
+			return $rc;
 		}
 		case 'platform'
 		{
-			my ($pid,$pname, $fold, $pvalue) = (
-				$dbh->quote($q->param('pid')),
-				$dbh->quote($q->param('pname')),
-				$dbh->quote($q->param('fold')),
-				$dbh->quote($q->param('pvalue'))
-			);
-			return $dbh->do(qq{update platform set pname=$pname,def_f_cutoff=$fold,def_p_cutoff=$pvalue where pid=$pid});		
+			my $rc = $dbh->do(
+				'update platform set pname=?, def_f_cutoff=?, def_p_cutoff=? where pid=?',
+				undef,
+				$q->param('pname'),
+				$q->param('fold'),
+				$q->param('pvalue'),
+				$q->param('pid')
+			) or die $dbh->errstr;
+			return $rc;
 		}
 		case 'project'
 		{
-			my $query = 'update project set prname=?, prdesc=? where prname=?';
-			my $sth = $dbh->prepare($query)
-				or die $dbh->errstr;
-			my $rc = $sth->execute($q->param('name'),
-						  $q->param('desc'),
-						  $q->param('old_name'))
-				or die $dbh->errstr;
+			my $rc = $dbh->do(
+				'update project set prname=?, prdesc=? where prname=?',
+				undef,
+				$q->param('name'),
+				$q->param('desc'),
+				$q->param('old_name')
+			) or die $dbh->errstr;
 			return $rc;
 		}
 		else
 		{
-			croak "Unknown type $type\n";
+			croak "Unknown request type=$type\n";
 		}
 	}
 }
 #######################################################################################
 sub form_findProbes {
+	my %type_dropdown = (
+		'gene'=>'Gene Symbols',
+		'transcript'=>'Transcripts',
+		'probe'=>'Probes'
+	);
+	my %match_dropdown = (
+		'full'=>'Full Word',
+		'prefix'=>'Prefix',
+		'part'=>'Part of the Word / Regular Expression*'
+	);
+	my %opts_dropdown = (
+		'0'=>'Basic (names,IDs only)',
+		'1'=>'Full annotation',
+		'2'=>'Full annotation with experiment data (CSV)',
+		'3'=>'Full annotation with experiment data (Not implemented yet)'
+	);
+	my %trans_dropdown = (
+		'fold' => 'Fold Change +/- 1', 
+		'ln'=>'Log2 Ratio'
+	);
+
 	print $q->start_form(-method=>'GET',
 		-action=>$q->url(absolute=>1),
 		-enctype=>'application/x-www-form-urlencoded') .
@@ -1085,15 +1125,15 @@ sub form_findProbes {
 		$q->dt('Search string(s):'),
 		$q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
 		$q->dt('Search type :'),
-		$q->dd($q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})),
+		$q->dd($q->popup_menu(-name=>'type',-values=>[keys %type_dropdown],-default=>'gene',-labels=>\%type_dropdown)),
 		$q->dt('Pattern to match :'),
-		$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression*'})),
+		$q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>[keys %match_dropdown], -default=>'full', -linebreak=>'true', -labels=>\%match_dropdown)),
 		$q->dt('Display options :'),
-		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>['0','1','2','3'], -default=>'1',-labels=>{'0'=>'Basic (names,IDs only)', '1'=>'Full annotation', '2'=>'Full annotation with experiment data (CSV)', '3'=>'Full annotation with experiment data (Not implemented yet)'})),
+		$q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>[keys %opts_dropdown], -default=>'1',-labels=>\%opts_dropdown)),
 		$q->dt('Graph(s) :'),
 		$q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
 		$q->dt({id=>'graph_option_names'}, "Response variable:"),
-		$q->dd({id=>'graph_option_values'}, $q->radio_group(-tabindex=>5, -name=>'trans', -values=>['fold','ln'], -default=>'fold', -linebreak=>'true', -labels=>{fold=>'Fold Change +/- 1', ln=>'Log2 Ratio'})),
+		$q->dd({id=>'graph_option_values'}, $q->radio_group(-tabindex=>5, -name=>'trans', -values=>[keys %trans_dropdown], -default=>'fold', -linebreak=>'true', -labels=>\%trans_dropdown)),
 		$q->dt('&nbsp;'),
 		$q->dd($q->submit(-tabindex=>6, -name=>'a', -value=>FINDPROBES, -override=>1)),
 	) 
@@ -1667,6 +1707,22 @@ function init() {
 }
 #######################################################################################
 sub form_compareExperiments {
+	my %geneFilter_dropdown = (
+		'none'=>'none',
+		'file'=>'file',
+		'list'=>'list'
+	);
+	my %gene_dropdown = (
+		'gene'=>'Gene Symbols',
+		'transcript'=>'Transcripts',
+		'probe'=>'Probes'
+	);
+	my %match_dropdown = (
+		'full'=>'Full Word',
+		'prefix'=>'Prefix',
+		'part'=>'Part of the Word / Regular Expression*'
+	);
+
 	print $q->p('<font size="5">Compare Experiments</font>');
 	print 
 	$q->dl(
@@ -1685,7 +1741,7 @@ sub form_compareExperiments {
 		$q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
 		$q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')),
 		$q->dt('Filter:'),
-		$q->dd($q->radio_group(-tabindex=>2,-onChange=>'toggleFilterOptions(this.value);', -name=>'geneFilter', -values=>['none','file', 'list'], -default=>'none', -labels=>{none=>'none', file=>'file', list=>'list'}))
+		$q->dd($q->radio_group(-tabindex=>2,-onChange=>'toggleFilterOptions(this.value);', -name=>'geneFilter', -values=>[keys %geneFilter_dropdown], -default=>'none', -labels=>\%geneFilter_dropdown))
 	),
 	$q->dl(
 		$q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
@@ -1747,7 +1803,7 @@ sub form_compareExperiments {
 				$q->TR(
 						$q->td({-id=>'tablecell1',-colspan=>'2'},
 							'Search type :',
-							$q->popup_menu(-name=>'type',-values=>['gene','transcript','probe'],-default=>'gene',-labels=>{'gene'=>'Gene Symbols','transcript'=>'Transcripts','probe'=>'Probes'})
+							$q->popup_menu(-name=>'type',-values=>[keys %gene_dropdown],-default=>'gene',-labels=>\%gene_dropdown)
 							)
 					),					
 				$q->TR(
@@ -1771,7 +1827,7 @@ sub form_compareExperiments {
 					),
 				$q->TR(
 						$q->td({-id=>'tablecell1'},'Pattern to match :'),
-						$q->td($q->radio_group(-tabindex=>2, -name=>'match', -values=>['full','prefix', 'part'], -default=>'full', -linebreak=>'true', -labels=>{full=>'Full Word', prefix=>'Prefix', part=>'Part of the Word / Regular Expression*'}))						
+						$q->td($q->radio_group(-tabindex=>2, -name=>'match', -values=>[keys %match_dropdown], -default=>'full', -linebreak=>'true', -labels=>\%match_dropdown))						
 					),
 				$q->TR(
 						$q->td({-id=>'tablecell1',-colspan=>'2'},
@@ -2122,6 +2178,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
 }
 #######################################################################################
 sub compare_experiments {
+	my %opts_dropdown = (
+		'0'=>'Basic (ratios and p-value only)',
+		'1'=>'Experiment data',
+		'2'=>'Experiment data with annotations'
+	);
 
 	print	'<div id="venn"></div>',
 		'<h2 id="summary_caption"></h2>',
@@ -2143,7 +2204,7 @@ sub compare_experiments {
 		'<h2 id="tfs_caption"></h2>',
 		$q->dl(
 			$q->dt('Data to display:'),
-			$q->dd($q->popup_menu(-name=>'opts',-values=>['0','1','2'], -default=>'0',-labels=>{'0'=>'Basic (ratios and p-value only)', '1'=>'Experiment data', '2'=>'Experiment data with annotations'})),
+			$q->dd($q->popup_menu(-name=>'opts',-values=>[keys %opts_dropdown], -default=>'0',-labels=>\%opts_dropdown)),
 			$q->dt({-id=>'tfs_all_dt'}, "&nbsp;"),
 			$q->dd({-id=>'tfs_all_dd'}, "&nbsp;")
 		),
@@ -2294,7 +2355,7 @@ sub form_uploadAnnot {
 
 	print $q->dl(
 		$q->dt("Platform:"),
-		$q->dd($q->popup_menu(-name=>'platform', -values=>[keys %platforms], -labels=>{%platforms}, -default=>$newpid)),
+		$q->dd($q->popup_menu(-name=>'platform', -values=>[keys %platforms], -labels=>\%platforms, -default=>$newpid)),
 		$q->dt("File to upload (tab-delimited):"),
 		$q->dd($q->filefield(-name=>'uploaded_file')),
 		$q->dt("&nbsp;"),
@@ -2558,9 +2619,12 @@ sub uploadAnnot {
 	if ($outside_have_reporter && $replace_accnum) {
 		#warn "begin optimizing\n";
 		# have to "optimize" because some of the deletes above were performed with "ignore" option
-		$dbh->do(qq{optimize table annotates}) or die $dbh->errstr;
+		$dbh->do('optimize table annotates') 
+			or die $dbh->errstr;
 		# in case any gene records have been orphaned, delete them
-		$dbh->do(qq{delete gene from gene left join annotates on gene.gid=annotates.gid where annotates.gid is NULL}) or die $dbh->errstr;
+		$dbh->do(
+			'delete gene from gene left join annotates on gene.gid=annotates.gid where annotates.gid is NULL'
+		) or die $dbh->errstr;
 		#warn "end optimizing\n";
 	}
 	my $count_lines = @lines;
@@ -2568,8 +2632,11 @@ sub uploadAnnot {
 	print $q->p(sprintf("%d lines processed.", $count_lines));
 	
 	#Flag the platform as being annotated.
-	my $annotateUpdate = "UPDATE platform SET isAnnotated = 1 WHERE pid = $pid_value";
-	$dbh->do($annotateUpdate) or die $dbh->errstr;
+	$dbh->do(
+		'UPDATE platform SET isAnnotated=1 WHERE pid=?',
+		undef,
+		$pid_value
+	) or die $dbh->errstr;
 
 }
 
