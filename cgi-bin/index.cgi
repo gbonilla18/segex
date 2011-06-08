@@ -2742,77 +2742,8 @@ sub form_manageProjects
 sub manageProjects
 {
  # :NOTE:06/06/2011 16:00:54:es: set action to zero-length string if undefined
-    my $ManageAction = (defined($q->url_param('ManageAction'))) ?
-        $q->url_param('ManageAction') : '';
     my $mp = SGX::ManageProjects->new($dbh,$q, JS_DIR);
-
-    switch ($ManageAction) 
-    {
-        case 'add' 
-        {
-            $mp->loadFromForm();
-            $mp->insertNewProject();
-            print "<br />Record added - Redirecting...<br />";
-        }
-        case 'addExisting'
-        {
-            $mp->loadFromForm();
-            $mp->addExistingStudy();
-            print "<br />Record added - Redirecting...<br />";
-        }
-        case 'delete'
-        {
-            $mp->loadFromForm();
-            $mp->deleteProject();
-            print "<br />Record deleted - Redirecting...<br />";
-        }
-        case 'deleteStudy'
-        {
-            $mp->loadFromForm();
-            $mp->removeStudy();
-            print "<br />Record removed - Redirecting...<br />";
-        }
-        case 'edit'
-        {
-            $mp->loadSingleProject();
-            $mp->loadUserData();
-            $mp->loadAllStudiesFromProject();
-            $mp->buildUnassignedStudyDropDown();
-            $mp->editProject();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
-        }
-        case 'editSubmit'
-        {
-            $mp->loadFromForm();
-            $mp->editSubmitProject();
-            print "<br />Record updated - Redirecting...<br />";
-        }
-        case 'load'
-        {
-            $mp = SGX::ManageProjects->new($dbh,$q);
-            $mp->loadFromForm();
-            $mp->loadAllProjects();
-            $mp->showProjects();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();        
-        }
-    }
-
-    if($ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
-    {
-        my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageProjects';
-        my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-        print "$redirectString";
-    }
-    elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting' || $ManageAction eq 'deleteStudy')
-    {
-        my $redirectSite   = $q->url(-absolute=>1).'?a=manageProjects&ManageAction=edit&id=' . $mp->{_prid};
-        my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-        print "$redirectString";
-    }
+    $mp->dispatch($q->url_param('ManageAction'));
 }
 
 #######################################################################################
@@ -2831,80 +2762,8 @@ sub form_manageStudies
 #This performs the action that was asked for by the manage studies form.
 sub manageStudies
 {
- # :NOTE:06/06/2011 16:01:55:es: setting action to zero-length string if undefined
-    my $ManageAction = defined($q->url_param('ManageAction')) ?
-        $q->url_param('ManageAction') : '';
     my $ms = SGX::ManageStudies->new($dbh,$q, JS_DIR);
-
-    switch ($ManageAction) 
-    {
-        case 'add' 
-        {
-            $ms->loadFromForm();
-            $ms->insertNewStudy();
-            print "<br />Record added - Redirecting...<br />";
-        }
-        case 'addExisting'
-        {
-            $ms->loadFromForm();
-            $ms->addExistingExperiment();
-            print "<br />Record added - Redirecting...<br />";
-        }
-        case 'delete'
-        {
-            $ms->loadFromForm();
-            $ms->deleteStudy();
-            print "<br />Record deleted - Redirecting...<br />";
-        }
-        case 'deleteExperiment'
-        {
-            $ms->loadFromForm();
-            $ms->removeExperiment();
-            print "<br />Record removed - Redirecting...<br />";
-        }
-        case 'edit'
-        {
-            $ms->loadSingleStudy();
-            $ms->loadPlatformData();
-            $ms->loadAllExperimentsFromStudy();
-            $ms->buildUnassignedExperimentDropDown();
-            $ms->editStudy();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
-        }
-        case 'editSubmit'
-        {
-            $ms->loadFromForm();
-            $ms->editSubmitStudy();
-            print "<br />Record updated - Redirecting...<br />";
-        }
-        case 'load'
-        {
-            $ms = SGX::ManageStudies->new($dbh,$q);
-            $ms->loadFromForm();
-            $ms->loadAllStudies();
-            $ms->loadPlatformData();
-            $ms->showStudies();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();        
-        }
-    }
-
-    if($ManageAction eq 'delete' || $ManageAction eq 'editSubmit')
-    {
-        my $redirectSite   = $q->url(-absolute=>1).'?a=form_manageStudy';
-        my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-        print "$redirectString";
-    }
-    elsif($ManageAction eq 'add' || $ManageAction eq 'addExisting' || $ManageAction eq 'deleteExperiment')
-    {
-        my $redirectSite   = $q->url(-absolute=>1).'?a=manageStudy&ManageAction=edit&id=' . $ms->{_stid};
-        my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-        print "$redirectString";
-    }
-
+    $ms->dispatch($q->url_param('ManageAction'));
 }
 #######################################################################################
 

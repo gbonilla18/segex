@@ -34,6 +34,9 @@ use CGI::Carp qw/croak/;
 use SGX::Debug;
 use SGX::DropDownData;
 use SGX::DrawingJavaScript;
+use SGX::JavaScriptDeleteConfirm;
+use Switch;
+use Data::Dumper;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
@@ -49,9 +52,9 @@ sub new {
     my $class = shift;
 
     my $self = {
-        _dbh        => shift,
-        _FormObject => shift,
-        _js_dir     => shift,
+        _dbh    => shift,
+        _cgi    => shift,
+        _js_dir => shift,
 
         # _UserQuery: load all users
         _UserQuery =>
@@ -138,6 +141,94 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
+#       METHOD:  dispatch
+#   PARAMETERS:  $self, actionName
+#      RETURNS:  ????
+#  DESCRIPTION:  executes appropriate method for the given action
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch {
+    my ( $self, $action ) = @_;
+
+    $action = '' if not defined($action);
+    switch ($action) {
+        case 'add' {
+            $self->loadFromForm();
+            $self->insertNewProject();
+            print "<br />Record added - Redirecting...<br />";
+        }
+        case 'addExisting' {
+            $self->loadFromForm();
+            $self->addExistingStudy();
+            print "<br />Record added - Redirecting...<br />";
+        }
+        case 'delete' {
+            $self->loadFromForm();
+            $self->deleteProject();
+            print "<br />Record deleted - Redirecting...<br />";
+        }
+        case 'deleteStudy' {
+            $self->loadFromForm();
+            $self->removeStudy();
+            print "<br />Record removed - Redirecting...<br />";
+        }
+        case 'edit' {
+            $self->loadSingleProject();
+            $self->loadUserData();
+            $self->loadAllStudiesFromProject();
+            $self->buildUnassignedStudyDropDown();
+            $self->editProject();
+
+            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
+            $javaScriptDeleteConfirm->drawJavaScriptCode();
+        }
+        case 'editSubmit' {
+            my @names = $self->{_cgi}->param;
+            $self->loadFromForm();
+            $self->editSubmitProject();
+            print "<br />Record updated - Redirecting...<br />";
+        }
+        case 'load' {
+
+            #$self = SGX::ManageProjects->new($dbh,$q);
+            $self->loadFromForm();
+            $self->loadAllProjects();
+            $self->showProjects();
+
+            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
+            $javaScriptDeleteConfirm->drawJavaScriptCode();
+        }
+        else {
+            croak
+              "ManageProjects does not know how to dispatch action \"$action\"";
+        }
+    }
+    if ( $action eq 'delete' || $action eq 'editSubmit' ) {
+        my $redirectURI =
+          $self->{_cgi}->url( -absolute => 1 ) . '?a=form_manageProjects';
+        my $redirectString =
+"<script type=\"text/javascript\">window.location = \"$redirectURI\"</script>";
+        print "$redirectString";
+    }
+    elsif ($action eq 'add'
+        || $action eq 'addExisting'
+        || $action eq 'deleteStudy' )
+    {
+        my $redirectURI =
+            $self->{_cgi}->url( -absolute => 1 )
+          . '?a=manageProjects&ManageAction=edit&id='
+          . $self->{_prid};
+        my $redirectString =
+"<script type=\"text/javascript\">window.location = \"$redirectURI\"</script>";
+        print "$redirectString";
+    }
+    return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageProjects
 #       METHOD:  loadAllProjects
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -212,7 +303,7 @@ sub loadSingleProject {
 
     #Grab object and id from URL.
     my $self = shift;
-    $self->{_prid} = $self->{_FormObject}->url_param('id');
+    $self->{_prid} = $self->{_cgi}->url_param('id');
 
     #Run the SQL and get the data into the object.
     my $sth = $self->{_dbh}->prepare( $self->{_LoadSingleQuery} )
@@ -278,23 +369,33 @@ sub loadAllStudiesFromProject {
 sub loadFromForm {
     my $self = shift;
 
-    $self->{_prid} = ( $self->{_FormObject}->url_param('id') )
-      if defined( $self->{_FormObject}->url_param('id') );
-    $self->{_prname} = ( $self->{_FormObject}->param('name') )
-      if defined( $self->{_FormObject}->param('name') );
-    $self->{_prdesc} = ( $self->{_FormObject}->param('description') )
-      if defined( $self->{_FormObject}->param('description') );
-    $self->{_mgr} = ( $self->{_FormObject}->param('manager') )
-      if defined( $self->{_FormObject}->param('manager') );
-    $self->{_SelectedProject} = ( $self->{_FormObject}->param('project_exist') )
-      if defined( $self->{_FormObject}->param('project_exist') );
-    $self->{_SelectedStudy} = ( $self->{_FormObject}->param('study_exist') )
-      if defined( $self->{_FormObject}->param('study_exist') );
-    $self->{_SelectedStudy} =
-      ( $self->{_FormObject}->param('study_exist_unassigned') )
-      if defined( $self->{_FormObject}->param('study_exist_unassigned') );
-    $self->{_delete_stid} = ( $self->{_FormObject}->url_param('removstid') )
-      if defined( $self->{_FormObject}->url_param('removstid') );
+    if ( defined( $self->{_cgi}->url_param('id') ) ) {
+        $self->{_prid} = $self->{_cgi}->url_param('id');
+    }
+    if ( defined( $self->{_cgi}->param('name') ) ) {
+        $self->{_prname} = $self->{_cgi}->param('name');
+    }
+    if ( defined( $self->{_cgi}->param('description') ) ) {
+        $self->{_prdesc} = $self->{_cgi}->param('description');
+    }
+    if ( defined( $self->{_cgi}->param('manager') ) ) {
+        $self->{_mgr} = $self->{_cgi}->param('manager');
+    }
+    if ( defined( $self->{_cgi}->param('project_exist') ) ) {
+        $self->{_SelectedProject} = $self->{_cgi}->param('project_exist');
+    }
+    if ( defined( $self->{_cgi}->param('study_exist') ) ) {
+        assert( not defined( $self->{_cgi}->param('study_exist_unassigned') ) );
+        $self->{_SelectedStudy} = $self->{_cgi}->param('study_exist');
+    }
+    if ( defined( $self->{_cgi}->param('study_exist_unassigned') ) ) {
+        assert( not defined( $self->{_cgi}->param('study_exist') ) );
+        $self->{_SelectedStudy} =
+          $self->{_cgi}->param('study_exist_unassigned');
+    }
+    if ( defined( $self->{_cgi}->url_param('removstid') ) ) {
+        $self->{_delete_stid} = $self->{_cgi}->url_param('removstid');
+    }
     return;
 }
 
@@ -330,7 +431,7 @@ sub showProjects {
     print "<script type=\"text/javascript\">\n";
     print $JSProjectList;
 
-    print getTableInfo( $self->{_FieldNames}, $self->{_FormObject} );
+    print getTableInfo( $self->{_FieldNames}, $self->{_cgi} );
     print getExportTable();
     print getDrawResultsTableJS();
 
@@ -338,21 +439,21 @@ sub showProjects {
     print '<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Project</h2>'
       . "\n";
 
-    print $self->{_FormObject}->start_form(
+    print $self->{_cgi}->start_form(
         -method => 'POST',
-        -action => $self->{_FormObject}->url( -absolute => 1 )
+        -action => $self->{_cgi}->url( -absolute => 1 )
           . '?a=manageProjects&ManageAction=add',
         -onsubmit => 'return validate_fields(this, [\'name\']);'
       )
-      . $self->{_FormObject}->dl(
-        $self->{_FormObject}->dt('name'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}
+      . $self->{_cgi}->dl(
+        $self->{_cgi}->dt('name'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}
               ->textfield( -name => 'name', -id => 'name', -maxlength => 255 )
         ),
-        $self->{_FormObject}->dt('description:'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->textarea(
+        $self->{_cgi}->dt('description:'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->textarea(
                 -name      => 'description',
                 -id        => 'description',
                 -rows      => 8,
@@ -360,16 +461,16 @@ sub showProjects {
                 -maxlength => 1023
             )
         ),
-        $self->{_FormObject}->dt('&nbsp;'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->submit(
+        $self->{_cgi}->dt('&nbsp;'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->submit(
                 -name  => 'AddProject',
                 -id    => 'AddProject',
                 -value => 'Add Project'
             ),
-            $self->{_FormObject}->span( { -class => 'separator' }, ' / ' )
+            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
         )
-      ) . $self->{_FormObject}->end_form;
+      ) . $self->{_cgi}->end_form;
     return;
 }
 
@@ -573,7 +674,6 @@ sub insertNewProject {
         $self->{_manager} )
       or croak $self->{_dbh}->errstr;
 
-    #carp "Inserted id: " . $self->{_dbh}->{'mysql_insertid'};
     $self->{_prid} = $self->{_dbh}->{'mysql_insertid'};
     return $self->{_prid};
 }
@@ -633,37 +733,37 @@ sub editProject {
     #
 
     my %userList = %{ $self->{_userList} };
-    print $self->{_FormObject}->start_form(
+    print $self->{_cgi}->start_form(
         -method => 'POST',
-        -action => $self->{_FormObject}->url( -absolute => 1 )
+        -action => $self->{_cgi}->url( -absolute => 1 )
           . '?a=manageProjects&ManageAction=editSubmit&id='
           . $self->{_prid},
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       )
-      . $self->{_FormObject}->dl(
-        $self->{_FormObject}->dt('name:'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->textfield(
-                -name      => 'prname',
-                -id        => 'prname',
+      . $self->{_cgi}->dl(
+        $self->{_cgi}->dt('name:'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->textfield(
+                -name      => 'name',
+                -id        => 'name',
                 -maxlength => 255,
                 -value     => $self->{_prname}
             )
         ),
-        $self->{_FormObject}->dt('description:'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->textarea(
-                -name      => 'prdesc',
-                -id        => 'prdesc',
+        $self->{_cgi}->dt('description:'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->textarea(
+                -name      => 'description',
+                -id        => 'description',
                 -maxlength => 1023,
                 -rows      => 8,
                 -columns   => 50,
                 -value     => $self->{_prdesc}
             )
         ),
-        $self->{_FormObject}->dt('project manager:'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->popup_menu(
+        $self->{_cgi}->dt('project manager:'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->popup_menu(
                 -name => 'manager',
                 -id   => 'manager',
                 -values =>
@@ -672,14 +772,14 @@ sub editProject {
                 -default => $self->{_mgr}
             )
         ),
-        $self->{_FormObject}->dt('&nbsp;'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->submit(
+        $self->{_cgi}->dt('&nbsp;'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->submit(
                 -name  => 'editSaveProject',
                 -id    => 'editSaveProject',
                 -value => 'Save Edits'
             ),
-            $self->{_FormObject}->span( { -class => 'separator' } )
+            $self->{_cgi}->span( { -class => 'separator' } )
         )
       );
 
@@ -688,7 +788,7 @@ sub editProject {
     my $JSStudyList_records = getJSStudyRecords($self);
     my $JSStudyList_headers = getJSStudyHeaders($self);
     my $StudyTableInfo      = getStudyTableInfo( $self->{_StudyFieldNames},
-        $self->{_FormObject}, $self->{_prid} );
+        $self->{_cgi}, $self->{_prid} );
     my $DrawStudyResultsTableJS = getDrawStudyResultsTableJS();
 
     print <<"END_JSStudyList";
@@ -702,7 +802,7 @@ $DrawStudyResultsTableJS
 </script>
 END_JSStudyList
 
-    print $self->{_FormObject}->end_form;
+    print $self->{_cgi}->end_form;
 
     print '<script src="'
       . $self->{_js_dir}
@@ -719,18 +819,18 @@ END_JSStudyList
     print getJavaScriptRecordsForExistingDropDowns($self);
     print "</script>\n";
 
-    print $self->{_FormObject}->start_form(
+    print $self->{_cgi}->start_form(
         -method => 'POST',
         -name   => 'AddExistingForm',
-        -action => $self->{_FormObject}->url( -absolute => 1 )
+        -action => $self->{_cgi}->url( -absolute => 1 )
           . '?a=manageProjects&ManageAction=addExisting&id='
           . $self->{_prid},
         -onsubmit => "return validate_fields(this,'');"
       )
-      . $self->{_FormObject}->dl(
-        $self->{_FormObject}->dt('Project : '),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->popup_menu(
+      . $self->{_cgi}->dl(
+        $self->{_cgi}->dt('Project : '),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->popup_menu(
                 -name    => 'project_exist',
                 -id      => 'project_exist',
                 -values  => [],
@@ -740,9 +840,9 @@ END_JSStudyList
 "populateSelectExisting(document.getElementById(\"study_exist\"),document.getElementById(\"project_exist\"),project);"
             )
         ),
-        $self->{_FormObject}->dt('Study : '),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->popup_menu(
+        $self->{_cgi}->dt('Study : '),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->popup_menu(
                 -name    => 'study_exist',
                 -id      => 'study_exist',
                 -values  => [],
@@ -750,16 +850,16 @@ END_JSStudyList
                 -default => $self->{_SelectedStudy}
             )
         ),
-        $self->{_FormObject}->dt('&nbsp;'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->submit(
+        $self->{_cgi}->dt('&nbsp;'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->submit(
                 -name  => 'AddStudy',
                 -id    => 'AddStudy',
                 -value => 'Add Study'
             ),
-            $self->{_FormObject}->span( { -class => 'separator' }, ' / ' )
+            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
         )
-      ) . $self->{_FormObject}->end_form;
+      ) . $self->{_cgi}->end_form;
 
     #
     print
@@ -767,18 +867,18 @@ END_JSStudyList
       "\n";
 
     my %unassignedList = %{ $self->{_unassignedList} };
-    print $self->{_FormObject}->start_form(
+    print $self->{_cgi}->start_form(
         -method => 'POST',
         -name   => 'AddExistingUnassignedForm',
-        -action => $self->{_FormObject}->url( -absolute => 1 )
+        -action => $self->{_cgi}->url( -absolute => 1 )
           . '?a=manageProjects&ManageAction=addExisting&id='
           . $self->{_prid},
         -onsubmit => "return validate_fields(this,'');"
       )
-      . $self->{_FormObject}->dl(
-        $self->{_FormObject}->dt('Study : '),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->popup_menu(
+      . $self->{_cgi}->dl(
+        $self->{_cgi}->dt('Study : '),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->popup_menu(
                 -name   => 'study_exist_unassigned',
                 -id     => 'study_exist_unassigned',
                 -values => [
@@ -788,16 +888,16 @@ END_JSStudyList
                 -labels => \%unassignedList
             )
         ),
-        $self->{_FormObject}->dt('&nbsp;'),
-        $self->{_FormObject}->dd(
-            $self->{_FormObject}->submit(
+        $self->{_cgi}->dt('&nbsp;'),
+        $self->{_cgi}->dd(
+            $self->{_cgi}->submit(
                 -name  => 'AddStudy',
                 -id    => 'AddStudy',
                 -value => 'Add Study'
             ),
-            $self->{_FormObject}->span( { -class => 'separator' }, ' / ' )
+            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
         )
-      ) . $self->{_FormObject}->end_form;
+      ) . $self->{_cgi}->end_form;
     return;
 }
 
@@ -945,10 +1045,9 @@ sub getJSStudyHeaders {
 sub buildUnassignedStudyDropDown {
     my $self = shift;
 
-    my $unassignedDropDown = SGX::DropDownData->new(
-        $self->{_dbh},
-        $self->{_ExistingUnassignedProjectQuery}
-    );
+    my $unassignedDropDown =
+      SGX::DropDownData->new( $self->{_dbh},
+        $self->{_ExistingUnassignedProjectQuery} );
 
     $self->{_unassignedList} = $unassignedDropDown->loadDropDownValues();
     return;
@@ -1037,7 +1136,7 @@ sub editSubmitProject {
 
     my $rc =
       $self->{_dbh}
-      ->do( $self->{_UpdateQuery}, undef, $self->{_name}, $self->{_prdesc},
+      ->do( $self->{_UpdateQuery}, undef, $self->{_prname}, $self->{_prdesc},
         $self->{_manager}, $self->{_prid} )
       or croak $self->{_dbh}->errstr;
     return $rc;
