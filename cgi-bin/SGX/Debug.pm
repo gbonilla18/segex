@@ -10,7 +10,8 @@ use base qw(Exporter);
 
 use Carp::Assert;
 
-use constant LOG_PATH => '/Users/escherba/log/apache2/segex_dev_log';
+#use constant LOG_PATH => '/var/www/error_log/error_log'; # Linux
+use constant LOG_PATH => '/Users/escherba/log/apache2/segex_dev_log'; # Mac OS X
 
 # CGI::Carp module sends warnings and errors to the browser;
 # this is for debugging purposes only -- it will be removed in
