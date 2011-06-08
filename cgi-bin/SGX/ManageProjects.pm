@@ -29,7 +29,7 @@ package SGX::ManageProjects;
 use strict;
 use warnings;
 
-use Carp qw/croak carp/;
+use CGI::Carp qw/croak/;
 
 use SGX::Debug;
 use SGX::DropDownData;
@@ -559,7 +559,7 @@ END_TableInfo
 #        CLASS:  ManageProjects
 #       METHOD:  insertNewProject
 #   PARAMETERS:  ????
-#      RETURNS:  ????
+#      RETURNS:  Id of the inserted project
 #  DESCRIPTION:  Insert new project
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -573,9 +573,9 @@ sub insertNewProject {
         $self->{_manager} )
       or croak $self->{_dbh}->errstr;
 
-    carp "Inserted id: " . $self->{_dbh}->{'mysql_insertid'};
+    #carp "Inserted id: " . $self->{_dbh}->{'mysql_insertid'};
     $self->{_prid} = $self->{_dbh}->{'mysql_insertid'};
-    return;
+    return $self->{_prid};
 }
 
 #===  CLASS METHOD  ============================================================
@@ -631,8 +631,8 @@ sub editProject {
 
     #Edit existing
     #
-    my @userListKeys = keys %{ $self->{_userList} };
 
+    my %userList = %{ $self->{_userList} };
     print $self->{_FormObject}->start_form(
         -method => 'POST',
         -action => $self->{_FormObject}->url( -absolute => 1 )
@@ -664,10 +664,11 @@ sub editProject {
         $self->{_FormObject}->dt('project manager:'),
         $self->{_FormObject}->dd(
             $self->{_FormObject}->popup_menu(
-                -name    => 'manager',
-                -id      => 'manager',
-                -values  => \@userListKeys,
-                -labels  => \%{ $self->{_userList} },
+                -name => 'manager',
+                -id   => 'manager',
+                -values =>
+                  [ sort { $userList{$a} cmp $userList{$b} } keys %userList ],
+                -labels  => \%userList,
                 -default => $self->{_mgr}
             )
         ),
@@ -718,9 +719,6 @@ END_JSStudyList
     print getJavaScriptRecordsForExistingDropDowns($self);
     print "</script>\n";
 
-    my @_ExistingProjectValue = keys %{ $self->{_ExistingProjectList} };
-    my @_ExistingStudyValue   = keys %{ $self->{_ExistingStudyList} };
-
     print $self->{_FormObject}->start_form(
         -method => 'POST',
         -name   => 'AddExistingForm',
@@ -735,8 +733,8 @@ END_JSStudyList
             $self->{_FormObject}->popup_menu(
                 -name    => 'project_exist',
                 -id      => 'project_exist',
-                -values  => \@_ExistingProjectValue,
-                -labels  => \%{ $self->{_ExistingProjectList} },
+                -values  => [],
+                -labels  => {},
                 -default => $self->{_SelectedProject},
                 -onChange =>
 "populateSelectExisting(document.getElementById(\"study_exist\"),document.getElementById(\"project_exist\"),project);"
@@ -747,8 +745,8 @@ END_JSStudyList
             $self->{_FormObject}->popup_menu(
                 -name    => 'study_exist',
                 -id      => 'study_exist',
-                -values  => \@_ExistingStudyValue,
-                -labels  => \%{ $self->{_ExistingStudyList} },
+                -values  => [],
+                -labels  => {},
                 -default => $self->{_SelectedStudy}
             )
         ),
@@ -763,13 +761,12 @@ END_JSStudyList
         )
       ) . $self->{_FormObject}->end_form;
 
-    my @unassignedValues = keys %{ $self->{_unassignedList} };
-
     #
     print
-'<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Studies not in a project.</h2>'
-      . "\n";
+'<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Studies not in a project.</h2>',
+      "\n";
 
+    my %unassignedList = %{ $self->{_unassignedList} };
     print $self->{_FormObject}->start_form(
         -method => 'POST',
         -name   => 'AddExistingUnassignedForm',
@@ -784,8 +781,11 @@ END_JSStudyList
             $self->{_FormObject}->popup_menu(
                 -name   => 'study_exist_unassigned',
                 -id     => 'study_exist_unassigned',
-                -values => \@unassignedValues,
-                -labels => \%{ $self->{_unassignedList} }
+                -values => [
+                    sort { $unassignedList{$a} cmp $unassignedList{$b} }
+                      keys %unassignedList
+                ],
+                -labels => \%unassignedList
             )
         ),
         $self->{_FormObject}->dt('&nbsp;'),
@@ -858,16 +858,13 @@ sub getStudyTableInfo {
     my @names     = @$arrayRef;
     my $CGIRef    = shift;
     my $projectID = shift;
-    my $deleteURL =
-        $CGIRef->url( absolute => 1 )
-      . '?a=manageProjects&ManageAction=deleteStudy&id='
-      . $projectID
-      . '&removstid=';
+    my $deleteURL = $CGIRef->url( absolute => 1 )
+      . "?a=manageProjects&ManageAction=deleteStudy&id=$projectID&removstid=";
 
     return <<"END_StudyTableInfo"
 YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData)
 {
-    elCell.innerHTML = '<a title="Remove" onClick="return removeStudyConfirmation();" target="_self" href="$deleteURL"' + oData + '">Remove</a>';
+    elCell.innerHTML = '<a title="Remove" onClick="return removeStudyConfirmation();" target="_self" href="$deleteURL' + oData + '">Remove</a>';
 }
 
 var myStudyColumnDefs = [
@@ -948,9 +945,10 @@ sub getJSStudyHeaders {
 sub buildUnassignedStudyDropDown {
     my $self = shift;
 
-    my $unassignedDropDown =
-      SGX::DropDownData->new( $self->{_dbh},
-        $self->{_ExistingUnassignedProjectQuery}, 0 );
+    my $unassignedDropDown = SGX::DropDownData->new(
+        $self->{_dbh},
+        $self->{_ExistingUnassignedProjectQuery}
+    );
 
     $self->{_unassignedList} = $unassignedDropDown->loadDropDownValues();
     return;

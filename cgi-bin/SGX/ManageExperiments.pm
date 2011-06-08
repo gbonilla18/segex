@@ -235,27 +235,27 @@ sub loadSingleExperiment
 #Loads information into the object that is used to create the study dropdown.
 sub loadStudyData
 {
-	my $self		= shift;
+	my $self = shift;
 
-	my $studyDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_StudyQuery},0);
+	my $studyDropDown = SGX::DropDownData->new(
+        $self->{_dbh},
+        $self->{_StudyQuery}
+    );
 
-	$self->{_studyList}     = $studyDropDown->loadDropDownValues();
-
-	#$self->{_studyList} 	= $studyDropDown->{_dropDownList};
-	#$self->{_studyValue} 	= $studyDropDown->{_dropDownValue};
+	$self->{_studyList} = $studyDropDown->loadDropDownValues();
 }
 
 #Loads information into the object that is used to create the study dropdown.
 sub loadPlatformData
 {
-	my $self		= shift;
+	my $self = shift;
 
-	my $platformDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_PlatformQuery},0);
+	my $platformDropDown = SGX::DropDownData->new(
+        $self->{_dbh},
+        $self->{_PlatformQuery}
+    );
 
 	$self->{_platformList}  = $platformDropDown->loadDropDownValues();
-
-	#$self->{_platformList} 	= $platformDropDown->{_dropDownList};
-	#$self->{_platformValue} = $platformDropDown->{_dropDownValue};
 }
 
 #Load the data from the submitted form.

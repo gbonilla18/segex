@@ -5,26 +5,28 @@ SGX::Session
 
 =head1 SYNOPSIS
 
-  use SGX::Session;
+Create an instance:
+(1) $dbh must be an active database handle,
+(2) 3600 is 60 * 60 s = 1 hour (session time to live),
+(3) check_ip determines whether user IP is verified,
+(4) id is old session id (either from a cookie or from a query string).
 
-  # create an instance:
-  # -    $dbh must be an active database handle
-  # -    3600 is 60 * 60 s = 1 hour (session time to live)
-  # -   check_ip determines whether user IP is verified
-  # -   id is old session id (either from a cookie or from a query string)
-  #
-  my $s = SGX::Session->new(-handle        =>$dbh, 
-               -expire_in    =>3600,
-               -check_ip    =>1,
-               -id        =>'1c287c065fc22df74e3e57c63ceedd20');
+    use SGX::Session;
+    my $s = SGX::Session->new(
+        -handle    => $dbh, 
+        -expire_in => 3600,
+        -check_ip  => 1,
+        -id        => '1c287c065fc22df74e3e57c63ceedd20'
+    );
 
-  # restore previous session if it exists
-  $s->restore;
+Restore previous session if it exists:
+    $s->restore();
 
-  # delete previous session, active session, or both if both exist
-  $s->destroy;
+Delete previous session, active session, or both if both exist:
+    $s->destroy();
 
-  $s->commit;    # flushes the session data (writes to data store)
+Flush session data (writes to data store)
+    $s->commit();
 
 =head1 DESCRIPTION
 
@@ -32,10 +34,11 @@ This is mainly an interface to the Apache::Session module with
 focus on user management.
 
 The table `sessions' is created as follows:
-  CREATE TABLE sessions (
-    id CHAR(32) NOT NULL UNIQUE,
-    a_session TEXT NOT NULL
-  );
+
+    CREATE TABLE sessions (
+        id CHAR(32) NOT NULL UNIQUE,
+        a_session TEXT NOT NULL
+    );
 
 =head1 AUTHORS
 
@@ -64,11 +67,12 @@ use warnings;
 
 use vars qw($VERSION);
 
-$VERSION = '0.09';
-$VERSION = eval $VERSION;
+$VERSION = '0.10';
+#$VERSION = eval $VERSION;
 
 use Apache::Session::MySQL;
 use SGX::Debug;
+use CGI::Carp qw/croak/;
 
 #use Data::Dumper;    # for debugging
 
@@ -82,12 +86,11 @@ use SGX::Debug;
 sub new {
 
     # This is the constructor
-    my $class = shift;
+    my ($class, %p) = @_;
 
-    # The `active' property is temporary, until I find a more reliable
-    # way to tell whether a session is active.
-
-    my %p = @_;
+    # :TODO:06/05/2011 22:48:28:es: figure out a more reliable way to
+    # tell whether a session is active than relying on the `active'
+    # property.
 
     my $self = {
         dbh            => $p{-handle},
@@ -104,37 +107,37 @@ sub new {
 
 sub safe_tie {
 
-# returns 1 if a new session was opened or an old one restored *by this subroutine*, 0 otherwise
+# returns 1 if a new session was commenced or an old one restored *by this subroutine*, 0 otherwise
     my ( $self, $id ) = @_;
     if ( $self->{active} ) {
-        die('Cannot tie to session hash: another session is currently active');
+        croak 'Cannot tie to session hash: another session is currently active';
     }
-    else {
-        eval {
-            tie %{ $self->{object} }, 'Apache::Session::MySQL', $id,
-              {
-                Handle     => $self->{dbh},
-                LockHandle => $self->{dbh},
-              };
-        };
-        if ( !$@ ) {
+    my $ret = eval {
+        tie %{ $self->{object} }, 'Apache::Session::MySQL', $id,
+          {
+            Handle     => $self->{dbh},
+            LockHandle => $self->{dbh},
+          };
+    };
+    if (!$ret || $@) {
+        # error
+        #carp "Could not tie session object (session id: $@)";
+        return 0;
+    };
 
-            # no error
-            $self->{active} = 1;
-            return 1;
-        }
-    }
-    return 0;
+    # no error
+    $self->{active} = 1;
+    return 1;
 }
 
-sub try_open {
+sub try_commence {
 
     # returns the same value as safe_tie
     my ( $self, $id ) = @_;
     if ( $self->safe_tie($id) ) {
         if ( defined($id) ) {
 
-            # old session was opened
+            # old session has been restored
             if (   $self->{object}->{tla} + $self->{object}->{ttl} < $self->now
                 || $self->{check_ip}
                 && $ENV{REMOTE_ADDR} ne $self->{object}->{ip} )
@@ -156,7 +159,7 @@ sub try_open {
         }
         else {
 
-            # new session was opened
+            # new session has been commenced
             # store remote user IP address if ip_check is set to 1
             $self->{object}->{ip} = $ENV{REMOTE_ADDR} if $self->{check_ip};
 
@@ -190,9 +193,9 @@ sub restore {
 # use $self->{active}.
     my $self = shift;
     if ( defined( $self->{old_session_id} ) && !$self->{active} ) {
-        if ( $self->try_open( $self->{old_session_id} ) ) {
+        if ( $self->try_commence( $self->{old_session_id} ) ) {
 
-            # successfully opened an old session. Now that old session
+            # successfully restored an old session. Now that old session
             # id is the same as the active session id, undefine the old.
             assert( $self->{old_session_id} eq $self->{data}->{_session_id} )
               if $self->{active};
@@ -201,21 +204,21 @@ sub restore {
         }
 
         #if (!$self->{active}) {
-        #    # if opening a saved session fails, create a new one
+        #    # if restoring a saved session fails, create a new one
         #    $self->{old_session_id} = undef;
-        #    $self->try_open(undef);
+        #    $self->try_commence(undef);
         #}
     }
     return 0;
 }
 
-sub open {
+sub commence {
 
-   # If no session is active at the moment, open a new one.
-   # Returns 1 if a new session was opened *within this subroutine*, 0 otherwise
+   # If no session is active at the moment, commence a new one.
+   # Returns 1 if a new session was commenced *within this subroutine*, 0 otherwise
     my $self = shift;
     if ( !$self->{active} ) {
-        return $self->try_open(undef);
+        return $self->try_commence(undef);
     }
     return 0;
 }
@@ -252,30 +255,32 @@ sub destroy {
 
         # Warning: if we do not check whether {old_session_id} is defined,
         # an undef will be passed to safe_tie and a new session will be
-        # opened as a result -- only to be deleted in the current block.
+        # commenced as a result -- only to be deleted in the current block.
         if ( $self->safe_tie( $self->{old_session_id} ) ) {
             $self->delete_object;
             $self->{old_session_id} = undef;
         }
     }
+    return;
 }
 
 sub delete_object {
 
     # no status/error checking in this subroutine -- use with caution
     my $self = shift;
-    tied( %{ $self->{object} } )->delete;
+    tied( %{ $self->{object} } )->delete();
     $self->{active} = 0;
+    return;
 }
 
 sub fresh {
 
-   # Returns 1 if a new session was opened *within this subroutine*, 0 otherwise
+   # Returns 1 if a new session was commenced *within this subroutine*, 0 otherwise
     my $self = shift;
     $self->destroy;
 
-    # open a new session
-    return $self->try_open(undef);
+    # commence a new session
+    return $self->try_commence(undef);
 }
 1;    # for require
 

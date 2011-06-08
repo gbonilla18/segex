@@ -5,40 +5,53 @@ SGX::Cookie
 
 =head1 SYNOPSIS
 
-  use SGX::Cookie;
+Create an instance:
+(1) $dbh must be an active database handle,
+(2) 3600 is 60 * 60 s = 1 hour (session time to live),
+(3) check_ip determines whether user IP is verified,
+(4) cookie_name can be anything
 
-  # create an instance:
-  # -   $dbh must be an active database handle
-  # -   3600 is 60 * 60 s = 1 hour (session time to live)
-  # -   check_ip determines whether user IP is verified
-  # -   cookie_name can be anything
-  #
-  my $s = SGX::Cookie->new(-handle          =>$dbh, 
-                       -expire_in       =>3600,
-                       -check_ip        =>1,
-                       -cookie_name    =>'chocolate_chip');
+    use SGX::Cookie;
+    my $s = SGX::Cookie->new(
+        -handle     => $dbh, 
+        -expire_in   => 3600,
+        -check_ip    => 1,
+        -cookie_name => 'chocolate_chip'
+    );
 
-  # restore previous session if it exists
-  $s->restore;
+Restore previous session if it exists
+    $s->restore;
 
-  # delete previous session, active session, or both if both exist
-  $s->destroy;
+Delete previous session, active session, or both if both exist
+    $s->destroy;
 
-  $s->commit;    # necessary to make a cookie. Also flushes the session data
+To make a cookie and flush session data:
+    $s->commit;
 
-  # can set another cookie by opening another session like this:
-  my $t = SGX::Cookie->new(-cookie_name=>'girlscout_mint', -handle=>$dbh, -expire_in=>3600*48, -check_ip=> 0);
-  if (!$t->restore) $t->open;
-  $t->commit;
+You can set another cookie by opening another session like this:
 
-  # You can create several instances of this class at the same time. The 
-  # @SGX::Cookie::cookies array will contain the cookies created by all instances
-  # of the SGX::User or SGX::Cookie classes. If the array reference is sent to CGI::header, for 
-  # example, as many cookies will be created as there are members in the array.
-  #
-  # To send a cookie to the user:
-  $q = new CGI;
-  print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+    my $t = SGX::Cookie->new(
+        -cookie_name => 'girlscout_mint', 
+        -handle      => $dbh, 
+        -expire_in   => 3600*48, 
+        -check_ip    => 0
+    );
+    
+    if (!$t->restore) $t->commence;
+    $t->commit;
+
+You can create several instances of this class at the same time. The 
+@SGX::Cookie::cookies array will contain the cookies created by all instances
+of the SGX::User or SGX::Cookie classes. If the array reference is sent to CGI::header, for 
+example, as many cookies will be created as there are members in the array.
+
+To send a cookie to the user:
+
+    $q = CGI->new();
+    print $q->header(
+        -type=>'text/html',
+        -cookie=>\@SGX::Cookie::cookies
+    );
 
 =head1 DESCRIPTION
 
@@ -46,10 +59,11 @@ This is mainly an interface to the Apache::Session module with
 focus on user management.
 
 The table `sessions' is created as follows:
-  CREATE TABLE sessions (
-    id CHAR(32) NOT NULL UNIQUE,
-    a_session TEXT NOT NULL
-  );
+
+    CREATE TABLE sessions (
+        id CHAR(32) NOT NULL UNIQUE,
+        a_session TEXT NOT NULL
+    );
 
 =head1 AUTHORS
 
@@ -78,8 +92,8 @@ use warnings;
 
 use vars qw($VERSION);
 
-$VERSION = '0.09';
-$VERSION = eval $VERSION;
+$VERSION = '0.10';
+#$VERSION = eval $VERSION;
 
 use base qw/SGX::Session/;
 use CGI::Cookie;
@@ -99,16 +113,14 @@ our @cookies;
 sub new {
 
     # This is the constructor
-    my $class = shift;
+    my ($class, %p) = @_;
 
-    # The `active' property is temporary, until I find a more reliable
-    # way to tell whether a session is active.
-
-    my %p = @_;
+    # :TODO:06/05/2011 22:48:28:es: figure out a more reliable way to
+    # tell whether a session is active than relying on the `active'
+    # property.
 
     my %cookies = fetch CGI::Cookie;
-    my $id;
-    eval { $id = $cookies{ $p{-cookie_name} }->value; };
+    my $id = eval { $cookies{ $p{-cookie_name} }->value };
 
     my $self = {
         dbh            => $p{-handle},
@@ -129,7 +141,7 @@ sub commit {
     # calls the parent method and bakes a cookie on success
     my $self = shift;
     if ( $self->SUPER::commit ) {
-        push @cookies, new CGI::Cookie(
+        push @cookies, CGI::Cookie->new(
             -name  => $self->{cookie_name},
             -value => $self->{data}->{_session_id},
             -path  => dirname( $ENV{SCRIPT_NAME} )
@@ -138,6 +150,7 @@ sub commit {
         #   -domain    => $ENV{SERVER_NAME},
         #warn Dumper(\@cookies);
     }
+    return;
 }
 1;    # for require
 

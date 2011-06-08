@@ -70,14 +70,14 @@ sub loadFromForm()
 #Loads information into the object that is used to create the study dropdown.
 sub loadPlatformData
 {
-	my $self		= shift;
+	my $self = shift;
 
-	my $platformDropDown	= new SGX::DropDownData($self->{_dbh},$self->{_PlatformQuery},0);
+	my $platformDropDown = SGX::DropDownData->new(
+        $self->{_dbh},
+        $self->{_PlatformQuery}
+    );
 
-	$self->{_platformList}  = $platformDropDown->loadDropDownValues();
-	
-	#$self->{_platformList} 	= $platformDropDown->{_dropDownList};
-	#$self->{_platformValue} = $platformDropDown->{_dropDownValue};
+	$self->{_platformList} = $platformDropDown->loadDropDownValues();
 }
 
 sub drawAddExperimentMenu

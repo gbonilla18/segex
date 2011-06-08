@@ -666,16 +666,12 @@ sub printJSExperimentHeaders
 
 sub buildUnassignedExperimentDropDown
 {
-	my $self		= shift;
-	my $unassignedQuery = $self->{_ExistingUnassignedStudyQuery};
-	#$unassignedQuery	=~ s/\{0\}/\Q$self->{_stid}\E/;
-		
-	my $unassignedDropDown	= new SGX::DropDownData($self->{_dbh},$unassignedQuery,0);
-
-	$self->{_unassignedList}    = $unassignedDropDown->loadDropDownValues($self->{_stid});
-
-	#$self->{_unassignedList} 	= $unassignedDropDown->{_dropDownList};
-	#$self->{_unassignedValue} 	= $unassignedDropDown->{_dropDownValue};
+	my $self = shift;
+	my $unassignedDropDown = SGX::DropDownData->new(
+        $self->{_dbh},
+        $self->{_ExistingUnassignedStudyQuery}
+    );
+	$self->{_unassignedList} = $unassignedDropDown->loadDropDownValues($self->{_stid});
 }
 
 sub printJavaScriptRecordsForExistingDropDowns

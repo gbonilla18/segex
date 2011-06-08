@@ -5,78 +5,111 @@ SGX::User
 
 =head1 SYNOPSIS
 
-  use SGX::User;
+To create an instance:
+(1) $dbh must be an active database handle
+(2) 3600 is 60 * 60 s = 1 hour (session time to live)
+(3) check_ip determines whether user IP is verified
+(4) cookie_name can be anything
 
-  # create an instance:
-  # -   $dbh must be an active database handle
-  # -   3600 is 60 * 60 s = 1 hour (session time to live)
-  # -   check_ip determines whether user IP is verified
-  # -   cookie_name can be anything
-  #
-  my $s = SGX::User -> new (
-                        -handle          =>$dbh, 
-                       -expire_in       =>3600,
-                       -check_ip        =>1,
-                       -cookie_name     =>'chocolate_chip'
-  );
+    use SGX::User;
+    my $s = SGX::User -> new (
+        -handle      => $dbh, 
+        -expire_in   => 3600,
+        -check_ip    => 1,
+        -cookie_name => 'chocolate_chip'
+    );
 
-  # restore previous session if it exists
-  $s->restore;
+To restore previous session if it exists
+    $s->restore;
 
-  # delete previous session, active session, or both if both exist --
-  # useful for user logout for example
-  $s->destroy;
+To delete previous session, active session, or both if both exist -- useful when user
+logs out, for example:
 
-  $s->authenticate($username, $password, \$error_string);
+    $s->destroy;
 
-  # $login_uri must be in this form: /cgi-bin/my/path/index.cgi?a=login
-  $s->reset_password($username, $project_name, $login_uri, \$error_string);
+    $s->authenticate($username, $password, \$error_string);
 
-  $s->commit;    # necessary to make a cookie. Also flushes the session data
+Note: $login_uri must be in this form: /cgi-bin/my/path/index.cgi?a=login
 
-  # You can create several instances of this class at the same time. The 
-  # @SGX::Cookie::cookies array will contain the cookies created by all instances
-  # of the SGX::User or SGX::Cookie classes. If the array reference is sent to CGI::header, for 
-  # example, as many cookies will be created as there are members in the array.
-  #
-  # To send a cookie to the user:
-  $q = new CGI;
-  print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+    $s->reset_password($username, $project_name, $login_uri, \$error_string);
 
-  # more code ...
+To make a cookie and flush session data:
+    $s->commit;
 
-  # is_authorized('admin') checks whether the session user has the credential 'admin'
-  if ($s->is_authorized('admin')) {
-          # do admin stuff
-  } else {
-          print 'have to be logged in!';
-  }
+You can create several instances of this class at the same time. The 
+@SGX::Cookie::cookies array will contain the cookies created by all instances of 
+the SGX::User or SGX::Cookie classes. If the array reference is sent to CGI::header,
+for example, as many cookies will be created as there are members in the array.
+
+To send a cookie to the user:
+
+    $q = new CGI;
+    print $q->header(
+        -type=>'text/html',
+        -cookie=>\@SGX::Cookie::cookies
+    );
+
+Note: is_authorized('admin') checks whether the session user has the credential 'admin'
+
+    if ($s->is_authorized('admin')) {
+        # do admin stuff...
+    } else {
+        print 'have to be logged in!';
+    }
 
 =head1 DESCRIPTION
 
-This is mainly an interface to the Apache::Session module with
-focus on user management.
+This is mainly an interface to the Apache::Session module with focus on user management.
+
+For a user to be registered, he/she must be approved by an admin.  Valid email address 
+is not required, however when an email *is* entered, it must be verified, otherwise the 
+user will not be able to reset a password without admin help.
+
+If the user enters or changes an email address, a validation message is sent to this 
+address with a link and a special code that is valid only for 48 hours. When the user 
+clicks on this link, he/she is presented with a login page. After the user enters the 
+name and the password, the email validation is complete.
+
+To accomplish this, the "secret code" is embedded in the URL being emailed to the user. 
+At the same time, a new session is opened (so that the "secret code" is actually the 
+session_id) with expiration time 48 * 3600. The url looks like:
+
+http://mydomain/my/path/index.cgi?a=verifyEmail&code=343ytgsr468das
+
+On being sent a verifyEmail command, index.cgi checks the logged-in status of a user 
+(which is independent from is_authorized() because the user may not have yet obtained 
+authorization from the site admin). If a user is logged in, username is compared with 
+the username from the 48-hr session.  This is done via opening two session objects at once.
+
+TODO: write a method is_logged_in()
+
+Passwords are not stored in the database directly; instead, an SHA1 hash is being used.
+SHA1 gives relatively decent level of security, but it is possible to crack it given 
+enough computing resources. The NSA does not recommend this hash since 2005 when it was 
+first cracked.
 
 The table `sessions' is created as follows:
-  CREATE TABLE sessions (
-    id CHAR(32) NOT NULL UNIQUE,
-    a_session TEXT NOT NULL
-  );
+
+    CREATE TABLE sessions (
+        id CHAR(32) NOT NULL UNIQUE,
+        a_session TEXT NOT NULL
+    );
 
 The table `users' is created as follows:
-  CREATE TABLE `users` (
-    `uid` int(10) unsigned NOT NULL auto_increment,
-    `uname` varchar(60) NOT NULL,
-    `pwd` char(40) NOT NULL,
-    `email` varchar(60) NOT NULL,
-    `full_name` varchar(100) NOT NULL,
-    `address` varchar(200) default NULL,
-    `phone` varchar(60) default NULL,
-    `level` enum('unauth','user','admin') NOT NULL,
-    `email_confirmed` tinyint(1) default '0',
-    PRIMARY KEY  (`uid`),
-    UNIQUE KEY `uname` (`uname`)
-  ) ENGINE=InnoDB
+
+    CREATE TABLE `users` (
+        `uid` int(10) unsigned NOT NULL auto_increment,
+        `uname` varchar(60) NOT NULL,
+        `pwd` char(40) NOT NULL,
+        `email` varchar(60) NOT NULL,
+        `full_name` varchar(100) NOT NULL,
+        `address` varchar(200) default NULL,
+        `phone` varchar(60) default NULL,
+        `level` enum('unauth','user','admin') NOT NULL,
+        `email_confirmed` tinyint(1) default '0',
+        PRIMARY KEY  (`uid`),
+        UNIQUE KEY `uname` (`uname`)
+    ) ENGINE=InnoDB
 
 =head1 AUTHORS
 
@@ -103,10 +136,12 @@ package SGX::User;
 use strict;
 use warnings;
 
+use CGI::Carp qw/croak/;
+
 use vars qw($VERSION);
 
-$VERSION = '0.09';
-$VERSION = eval $VERSION;
+$VERSION = '0.10';
+#$VERSION = eval $VERSION;
 
 use base qw/SGX::Cookie/;
 use Digest::SHA1 qw/sha1_hex/;
@@ -124,10 +159,7 @@ use SGX::Session;    # for email confirmation
 sub authenticate {
 
 # Queries the `users' table in the database for matching username and password hash.
-# Passwords are not stored in the database directly; instead, an SHA1 hash is being used.
-# SHA1 gives relatively decent level of security, but it is possible to crack it given enough
-# computing resources. NSA does not recommend this hash since 2005 when it was first cracked.
-#
+
     my ( $self, $username, $password, $error ) = @_;
 
     if ( !defined($username) || $username eq '' ) {
@@ -142,9 +174,9 @@ sub authenticate {
     $password = sha1_hex($password);
     my $sth =
       $self->{dbh}->prepare('select level from users where uname=? and pwd=?')
-      or die $self->{dbh}->errstr;
+      or croak $self->{dbh}->errstr;
     my $rowcount = $sth->execute( $username, $password )
-      or die $self->{dbh}->errstr;
+      or croak $self->{dbh}->errstr;
 
     if ( $rowcount == 1 ) {
 
@@ -194,9 +226,9 @@ sub reset_password {
     my $sth =
       $self->{dbh}->prepare(
         'select full_name, email from users where uname=? and email_confirmed=1'
-      ) or die $self->{dbh}->errstr;
+      ) or croak $self->{dbh}->errstr;
     my $rowcount = $sth->execute($username)
-      or die $self->{dbh}->errstr;
+      or croak $self->{dbh}->errstr;
 
     if ( $rowcount == 1 ) {
 
@@ -214,7 +246,9 @@ sub reset_password {
         );
         $msg->add( 'From', ('NOREPLY') );
         my $fh = $msg->open;
-        print $fh 'Hi ' . $u->{full_name} . ",
+        my $user_full_name = $u->{full_name};
+        print $fh <<"END_RESET_PWD_MSG";
+Hi $user_full_name,
 
 This is your new $project_name password:
 
@@ -226,22 +260,26 @@ $login_uri
 
 If you do not think you have requested a new password to be emailed to you, please notify the $project_name team.
 
-- $project_name team";
-        $fh->close or die 'Could not send email';
+This message was sent automatically.
+
+- $project_name team
+
+END_RESET_PWD_MSG
+        $fh->close or croak 'Could not send email';
 
         # update the database
         $new_pwd = sha1_hex($new_pwd);
         my $rows_affected =
           $self->{dbh}->do( 'update users set pwd=? where uname=?',
             undef, $new_pwd, $username )
-          or die $self->{dbh}->errstr;
+          or croak $self->{dbh}->errstr;
 
         assert( $rows_affected == 1 );
 
         #if ($rows_affected == 1) {
-        #    $self->{dbh}->commit or die $self->{dbh}->errstr;
+        #    $self->{dbh}->commit or croak $self->{dbh}->errstr;
         #} else {
-        #    $self->{dbh}->rollback or die $self->{dbh}->errstr;
+        #    $self->{dbh}->rollback or croak $self->{dbh}->errstr;
         #}
 
         return 1;
@@ -287,7 +325,7 @@ sub change_password {
     my $rows_affected =
       $self->{dbh}->do( 'update users set pwd=? where uname=? and pwd=?',
         undef, $new_password1, $username, $old_password )
-      or die $self->{dbh}->errstr;
+      or croak $self->{dbh}->errstr;
 
     if ( $rows_affected == 1 ) {
         return 1;
@@ -331,7 +369,7 @@ sub change_email {
     my $rows_affected = $self->{dbh}->do(
 'update users set email=?, email_confirmed=0 where uname=? and pwd=? and email!=?',
         undef, $email1, $password, $email1
-    ) or die $self->{dbh}->errstr;
+    ) or croak $self->{dbh}->errstr;
 
     if ( $rows_affected == 1 ) {
         $self->send_verify_email( $project_name, $username, $username, $email1,
@@ -357,29 +395,6 @@ sub register_user {
         $phone,  $project_name, $login_uri, $error
     ) = @_;
 
-# For a user to be registered, he/she must be approved by an admin.
-# Valid email address is not required, however when an email *is*
-# entered, it must be verified, otherwise the user will not be
-# able to reset a password without admin help.
-#
-# If the user enters or changes an email address, a validation message is sent to
-# this address with a link and a special code that is valid only for
-# 48 hours. When the user clicks on this link, he/she is presented with
-# a login page. After the user enters the name and the password,
-# the email validation is complete.
-#
-# To accomplish this, the "secret code" is embedded in the URL being emailed
-# to the user. At the same time, a new session is opened (so that the "secret code"
-# is actually the session_id) with expiration time 48 * 3600. the url looks like
-#
-# http://mydomain/my/path/index.cgi?a=verifyEmail&code=343ytgsr468das
-#
-# On being sent a verifyEmail command, index.cgi checks the logged-in status
-# of a user (which is independent from is_authorized() because the user may not have
-# yet obtained authorization from the site admin). // NOTE: write a method is_loggedIn() //
-# If a user is logged in, username is compared with the username from the 48-hr session.
-# This is done via opening two session objects at once.
-#
     if ( !defined($username) || $username eq '' ) {
         $$error = 'Username not specified';
         return 0;
@@ -413,8 +428,8 @@ sub register_user {
         return 0;
     }
     my $sth = $self->{dbh}->prepare('select count(*) from users where uname=?')
-      or die $self->{dbh}->errstr;
-    my $rowcount = $sth->execute($username) or die $self->{dbh}->errstr;
+      or croak $self->{dbh}->errstr;
+    my $rowcount = $sth->execute($username) or croak $self->{dbh}->errstr;
     assert( $rowcount == 1 );
     my $user_found = $sth->fetchrow_array;
     $sth->finish;
@@ -434,7 +449,7 @@ sub register_user {
         $full_name,
         $address,
         $phone
-    ) or die $self->{dbh}->errstr;
+    ) or croak $self->{dbh}->errstr;
 
     assert( $rows_affected == 1 );
 
@@ -451,10 +466,10 @@ sub send_verify_email {
         -check_ip  => 0,
         -id        => undef
     );
-    $s->open;
+    $s->commence();
     $s->{object}->{username} =
       $username;    # make the session object store the username
-    if ( $s->commit ) {
+    if ( $s->commit() ) {
 
         # email the confirmation link
         my $msg = Mail::Send->new(
@@ -463,17 +478,24 @@ sub send_verify_email {
         );
         $msg->add( 'From', ('NOREPLY') );
         my $fh = $msg->open;
-        print $fh 'Hi ' . $full_name . ",
+        my $session_id = $s->{data}->{_session_id};
+        print $fh <<"END_CONFIRM_EMAIL_MSG";
+Hi $full_name,
 
-You have recently applied for user access to $project_name. Please click on the link below to confirm your email address with $project_name. This is will be the email address $project_name administrators will use to contact you.
+You have recently applied for user access to $project_name. Please click on the link below to confirm your email address with $project_name.
 
-$login_uri&sid=" . $s->{data}->{_session_id} . "
+$login_uri&sid=$session_id
 
 If you have never heard of $project_name, please ignore this message or notify the $project_name team if you receive it repeatedly.
 
-- $project_name team";
-        $fh->close or die 'Could not send email';
+This message was sent automatically.
+
+- $project_name team
+
+END_CONFIRM_EMAIL_MSG
+        $fh->close or croak 'Sending email failed';
     }
+    return;
 }
 
 sub verify_email {
@@ -484,7 +506,7 @@ sub verify_email {
     my $rows_affected =
       $self->{dbh}->do( 'update users set email_confirmed=1 WHERE uname=?',
         undef, $username )
-      or die $self->{dbh}->errstr;
+      or croak $self->{dbh}->errstr;
 
     assert( $rows_affected == 1 );
     return 1;
