@@ -1,5 +1,10 @@
 TODO: 
 
+0) This is important: there should be a "tree" of user actions. Index.cgi should only
+take care of dispatching top-level actions in the tree. The modules (ManageProjects,
+ManageStudies, ManageExperiments etc) should dispatch the actions at the remaining
+levels.
+
 1) rename table "microarray" to "response"
 
 2) Tentative: move "public" field from "Experiment" to "Study". Consequence: if a particular 
