@@ -201,13 +201,17 @@ sub dispatch {
             $javaScriptDeleteConfirm->drawJavaScriptCode();
         }
         else {
-            croak
-              "ManageProjects does not know how to dispatch action \"$action\"";
+            # default action: show Manage Projects main form
+            $self->loadAllProjects();
+            $self->showProjects();
+
+            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
+            $javaScriptDeleteConfirm->drawJavaScriptCode();
         }
     }
     if ( $action eq 'delete' || $action eq 'editSubmit' ) {
         my $redirectURI =
-          $self->{_cgi}->url( -absolute => 1 ) . '?a=form_manageProjects';
+          $self->{_cgi}->url( -absolute => 1 ) . '?a=manageProjects';
         my $redirectString =
 "<script type=\"text/javascript\">window.location = \"$redirectURI\"</script>";
         print "$redirectString";

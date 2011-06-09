@@ -193,25 +193,6 @@ while (defined($action)) { switch ($action) {
             $action = FORM.LOGIN;
         }
     }
-    case FORM.MANAGEPROJECTS {
-        if ($s->is_authorized('user')) {    
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
-
-            $content = \&form_manageProjects;
-            $title = 'Projects';
-            $action = undef;    # final state
-        } else {
-            $action = FORM.LOGIN;
-        }
-    }
     case MANAGEPROJECTS {
         if ($s->is_authorized('user')) {
 
@@ -225,29 +206,8 @@ while (defined($action)) { switch ($action) {
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 
-
             $content = \&manageProjects;
-
             $title = 'Projects';
-            $action = undef;    # final state
-        } else {
-            $action = FORM.LOGIN;
-        }
-    }
-    case FORM.MANAGESTUDIES {
-        if ($s->is_authorized('user')) {    
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
-
-            $content = \&form_manageStudies;
-            $title = 'Studies';
             $action = undef;    # final state
         } else {
             $action = FORM.LOGIN;
@@ -676,9 +636,9 @@ if ($s->is_authorized('user')) {
                 -title=>'Upload or Update Probe Annotations'}, 'Upload/Update Annotations');
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEPLATFORMS,
                 -title=>'Manage Platforms'}, 'Manage Platforms');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEPROJECTS,
+    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGEPROJECTS,
                 -title=>'Manage Projects'}, 'Manage Projects');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGESTUDIES,
+    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGESTUDIES,
                 -title=>'Manage Studies'}, 'Manage Studies');
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEEXPERIMENTS,
                 -title=>'Manage Experiments'}, 'Manage Experiments');
@@ -2709,29 +2669,8 @@ sub managePlatforms
 #######################################################################################
 
 #===  FUNCTION  ================================================================
-#         NAME:  form_manageProjects
-#      PURPOSE:  displays the Manage Projects form.
-#   PARAMETERS:  
-#      RETURNS:  
-#  DESCRIPTION:  
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub form_manageProjects
-{
-    my $mp = SGX::ManageProjects->new($dbh,$q, JS_DIR);
-    $mp->loadAllProjects();
-    $mp->showProjects();
-
-    my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-    $javaScriptDeleteConfirm->drawJavaScriptCode();
-}
-
-#===  FUNCTION  ================================================================
 #         NAME:  manageProjects
-#      PURPOSE:  performs the action that was asked for by the Manage Projects
-#                   form
+#      PURPOSE:  dispatch requests related to Manage Projects functionality
 #   PARAMETERS:  
 #      RETURNS:  
 #  DESCRIPTION:  
@@ -2747,17 +2686,6 @@ sub manageProjects
 }
 
 #######################################################################################
-#This just displays the Manage studies form.
-sub form_manageStudies
-{
-    my $ms = SGX::ManageStudies->new($dbh,$q, JS_DIR);
-    $ms->loadAllStudies();
-    $ms->loadPlatformData();
-    $ms->showStudies();
-
-    my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-    $javaScriptDeleteConfirm->drawJavaScriptCode();
-}
 
 #This performs the action that was asked for by the manage studies form.
 sub manageStudies

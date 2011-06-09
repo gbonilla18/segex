@@ -183,10 +183,19 @@ sub dispatch {
             my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
             $javaScriptDeleteConfirm->drawJavaScriptCode();
         }
+        else {
+            # default action: show Manage Studies main form
+            $self->loadAllStudies();
+            $self->loadPlatformData();
+            $self->showStudies();
+
+            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
+            $javaScriptDeleteConfirm->drawJavaScriptCode();
+        }
     }
     if ( $action eq 'delete' || $action eq 'editSubmit' ) {
         my $redirectSite =
-          $self->{_cgi}->url( -absolute => 1 ) . '?a=form_manageStudy';
+          $self->{_cgi}->url( -absolute => 1 ) . '?a=manageStudies';
         my $redirectString =
 "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
         print "$redirectString";
@@ -197,7 +206,7 @@ sub dispatch {
     {
         my $redirectSite =
             $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageStudy&ManageAction=edit&id='
+          . '?a=manageStudies&ManageAction=edit&id='
           . $self->{_stid};
         my $redirectString =
 "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
