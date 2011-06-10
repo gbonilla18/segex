@@ -30,8 +30,9 @@ package SGX::DropDownData;
 use strict;
 use warnings;
 
+#use Data::Dumper;
 use CGI::Carp qw/croak/;
-use Data::Dumper;
+use Tie::IxHash;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  DropDownData
@@ -39,12 +40,6 @@ use Data::Dumper;
 #   PARAMETERS:  0) $self  - object instance
 #                1) $dbh   - database handle
 #                2) $query - SQL query string (with or without placeholders)
-#                3) %args  - variable number of optional named arguments, e.g.
-#                   extras => {-1 => 'Unassigned', 0 => 'All'}
-#
-#                   Description of these optional arguments:
-#                   * extras   - key-value pair for the "blank" row. If
-#                                     present, a "blank" row will be added.
 #      RETURNS:  $self
 #  DESCRIPTION:  This is the constructor
 #       THROWS:  no exceptions
@@ -53,9 +48,7 @@ use Data::Dumper;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my $class = shift;
-    my $dbh   = shift;
-    my $query = shift;
+    my ($class, $dbh, $query) = @_;
 
     my $sth = $dbh->prepare($query)
       or croak $dbh->errstr;
@@ -63,12 +56,47 @@ sub new {
     my $self = {
         _dbh => $dbh,
         _sth => $sth,
-        @_    # not unpacking @_: constructor doesn't know about arguments to
-              # loadDropDownValues()
+        _tied => undef,
+        _hash => {},
     };
+
+    # Tying the hash using Tie::IxHash module allows us to keep hash
+    # keys ordered 
+    $self->{_tied} = tie(%{$self->{_hash}}, 'Tie::IxHash');
 
     bless $self, $class;
     return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  DropDownData
+#       METHOD:  clone
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is a copy constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub clone {
+    my $self = shift;
+
+    my $clone = {
+        _dbh => $self->{_dbh},
+        _sth => $self->{_sth},
+        _tied => undef,
+        _hash => {},
+    };
+
+    # Tying the hash using Tie::IxHash module allows us to keep hash
+    # keys ordered 
+    $clone->{_tied} = tie(%{$clone->{_hash}}, 'Tie::IxHash');
+
+    # now fill the new hash
+    $clone->{_tied}->Push(%{$self->{_hash}});
+
+    bless $clone, ref $self;
+    return $clone;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -82,7 +110,7 @@ sub new {
 #       THROWS:  no exceptions
 #     COMMENTS:  :NOTE:06/01/2011 03:31:28:es: allowing this method to be
 #                 executed more than once
-#     SEE ALSO:  n/a
+#     SEE ALSO:  http://search.cpan.org/~chorny/Tie-IxHash-1.22/lib/Tie/IxHash.pm
 #===============================================================================
 sub loadDropDownValues {
     my ( $self, @params ) = @_;
@@ -92,28 +120,51 @@ sub loadDropDownValues {
 
     my @sthArray = @{ $self->{_sth}->fetchall_arrayref };
 
-    my %tempLabel;
+    $self->{_sth}->finish;
 
+    my $hash_ref = $self->{_hash};
     foreach (@sthArray) {
         my $k = $_->[0];
         croak "Conflicting key '$k' in output hash"
-          if exists $tempLabel{$k};
-        $tempLabel{$k} = $_->[1];
+          if exists $hash_ref->{$k};
+        $hash_ref->{$k} = $_->[1];
     }
 
-    # If the dropdown is to have extra values, merge the hash referenced by 
-    # {extras} with the output hash. If the {extras} has not been assigned, the
-    # loop will be skipped, so no additional # check for definedness is needed.
-    #
-    while ( my ( $k, $v ) = each( %{ $self->{extras} } ) ) {
-        croak "Conflicting key '$k' in output hash"
-          if exists $tempLabel{$k};
-        $tempLabel{$k} = $v;
-    }
+    return $hash_ref;
+}
 
-    $self->{_sth}->finish;
 
-    return \%tempLabel;
+#===  CLASS METHOD  ============================================================
+#        CLASS:  DropDownData
+#       METHOD:  Push
+#   PARAMETERS:  0) $self
+#                1) list of key-value pairs, e.g. Push('0' => 'All Values', ...)
+#      RETURNS:  Same as Tie::IxHash::Push
+#  DESCRIPTION:  Add key-value array to hash using Tie::IxHash object
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub Push
+{
+    my ($self, @rest) = @_;
+    return $self->{_tied}->Push(@rest);
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  DropDownData
+#       METHOD:  Unshift
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Wraps the Unshift method in Tie::IxHash
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub Unshift
+{
+    my ($self, @rest) = @_;
+    return $self->{_tied}->Unshift(@rest);
 }
 
 1;

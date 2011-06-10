@@ -36,7 +36,7 @@ sub new {
 
 	my $self = {
 		_dbh			=> shift,
-		_FormObject		=> shift,
+		_cgi		=> shift,
 		_SearchType		=> shift,
 		_SearchText		=> shift,
 		_ProbeRecords		=> '',
@@ -127,11 +127,11 @@ sub createInsideTableQuery
 {
 	my $self		= shift;
 
-	my $text 		= $self->{_FormObject}->param('text') or die "You did not specify what to search for";	# must be always set -- no defaults
-	my $type 		= $self->{_FormObject}->param('type') or die "You did not specify where to search";	# must be always set -- no defaults
-	my $trans 		= (defined($self->{_FormObject}->param('trans'))) ? $self->{_FormObject}->param('trans') : 'fold';
-	my $match 		= (defined($self->{_FormObject}->param('match'))) ? $self->{_FormObject}->param('match') : 'full';
-	my $opts 		= (defined($self->{_FormObject}->param('opts'))) ? $self->{_FormObject}->param('opts') : 1;
+	my $text 		= $self->{_cgi}->param('text') or die "You did not specify what to search for";	# must be always set -- no defaults
+	my $type 		= $self->{_cgi}->param('type') or die "You did not specify where to search";	# must be always set -- no defaults
+	my $trans 		= (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
+	my $match 		= (defined($self->{_cgi}->param('match'))) ? $self->{_cgi}->param('match') : 'full';
+	my $opts 		= (defined($self->{_cgi}->param('opts'))) ? $self->{_cgi}->param('opts') : 1;
 	my $speciesColumn	= 5;
 
 	my @extra_fields;
@@ -258,10 +258,10 @@ sub createInsideTableQueryFromFile
 	my $self		= shift;
 
 	#This is the type of search.
-	my $type 		= $self->{_FormObject}->param('type') or die "You did not specify where to search";	# must be always set -- no defaults
+	my $type 		= $self->{_cgi}->param('type') or die "You did not specify where to search";	# must be always set -- no defaults
 	
 	#The options will determine what columns we select.
-	my $opts 		= (defined($self->{_FormObject}->param('opts'))) ? $self->{_FormObject}->param('opts') : 1;
+	my $opts 		= (defined($self->{_cgi}->param('opts'))) ? $self->{_cgi}->param('opts') : 1;
 	my $speciesColumn	= 5;
 
 	my @extra_fields;
@@ -298,7 +298,7 @@ sub createInsideTableQueryFromFile
 	open(OUTPUTTOSERVER,">$outputFileName");
 
 	#This is the file that was uploaded.
-	my $uploadedFile = $self->{_FormObject}->upload('gene_file');
+	my $uploadedFile = $self->{_cgi}->upload('gene_file');
 	
 	#Each line is an item to search on.
 	while ( <$uploadedFile> )
@@ -487,7 +487,7 @@ sub loadProbeReporterData
 	
 	if($DataCount < 1)
 	{
-		print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+		print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
 		print "No records found! Please click back on your browser and search again!";
 		exit;
 	}
@@ -538,7 +538,7 @@ sub loadProbeData
 	
 	if($DataCount < 1)
 	{
-		print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+		print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
 		print "No records found! Please click back on your browser and search again!";
 		exit;
 	}
@@ -577,7 +577,7 @@ sub loadExperimentData
 	$self->{_ExperimentNameListHash}	= {};
 	
 	#Grab the format for the output from the form.
-	$transform 	= ($self->{_FormObject}->param('trans')) 	if defined($self->{_FormObject}->param('trans'));
+	$transform 	= ($self->{_cgi}->param('trans')) 	if defined($self->{_cgi}->param('trans'));
 	
 	#Build SQL statement based on desired output type.
 	switch ($transform) 
@@ -647,7 +647,7 @@ sub printFindProbeToScreen
 {
 		my $self		= shift;
 		my $caption 		= sprintf("Found %d probe", $self->{_ProbeCount}) .(($self->{_ProbeCount} != 1) ? 's' : '')." annotated with $self->{_SearchType} groups matching '$self->{_SearchText}' ($self->{_SearchType}s grouped by gene symbol or transcript accession number)";
-		my $trans 		= (defined($self->{_FormObject}->param('trans'))) ? $self->{_FormObject}->param('trans') : 'fold';
+		my $trans 		= (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
 		my $speciesColumn	= 4;
 		
 		my $out .= "
@@ -702,7 +702,7 @@ sub printFindProbeToScreen
 	YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
 	YAHOO.util.Event.addListener(window, "load", function() {
 		';
-		if (defined($self->{_FormObject}->param('graph'))) {
+		if (defined($self->{_cgi}->param('graph'))) {
 			$out .= 'var graph_content = "";
 		var graph_ul = YAHOO.util.Dom.get("graphs");';
 		}
@@ -712,7 +712,7 @@ sub printFindProbeToScreen
 		YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
 			var i = oRecord.getCount();
 			';
-			if (defined($self->{_FormObject}->param('graph'))) {
+			if (defined($self->{_cgi}->param('graph'))) {
 				$out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
 			elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
 			} else {
@@ -794,7 +794,7 @@ sub printFindProbeToScreen
 		myDataTable.subscribe("renderEvent", function () {
 		';
 
-		if (defined($self->{_FormObject}->param('graph'))) 
+		if (defined($self->{_cgi}->param('graph'))) 
 		{
 			$out .= '
 			graph_ul.innerHTML = graph_content;
@@ -851,7 +851,7 @@ sub printFindProbeCSV
 	my $currentPID				= 0;
 
 	#Clear our headers so all we get back is the CSV file.
-	print $self->{_FormObject}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
+	print $self->{_cgi}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
 
 	#Print a line to tell us what report this is.
 	print "Find Probes Report," . localtime() . "\n\n";	

@@ -736,7 +736,6 @@ sub editProject {
     #Edit existing
     #
 
-    my %userList = %{ $self->{_userList} };
     print $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
@@ -770,9 +769,8 @@ sub editProject {
             $self->{_cgi}->popup_menu(
                 -name => 'manager',
                 -id   => 'manager',
-                -values =>
-                  [ sort { $userList{$a} cmp $userList{$b} } keys %userList ],
-                -labels  => \%userList,
+                -values => [ keys %{ $self->{_userList} }],
+                -labels  => $self->{_userList},
                 -default => $self->{_mgr}
             )
         ),
@@ -885,11 +883,8 @@ END_JSStudyList
             $self->{_cgi}->popup_menu(
                 -name   => 'study_exist_unassigned',
                 -id     => 'study_exist_unassigned',
-                -values => [
-                    sort { $unassignedList{$a} cmp $unassignedList{$b} }
-                      keys %unassignedList
-                ],
-                -labels => \%unassignedList
+                -values => [keys %{$self->{_unassignedList}} ],
+                -labels => $self->{_unassignedList}
             )
         ),
         $self->{_cgi}->dt('&nbsp;'),

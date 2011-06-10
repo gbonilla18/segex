@@ -60,7 +60,7 @@ sub new {
 'INSERT INTO study (description,pubmed,pid) VALUES (\'{0}\',\'{1}\',\'{2}\');',
         _DeleteQuery => \@deleteStatementList,
         _PlatformQuery =>
-'SELECT pid,CONCAT(pname ,\' \\\\ \',species) FROM platform WHERE isAnnotated;',
+'SELECT pid, CONCAT(pname, " (", species, ")") FROM platform WHERE isAnnotated ORDER BY pname ASC',
         _ExperimentsQuery => "    SELECT     experiment.eid,
                         study.pid,
                         experiment.sample1,
@@ -284,55 +284,34 @@ sub loadAllExperimentsFromStudy {
     return;
 }
 
-#Loads information into the object that is used to create the platform dropdown.
-sub loadPlatformData {
-    my $self    = shift;
-    my $loadAll = shift;
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageStudies
+#       METHOD:  loadPlatformData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Loads information into the object that is used to create the platform
+#                dropdown
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub loadPlatformData
+{
+    my $self = shift;
 
-    #Temp variables used to create the hash and array for the dropdown.
-    my %platformLabel;
+    my $dropDown = SGX::DropDownData->new(
+        $self->{_dbh},
+        $self->{_PlatformQuery}
+    );
 
-    #my @platformValue;
+    my $platformLabel = $dropDown->loadDropDownValues();
 
-    my %platformLabelAll;
+    my $dropDownAll = $dropDown->clone();
+    $dropDownAll->Unshift(-1 => 'All Platforms');
+    my $platformLabelAll = $dropDownAll->{_hash};
 
-    #my @platformValueAll;
-
-    #Variables used to temporarily hold the database information.
-    my $tempRecords     = '';
-    my $tempRecordCount = '';
-    my @tempPlatforms   = '';
-
-    $tempRecords = $self->{_dbh}->prepare( $self->{_PlatformQuery} )
-      or croak $self->{_dbh}->errstr;
-    $tempRecordCount = $tempRecords->execute or croak $self->{_dbh}->errstr;
-
-    #Grab all platforms and build the hash and array for drop down.
-    @tempPlatforms = @{ $tempRecords->fetchall_arrayref };
-
-    $platformLabelAll{'-1'} = "All Platforms";
-
-    #push(@platformValueAll,'-1');
-
-    foreach ( sort { $a->[0] cmp $b->[0] } @tempPlatforms ) {
-        $platformLabel{ $_->[0] }    = $_->[1];
-        $platformLabelAll{ $_->[0] } = $_->[1];
-
-        #push(@platformValue,$_->[0]);
-        #push(@platformValueAll,$_->[0]);
-    }
-
-    #Assign members variables reference to the hash and array.
-    $self->{_platformList} = \%platformLabel;
-
-    #$self->{_platformValue}     = \@platformValue;
-
-    $self->{_platformListAll} = \%platformLabelAll;
-
-    #$self->{_platformValueAll}    = \@platformValueAll;
-
-    #Finish with database.
-    $tempRecords->finish;
+    $self->{_platformList} = $platformLabel;
+    $self->{_platformListAll} = $platformLabelAll;
     return;
 }
 

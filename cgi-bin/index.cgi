@@ -91,6 +91,7 @@ use constant MANAGEEXPERIMENTS        => 'manageExperiments';
 use constant OUTPUTDATA            => 'outputData';
 use constant CHANGEPASSWORD        => 'changePassword';
 use constant CHANGEEMAIL        => 'changeEmail';
+use constant CHOOSEPROJECT      => 'chooseProject';
 use constant RESETPASSWORD        => 'resetPassword';
 use constant REGISTERUSER        => 'registerUser';
 use constant VERIFYEMAIL        => 'verifyEmail';
@@ -457,6 +458,15 @@ function init() {
             $action = FORM.LOGIN;
         }
     }
+    case CHOOSEPROJECT {
+        if ($s->is_authorized('unauth')) {
+            $title = 'Choose Project';
+            $content = \&chooseProject;
+            $action = undef;    # final state
+        } else {
+            $action = FORM.LOGIN;
+        }
+    }
     case FORM.CHANGEEMAIL    {
         if ($s->is_authorized('unauth')) {
             $title = 'Change Email';
@@ -664,7 +674,7 @@ sub cgi_start_html {
 sub cgi_end_html {
     print '</div>';
     print footer();
-    print projectInfo();
+    #print projectInfo();
     print $q->end_html;
 }
 #######################################################################################
@@ -715,9 +725,11 @@ sub form_login {
             form_error($error_string), 
             $q->submit(-name=>'login',-id=>'login',-value=>'Login'),
             $q->span({-class=>'separator'},' / '),
-            $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.RESETPASSWORD,-title=>'Email me a new password'},'I Forgot My Password'),
+            $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.RESETPASSWORD,
+                -title=>'Email me a new password'},'I Forgot My Password'),
             $q->span({-class=>'separator'},' / '),
-            $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.REGISTERUSER,-title=>'Set up a new account'},'Register')
+            $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.REGISTERUSER,
+                -title=>'Set up a new account'},'Register')
         )
     )
     .
@@ -824,14 +836,19 @@ sub form_changeEmail {
 sub changeEmail_success {
     print $q->p('You have changed your email address. Please verify your new email address with the system by clicking on the link in the email that has been sent to you.') .
     $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
-             -title=>'Back to my profile'},'Back'));
+         -title=>'Back to my profile'},'Back'));
 }
 #######################################################################################
 sub form_updateProfile {
     # user has to be logged in
-    print $q->p('<font size = "5">My Profile</font>');
-    print $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEPASSWORD,-title=>'Change Password'},'Change Password')) .
-    $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEEMAIL,-title=>'Change Email'},'Change Email'));
+    print 
+        $q->p('<font size = "5">My Profile</font>'),
+        $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.CHOOSEPROJECT,
+            -title=>'Choose Project'},'Choose Project')),
+        $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEPASSWORD,
+            -title=>'Change Password'},'Change Password')),
+        $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEEMAIL,
+            -title=>'Change Email'},'Change Email'));
 }
 #######################################################################################
 sub form_registerUser {
@@ -871,26 +888,27 @@ sub form_registerUser {
 }
 #######################################################################################
 sub footer {
-    $q->div({-id=>'footer'},
+    return 
+        $q->div({-id=>'footer'},
         $q->ul(
-        #$q->li($q->a({-href=>'http://www.bu.edu/',-title=>'Boston University'},$q->img({src=>'http://www.bu.edu/common/hp/graphics/bu-logo.gif', alt=>'Boston University'}))),
-        $q->li($q->a({-href=>'http://www.bu.edu/',-title=>'Boston University'},'Boston University')),
-        $q->li(
-            $q->ul(
-            $q->li($q->a({-href=>'http://validator.w3.org/check?uri=referer',
-                -title=>'Validate XHTML'},'XHTML')),
-            $q->li($q->a({-href=>'http://jigsaw.w3.org/css-validator/check/referer',
-                -title=>'Validate CSS'},'CSS')),
-            $q->li('SEGEX version : ' . $softwareVersion )
+            $q->li($q->a({-href=>'http://www.bu.edu/',
+                -title=>'Boston University'},'Boston University')),
+            $q->li(
+                $q->ul(
+                $q->li($q->a({-href=>'http://validator.w3.org/check?uri=referer',
+                    -title=>'Validate XHTML'},'XHTML')),
+                $q->li($q->a({-href=>'http://jigsaw.w3.org/css-validator/check/referer',
+                    -title=>'Validate CSS'},'CSS')),
+                $q->li('SEGEX version : ' . $softwareVersion )
+                )
             )
-        ))
-    );
+        ));
 }
 #######################################################################################
-sub projectInfo {
-    $ChooseProject = SGX::ChooseProject->new($dbh,$q);
-    $ChooseProject->drawProjectInfoHeader();
-}
+#sub projectInfo {
+#    $ChooseProject = SGX::ChooseProject->new($dbh,$q);
+#    $ChooseProject->drawProjectInfoHeader();
+#}
 #######################################################################################
 sub updateCell {
     my $type = $q->param('type');
@@ -2573,10 +2591,6 @@ sub cleanSQLString
 
 }
 
-#######################################################################################
-
-
-
 #===  FUNCTION  ================================================================
 #         NAME:  managePlatforms
 #      PURPOSE:  dispatch requests related to Manage Platforms functionality
@@ -2657,29 +2671,20 @@ sub outputData
     my $od = SGX::OutputData->new($dbh,$q, JS_DIR);
     $od->dispatch($q->url_param('outputAction'));
 }
-#######################################################################################
 
-#######################################################################################
-#This allows the user to change which projects are displaying.
-#######################################################################################
+#===  FUNCTION  ================================================================
+#         NAME:  chooseProject
+#      PURPOSE:  dispatch requests related to Choose Project functionality
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub chooseProject
 {
-    $ChooseProject = SGX::ChooseProject->new($dbh,$q);
-    
-    $ChooseProject->loadProjectData();
-    $ChooseProject->drawChangeProjectScreen();
-
- # :NOTE:06/06/2011 16:04:33:es: setting action to zero-length string if undefined
-    my $ChooseProjectAction = defined($q->url_param('projectAction')) ?
-        $q->url_param('projectAction') : '';
-
-    switch ($ChooseProjectAction) 
-    {
-        case 'change'
-        {
-            $ChooseProject->chooseProject();
-        }
-    }
-
+    my $cp = SGX::ChooseProject->new($dbh,$q);
+    $cp->dispatch($q->url_param('projectAction'));
 }
 

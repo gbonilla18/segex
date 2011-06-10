@@ -38,7 +38,17 @@ software/database instance could be set up on the same machine.
 
 TODO: create an interactive-prompt type interface for entering log path.
 
-2. Copy files. Note: symlinks can be created instead of copying, however that
+2. Check Perl dependencies. Tie::IxHash is not included in the default Perl
+installation on Linux Cent OS. The commands below upgrade and reload the cpan
+executable before installing the packages on which SEGEX depends:
+
+  sudo /usr/bin/perl -MCPAN -e shell
+  > install CPAN
+  > reload cpan
+  > install Tie::IxHash
+
+ 
+3. Copy files. Note: symlinks can be created instead of copying, however that
 would require FollowSymLinks directive to be set in the Apache configuration
 file for both CGI_ROOT and DOCUMENTS_ROOT directories.
 
@@ -88,13 +98,15 @@ TODO: create an interactive-prompt type interface for entering log path.
 
 2. Check Perl dependencies. Apache::Session and DBD::mysql are not included in
 the default Perl installation on Mac OS X Snow Leopard. The commands below
-upgrade and reload the cpan executable before installing the CPAN modules:
+upgrade and reload the cpan executable before installing packages on which
+SEGEX depends:
 
-  sudo /usr/bin/cpan
+  sudo /usr/bin/perl -MCPAN -e shell
   > install CPAN
   > reload cpan
   > install Apache::Session
   > install DBD::mysql
+  > install Tie::IxHash
 
 Note: If you are running Mac OS X 10.6 and have Xcode 4 installed, you no 
 longer have PPC assembler required to build CPAN packages. To work around this,
@@ -103,8 +115,10 @@ all references to PPC architecture (e.g. "-arch ppc") and reinstall package with
 "sudo make" and "sudo make install". To ensure CPAN can see your module, type
 "install My::Module" in CPAN shell and press <Enter>. You should see a message,
 "My::Module is up to date (vx.xx)". Alternatively (b), create the following symlinks:
-sudo ln -s /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc /Developer/usr/libexec/gcc/darwin
-sudo ln -s /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc /usr/libexec/gcc/darwin
+sudo ln -s /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc \
+	/Developer/usr/libexec/gcc/darwin
+sudo ln -s /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc \
+	/usr/libexec/gcc/darwin
 
 3. Copy files. Note: symlinks can be created instead of copying, however that
 would require FollowSymLinks directive to be set in the Apache configuration

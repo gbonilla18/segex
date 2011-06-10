@@ -36,7 +36,7 @@ sub new {
 
 	my $self = {
 		_dbh					=> shift,
-		_FormObject				=> shift,
+		_cgi				=> shift,
 		_QueryingPage			=> shift,
 		_InsertQuery			=> 'INSERT INTO experiment (sample1,sample2,ExperimentDescription,AdditionalInformation) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\');',		
 		_stid					=> '',
@@ -58,13 +58,13 @@ sub loadFromForm()
 {
 	my $self = shift;
 	
-	$self->{_sample1}				= ($self->{_FormObject}->param('Sample1'))			if defined($self->{_FormObject}->param('Sample1'));
-	$self->{_sample2}				= ($self->{_FormObject}->param('Sample2'))			if defined($self->{_FormObject}->param('Sample2'));
-	$self->{_stid}					= ($self->{_FormObject}->param('stid'))				if defined($self->{_FormObject}->param('stid'));
-	$self->{_stid}					= ($self->{_FormObject}->url_param('stid'))			if defined($self->{_FormObject}->url_param('stid'));	
-	$self->{_pid}					= ($self->{_FormObject}->param('platform_addNew'))	if defined($self->{_FormObject}->param('platform_addNew'));	
-	$self->{_ExperimentDescription}	= ($self->{_FormObject}->param('ExperimentDescription'))	if defined($self->{_FormObject}->param('ExperimentDescription'));
-	$self->{_AdditionalInformation}	= ($self->{_FormObject}->param('AdditionalInformation'))	if defined($self->{_FormObject}->param('AdditionalInformation'));
+	$self->{_sample1}				= ($self->{_cgi}->param('Sample1'))			if defined($self->{_cgi}->param('Sample1'));
+	$self->{_sample2}				= ($self->{_cgi}->param('Sample2'))			if defined($self->{_cgi}->param('Sample2'));
+	$self->{_stid}					= ($self->{_cgi}->param('stid'))				if defined($self->{_cgi}->param('stid'));
+	$self->{_stid}					= ($self->{_cgi}->url_param('stid'))			if defined($self->{_cgi}->url_param('stid'));	
+	$self->{_pid}					= ($self->{_cgi}->param('platform_addNew'))	if defined($self->{_cgi}->param('platform_addNew'));	
+	$self->{_ExperimentDescription}	= ($self->{_cgi}->param('ExperimentDescription'))	if defined($self->{_cgi}->param('ExperimentDescription'));
+	$self->{_AdditionalInformation}	= ($self->{_cgi}->param('AdditionalInformation'))	if defined($self->{_cgi}->param('AdditionalInformation'));
 }
 
 #Loads information into the object that is used to create the study dropdown.
@@ -88,34 +88,34 @@ sub drawAddExperimentMenu
 
 	my @_platformValue = keys %{$self->{_platformList}};
 
-	print $self->{_FormObject}->start_form(
+	print $self->{_cgi}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=' . $self->{_QueryingPage} . '&ManageAction=addNew&stid=' . $self->{_stid},
+		-action=>$self->{_cgi}->url(-absolute=>1).'?a=' . $self->{_QueryingPage} . '&ManageAction=addNew&stid=' . $self->{_stid},
 		-onsubmit=>'return validate_fields(this, [\'Sample1\',\'Sample2\',\'uploaded_data_file\']);'
 	) .
-	$self->{_FormObject}->p('In order to upload experiment data the file must be in a tab separated format and the columns be as follows.')
+	$self->{_cgi}->p('In order to upload experiment data the file must be in a tab separated format and the columns be as follows.')
 	.
-	$self->{_FormObject}->p('<b>Reporter Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2</b>')
+	$self->{_cgi}->p('<b>Reporter Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2</b>')
 	.
-	$self->{_FormObject}->p('Make sure the first row is the column headings and the second row starts the data.')
+	$self->{_cgi}->p('Make sure the first row is the column headings and the second row starts the data.')
 	.
-	$self->{_FormObject}->dl(
-		$self->{_FormObject}->dt('Platform:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'platform_addNew',-id=>'platform_addNew',-values=>\@_platformValue,-labels=>\%{$self->{_platformList}})),	
-		$self->{_FormObject}->dt('Sample 1:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'Sample1',-id=>'Sample1',-maxlength=>120)),
-		$self->{_FormObject}->dt('Sample 2:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'Sample2',-id=>'Sample2',-maxlength=>120)),
-		$self->{_FormObject}->dt('Experiment Description:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'ExperimentDescription',-id=>'ExperimentDescription',-maxlength=>1000)),
-		$self->{_FormObject}->dt('Additional Information:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'AdditionalInformation',-id=>'AdditionalInformation',-maxlength=>1000)),
-		$self->{_FormObject}->dt("Data File to upload:"),
-		$self->{_FormObject}->dd($self->{_FormObject}->filefield(-name=>'uploaded_data_file',-id=>'uploaded_data_file')),
-		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_FormObject}->span({-class=>'separator'},' / '))
+	$self->{_cgi}->dl(
+		$self->{_cgi}->dt('Platform:'),
+		$self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'platform_addNew',-id=>'platform_addNew',-values=>\@_platformValue,-labels=>\%{$self->{_platformList}})),	
+		$self->{_cgi}->dt('Sample 1:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'Sample1',-id=>'Sample1',-maxlength=>120)),
+		$self->{_cgi}->dt('Sample 2:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'Sample2',-id=>'Sample2',-maxlength=>120)),
+		$self->{_cgi}->dt('Experiment Description:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'ExperimentDescription',-id=>'ExperimentDescription',-maxlength=>1000)),
+		$self->{_cgi}->dt('Additional Information:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'AdditionalInformation',-id=>'AdditionalInformation',-maxlength=>1000)),
+		$self->{_cgi}->dt("Data File to upload:"),
+		$self->{_cgi}->dd($self->{_cgi}->filefield(-name=>'uploaded_data_file',-id=>'uploaded_data_file')),
+		$self->{_cgi}->dt('&nbsp;'),
+		$self->{_cgi}->dd($self->{_cgi}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_cgi}->span({-class=>'separator'},' / '))
 	) .
-	$self->{_FormObject}->end_form;
+	$self->{_cgi}->end_form;
 
 }
 
@@ -125,7 +125,7 @@ sub addNewExperiment
 	my $self 	= shift;
 
 	#The is the file handle of the uploaded file.
-	my $uploadedFile 	= $self->{_FormObject}->upload('uploaded_data_file');
+	my $uploadedFile 	= $self->{_cgi}->upload('uploaded_data_file');
 	
 	if(!$uploadedFile)
 	{

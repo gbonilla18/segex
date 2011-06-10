@@ -59,7 +59,7 @@ END_ReportQuery
 
     my $self = {
         _dbh        => shift,
-        _FormObject    => shift,
+        _cgi    => shift,
         _js_dir        => shift,
         _ExistingStudyQuery         => 'SELECT stid,description,pid FROM study',
         _ExistingExperimentQuery     => 'SELECT stid,eid,sample2,sample1 FROM experiment RIGHT JOIN StudyExperiment USING(eid);',
@@ -108,7 +108,7 @@ sub dispatch
 sub loadFromForm
 {
     my $self = shift;
-    $self->{_eidList} = ($self->{_FormObject}->param('experiment_exist')) if defined($self->{_FormObject}->param('experiment_exist'));
+    $self->{_eidList} = ($self->{_cgi}->param('experiment_exist')) if defined($self->{_cgi}->param('experiment_exist'));
     return;
 }
 
@@ -145,22 +145,22 @@ sub showExperiments
 
     print    '<br /><h2 name = "Output_Caption" id = "Output_Caption">Select Items to output</h2>' . "\n";
 
-    print $self->{_FormObject}->start_form(
+    print $self->{_cgi}->start_form(
         -method=>'POST',
         -name=>'AddExistingForm',
-        -action=>$self->{_FormObject}->url(-absolute=>1).'?a=outputData&outputAction=runReport',
+        -action=>$self->{_cgi}->url(-absolute=>1).'?a=outputData&outputAction=runReport',
         -onsubmit=>'return validate_fields(this,"");'
     ) .
-    $self->{_FormObject}->dl(
-        $self->{_FormObject}->dt('Study : '),
-        $self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'study_exist', -id=>'study_exist',-onChange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
-        $self->{_FormObject}->dt('Experiment : '),
-        $self->{_FormObject}->dd($self->{_FormObject}->popup_menu(-name=>'experiment_exist',-multiple=>'true', -id=>'experiment_exist')),
-        $self->{_FormObject}->dt('&nbsp;'),
-        $self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'RunReport',-id=>'RunReport',-value=>'Run Report'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+    $self->{_cgi}->dl(
+        $self->{_cgi}->dt('Study : '),
+        $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'study_exist', -id=>'study_exist',-onChange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
+        $self->{_cgi}->dt('Experiment : '),
+        $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'experiment_exist',-multiple=>'true', -id=>'experiment_exist')),
+        $self->{_cgi}->dt('&nbsp;'),
+        $self->{_cgi}->dd($self->{_cgi}->submit(-name=>'RunReport',-id=>'RunReport',-value=>'Run Report'),$self->{_cgi}->span({-class=>'separator'},' / ')
         )
     ) .
-    $self->{_FormObject}->end_form;
+    $self->{_cgi}->end_form;
     return;
 }
 

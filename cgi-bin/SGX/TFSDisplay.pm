@@ -35,7 +35,7 @@ sub new {
 
 	my $self = {
 		_dbh			=> shift,
-		_FormObject		=> shift,
+		_cgi		=> shift,
 		_Records		=> '',
 		_RecordsPlatform=> '',
 		_RowCountAll	=> 0,
@@ -98,22 +98,22 @@ sub loadTFSData
 	# If the $self->{_fs} is zero or undefined, all data will be output
 	#
 	my $regex_split_on_commas 	= qr/ *, */;
-	my @eidsArray 			= split($regex_split_on_commas, $self->{_FormObject}->param('eid'));
-	my @reversesArray		= split($regex_split_on_commas, $self->{_FormObject}->param('rev'));
-	my @fcsArray			= split($regex_split_on_commas, $self->{_FormObject}->param('fc'));
-	my @pvalArray			= split($regex_split_on_commas, $self->{_FormObject}->param('pval'));	
+	my @eidsArray 			= split($regex_split_on_commas, $self->{_cgi}->param('eid'));
+	my @reversesArray		= split($regex_split_on_commas, $self->{_cgi}->param('rev'));
+	my @fcsArray			= split($regex_split_on_commas, $self->{_cgi}->param('fc'));
+	my @pvalArray			= split($regex_split_on_commas, $self->{_cgi}->param('pval'));	
 	
 	$self->{_eids}			= \@eidsArray;
 	$self->{_reverses} 		= \@reversesArray;
 	$self->{_fcs} 			= \@fcsArray;
 	$self->{_pvals}			= \@pvalArray;
 	
-	$self->{_allProbes}		= $self->{_FormObject}->param('allProbes');
+	$self->{_allProbes}		= $self->{_cgi}->param('allProbes');
 	$self->{_searchFilters}		= '';	
-	$self->{_searchFilters}		= $self->{_FormObject}->param('searchFilter');
-	$self->{_fs} 			= $self->{_FormObject}->param('get');
-	$self->{_outType}		= $self->{_FormObject}->param('outType');
-	$self->{_opts} 			= $self->{_FormObject}->param('opts');
+	$self->{_searchFilters}		= $self->{_cgi}->param('searchFilter');
+	$self->{_fs} 			= $self->{_cgi}->param('get');
+	$self->{_outType}		= $self->{_cgi}->param('outType');
+	$self->{_opts} 			= $self->{_cgi}->param('opts');
 	
 	if ($self->{_fs} =~ m/^\d+ significant probes$/i) 
 	{
@@ -284,22 +284,22 @@ sub loadDataFromSubmission
 	# The $self->{_fs} parameter is the flagsum for which the data will be filtered
 	# If the $self->{_fs} is zero or undefined, all data will be output
 	my $regex_split_on_commas 	= qr/ *, */;
-	my @eidsArray 			= split($regex_split_on_commas, $self->{_FormObject}->param('eid'));
-	my @reversesArray		= split($regex_split_on_commas, $self->{_FormObject}->param('rev'));
-	my @fcsArray			= split($regex_split_on_commas, $self->{_FormObject}->param('fc'));
-	my @pvalArray			= split($regex_split_on_commas, $self->{_FormObject}->param('pval'));	
+	my @eidsArray 			= split($regex_split_on_commas, $self->{_cgi}->param('eid'));
+	my @reversesArray		= split($regex_split_on_commas, $self->{_cgi}->param('rev'));
+	my @fcsArray			= split($regex_split_on_commas, $self->{_cgi}->param('fc'));
+	my @pvalArray			= split($regex_split_on_commas, $self->{_cgi}->param('pval'));	
 	
 	$self->{_eids}			= \@eidsArray;
 	$self->{_reverses} 		= \@reversesArray;
 	$self->{_fcs} 			= \@fcsArray;
 	$self->{_pvals}			= \@pvalArray;
 	
-	$self->{_fs} 			= $self->{_FormObject}->param('get');
-	$self->{_outType}		= $self->{_FormObject}->param('outType');
-	$self->{_opts} 			= $self->{_FormObject}->param('opts');
-	$self->{_allProbes}		= $self->{_FormObject}->param('allProbes');
+	$self->{_fs} 			= $self->{_cgi}->param('get');
+	$self->{_outType}		= $self->{_cgi}->param('outType');
+	$self->{_opts} 			= $self->{_cgi}->param('opts');
+	$self->{_allProbes}		= $self->{_cgi}->param('allProbes');
 	$self->{_searchFilters}	= '';	
-	$self->{_searchFilters}	= $self->{_FormObject}->param('searchFilter');
+	$self->{_searchFilters}	= $self->{_cgi}->param('searchFilter');
 	
 }
 #######################################################################################
@@ -321,15 +321,15 @@ sub loadAllData
 		$self->{_fs} =~ s/^FS: //i;
 	}
 	
-	if(defined($self->{_FormObject}->param('CSV')))
+	if(defined($self->{_cgi}->param('CSV')))
 	{
-		if($self->{_FormObject}->param('CSV') =~ m/^(CSV)$/i)
+		if($self->{_cgi}->param('CSV') =~ m/^(CSV)$/i)
 		{
 			undef $self->{_fs};
 		}
 		else
 		{
-			if($self->{_FormObject}->param('CSV') =~ m/^\(TFS\:\s*(\d*)\s*CSV\)/i)
+			if($self->{_cgi}->param('CSV') =~ m/^\(TFS\:\s*(\d*)\s*CSV\)/i)
 			{
 				$self->{_fs} = $1;
 			}
@@ -450,8 +450,8 @@ sub displayTFSInfoCSV
 	my $currentLine = "";
 		
 	#Clear our headers so all we get back is the CSV file.
-	print $self->{_FormObject}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
-	#print $self->{_FormObject}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+	print $self->{_cgi}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
+	#print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
 
 	#Print a line to tell us what report this is.
 	print "Compare Experiments Report," . localtime() . "\n\n";
@@ -684,7 +684,7 @@ for (my $j = $self->{_numStart}; $j < @{$self->{_Records}->{NAME}}; $j++) {
 	push @table_format, 'formatNumber';
 }
 
-my $find_probes = $self->{_FormObject}->a({-target=>'_blank', -href=>$self->{_FormObject}->url(-absolute=>1).'?a=Search&graph=on&type=%1$s&text={0}', -title=>'Find all %1$ss related to %1$s {0}'}, '{0}');
+my $find_probes = $self->{_cgi}->a({-target=>'_blank', -href=>$self->{_cgi}->url(-absolute=>1).'?a=Search&graph=on&type=%1$s&text={0}', -title=>'Find all %1$ss related to %1$s {0}'}, '{0}');
 $find_probes =~ s/"/\\"/g;	# prepend all double quotes with backslashes
 
 my @format_template;
@@ -697,7 +697,7 @@ $table_format[1] = 'formatTranscript';
 $table_format[2] = 'formatGene';
 
 if ($self->{_opts} > 1) {
-	my $blat = $self->{_FormObject}->a({-target=>'_blank',-title=>'UCSC BLAT on DNA',-href=>'http://genome.ucsc.edu/cgi-bin/hgBlat?org={1}&type=DNA&userSeq={0}'}, '{0}');
+	my $blat = $self->{_cgi}->a({-target=>'_blank',-title=>'UCSC BLAT on DNA',-href=>'http://genome.ucsc.edu/cgi-bin/hgBlat?org={1}&type=DNA&userSeq={0}'}, '{0}');
 	$blat =~ s/"/\\"/g;      # prepend all double quotes with backslashes
 	$table_format[3] = 'formatProbeSequence';
 	$format_template[3] = $blat;
