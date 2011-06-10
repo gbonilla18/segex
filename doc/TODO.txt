@@ -3,7 +3,11 @@ TODO:
 0) This is important: there should be a "tree" of user actions. Index.cgi should only
 take care of dispatching top-level actions in the tree. The modules (ManageProjects,
 ManageStudies, ManageExperiments etc) should dispatch the actions at the remaining
-levels.
+levels. Call top-level actions "a=" and second-level actions "b=". Pass reference to 
+array of Javascript includes ot object constructors. Constructors will fill out the
+array during the construction of the object. Constructors perform most of the object
+initialization except printing output. Constructors should also be allowed to handle
+storing of session data.
 
 1) rename table "microarray" to "response"
 
