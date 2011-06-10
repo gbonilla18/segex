@@ -1099,10 +1099,9 @@ sub getJavaScriptRecordsForExistingDropDowns {
 
     ### populate the Javascript hash with the content of the study recordset
     while ( my @row = $sth->fetchrow_array ) {
+        #warn Dumper(\@row);
         push @out,
           'project[' . $row[0] . '][1][' . $row[1] . '] = \'' . $row[2] . "';";
-        push @out,
-          'project[' . $row[0] . '][2][' . $row[1] . '] = \'' . $row[3] . "';";
     }
     $sth->finish;
 

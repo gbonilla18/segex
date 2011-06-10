@@ -2750,7 +2750,7 @@ sub outputData
 #===============================================================================
 sub chooseProject
 {
-    my $cp = SGX::ChooseProject->new($dbh,$q,$s);
+    my $cp = SGX::ChooseProject->new($dbh,$q,$s->{data}->{curr_proj});
     $cp->dispatch($q->url_param('projectAction'));
 }
 

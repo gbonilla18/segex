@@ -26,7 +26,15 @@ function populateSelectExisting(el, id_el, obj)
 		for (var i in obj[stid][1]) {
 		        var new_opt = document.createElement('option');
 		        new_opt.setAttribute('value', i);
-		        new_opt.innerHTML = obj[stid][1][i] + ' / ' + obj[stid][2][i];
+			if (obj[stid][2][i] === undefined) {
+				// "study" for 
+				// Projects -> Studies
+				new_opt.innerHTML = obj[stid][1][i];
+			} else {
+				// "sample1 / sample2" for 
+				// Projects -> Experiments
+				new_opt.innerHTML = obj[stid][1][i] + ' / ' + obj[stid][2][i];
+			}
 		        el.appendChild(new_opt);
 		}
 	}

@@ -43,11 +43,11 @@ use Switch;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ($class, $dbh, $cgi, $user_session) = @_;
+    my ($class, $dbh, $cgi, $curr_proj) = @_;
     my $self = {
         _dbh                  => $dbh,
         _cgi                  => $cgi,
-        _curr_proj            => $user_session->{data}->{curr_proj},
+        _curr_proj            => $curr_proj,
         _ProjectDropdownQuery => 'SELECT prid, prname FROM project ORDER BY prname ASC',
         _projectList          => {}
     };
