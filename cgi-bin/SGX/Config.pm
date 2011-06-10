@@ -13,20 +13,8 @@ use File::Basename;
 use List::Util qw/min max/;
 use CGI::Carp qw/croak/;
 
-#use DBI;
-
-# CGI::Carp module sends warnings and errors to the browser;
-# this is for debugging purposes only -- it will be removed in
-# production code.
-#BEGIN {
-#    use CGI::Carp qw/carpout fatalsToBrowser warningsToBrowser/;
-#    open(LOG, ">>/Users/junior/log/error_log")
-#        or die "Unable to append to error_log: $!";
-#    carpout(*LOG);
-#}
-
 our @EXPORT =
-  qw/max min bounds label_format mysql_connect PROJECT_NAME CGI_ROOT YUI_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR SPECIES/;
+  qw/trim max min bounds label_format mysql_connect PROJECT_NAME CGI_ROOT YUI_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR SPECIES/;
 
 sub mysql_connect {
 
@@ -139,6 +127,26 @@ sub label_format {
         $fig = 10;
     }
     return $fig . $remainder;
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  trim
+#      PURPOSE:  remove whitespace from the beginning and the end of a string
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub trim
+{
+    my $string = shift;
+    
+    $string =~ s/^\s*//;
+    $string =~ s/\s*$//;
+    
+    return $string;
 }
 
 1;

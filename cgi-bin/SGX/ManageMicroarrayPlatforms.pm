@@ -28,7 +28,9 @@ package SGX::ManageMicroarrayPlatforms;
 use strict;
 use warnings;
 
+use Switch;
 use SGX::DrawingJavaScript;
+use SGX::JavaScriptDeleteConfirm;
 
 sub new {
 	# This is the constructor
@@ -46,7 +48,7 @@ sub new {
 
 	my $self = {
 		_dbh		=> shift,
-		_FormObject	=> shift,
+		_cgi	=> shift,
 		_LoadQuery	=> 'select 	platform.pname, 
 						platform.def_f_cutoff AS \'Default Fold Change\', 
 						platform.def_p_cutoff AS \'Default P-Value\', 
@@ -90,6 +92,55 @@ sub new {
 	return $self;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  dispatch
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  executes appropriate method for the given action
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch
+{
+    my ( $self, $action ) = @_;
+
+    $action = '' if not defined($action);
+    switch($action)
+    {
+        case 'add' 
+        {
+            $self->loadFromForm();
+            $self->insertNewPlatform();
+            print "<br />Record added - Redirecting...<br />";
+
+            my $redirectSite   = $self->{_cgi}->url(-absolute=>1).'?a=form_uploadAnnot&newpid=' . $self->{_pid};
+            my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+            print "$redirectString";
+        }
+        case 'delete'
+        {
+            $self->loadFromForm();
+            $self->deletePlatform();
+            print "<br />Record deleted - Redirecting...<br />";
+
+            my $redirectSite   = $self->{_cgi}->url(-absolute=>1).'?a=managePlatforms';
+            my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
+            print "$redirectString";
+        }       
+        else
+        {
+            # default action: just display the Manage Platforms form
+            $self->loadAllPlatforms();
+            $self->showPlatforms();
+
+            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
+            $javaScriptDeleteConfirm->drawJavaScriptCode();
+        }
+    }
+}
+
 #Loads all platforms into the object from the database.
 sub loadAllPlatforms
 {
@@ -107,7 +158,7 @@ sub loadSinglePlatform
 {
 	#Grab object and id from URL.
 	my $self 	= shift;
-	$self->{_pid} 	= $self->{_FormObject}->url_param('id');
+	$self->{_pid} 	= $self->{_cgi}->url_param('id');
 
 	#Use a regex to replace the ID in the query to load a single platform.
 	my $singleItemQuery 	= $self->{_LoadSingleQuery};
@@ -135,11 +186,11 @@ sub loadFromForm
 {
 	my $self = shift;
 
-	$self->{_PName}		= ($self->{_FormObject}->param('pname')) 	if defined($self->{_FormObject}->param('pname'));
-	$self->{_def_f_cutoff}	= ($self->{_FormObject}->param('def_f_cutoff')) if defined($self->{_FormObject}->param('def_f_cutoff'));
-	$self->{_def_p_cutoff}	= ($self->{_FormObject}->param('def_p_cutoff')) if defined($self->{_FormObject}->param('def_p_cutoff'));
-	$self->{_Species}	= ($self->{_FormObject}->param('species')) 	if defined($self->{_FormObject}->param('species'));
-	$self->{_pid}		= ($self->{_FormObject}->url_param('id')) 	if defined($self->{_FormObject}->url_param('id'));
+	$self->{_PName}		= ($self->{_cgi}->param('pname')) 	if defined($self->{_cgi}->param('pname'));
+	$self->{_def_f_cutoff}	= ($self->{_cgi}->param('def_f_cutoff')) if defined($self->{_cgi}->param('def_f_cutoff'));
+	$self->{_def_p_cutoff}	= ($self->{_cgi}->param('def_p_cutoff')) if defined($self->{_cgi}->param('def_p_cutoff'));
+	$self->{_Species}	= ($self->{_cgi}->param('species')) 	if defined($self->{_cgi}->param('species'));
+	$self->{_pid}		= ($self->{_cgi}->url_param('id')) 	if defined($self->{_cgi}->url_param('id'));
 }
 
 #Draw the javascript and HTML for the platform table.
@@ -169,7 +220,7 @@ sub showPlatforms
 	print	"<script type=\"text/javascript\">\n";
 	print $JSPlatformList;
 
-	printTableInformation($self->{_FieldNames},$self->{_FormObject});
+	printTableInformation($self->{_FieldNames},$self->{_cgi});
 	printExportTable();	
 	printDrawResultsTableJS();
 
@@ -178,25 +229,25 @@ sub showPlatforms
 	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Platform</h2>' . "\n";
 
 	#.
-	print $self->{_FormObject}->start_form(
+	print $self->{_cgi}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=managePlatforms&ManageAction=add',
+		-action=>$self->{_cgi}->url(-absolute=>1).'?a=managePlatforms&ManageAction=add',
 		-onsubmit=>'return validate_fields(this, [\'pname\',\'species\']);'
 	) .
-	$self->{_FormObject}->dl(
-		$self->{_FormObject}->dt('pname:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pname',-id=>'pname',-maxlength=>120)),
-		$self->{_FormObject}->dt('def_f_cutoff:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'def_f_cutoff',-id=>'def_f_cutoff')),
-		$self->{_FormObject}->dt('def_p_cutoff:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'def_p_cutoff',-id=>'def_p_cutoff')),
-		$self->{_FormObject}->dt('species:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'species',-id=>'species',-maxlength=>255)),
-		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-value=>'Add Platform'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+	$self->{_cgi}->dl(
+		$self->{_cgi}->dt('pname:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'pname',-id=>'pname',-maxlength=>120)),
+		$self->{_cgi}->dt('def_f_cutoff:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'def_f_cutoff',-id=>'def_f_cutoff')),
+		$self->{_cgi}->dt('def_p_cutoff:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'def_p_cutoff',-id=>'def_p_cutoff')),
+		$self->{_cgi}->dt('species:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'species',-id=>'species',-maxlength=>255)),
+		$self->{_cgi}->dt('&nbsp;'),
+		$self->{_cgi}->dd($self->{_cgi}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-value=>'Add Platform'),$self->{_cgi}->span({-class=>'separator'},' / ')
 		)
 	) .
-	$self->{_FormObject}->end_form;	
+	$self->{_cgi}->end_form;	
 }
 
 #This prints the results table to a printable text screen.
@@ -327,25 +378,25 @@ sub editPlatform
 	print	'<font size="5">Editing Platform</font><br /><br />' . "\n";
 
 	#Edit existing platform.
-	print $self->{_FormObject}->start_form(
+	print $self->{_cgi}->start_form(
 		-method=>'POST',
-		-action=>$self->{_FormObject}->url(-absolute=>1).'?a=managePlatforms&ManageAction=editSubmit&id=' . $self->{_pid},
+		-action=>$self->{_cgi}->url(-absolute=>1).'?a=managePlatforms&ManageAction=editSubmit&id=' . $self->{_pid},
 		-onsubmit=>'return validate_fields(this, [\'pname\',\'species\']);'
 	) .
-	$self->{_FormObject}->dl(
-		$self->{_FormObject}->dt('pname:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'pname',-id=>'pname',-maxlength=>120,-value=>$self->{_PName})),
-		$self->{_FormObject}->dt('def_f_cutoff:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'def_f_cutoff',-id=>'def_f_cutoff',value=>$self->{_def_f_cutoff})),
-		$self->{_FormObject}->dt('def_p_cutoff:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'def_p_cutoff',-id=>'def_p_cutoff',value=>$self->{_def_p_cutoff})),
-		$self->{_FormObject}->dt('species:'),
-		$self->{_FormObject}->dd($self->{_FormObject}->textfield(-name=>'species',-id=>'species',-maxlength=>255,value=>$self->{_Species})),
-		$self->{_FormObject}->dt('&nbsp;'),
-		$self->{_FormObject}->dd($self->{_FormObject}->submit(-name=>'SaveEdits',-id=>'SaveEdits',-value=>'Save Edits'),$self->{_FormObject}->span({-class=>'separator'},' / ')
+	$self->{_cgi}->dl(
+		$self->{_cgi}->dt('pname:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'pname',-id=>'pname',-maxlength=>120,-value=>$self->{_PName})),
+		$self->{_cgi}->dt('def_f_cutoff:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'def_f_cutoff',-id=>'def_f_cutoff',value=>$self->{_def_f_cutoff})),
+		$self->{_cgi}->dt('def_p_cutoff:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'def_p_cutoff',-id=>'def_p_cutoff',value=>$self->{_def_p_cutoff})),
+		$self->{_cgi}->dt('species:'),
+		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'species',-id=>'species',-maxlength=>255,value=>$self->{_Species})),
+		$self->{_cgi}->dt('&nbsp;'),
+		$self->{_cgi}->dd($self->{_cgi}->submit(-name=>'SaveEdits',-id=>'SaveEdits',-value=>'Save Edits'),$self->{_cgi}->span({-class=>'separator'},' / ')
 		)
 	) .
-	$self->{_FormObject}->end_form;	
+	$self->{_cgi}->end_form;	
 }
 
 sub editSubmitPlatform

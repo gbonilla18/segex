@@ -71,9 +71,6 @@ my $js = [{-type=>'text/javascript',-src=>JS_DIR . '/prototype.js'},
 my $content;    # this will be a reference to a subroutine that displays the main content
 
 #This is a reference to the manage platform module. Module gets instanstiated when visitng the page.
-my $managePlatform;
-my $manageExperiment;
-my $outputData;
 my $TFSDisplay;
 my $findProbes;
 my $ChooseProject;
@@ -163,7 +160,7 @@ while (defined($action)) { switch ($action) {
             exit(0);
         }
     }
-    case FORM.MANAGEPLATFORMS {
+    case MANAGEPLATFORMS {
         if ($s->is_authorized('user')) {    
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
@@ -175,18 +172,7 @@ while (defined($action)) { switch ($action) {
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
         
-            $content = \&form_managePlatforms;
-            $title = 'Platforms';
-            $action = undef;    # final state
-        } else {
-            $action = FORM.LOGIN;
-        }
-    }
-    case MANAGEPLATFORMS {
-        if ($s->is_authorized('user')) {
-
             $content = \&managePlatforms;
-
             $title = 'Platforms';
             $action = undef;    # final state
         } else {
@@ -234,38 +220,8 @@ while (defined($action)) { switch ($action) {
         } else {
             $action = FORM.LOGIN;
         }
-    }    
-    case FORM.MANAGEEXPERIMENTS {
-        if ($s->is_authorized('user')) {    
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
-
-            $content = \&form_manageExperiments;
-            $title = 'Experiments';
-            $action = undef;    # final state
-        } else {
-            $action = FORM.LOGIN;
-        }
     }
     case MANAGEEXPERIMENTS {
-        if ($s->is_authorized('user')) {
-
-            $content = \&manageExperiments;
-
-            $title = 'Experiments';
-            $action = undef;    # final state
-        } else {
-            $action = FORM.LOGIN;
-        }
-    }
-    case FORM.OUTPUTDATA {
         if ($s->is_authorized('user')) {    
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
@@ -277,8 +233,8 @@ while (defined($action)) { switch ($action) {
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 
-            $content = \&form_outputData;
-            $title = 'Output Data';
+            $content = \&manageExperiments;
+            $title = 'Experiments';
             $action = undef;    # final state
         } else {
             $action = FORM.LOGIN;
@@ -297,7 +253,6 @@ while (defined($action)) { switch ($action) {
             push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
 
             $content = \&outputData;
-
             $title = 'Output Data';
             $action = undef;    # final state
         } else {
@@ -634,14 +589,16 @@ if ($s->is_authorized('user')) {
     # TODO: only admins should be allowed to see the menu part below:
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPLOADANNOT,
                 -title=>'Upload or Update Probe Annotations'}, 'Upload/Update Annotations');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEPLATFORMS,
+    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGEPLATFORMS,
                 -title=>'Manage Platforms'}, 'Manage Platforms');
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGEPROJECTS,
                 -title=>'Manage Projects'}, 'Manage Projects');
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGESTUDIES,
                 -title=>'Manage Studies'}, 'Manage Studies');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.MANAGEEXPERIMENTS,
+    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGEEXPERIMENTS,
                 -title=>'Manage Experiments'}, 'Manage Experiments');
+    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.OUTPUTDATA,
+                -title=>'Output Data'}, 'Output Data');
 }
 if ($s->is_authorized('admin')) {
     # add admin options
@@ -1291,7 +1248,7 @@ sub findProbes_js
         foreach (sort {$a->[3] cmp $b->[3]} @$data) {
             foreach (@$_) {
                 $_ = '' if !defined $_;
-                $_ =~ s/"//xg;    # strip all double quotes (JSON data are bracketed with double quotes)
+                $_ =~ s/"//g;    # strip all double quotes (JSON data are bracketed with double quotes)
                         # TODO: perhaps escape quotation marks instead of removing them
             }
 
@@ -1896,9 +1853,8 @@ sub compare_experiments_js {
     my $exp_count = $i - 1;    # number of experiments being compared
 
     # strip trailing 'UNION ALL' plus any trailing white space
-    $query_fs_body =~ s/UNION ALL\s*$//xi;
+    $query_fs_body =~ s/UNION ALL\s*$//i;
     $query_fs = sprintf($query_fs, $exp_count) . $query_fs_body . ") AS d1 $probeListQuery GROUP BY rid) AS d2 GROUP BY fs";
-
 
     #Run the Flag Sum Query.
     my $sth_fs = $dbh->prepare(qq{$query_fs}) or croak $dbh->errstr;
@@ -1906,10 +1862,8 @@ sub compare_experiments_js {
     my $h = $sth_fs->fetchall_hashref('fs');
     $sth_fs->finish;
 
-
-
     # strip trailing 'UNION ALL' plus any trailing white space
-    $query_titles =~ s/UNION ALL\s*$//xi;
+    $query_titles =~ s/UNION ALL\s*$//i;
     my $sth_titles = $dbh->prepare(qq{$query_titles}) or croak $dbh->errstr;
     my $rowcount_titles = $sth_titles->execute or croak $dbh->errstr;
 
@@ -2033,8 +1987,8 @@ records: [
         print '<tr><th>' . ($i + 1) . '</th><td>'.    $ht->{$currentEID}->{title} .'</td><td>'.$fcs[$i].'</td><td>'.$pvals[$i].'</td><td>'.$hc{$i}."</td></tr>\n";
 
         $escapedTitle        = $ht->{$currentEID}->{title};
-        $escapedTitle        =~ s/\\/\\\\/xg;
-        $escapedTitle        =~ s/"/\\\"/xg;
+        $escapedTitle        =~ s/\\/\\\\/g;
+        $escapedTitle        =~ s/"/\\\"/g;
 
         $out .= '{0:"'. ($i + 1) . '",1:"' . $escapedTitle . '",2:"' . $fcs[$i] . '",3:"' . $pvals[$i] . '",4:"'.$hc{$i} . "\"},\n";
     }
@@ -2622,51 +2576,22 @@ sub cleanSQLString
 #######################################################################################
 
 
-#######################################################################################
-#This just displays the Manage platforms form.
-sub form_managePlatforms
-{
-    $managePlatform = SGX::ManageMicroarrayPlatforms->new($dbh,$q);
-    $managePlatform->loadAllPlatforms();
-    $managePlatform->showPlatforms();
 
-    my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-    $javaScriptDeleteConfirm->drawJavaScriptCode();
-}
-
-#This performs the action that was asked for by the manage platforms form.
+#===  FUNCTION  ================================================================
+#         NAME:  managePlatforms
+#      PURPOSE:  dispatch requests related to Manage Platforms functionality
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub managePlatforms
 {
- # :NOTE:06/06/2011 15:52:46:es: set action to zero string if undefined
-    my $ManageAction = (defined($q->url_param('ManageAction'))) ? $q->url_param('ManageAction') : '';
-    $managePlatform = SGX::ManageMicroarrayPlatforms->new($dbh,$q);
-
-    switch ($ManageAction) 
-    {
-        case 'add' 
-        {
-            $managePlatform->loadFromForm();
-            $managePlatform->insertNewPlatform();
-            print "<br />Record added - Redirecting...<br />";
-
-            my $redirectSite   = $q->url(-absolute=>1).'?a=form_uploadAnnot&newpid=' . $managePlatform->{_pid};
-            my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-            print "$redirectString";
-        }
-        case 'delete'
-        {
-            $managePlatform->loadFromForm();
-            $managePlatform->deletePlatform();
-            print "<br />Record deleted - Redirecting...<br />";
-
-            my $redirectSite   = $q->url(-absolute=>1).'?a=form_managePlatforms';
-            my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-            print "$redirectString";
-        }
-    }
-
+    my $managePlatform = SGX::ManageMicroarrayPlatforms->new($dbh,$q);
+    $managePlatform->dispatch($q->url_param('ManageAction'));
 }
-#######################################################################################
 
 #===  FUNCTION  ================================================================
 #         NAME:  manageProjects
@@ -2680,120 +2605,57 @@ sub managePlatforms
 #===============================================================================
 sub manageProjects
 {
- # :NOTE:06/06/2011 16:00:54:es: set action to zero-length string if undefined
     my $mp = SGX::ManageProjects->new($dbh,$q, JS_DIR);
     $mp->dispatch($q->url_param('ManageAction'));
 }
 
-#######################################################################################
-
-#This performs the action that was asked for by the manage studies form.
+#===  FUNCTION  ================================================================
+#         NAME:  manageStudies
+#      PURPOSE:  dispatch requests related to Manage Studies funcitonality
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub manageStudies
 {
     my $ms = SGX::ManageStudies->new($dbh,$q, JS_DIR);
     $ms->dispatch($q->url_param('ManageAction'));
 }
-#######################################################################################
 
-#######################################################################################
-#This just displays the Manage experiments form.
-sub form_manageExperiments
-{
-    $manageExperiment = SGX::ManageExperiments->new($dbh,$q, JS_DIR);
-
-    # :NOTE:06/06/2011 13:48:42:es: 
-    # Setting $ManageAction variable to empty string if the URI is missing the 
-    # ManageAction parameter.
-
-    my $ManageAction = defined($q->url_param('ManageAction')) ?
-        $q->url_param('ManageAction') : '';
-
-    my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-    $javaScriptDeleteConfirm->drawJavaScriptCode();
-
-    switch ($ManageAction) 
-    {
-        case 'load' 
-        {
-            $manageExperiment->loadFromForm();
-            $manageExperiment->loadAllExperimentsFromStudy();
-            $manageExperiment->loadStudyData();
-            $manageExperiment->loadPlatformData();
-            $manageExperiment->showExperiments();
-        }
-        else
-        {
-            $manageExperiment->loadStudyData();
-            $manageExperiment->loadPlatformData();
-            $manageExperiment->showExperiments();
-        }
-    }
-}
-
-#This performs the action that was asked for by the manage experiments form.
+#===  FUNCTION  ================================================================
+#         NAME:  manageExperiments
+#      PURPOSE:  dispatch requests related to Manage Experiments functionality
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub manageExperiments
 {
-    $manageExperiment = SGX::ManageExperiments->new($dbh,$q, JS_DIR);
- # :NOTE:06/06/2011 16:04:18:es: setting action to zero-length string if 
- # undefined
-    my $ManageAction = defined($q->url_param('ManageAction')) ?
-        $q->url_param('ManageAction') : '';
-
-    switch ($ManageAction) 
-    {
-        case 'addNew'
-        {
-            $manageExperiment->loadFromForm();
-            $manageExperiment->addNewExperiment();
-            print "<br />Record updated - Redirecting...<br />";
-        }
-        case 'delete'
-        {
-            $manageExperiment->loadFromForm();
-            $manageExperiment->deleteExperiment();
-            print "<br />Record removed - Redirecting...<br />";
-        }
-    }
-
-    if($ManageAction eq 'delete' || $ManageAction eq 'addNew')
-    {
-        my $redirectSite   = $q->url(-absolute=>1)."?a=form_manageExperiments&ManageAction=load&stid=$manageExperiment->{_stid}&pid=$manageExperiment->{_pid}";
-        my $redirectString = "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
-        print "$redirectString";
-    }
-
-}
-#######################################################################################
-
-#######################################################################################
-#This just displays the OutputData form.
-sub form_outputData
-{
-    $outputData = SGX::OutputData->new($dbh,$q,JS_DIR);
-    
-    $outputData->showExperiments();
-
+    my $me = SGX::ManageExperiments->new($dbh,$q, JS_DIR);
+    $me->dispatch($q->url_param('ManageAction'));
 }
 
-#This performs the action that was asked for by the OutputData form.
+
+#===  FUNCTION  ================================================================
+#         NAME:  outputData
+#      PURPOSE:  dispatch requests related to Output Data functionality
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub outputData
 {
-    $outputData = SGX::OutputData->new($dbh,$q, JS_DIR);
- # :NOTE:06/06/2011 16:03:58:es: setting action to zero-length string if undefined
-    my $outputAction = defined($q->url_param('outputAction')) ?
-        $q->url_param('outputAction') : '';
-
-    switch ($outputAction) 
-    {
-        case 'runReport'
-        {
-            $outputData->loadFromForm();
-            $outputData->loadReportData();
-            $outputData->runReport();
-            #print "<br />Record updated - Redirecting...<br />";
-        }
-    }
-
+    my $od = SGX::OutputData->new($dbh,$q, JS_DIR);
+    $od->dispatch($q->url_param('outputAction'));
 }
 #######################################################################################
 
@@ -2820,25 +2682,4 @@ sub chooseProject
     }
 
 }
-#######################################################################################
 
-
-
-#######################################################################################
-# Perl trim function to remove whitespace from the start and end of the string
-sub trim
-{
-    my $string = shift;
-    
-    $string =~ s/^\s+//;
-    $string =~ s/\s+$//;
-    
-    $string =~ s/\n+$//;
-    $string =~ s/^\n+//;    
-    
-    $string =~ s/\r+$//;
-    $string =~ s/^\r+//;    
-
-    return $string;
-}
-#######################################################################################
