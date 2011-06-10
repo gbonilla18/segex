@@ -42,7 +42,7 @@ sub mysql_connect {
 #===============================================================================
 sub replace {
     my ( $var, $match, $replacement ) = @_;
-    $var =~ s/$match/$replacement/x;
+    $var =~ s/$match/$replacement/;
     return $var;
 }
 

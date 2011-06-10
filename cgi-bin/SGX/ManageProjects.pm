@@ -578,7 +578,7 @@ sub getJSRecords {
           . $_->[0] . '",3:"'
           . $_->[0] . '"},';
     }
-    $tempRecordList =~ s/,\s*$//x;    # strip trailing comma
+    $tempRecordList =~ s/,\s*$//;    # strip trailing comma
 
     return $tempRecordList;
 }
@@ -601,7 +601,7 @@ sub getJSHeaders {
     foreach ( @{ $self->{_FieldNames} } ) {
         $tempHeaderList .= '"' . $_ . '",';
     }
-    $tempHeaderList =~ s/,\s*$//x;    # strip trailing comma
+    $tempHeaderList =~ s/,\s*$//;    # strip trailing comma
 
     return $tempHeaderList;
 }
