@@ -86,8 +86,6 @@ sub drawAddExperimentMenu
 
 	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add New Experiment</h2>' . "\n";
 
-	my @_platformValue = keys %{$self->{_platformList}};
-
 	print $self->{_cgi}->start_form(
 		-method=>'POST',
 		-action=>$self->{_cgi}->url(-absolute=>1).'?a=' . $self->{_QueryingPage} . '&ManageAction=addNew&stid=' . $self->{_stid},
@@ -101,7 +99,12 @@ sub drawAddExperimentMenu
 	.
 	$self->{_cgi}->dl(
 		$self->{_cgi}->dt('Platform:'),
-		$self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'platform_addNew',-id=>'platform_addNew',-values=>\@_platformValue,-labels=>\%{$self->{_platformList}})),	
+		$self->{_cgi}->dd($self->{_cgi}->popup_menu(
+                -name=>'platform_addNew',
+                -id=>'platform_addNew',
+                -values=>[keys %{$self->{_platformList}}],
+                -labels=>$self->{_platformList}
+        )),	
 		$self->{_cgi}->dt('Sample 1:'),
 		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'Sample1',-id=>'Sample1',-maxlength=>120)),
 		$self->{_cgi}->dt('Sample 2:'),

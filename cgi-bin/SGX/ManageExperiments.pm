@@ -350,9 +350,6 @@ sub showExperiments
     
     print    '<font size="5">Manage Experiments</font><br /><br />' . "\n";
 
-    my @_studyValue = keys %{$self->{_studyList}};
-    my @_platformValue = keys %{$self->{_platformList}};
-
     #Load the study dropdown to choose which experiments to load into table.
     print $self->{_cgi}->start_form(
         -method=>'POST',
@@ -361,12 +358,29 @@ sub showExperiments
     ) .
     $self->{_cgi}->dl(
         $self->{_cgi}->dt('Platform:'),
-        $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'platform_load',-id=>'platform_load',-values=>\@_platformValue,-labels=>\%{$self->{_platformList}},onChange=>"populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));",-default=>$self->{_pid})),    
+        $self->{_cgi}->dd($self->{_cgi}->popup_menu(
+                -name=>'platform_load',
+                -id=>'platform_load',
+                -values=>[keys %{$self->{_platformList}}],
+                -labels=>$self->{_platformList},
+                -default=>$self->{_pid},
+                onChange=>"populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));"
+        )),
         $self->{_cgi}->dt('Study:'),
-        $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'stid',-id=>'stid',-values=>\@_studyValue,-labels=>\%{$self->{_studyList}},-default=>$self->{_stid})),
+        $self->{_cgi}->dd($self->{_cgi}->popup_menu(
+                -name=>'stid',
+                -id=>'stid',
+                -values=>[keys %{$self->{_studyList}}],
+                -labels=>$self->{_studyList},
+                -default=>$self->{_stid}
+        )),
         $self->{_cgi}->dt('&nbsp;'),
-        $self->{_cgi}->dd($self->{_cgi}->submit(-name=>'SelectStudy',-id=>'SelectStudy',-value=>'Load'),$self->{_cgi}->span({-class=>'separator'})
-        )
+        $self->{_cgi}->dd( $self->{_cgi}->submit(
+                -name=>'SelectStudy',
+                -id=>'SelectStudy',
+                -value=>'Load'),
+            $self->{_cgi}->span({-class=>'separator'}
+        ))
     ) .
     $self->{_cgi}->end_form;
     

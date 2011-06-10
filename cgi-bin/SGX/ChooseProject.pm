@@ -43,10 +43,11 @@ use Switch;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my $class = shift;
+    my ($class, $dbh, $cgi, $user_session) = @_;
     my $self = {
-        _dbh                  => shift,
-        _cgi                  => shift,
+        _dbh                  => $dbh,
+        _cgi                  => $cgi,
+        _curr_proj            => $user_session->{data}->{curr_proj},
         _ProjectDropdownQuery => 'SELECT prid, prname FROM project ORDER BY prname ASC',
         _projectList          => {}
     };
@@ -68,15 +69,15 @@ sub new {
 sub dispatch {
     my ( $self, $action ) = @_;
     $action = '' if not defined($action);
-    switch ($action) {
-        case 'change' {
-            $self->changeProject();
-        }
-        else {
+    #switch ($action) {
+    #    case 'change' {
+    #        $self->changeProject();
+    #    }
+    #    else {
             $self->loadProjectData();
             $self->drawChangeProjectScreen();
-        }
-    }
+    #    }
+    #}
     return;
 }
 
@@ -147,22 +148,21 @@ sub loadProjectData {
 sub drawChangeProjectScreen {
     my $self = shift;
 
-    my @_projectValue = keys %{ $self->{_projectList} };
-
     #Load the study dropdown to choose which experiments to load into table.
     print $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
-          . '?a=chooseProject&projectAction=change'
+          . '?a=chooseProject'
       )
       . $self->{_cgi}->dl(
         $self->{_cgi}->dt('Project:'),
         $self->{_cgi}->dd(
             $self->{_cgi}->popup_menu(
-                -name   => 'project_load',
-                -id     => 'project_load',
-                -values => \@_projectValue,
-                -labels => \%{ $self->{_projectList} }
+                -name   => 'current_project',
+                -id     => 'current_project',
+                -values => [keys %{$self->{_projectList}}],
+                -labels => $self->{_projectList},
+                -default => $self->{_curr_proj}
             )
         ),
         $self->{_cgi}->dt('&nbsp;'),

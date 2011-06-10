@@ -375,16 +375,15 @@ sub change_email {
         $self->send_verify_email( $project_name, $username, $username, $email1,
             $login_uri );
         return 1;
-    }
-    else {
-        if ( $rows_affected == 0 ) {
+    } 
+    elsif ( $rows_affected == 0 ) {
             $$error =
 'The email was not changed. Please make sure you entered your password correctly and that your new email address is different from your old one.';
-        }
-        else {
-            assert(undef);    # should never happen
-        }
-        return 0;
+            return 0;
+    } 
+    else {
+        # should never happen
+        croak 'Internal error occurred';
     }
 }
 
@@ -467,8 +466,8 @@ sub send_verify_email {
         -id        => undef
     );
     $s->commence();
-    $s->{object}->{username} =
-      $username;    # make the session object store the username
+    # make the session object store the username
+    $s->{object}->{username} = $username;    
     if ( $s->commit() ) {
 
         # email the confirmation link

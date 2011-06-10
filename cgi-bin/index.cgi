@@ -105,7 +105,6 @@ use constant COMPAREEXPERIMENTS        => 'Compare Selected';    # submit button
 use constant FINDPROBES            => 'Search';        # submit button text
 use constant UPDATEPROBE        => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
-use constant CHANGEPROJECT        => 'chooseProject';
 
 my $action = (defined($q->url_param('a'))) ? $q->url_param('a') : DEFAULT_ACTION;
 
@@ -137,11 +136,24 @@ while (defined($action)) { switch ($action) {
             $action = FORM.LOGIN;
         }
     }
-    case CHANGEPROJECT {
+    case FORM.CHOOSEPROJECT {
         if ($s->is_authorized('user')) {
-            $content = \&chooseProject;
             $title = 'Change Project';
-            $action = undef;    # final state
+            $content = \&chooseProject;
+            $action = undef; # final state
+        } else {
+            $action = FORM.LOGIN;
+        }
+    }
+    case CHOOSEPROJECT {
+        if ($s->is_authorized('user')) {
+            my $project_set_to = $q->param('current_project');
+
+            # store project information in the session: note that
+            # this must be done before cookie is committed, which
+            # must be done before anything is written
+            $s->{object}->{curr_proj} = $project_set_to;
+            $action = FORM.CHOOSEPROJECT;
         } else {
             $action = FORM.LOGIN;
         }
@@ -298,7 +310,7 @@ function init() {
         if ($s->is_authorized('user')) {
             my $table = $q->param('table');
             #show data as a tab-delimited text file
-            $s->commit;
+            $s->commit();
             print $q->header(-type=>'text/plain', -cookie=>\@SGX::Cookie::cookies);
             dump_table($table);
             $action = QUIT;
@@ -335,7 +347,7 @@ function init() {
     }
     case HELP            {
         # will send a redirect header, so commit the session to data store now
-        $s->commit;
+        $s->commit();
         print $q->redirect(-uri        => $q->url(-base=>1).'./html/wiki/',
                    -status    => 302,     # 302 Found
                    -cookie    => \@SGX::Cookie::cookies);
@@ -391,7 +403,7 @@ function init() {
                 $destination !~ m/(?:&|\?|&amp;)a=$action(?:\z|&|#)/ && $destination !~
                 m/(?:&|\?|&amp;)a=form_$action(?:\z|&|#)/) {
                 # will send a redirect header, so commit the session to data store now
-                $s->commit;
+                $s->commit();
 
                 # if the user is heading to a specific placce, pass him/her along,
                 # otherwise continue to the main page (script_name)
@@ -459,7 +471,7 @@ function init() {
         }
     }
     case CHOOSEPROJECT {
-        if ($s->is_authorized('unauth')) {
+        if ($s->is_authorized('user')) {
             $title = 'Choose Project';
             $content = \&chooseProject;
             $action = undef;    # final state
@@ -570,7 +582,7 @@ function init() {
         croak "Invalid action name specified: $action";
     }
 }}
-$s->commit;    # flush the session data and prepare the cookie
+$s->commit();    # flush the session data and prepare the cookie
 
 # ==== write menu list ==========================================================
 my @menu;
@@ -633,13 +645,14 @@ print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
 
 cgi_start_html();
 
-#print $q->h1('Welcome to '.PROJECT_NAME),
-#    $q->h2('The database for sex-specific gene expression');
 print $q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
 
 print $q->ul({-id=>'menu'},$q->li(\@menu));
 
-# testing stuff...
+#---------------------------------------------------------------------------
+#  Don't delete commented-out block below: it is useful for debugging
+#  user sessions.
+#---------------------------------------------------------------------------
 #print $q->pre("
 #cookies sent to user:            
 #".Dumper(\@SGX::Cookie::cookies)."
@@ -843,7 +856,7 @@ sub form_updateProfile {
     # user has to be logged in
     print 
         $q->p('<font size = "5">My Profile</font>'),
-        $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.CHOOSEPROJECT,
+        $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHOOSEPROJECT,
             -title=>'Choose Project'},'Choose Project')),
         $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEPASSWORD,
             -title=>'Change Password'},'Change Password')),
@@ -1060,15 +1073,40 @@ sub form_findProbes {
         $q->dt('Search string(s):'),
         $q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
         $q->dt('Search type :'),
-        $q->dd($q->popup_menu(-name=>'type',-values=>[keys %type_dropdown],-default=>'gene',-labels=>\%type_dropdown)),
+        $q->dd($q->popup_menu(
+                -name=>'type',
+                -default=>'gene',
+                -values=>[keys %type_dropdown],
+                -labels=>\%type_dropdown
+        )),
         $q->dt('Pattern to match :'),
-        $q->dd($q->radio_group(-tabindex=>2, -name=>'match', -values=>[keys %match_dropdown], -default=>'full', -linebreak=>'true', -labels=>\%match_dropdown)),
+        $q->dd($q->radio_group(
+                -tabindex=>2, 
+                -name=>'match', 
+                -linebreak=>'true', 
+                -default=>'full', 
+                -values=>[keys %match_dropdown], 
+                -labels=>\%match_dropdown
+        )),
         $q->dt('Display options :'),
-        $q->dd($q->popup_menu(-tabindex=>3, -name=>'opts',-values=>[keys %opts_dropdown], -default=>'1',-labels=>\%opts_dropdown)),
+        $q->dd($q->popup_menu(
+                -tabindex=>3, 
+                -name=>'opts',
+                -values=>[keys %opts_dropdown], 
+                -default=>'1',
+                -labels=>\%opts_dropdown
+        )),
         $q->dt('Graph(s) :'),
         $q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
         $q->dt({id=>'graph_option_names'}, "Response variable:"),
-        $q->dd({id=>'graph_option_values'}, $q->radio_group(-tabindex=>5, -name=>'trans', -values=>[keys %trans_dropdown], -default=>'fold', -linebreak=>'true', -labels=>\%trans_dropdown)),
+        $q->dd({id=>'graph_option_values'}, $q->radio_group(
+                -tabindex=>5, 
+                -name=>'trans', 
+                -linebreak=>'true', 
+                -default=>'fold', 
+                -values=>[keys %trans_dropdown], 
+                -labels=>\%trans_dropdown
+        )),
         $q->dt('&nbsp;'),
         $q->dd($q->submit(-tabindex=>6, -name=>'a', -value=>FINDPROBES, -override=>1)),
     ) 
@@ -1219,7 +1257,7 @@ sub findProbes_js
             
     if($opts==2)
     {
-        $s->commit;
+        $s->commit();
         #print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
         $findProbes = SGX::FindProbes->new($dbh,$q,$type,$qtext);
         $findProbes->setInsideTableQuery($g0_sql);
@@ -1232,7 +1270,7 @@ sub findProbes_js
     }
     elsif($opts==3)
     {
-        $s->commit;
+        $s->commit();
         #print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
         $findProbes = SGX::FindProbes->new($dbh,$q,$type,$qtext);
         $findProbes->setInsideTableQuery($g0_sql);
@@ -1676,7 +1714,14 @@ sub form_compareExperiments {
         $q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
         $q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')),
         $q->dt('Filter:'),
-        $q->dd($q->radio_group(-tabindex=>2,-onChange=>'toggleFilterOptions(this.value);', -name=>'geneFilter', -values=>[keys %geneFilter_dropdown], -default=>'none', -labels=>\%geneFilter_dropdown))
+        $q->dd($q->radio_group(
+                -tabindex=>2,
+                -onChange=>'toggleFilterOptions(this.value);', 
+                -name=>'geneFilter', 
+                -values=>[keys %geneFilter_dropdown], 
+                -default=>'none', 
+                -labels=>\%geneFilter_dropdown
+        ))
     ),
     $q->dl(
         $q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
@@ -1738,8 +1783,12 @@ sub form_compareExperiments {
                 $q->TR(
                         $q->td({-id=>'tablecell1',-colspan=>'2'},
                             'Search type :',
-                            $q->popup_menu(-name=>'type',-values=>[keys %gene_dropdown],-default=>'gene',-labels=>\%gene_dropdown)
-                            )
+                            $q->popup_menu(
+                                -name=>'type',
+                                -values=>[keys %gene_dropdown],
+                                -default=>'gene',
+                                -labels=>\%gene_dropdown
+                            ))
                     ),                    
                 $q->TR(
                         $q->td({-id=>'tablecell1',-colspan=>'2'},
@@ -1762,7 +1811,14 @@ sub form_compareExperiments {
                     ),
                 $q->TR(
                         $q->td({-id=>'tablecell1'},'Pattern to match :'),
-                        $q->td($q->radio_group(-tabindex=>2, -name=>'match', -values=>[keys %match_dropdown], -default=>'full', -linebreak=>'true', -labels=>\%match_dropdown))                        
+                        $q->td($q->radio_group(
+                                -tabindex=>2, 
+                                -name=>'match', 
+                                -values=>[keys %match_dropdown], 
+                                -default=>'full', 
+                                -linebreak=>'true', 
+                                -labels=>\%match_dropdown
+                        ))
                     ),
                 $q->TR(
                         $q->td({-id=>'tablecell1',-colspan=>'2'},
@@ -2136,7 +2192,12 @@ sub compare_experiments {
         '<h2 id="tfs_caption"></h2>',
         $q->dl(
             $q->dt('Data to display:'),
-            $q->dd($q->popup_menu(-name=>'opts',-values=>[keys %opts_dropdown], -default=>'0',-labels=>\%opts_dropdown)),
+            $q->dd($q->popup_menu(
+                    -name=>'opts',
+                    -values=>[keys %opts_dropdown], 
+                    -default=>'0',
+                    -labels=>\%opts_dropdown
+            )),
             $q->dt({-id=>'tfs_all_dt'}, "&nbsp;"),
             $q->dd({-id=>'tfs_all_dd'}, "&nbsp;")
         ),
@@ -2170,7 +2231,7 @@ sub show_tfs_js {
 
     if(defined($q->param('CSV')))
     {
-        $s->commit;
+        $s->commit();
         $TFSDisplay = SGX::TFSDisplay->new($dbh,$q);
         $TFSDisplay->loadDataFromSubmission();
         $TFSDisplay->getPlatformData();
@@ -2287,7 +2348,12 @@ sub form_uploadAnnot {
 
     print $q->dl(
         $q->dt("Platform:"),
-        $q->dd($q->popup_menu(-name=>'platform', -values=>[keys %platforms], -labels=>\%platforms, -default=>$newpid)),
+        $q->dd($q->popup_menu(
+                -name=>'platform', 
+                -values=>[keys %platforms], 
+                -labels=>\%platforms, 
+                -default=>$newpid
+        )),
         $q->dt("File to upload (tab-delimited):"),
         $q->dd($q->filefield(-name=>'uploaded_file')),
         $q->dt("&nbsp;"),
@@ -2684,7 +2750,7 @@ sub outputData
 #===============================================================================
 sub chooseProject
 {
-    my $cp = SGX::ChooseProject->new($dbh,$q);
+    my $cp = SGX::ChooseProject->new($dbh,$q,$s);
     $cp->dispatch($q->url_param('projectAction'));
 }
 

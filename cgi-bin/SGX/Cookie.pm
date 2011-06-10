@@ -140,7 +140,7 @@ sub commit {
 
     # calls the parent method and bakes a cookie on success
     my $self = shift;
-    if ( $self->SUPER::commit ) {
+    if ( $self->SUPER::commit() ) {
         push @cookies, CGI::Cookie->new(
             -name  => $self->{cookie_name},
             -value => $self->{data}->{_session_id},

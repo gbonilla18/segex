@@ -242,7 +242,7 @@ sub destroy {
 
     # (1) delete active if it exists
     if ( $self->{active} ) {
-        $self->delete_object;
+        $self->delete_object();
 
         # set all copied session data to undef
         while ( my ( $key, $value ) = each( %{ $self->{data} } ) ) {
@@ -257,7 +257,7 @@ sub destroy {
         # an undef will be passed to safe_tie and a new session will be
         # commenced as a result -- only to be deleted in the current block.
         if ( $self->safe_tie( $self->{old_session_id} ) ) {
-            $self->delete_object;
+            $self->delete_object();
             $self->{old_session_id} = undef;
         }
     }

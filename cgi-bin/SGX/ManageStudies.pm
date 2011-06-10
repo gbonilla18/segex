@@ -359,8 +359,6 @@ sub showStudies {
 
     print '<font size="5">Manage Studies</font><br /><br />' . "\n";
 
-    my @_platformValueAll = keys %{ $self->{_platformListAll} };
-
     #Load the study dropdown to choose which experiments to load into table.
     print $self->{_cgi}->start_form(
         -method => 'POST',
@@ -374,8 +372,8 @@ sub showStudies {
             $self->{_cgi}->popup_menu(
                 -name    => 'platform_load',
                 -id      => 'platform_load',
-                -values  => \@_platformValueAll,
-                -labels  => \%{ $self->{_platformListAll} },
+                -values  => [keys %{$self->{_platformListAll}}],
+                -labels  => $self->{_platformListAll},
                 -default => '-1'
             )
         ),
@@ -406,8 +404,6 @@ sub showStudies {
     print '<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Study</h2>'
       . "\n";
 
-    my @_platformValue = keys %{ $self->{_platformList} };
-
     print $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
@@ -436,8 +432,8 @@ sub showStudies {
             $self->{_cgi}->popup_menu(
                 -name   => 'platform',
                 -id     => 'platform',
-                -values => \@_platformValue,
-                -labels => \%{ $self->{_platformList} }
+                -values => [keys %{$self->{_platformList}}],
+                -labels => $self->{_platformList}
             )
         ),
         $self->{_cgi}->dt('&nbsp;'),
@@ -643,8 +639,6 @@ sub editStudy {
     print '<font size="5">Editing Study</font><br /><br />' . "\n";
 
     #Edit existing platform.
-    my @_platformValue = keys %{ $self->{_platformList} };
-
     print $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
@@ -676,8 +670,8 @@ sub editStudy {
             $self->{_cgi}->popup_menu(
                 -name     => 'platform',
                 -id       => 'platform',
-                -values   => \@_platformValue,
-                -labels   => \%{ $self->{_platformList} },
+                -values   => [keys %{$self->{_platformList}}],
+                -labels   => $self->{_platformList},
                 -disabled => 'disabled',
                 -default  => $self->{_pid}
             )
@@ -724,9 +718,6 @@ sub editStudy {
     printJavaScriptRecordsForExistingDropDowns($self);
     print "</script>\n";
 
-    my @_ExistingStudyValue      = keys %{ $self->{_ExistingStudyList} };
-    my @_ExistingExperimentValue = keys %{ $self->{_ExistingExperimentList} };
-
     print $self->{_cgi}->start_form(
         -method => 'POST',
         -name   => 'AddExistingForm',
@@ -741,8 +732,8 @@ sub editStudy {
             $self->{_cgi}->popup_menu(
                 -name    => 'study_exist',
                 -id      => 'study_exist',
-                -values  => \@_ExistingStudyValue,
-                -labels  => \%{ $self->{_ExistingStudyList} },
+                -values  => [keys %{$self->{_ExistingStudyList}}],
+                -labels  => $self->{_ExistingStudyList},
                 -default => $self->{_SelectedStudy},
                 -onChange =>
 "populateSelectExisting(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"),
@@ -754,8 +745,8 @@ sub editStudy {
             $self->{_cgi}->popup_menu(
                 -name    => 'experiment_exist',
                 -id      => 'experiment_exist',
-                -values  => \@_ExistingExperimentValue,
-                -labels  => \%{ $self->{_ExistingExperimentList} },
+                -values  => [keys %{$self->{_ExistingExperimentList}}],
+                -labels  => $self->{_ExistingExperimentList},
                 -default => $self->{_SelectedExperiment}
             )
         ),
@@ -775,8 +766,6 @@ sub editStudy {
 '<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Experiments not in a study.</h2>'
       . "\n";
 
-    my @_unassignedValue = keys %{ $self->{_unassignedList} };
-
     print $self->{_cgi}->start_form(
         -method => 'POST',
         -name   => 'AddExistingUnassignedForm',
@@ -791,8 +780,8 @@ sub editStudy {
             $self->{_cgi}->popup_menu(
                 -name   => 'experiment_exist_unassigned',
                 -id     => 'experiment_exist_unassigned',
-                -values => \@_unassignedValue,
-                -labels => \%{ $self->{_unassignedList} }
+                -values => [keys %{$self->{_unassignedList}}],
+                -labels => $self->{_unassignedList}
             )
         ),
         $self->{_cgi}->dt('&nbsp;'),
