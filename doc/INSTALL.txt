@@ -123,7 +123,8 @@ version of SEGEX relies on a default mailer, which can be either Sendmail or Pos
 depending on the system. On my Mac OS X Snow Leopard, the default mailer is Postfix.
 
    GMAIL EMAIL RELAY USING POSTFIX ON MAC OS X 
-        (Adapted after: http://www.riverturn.com/blog/?p=239)
+        (Adapted with some changes after: 
+	http://www.riverturn.com/blog/?p=239)
 
    3.1. Create the Simple Authentication and Security Layer (SASL) password file.
 
@@ -136,6 +137,17 @@ depending on the system. On my Mac OS X Snow Leopard, the default mailer is Post
    3.2. Create a Postfix lookup table for SASL.
 
         sudo postmap /etc/postfix/sasl_passwd
+
+	This creates a binary file called "/etc/postfix/sasl_passwd.db". When done, you 
+	can delete the "/etc/postfix/sasl_passwd" created in the previous step, to 
+	prevent the plain-text password from being discovered by an attacker (Postfix 
+	will use the .db file from now on):
+
+	sudo rm /etc/postfix/sasl_passwd
+
+	Also, there is no need for anyone but root to have read access to the database:
+
+	sudo chmod 600 /etc/postfix/sasl_passwd.db
 
    3.3. Configure Postfix:
 
