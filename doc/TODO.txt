@@ -7,7 +7,9 @@ levels. Call top-level actions "a=" and second-level actions "b=". Pass referenc
 array of Javascript includes ot object constructors. Constructors will fill out the
 array during the construction of the object. Constructors perform most of the object
 initialization except printing output. Constructors should also be allowed to handle
-storing of session data.
+storing of session data. Dealing with Javascript include array: the array simply 
+contains names of Javascript files to load (or short relative paths), then it is trans-
+formed for use with CGI.pm.
 
 1) rename table "microarray" to "response"
 

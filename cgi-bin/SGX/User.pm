@@ -258,11 +258,9 @@ Please copy the above password in full and follow the link below to login to $pr
 
 $login_uri
 
-If you do not think you have requested a new password to be emailed to you, please notify the $project_name team.
+If you do not think you have requested a new password to be emailed to you, please notify the $project_name administrator.
 
-This message was sent automatically.
-
-- $project_name team
+- $project_name automatic mailer
 
 END_RESET_PWD_MSG
         $fh->close or croak 'Could not send email';
@@ -451,7 +449,6 @@ sub register_user {
     ) or croak $self->{dbh}->errstr;
 
     assert( $rows_affected == 1 );
-
     $self->send_verify_email( $project_name, $full_name, $username, $email1,
         $login_uri );
     return 1;
@@ -476,7 +473,8 @@ sub send_verify_email {
             To      => $email
         );
         $msg->add( 'From', ('NOREPLY') );
-        my $fh = $msg->open;
+        my $fh = $msg->open()
+            or croak 'Failed to open default mailer';
         my $session_id = $s->{data}->{_session_id};
         print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $full_name,
@@ -485,14 +483,12 @@ You have recently applied for user access to $project_name. Please click on the 
 
 $login_uri&sid=$session_id
 
-If you have never heard of $project_name, please ignore this message or notify the $project_name team if you receive it repeatedly.
+If you have never heard of $project_name, please ignore this message or notify the $project_name administrator if you receive it repeatedly.
 
-This message was sent automatically.
-
-- $project_name team
+- $project_name automatic mailer
 
 END_CONFIRM_EMAIL_MSG
-        $fh->close or croak 'Sending email failed';
+        $fh->close();
     }
     return;
 }
