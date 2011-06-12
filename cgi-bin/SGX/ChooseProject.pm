@@ -119,7 +119,7 @@ sub loadProjectData {
 #    $self->{_cgi}->div(
 #        { -id => 'projectInfo' },
 #        $self->{_cgi}->ul(
-#            $self->{_cgi}->li("<font size='5'>Current Project : SEGEX</font>"),
+#            $self->{_cgi}->li("<h2>Current Project : SEGEX</h2>"),
 #            $self->{_cgi}->li(
 #                $self->{_cgi}->a(
 #                    {

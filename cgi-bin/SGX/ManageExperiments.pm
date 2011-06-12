@@ -348,7 +348,7 @@ sub showExperiments
     printJavaScriptRecordsForFilterDropDowns($self);    
     print     "</script>\n";        
     
-    print    '<font size="5">Manage Experiments</font><br /><br />' . "\n";
+    print    '<h2>Manage Experiments</h2><br /><br />' . "\n";
 
     #Load the study dropdown to choose which experiments to load into table.
     print $self->{_cgi}->start_form(
@@ -394,7 +394,7 @@ sub showExperiments
             headers: [". printJSHeaders($self) . "]
         };" . "\n";
 
-        print    '<h2 name = "caption" id="caption"></h2>' . "\n";
+        print    '<h3 name = "caption" id="caption"></h3>' . "\n";
         print    '<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>' . "\n";
         print    '<div id="StudyTable"></div>' . "\n";
 

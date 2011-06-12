@@ -68,7 +68,6 @@ use warnings;
 use vars qw($VERSION);
 
 $VERSION = '0.10';
-#$VERSION = eval $VERSION;
 
 use Apache::Session::MySQL;
 use SGX::Debug;

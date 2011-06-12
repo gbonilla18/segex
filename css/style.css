@@ -12,8 +12,7 @@ em {
 	visibility:hidden;
 }
 address, ul, p { margin-bottom:1.4167em; }
-h2, caption {
-        font-size:120%;
+h1, h2, h3, h4, h5, h6, caption {
         font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
         font-weight:bold;
         padding-bottom:1em;
@@ -21,6 +20,12 @@ h2, caption {
 	clear:both;
         /*color:#26e;*/
         /*color:#d22;*/
+}
+h2 {
+	font-size:180%;
+}
+h3 {
+	font-size:150%;
 }
 /*** Containers ***/
 ul#menu, div#content, .clearfix, form  {

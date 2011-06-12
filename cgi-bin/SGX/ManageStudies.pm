@@ -357,7 +357,7 @@ sub showStudies {
         headers: [" . printJSHeaders($self) . "]
     };" . "\n";
 
-    print '<font size="5">Manage Studies</font><br /><br />' . "\n";
+    print '<h2>Manage Studies</h2><br /><br />' . "\n";
 
     #Load the study dropdown to choose which experiments to load into table.
     print $self->{_cgi}->start_form(
@@ -388,7 +388,7 @@ sub showStudies {
         )
       ) . $self->{_cgi}->end_form;
 
-    print '<h2 name = "caption" id="caption"></h2>' . "\n";
+    print '<h3 name = "caption" id="caption"></h3>' . "\n";
     print
 '<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>'
       . "\n";
@@ -401,7 +401,7 @@ sub showStudies {
     printDrawResultsTableJS();
 
     print "</script>\n";
-    print '<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Study</h2>'
+    print '<br /><h3 name = "Add_Caption" id = "Add_Caption">Add Study</h3>'
       . "\n";
 
     print $self->{_cgi}->start_form(
@@ -636,7 +636,7 @@ sub removeExperiment {
 
 sub editStudy {
     my $self = shift;
-    print '<font size="5">Editing Study</font><br /><br />' . "\n";
+    print '<h2>Editing Study</h2><br /><br />' . "\n";
 
     #Edit existing platform.
     print $self->{_cgi}->start_form(
@@ -708,11 +708,11 @@ sub editStudy {
       . $self->{_js_dir}
       . '/AddExisting.js" type="text/javascript"></script>';
     print
-'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Existing Experiment to this Study</h2>'
+'<br /><h3 name = "Add_Caption" id = "Add_Caption">Add Existing Experiment to this Study</h3>'
       . "\n";
 
     print
-'<br /><h2 name = "Add_Caption1" id = "Add_Caption1">Experiments already in a study.</h2>'
+'<br /><h3 name = "Add_Caption1" id = "Add_Caption1">Experiments already in a study.</h3>'
       . "\n";
     print "<script>\n";
     printJavaScriptRecordsForExistingDropDowns($self);
@@ -763,7 +763,7 @@ sub editStudy {
 
     #
     print
-'<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Experiments not in a study.</h2>'
+'<br /><h3 name = "Add_Caption2" id = "Add_Caption2">Experiments not in a study.</h3>'
       . "\n";
 
     print $self->{_cgi}->start_form(

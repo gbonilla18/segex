@@ -135,7 +135,7 @@ sub showExperiments
     my $self = shift;
     my $error_string = "";
 
-    print    '<font size="5">Output Data</font><br /><br />' . "\n";
+    print    '<h2>Output Data</h2><br /><br />' . "\n";
     print    '<script src="' . $self->{_js_dir} . '/OutputData.js" type="text/javascript"></script>';
     print    "<script type=\"text/javascript\">\n";
 
@@ -143,7 +143,7 @@ sub showExperiments
 
     print     "</script>\n";
 
-    print    '<br /><h2 name = "Output_Caption" id = "Output_Caption">Select Items to output</h2>' . "\n";
+    print    '<br /><h3 name = "Output_Caption" id = "Output_Caption">Select Items to output</h3>' . "\n";
 
     print $self->{_cgi}->start_form(
         -method=>'POST',
@@ -322,7 +322,7 @@ var OutputReport =
     };
 END_JSOuputList
 
-    print    '<h2 name = "caption" id="caption"></h2>' . "\n";
+    print    '<h3 name = "caption" id="caption"></h3>' . "\n";
     print    '<div><a id="OutPut_astext" onClick = "export_table(OutputReport)">View as plain text</a></div>' . "\n";
     print    '<div id="OutputTable"></div>' . "\n";
     print    "<script type=\"text/javascript\">\n";

@@ -93,7 +93,6 @@ use warnings;
 use vars qw($VERSION);
 
 $VERSION = '0.10';
-#$VERSION = eval $VERSION;
 
 use base qw/SGX::Session/;
 use CGI::Cookie;

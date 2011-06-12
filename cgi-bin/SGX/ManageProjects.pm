@@ -425,9 +425,9 @@ sub showProjects {
       . "    headers: ["
       . getJSHeaders($self) . "]\n" . "};\n";
 
-    print '<font size="5">Manage Projects</font><br /><br />' . "\n";
+    print '<h2>Manage Projects</h2><br /><br />' . "\n";
 
-    print '<h2 name = "caption" id="caption"></h2>' . "\n";
+    print '<h3 name = "caption" id="caption"></h3>' . "\n";
     print
 '<div><a id="ProjectTable_astext" onClick = "export_table(JSProjectList)">View as plain text</a></div>'
       . "\n";
@@ -440,7 +440,7 @@ sub showProjects {
     print getDrawResultsTableJS();
 
     print "</script>\n";
-    print '<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Project</h2>'
+    print '<br /><h3 name = "Add_Caption" id = "Add_Caption">Add Project</h3>'
       . "\n";
 
     print $self->{_cgi}->start_form(
@@ -731,7 +731,7 @@ sub removeStudy {
 #===============================================================================
 sub editProject {
     my $self = shift;
-    print '<font size="5">Editing Project</font><br /><br />' . "\n";
+    print '<h2>Editing Project</h2><br /><br />' . "\n";
 
     #Edit existing
     #
@@ -810,11 +810,11 @@ END_JSStudyList
       . $self->{_js_dir}
       . '/AddExisting.js" type="text/javascript"></script>';
     print
-'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Existing Study to this Project</h2>'
+'<br /><h3 name = "Add_Caption" id = "Add_Caption">Add Existing Study to this Project</h3>'
       . "\n";
 
     print
-'<br /><h2 name = "Add_Caption1" id = "Add_Caption1">Studies in other projects.</h2>'
+'<br /><h3 name = "Add_Caption1" id = "Add_Caption1">Studies in other projects.</h3>'
       . "\n";
 
     print "<script>\n";
@@ -865,7 +865,7 @@ END_JSStudyList
 
     #
     print
-'<br /><h2 name = "Add_Caption2" id = "Add_Caption2">Studies not in a project.</h2>',
+'<br /><h3 name = "Add_Caption2" id = "Add_Caption2">Studies not in a project.</h3>',
       "\n";
 
     my %unassignedList = %{ $self->{_unassignedList} };

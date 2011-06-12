@@ -213,8 +213,8 @@ sub showPlatforms
 	}
 	$JSPlatformList =~ s/,\s*$//;	# strip trailing comma
 	$JSPlatformList .= ']};' . "\n";
-	print	'<font size="5">Manage Platforms</font><br /><br />' . "\n";
-	print	'<h2 name = "caption" id="caption"></h2>' . "\n";
+	print	'<h2>Manage Platforms</h2><br /><br />' . "\n";
+	print	'<h3 name = "caption" id="caption"></h3>' . "\n";
 	print	'<div><a id="PlatformTable_astext">View as plain text</a></div>' . "\n";
 	print	'<div id="PlatformTable"></div>' . "\n";
 	print	"<script type=\"text/javascript\">\n";
@@ -226,7 +226,7 @@ sub showPlatforms
 
 	print 	"</script>\n";
 
-	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add Platform</h2>' . "\n";
+	print	'<br /><h3 name = "Add_Caption" id = "Add_Caption">Add Platform</h3>' . "\n";
 
 	#.
 	print $self->{_cgi}->start_form(
@@ -375,7 +375,7 @@ sub editPlatform
 {
 	my $self = shift;
 
-	print	'<font size="5">Editing Platform</font><br /><br />' . "\n";
+	print	'<h2>Editing Platform</h2><br /><br />' . "\n";
 
 	#Edit existing platform.
 	print $self->{_cgi}->start_form(

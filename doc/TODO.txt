@@ -66,3 +66,7 @@ is in many ways similar to ManageProjects. Formalize this similarity and abstrac
 (to superclass perhaps?).
 
 13) UI: when no pull-down menus have no items in them, do not show the pulldowns at all.
+
+14) Installation: automate file copying: have user provide only two directories: CGI_ROOT and
+DOCUMENTS_ROOT. Create the subtree containing css/, images/, and js/ directories under
+DOCUMENTS_ROOT and the subtree corresponding to cgi-bin under CGI_ROOT.

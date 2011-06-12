@@ -84,7 +84,7 @@ sub drawAddExperimentMenu
 {
 	my $self = shift;
 
-	print	'<br /><h2 name = "Add_Caption" id = "Add_Caption">Add New Experiment</h2>' . "\n";
+	print	'<br /><h3 name = "Add_Caption" id = "Add_Caption">Add New Experiment</h3>' . "\n";
 
 	print $self->{_cgi}->start_form(
 		-method=>'POST',

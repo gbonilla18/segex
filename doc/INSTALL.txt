@@ -201,7 +201,3 @@ CGI_ROOT and DOCUMENTS_ROOT directories.
 
    # /segex_dev/js
    sudo cp -R ~/segex/js .
-
-TODO: automate file copying: have user provide only two directories: CGI_ROOT and
-DOCUMENTS_ROOT. Create the subtree containing css/, images/, and js/ directories under
-DOCUMENTS_ROOT and the subtree corresponding to cgi-bin under CGI_ROOT.

@@ -141,7 +141,6 @@ use CGI::Carp qw/croak/;
 use vars qw($VERSION);
 
 $VERSION = '0.10';
-#$VERSION = eval $VERSION;
 
 use base qw/SGX::Cookie/;
 use Digest::SHA1 qw/sha1_hex/;
@@ -428,8 +427,8 @@ sub register_user {
       or croak $self->{dbh}->errstr;
     my $rowcount = $sth->execute($username) or croak $self->{dbh}->errstr;
     assert( $rowcount == 1 );
-    my $user_found = $sth->fetchrow_array;
-    $sth->finish;
+    my $user_found = $sth->fetchrow_array();
+    $sth->finish();
     if ($user_found) {
         $$error = "The user $username already exists in the database";
         return 0;
@@ -479,11 +478,11 @@ sub send_verify_email {
         print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $full_name,
 
-You have recently applied for user access to $project_name. Please click on the link below to confirm your email address with $project_name.
+You have recently applied for user access to $project_name. Please click on the link below to confirm your email address with $project_name. You may be asked to enter your username and password if you are not currently logged in.
 
 $login_uri&sid=$session_id
 
-If you have never heard of $project_name, please ignore this message or notify the $project_name administrator if you receive it repeatedly.
+If you have never heard of $project_name, please ignore this message or notify the $project_name administrator if you keep receiving it.
 
 - $project_name automatic mailer
 

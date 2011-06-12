@@ -518,7 +518,8 @@ function init() {
         if ($s->is_authorized('unauth')) {
             $action = DEFAULT_ACTION;
         } else {
-            if ($s->register_user($q->param('username'),
+            if ($s->register_user(
+                          $q->param('username'),
                           $q->param('password1'), $q->param('password2'),
                           $q->param('email1'), $q->param('email2'),
                           $q->param('full_name'),
@@ -549,8 +550,13 @@ function init() {
     }
     case VERIFYEMAIL        {
         if ($s->is_authorized('unauth')) {
-            my $t = SGX::Session->new(-handle=>$dbh, -expire_in=>3600*48, -id=>$q->param('sid'), -check_ip=>0);
-            if ($t->restore) {
+            my $t = SGX::Session->new(
+                -handle    => $dbh, 
+                -expire_in => 3600*48, 
+                -id        => $q->param('sid'), 
+                -check_ip  => 0
+            );
+            if ($t->restore()) {
                 if ($s->verify_email($t->{data}->{username})) {
                     $title = 'Email Verification';
                     $content = \&verifyEmail_success;
@@ -558,7 +564,7 @@ function init() {
                 } else {
                     $action = DEFAULT_ACTION;
                 }
-                $t->destroy;
+                $t->destroy();
             } else {
                 # no session tied
                 $action = DEFAULT_ACTION;
@@ -697,7 +703,7 @@ sub main {
 }
 #######################################################################################
 sub about {
-    print $q->p('<font size="5">About</font>');
+    print $q->h2('About');
     print $q->p('The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. 
     Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the 
     GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to 
@@ -771,13 +777,18 @@ sub form_resetPassword {
 }
 #######################################################################################
 sub resetPassword_success {
-    print $q->p('A new password has been emailed to you. Once you receive this email, you will be able to change the password sent to you by following the link in the email text.') .
+    print $q->p('A new password has been emailed to you. Once you receive the email message, 
+        you will be able to change the password sent to you by following the link in the email text.') .
     $q->p($q->a({-href=>$q->url(-absolute=>1),
              -title=>'Back to login page'},'Back'));
 }
 #######################################################################################
 sub registration_success {
-    print $q->p('An email has been sent to the email address you have entered. It contains a link, by following which you can confirm your email address. Another email message has been sent to the administrator(s) of this site. Once your request for access is approved, you will be able to start using the data provided.') .
+    print $q->p('An email message has been sent to the email address you have entered. You
+    should confirm your email address by clicking on a link included in the email
+    message. Another email message has been sent to the administrator(s) of this site. 
+    Once your request for access is approved, you can start browsing the content hosted
+    on this site.') .
     $q->p($q->a({-href=>$q->url(-absolute=>1),
              -title=>'Back to login page'},'Back'));
 }
@@ -847,17 +858,23 @@ sub form_changeEmail {
 }
 #######################################################################################
 sub changeEmail_success {
-    print $q->p('You have changed your email address. Please verify your new email address with the system by clicking on the link in the email that has been sent to you.') .
+    print $q->p('You have changed your email address. Please confirm your new email
+        address by clicking on the link in the message has been sent to the address
+        you provided.') .
     $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
          -title=>'Back to my profile'},'Back'));
 }
 #######################################################################################
 sub form_updateProfile {
     # user has to be logged in
-    print 
-        $q->p('<font size = "5">My Profile</font>'),
-        $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHOOSEPROJECT,
-            -title=>'Choose Project'},'Choose Project')),
+    print $q->h2('My Profile');
+
+    if ($s->is_authorized('user')) {
+        print $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHOOSEPROJECT,
+                -title=>'Choose Project'},'Choose Project'));
+    }
+
+    print
         $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEPASSWORD,
             -title=>'Change Password'},'Change Password')),
         $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEEMAIL,
@@ -891,7 +908,7 @@ sub form_registerUser {
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
-            $q->submit(-name=>'registerUser',-id=>'registerUser',-value=>'Submit for approval'),
+            $q->submit(-name=>'registerUser',-id=>'registerUser',-value=>'Register'),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.LOGIN,
                 -title=>'Back to login page'},'Back')
@@ -1066,7 +1083,7 @@ sub form_findProbes {
     print $q->start_form(-method=>'GET',
         -action=>$q->url(absolute=>1),
         -enctype=>'application/x-www-form-urlencoded') .
-    $q->p('<font size="5">Find Probes</font>') .
+    $q->h2('Find Probes') .
     $q->p('Enter search text below to find the data for that probe. The textbox will allow a comma separated list of values, or one value per line, to obtain information on multiple probes.') .
     $q->p('Regular Expression Example: "^cyp.b" would retrieve all genes starting with cyp.b where the period represents any one character. More examples can be found at <a href="http://en.wikipedia.org/wiki/Regular_expression_examples">Wikipedia Examples</a>.') .
     $q->dl(
@@ -1592,7 +1609,7 @@ sub findProbes {
 #######################################################################################
 sub schema {
     my $dump_url = $q->url(-absolute=>1).'?a='.DUMP;
-    print '<font size = "5">Schema</font>';
+    print '<h2>Schema</h2>';
     print '
 <map name="schema_Map">
 <area shape="rect" title="Click to download Users table" alt="users" coords="544,497,719,718" href="'.$dump_url.'&amp;table=users" target="_blank">
@@ -1696,7 +1713,7 @@ sub form_compareExperiments {
         'part'=>'Part of the Word / Regular Expression*'
     );
 
-    print $q->p('<font size="5">Compare Experiments</font>');
+    print $q->h2('Compare Experiments');
     print 
     $q->dl(
         $q->dt('Choose platform / add experiment:'),
@@ -2333,13 +2350,13 @@ sub form_uploadAnnot {
     }
 
     print
-    $q->h2('<font size = "5">Upload Annotation</font>'),
+    $q->h2('Upload Annotation'),
     $q->p('Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add transcript accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'),
     $q->p('The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.');
 
-    print $q->div({-class=>'workarea'}, $q->h2('Available Fields:') .
+    print $q->div({-class=>'workarea'}, $q->h3('Available Fields:') .
         $q->ul({-id=>'ul1', -class=>'draglist'}, $fieldlist));
-    print $q->div({-class=>'workarea'}, $q->h2('Fields in the Uploaded File:') .
+    print $q->div({-class=>'workarea'}, $q->h3('Fields in the Uploaded File:') .
         $q->ul({-id=>'ul2', -class=>'draglist'}));
 
     print $q->startform(-method=>'POST',
