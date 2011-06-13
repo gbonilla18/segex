@@ -32,6 +32,8 @@ if ($reporter eq '') {
 	exit(0);
 }
 
+my $project_id = $s->{data}->{curr_proj};
+
 if (!$s->is_authorized('user')) {
 	#$s->commit;
 	#print $q->header(-type=>'text/plain', -cookie=>\@SGX::Cookie::cookies);
@@ -73,7 +75,7 @@ my $rowcount = $sth->execute
 if ($rowcount == 0) {
 	warn "Probe $reporter does not exist in the database";
 } elsif ($rowcount > 1) {
-	warn "More than one record found with reporter ID $reporter";
+    #warn "More than one record found with reporter ID $reporter";
 }
 my $result = $sth->fetchrow_arrayref;
 my $seqname = $result->[0];
@@ -85,7 +87,8 @@ $sth->finish;
 # Get the data
 my $title_text = "$seqname Differential Expression Reported by $reporter";
 my $xtitle_text = 'Experiment';
-$sth = $dbh->prepare(qq{
+if (!defined($project_id) or $project_id == 0) {
+    $sth = $dbh->prepare(qq{
 select CONCAT(experiment.eid, ' - ' ,study.description, ': ', experiment.sample2, '/', experiment.sample1) AS label, $sql_trans as y, pvalue from microarray 
 right join 
 (
@@ -93,7 +96,22 @@ select distinct rid from probe where reporter='$reporter'
 ) as d3 on microarray.rid=d3.rid NATURAL JOIN experiment NATURAL JOIN StudyExperiment NATURAL JOIN study
  ORDER BY experiment.eid ASC})
 	or die $dbh->errstr;
+} else {
+    $sth = $dbh->prepare(qq{
+select CONCAT(experiment.eid, ' - ' ,study.description, ': ', experiment.sample2, '/', experiment.sample1) AS label, $sql_trans as y, pvalue from microarray 
+right join 
+(
+select distinct rid from probe where reporter='$reporter'
+) as d3 on microarray.rid=d3.rid NATURAL JOIN experiment NATURAL JOIN StudyExperiment
+NATURAL JOIN study NATURAL JOIN ProjectStudy WHERE prid=$project_id
+ORDER BY experiment.eid ASC})
+	or die $dbh->errstr;
+}
 $rowcount = $sth->execute or die $dbh->errstr;
+if ($rowcount == 0) {
+    #warn "Exiting";
+    exit();
+}
 
 my @labels;
 my @y;
