@@ -155,9 +155,21 @@ use SGX::Session;    # for email confirmation
 #   my $array_reference = \@PackageName::array;
 #
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  authenticate
+#   PARAMETERS:  $self - reference to object instance
+#                $username - user name string
+#                $password - password string
+#                $error - reference to error string
+#      RETURNS:  1 on success, 0 on failure
+#  DESCRIPTION:  Queries the `users' table in the database for matching username and
+#                password hash
+#       THROWS:  DBI::errstr
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub authenticate {
-
-# Queries the `users' table in the database for matching username and password hash.
 
     my ( $self, $username, $password, $error ) = @_;
 
@@ -208,13 +220,25 @@ sub authenticate {
     }
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  reset_password
+#   PARAMETERS:  $self - reference to object instance
+#                $username
+#                $project_name
+#                $login_uri - the full URI of the login script plus the command to show
+#                the formi to change a password
+#                $error - reference to error string
+#      RETURNS:  1 on success, 0 on failure
+#  DESCRIPTION:  Issues a new password and emails it to the user's email address. The
+#                email address must be marked as "confirmed" in the "users" table in the
+#                dataase.
+#       THROWS:  DBI::errstr, Mail::Send::close failure
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub reset_password {
 
-# password is reset and the new password is emailed to the
-# (previously validated) email address stored for the
-# corresponding username.
-# $login_uri is the full URI of the login script plus the command to show the form
-# to change a password
     my ( $self, $username, $project_name, $login_uri, $error ) = @_;
 
     if ( !defined($username) || $username eq '' ) {
@@ -291,6 +315,33 @@ END_RESET_PWD_MSG
     }
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  reset_password_text
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub reset_password_text {
+    return <<"END_reset_password_text";
+A new password has been emailed to you. Once you receive the email message, you will be
+able to change the password sent to you by following the link in the email text.
+END_reset_password_text
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  change_password
+#   PARAMETERS:  ????
+#      RETURNS:  1 on success, 0 on failure
+#  DESCRIPTION:  
+#       THROWS:  DBI::errstr
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub change_password {
     my ( $self, $old_password, $new_password1, $new_password2, $error ) = @_;
 
@@ -339,6 +390,16 @@ sub change_password {
     }
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  change_email
+#   PARAMETERS:  ????
+#      RETURNS:  1 on success, 0 on failure
+#  DESCRIPTION:  
+#       THROWS:  DBI::errstr
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub change_email {
     my ( $self, $password, $email1, $email2, $project_name, $login_uri, $error )
       = @_;
@@ -384,6 +445,32 @@ sub change_email {
     }
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  change_email_text
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub change_email_text {
+    return <<"END_change_email_text";
+You have changed your email address. Please confirm your new email address by clicking
+on the link in the message has been sent to the address you provided.
+END_change_email_text
+}
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  register_user
+#   PARAMETERS:  ????
+#      RETURNS:  1 on success, 0 on failure
+#  DESCRIPTION:  
+#       THROWS:  DBI::errstr
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub register_user {
     my (
         $self,   $username,     $password1, $password2,
@@ -453,6 +540,34 @@ sub register_user {
     return 1;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  register_user_text
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub register_user_text {
+    return <<"END_register_user_text";
+An email message has been sent to the email address you have entered. You should confirm
+your email address by clicking on a link included in the email message. Another email 
+message has been sent to the administrator(s) of this site. Once your request for access 
+is approved, you can start browsing the content hosted on this site.
+END_register_user_text
+}
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  send_verify_email
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  DBI::errstr, Mail::Send::close failure
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub send_verify_email {
     my ( $self, $project_name, $full_name, $username, $email, $login_uri ) = @_;
     my $s = SGX::Session->new(
@@ -487,11 +602,21 @@ If you have never heard of $project_name, please ignore this message or notify t
 - $project_name automatic mailer
 
 END_CONFIRM_EMAIL_MSG
-        $fh->close();
+        $fh->close or croak 'Could not send email';
     }
     return;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  verify_email
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  DBI::errstr
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub verify_email {
     my ( $self, $username ) = @_;
     if ( $self->{data}->{username} ne $username ) {
@@ -506,11 +631,20 @@ sub verify_email {
     return 1;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  is_authorized
+#   PARAMETERS:  $self - reference to object instance
+#                $req_user_level - required credential level
+#      RETURNS:  1 if yes, 0 if no
+#  DESCRIPTION:  checks whether the currently logged-in user has the required
+#                credentials
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub is_authorized {
 
-    # checks whether the currently logged-in user has the required credentials
-    # returns 1 if yes, 0 if no
-    #
     my ( $self, $req_user_level ) = @_;
     if ( defined( $self->{data}->{user_level} ) ) {
         if ( $req_user_level eq 'admin' ) {

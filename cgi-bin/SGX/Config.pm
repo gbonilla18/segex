@@ -1,56 +1,36 @@
 package SGX::Config;
 
-# Don't forget to put the names of your exported subroutines into the EXPORT array
-
 use strict;
 use warnings;
 use base qw/Exporter/;
 
-#use lib '/opt/local/lib/perl5/site_perl/5.8.8';
-#use lib '/opt/local/lib/perl5/site_perl/5.8.8/darwin-2level';
-
+use Carp;
 use File::Basename;
-use List::Util qw/min max/;
-use CGI::Carp qw/croak/;
+use SGX::Util qw/replace/;
 
 our @EXPORT =
-  qw/trim max min bounds label_format mysql_connect PROJECT_NAME CGI_ROOT YUI_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR SPECIES/;
+  qw/PROJECT_NAME CGI_ROOT YUI_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR
+  sgx_db_connect about_text main_text/;
 
-sub mysql_connect {
+#---------------------------------------------------------------------------
+#  Database-specific
+#---------------------------------------------------------------------------
+use constant DATABASE_STRING => 'dbi:mysql:segex_dev';
+use constant DATABASE_USER   => 'segex_dev_user';
+use constant DATABASE_PWD    => 'b00g3yk1d';
 
-    # connects to the database and returns the handle
-    my $dbh =
-         DBI->connect( 'dbi:mysql:segex_dev', 'segex_dev_user', 'b00g3yk1d' )
-      or croak $DBI::errstr;
-    return $dbh;
-}
+#---------------------------------------------------------------------------
+#  General
+#---------------------------------------------------------------------------
+use constant PROJECT_NAME    => 'SEGEX';
 
-#===  FUNCTION  ================================================================
-#         NAME:  replace
-#      PURPOSE:  Syntatic sugar for the replace regular expression;
-#                allows for writing a one-liner:
-#                  $a = regexp($b, $text_to_match, $replacement);
-#                instead of the usual two lines:
-#                  $a = $b;
-#                  $a =~ s/$text_to_match/$replacement/;
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub replace {
-    my ( $var, $match, $replacement ) = @_;
-    $var =~ s/$match/$replacement/;
-    return $var;
-}
+#use constant SPECIES      => 'mouse';    # hardcoding species for now
 
-use constant PROJECT_NAME => 'SEGEX';
-use constant SPECIES      => 'mouse';    # hardcoding species for now
-
+#---------------------------------------------------------------------------
+#  Directories
+#---------------------------------------------------------------------------
 # convert cgi root to documents root by dropping /cgi-bin prefix
-use constant CGI_ROOT => dirname( $ENV{SCRIPT_NAME} );    # current script path
+use constant CGI_ROOT       => dirname( $ENV{SCRIPT_NAME} );
 use constant DOCUMENTS_ROOT => replace( CGI_ROOT, '^\/cgi-bin', '' );
 use constant YUI_ROOT       => '/yui';
 
@@ -58,80 +38,27 @@ use constant IMAGES_DIR => DOCUMENTS_ROOT . '/images';
 use constant JS_DIR     => DOCUMENTS_ROOT . '/js';
 use constant CSS_DIR    => DOCUMENTS_ROOT . '/css';
 
-# ===== VARIOUS FUNCTIONS (NOT STRICTLY CONFIGURATION CODE =========================
+#===  FUNCTION  ================================================================
+#         NAME:  sgx_db_connect
+#      PURPOSE:  simplify getting database handle
+#   PARAMETERS:  n/a
+#      RETURNS:  database handle object
+#  DESCRIPTION:  ????
+#       THROWS:  $DBI::errstr
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub sgx_db_connect {
 
-#sub max {
-#
-#    # returns the greatest value in a list
-#    my $max = shift;
-#    foreach (@_) {
-#        $max = $_ if $_ > $max;
-#    }
-#    return $max;
-#}
-#
-#sub min {
-#
-#    # returns the smallest value in a list
-#    my $min = shift;
-#    foreach (@_) {
-#        $min = $_ if $_ < $min;
-#    }
-#    return $min;
-#}
-
-sub bounds {
-
-    # returns the bounds of an array,
-    # assuming undefined values to be zero
-    my $a    = shift;
-    my $mina = ( defined( $a->[0] ) ) ? $a->[0] : 0;
-    my $maxa = $mina;
-    for ( my $i = 1 ; $i < @$a ; $i++ ) {
-        my $val = ( defined( $a->[$i] ) ) ? $a->[$i] : 0;
-        if    ( $val < $mina ) { $mina = $val }
-        elsif ( $val > $maxa ) { $maxa = $val }
-    }
-    return ( $mina, $maxa );
-}
-
-sub label_format {
-
-    # first rounds the number to only one significant figure,
-    # then further rounds the significant figure to 1, 2, 5, or 10
-    # (useful for making labels for graphs)
-    my $num = shift;
-    $num = sprintf( '%e', sprintf( '%.1g', $num ) );
-    my $fig = substr( $num, 0, 1 );
-    my $remainder = substr( $num, 1 );
-
-    # choose "nice" numbers:
-    if ( $fig < 2 ) {
-
-        # 1 => 1
-        # do nothing here
-    }
-    elsif ( $fig < 4 ) {
-
-        # 2, 3 => 1
-        $fig = 2;
-    }
-    elsif ( $fig < 8 ) {
-
-        # 4, 5, 6, 7 => 5
-        $fig = 5;
-    }
-    else {
-
-        # 8, 9 => 10
-        $fig = 10;
-    }
-    return $fig . $remainder;
+    my $dbh =
+         DBI->connect( DATABASE_STRING, DATABASE_USER, DATABASE_PWD )
+      or croak $DBI::errstr;
+    return $dbh;
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  trim
-#      PURPOSE:  remove whitespace from the beginning and the end of a string
+#         NAME:  about_text
+#      PURPOSE:  
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  ????
@@ -139,14 +66,47 @@ sub label_format {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub trim
+sub about_text
 {
-    my $string = shift;
-    
-    $string =~ s/^\s*//;
-    $string =~ s/\s*$//;
-    
-    return $string;
+    return <<"END_about_text";
+<p>
+The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to examine sexually dimorphic gene expression in mouse livers.
+</p>
+
+<p>
+This SEGEX database provides public access to previously released datasets from the Waxman laboratory, and provides data mining tools and data visualization to query gene expression across several studies and experimental conditions.
+</p>
+
+<p>
+Developed at Boston University as part of the BE768 Biologic Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.
+</p>
+
+END_about_text
+}
+
+
+#===  FUNCTION  ================================================================
+#         NAME:  main_text
+#      PURPOSE:  
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub main_text
+{
+    return <<"END_main_text";
+<p>
+The SEGEX database will provide public access to previously released datasets from the Waxman laboratory, and data mining and visualization modules to query gene expression across several studies and experimental conditions.
+</p>
+
+<p>
+This database was developed at Boston University as part of the BE768 Biological Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.
+</p>
+
+END_main_text
 }
 
 1;

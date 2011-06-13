@@ -71,20 +71,22 @@ $VERSION = '0.10';
 
 use Apache::Session::MySQL;
 use SGX::Debug;
-use CGI::Carp qw/croak/;
+use Carp;
 
 #use Data::Dumper;    # for debugging
 
-# Variables declared as "our" within a class (package) scope will be shared between
-# all instances of the class *and* can be addressed from the outside like so:
-#
-#   my $var = $PackageName::var;
-#   my $array_reference = \@PackageName::array;
-#
-
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  new
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub new {
 
-    # This is the constructor
     my ($class, %p) = @_;
 
     # :TODO:06/05/2011 22:48:28:es: figure out a more reliable way to
@@ -104,9 +106,19 @@ sub new {
     return $self;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  safe_tie
+#   PARAMETERS:  ????
+#      RETURNS:  returns 1 if a new session was commenced or an old one restored *by
+#                this subroutine*, 0 otherwise
+#  DESCRIPTION:  
+#       THROWS:  croak() if active session present
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub safe_tie {
 
-# returns 1 if a new session was commenced or an old one restored *by this subroutine*, 0 otherwise
     my ( $self, $id ) = @_;
     if ( $self->{active} ) {
         croak 'Cannot tie to session hash: another session is currently active';
@@ -129,9 +141,18 @@ sub safe_tie {
     return 1;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  try_commence
+#   PARAMETERS:  ????
+#      RETURNS:  returns the same value as safe_tie method
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub try_commence {
 
-    # returns the same value as safe_tie
     my ( $self, $id ) = @_;
     if ( $self->safe_tie($id) ) {
         if ( defined($id) ) {
@@ -176,6 +197,16 @@ sub try_commence {
     return 0;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  now
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub now {
 
 # MySQL timestamp format:
@@ -184,12 +215,20 @@ sub now {
     return time;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  restore
+#   PARAMETERS:  ????
+#      RETURNS:  Returns the same value as safe_tie (meaning an old session was found
+#                but not necessarily validated and attached to). For the status of the
+#                currect session, use $self->{active}
+#  DESCRIPTION:  If no session is active at the moment, attach to an old session.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub restore {
 
-# If no session is active at the moment, attach to an old session.
-# Returns the same value as safe_tie (meaning an old session was found but not
-# necessarily validated and attached to). For the status of the currect session,
-# use $self->{active}.
     my $self = shift;
     if ( defined( $self->{old_session_id} ) && !$self->{active} ) {
         if ( $self->try_commence( $self->{old_session_id} ) ) {
@@ -211,10 +250,19 @@ sub restore {
     return 0;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  commence
+#   PARAMETERS:  ????
+#      RETURNS:  Returns 1 if a new session was commenced *within this subroutine*, 0
+#                otherwise
+#  DESCRIPTION:  If no session is active at the moment, commence a new one.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub commence {
 
-   # If no session is active at the moment, commence a new one.
-   # Returns 1 if a new session was commenced *within this subroutine*, 0 otherwise
     my $self = shift;
     if ( !$self->{active} ) {
         return $self->try_commence(undef);
@@ -222,9 +270,18 @@ sub commence {
     return 0;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  commit
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  commits the active session object to object store
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub commit {
 
-    # commits the active session object to object store
     my $self = shift;
     if ( $self->{active} ) {
         untie( %{ $self->{object} } );
@@ -234,10 +291,19 @@ sub commit {
     return 0;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  destroy
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  deletes all referenced sessions from object store in this order:
+#                (1) delete active if it exists, (2) delete old if it exists
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub destroy {
     my $self = shift;
-
-    # deletes all referenced sessions from object store in this order:
 
     # (1) delete active if it exists
     if ( $self->{active} ) {
@@ -263,18 +329,37 @@ sub destroy {
     return;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  delete_object
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  no status/error checking in this subroutine -- use with caution
+#     SEE ALSO:  n/a
+#===============================================================================
 sub delete_object {
 
-    # no status/error checking in this subroutine -- use with caution
     my $self = shift;
     tied( %{ $self->{object} } )->delete();
     $self->{active} = 0;
     return;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  fresh
+#   PARAMETERS:  ????
+#      RETURNS:  Returns 1 if a new session was commenced *within this subroutine*, 0
+#                otherwise
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub fresh {
 
-   # Returns 1 if a new session was commenced *within this subroutine*, 0 otherwise
     my $self = shift;
     $self->destroy;
 

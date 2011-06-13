@@ -26,6 +26,7 @@ use lib 'SGX';
 
 use SGX::Debug;        # all debugging code goes here
 use SGX::Config;    # all configuration for our project goes here
+use SGX::Util qw/trim/;
 use SGX::User 0.07;    # user authentication, sessions and cookies
 use SGX::Session 0.08;    # email verification
 use SGX::ManageMicroarrayPlatforms;
@@ -42,7 +43,7 @@ use SGX::ChooseProject;
 #  User Authentication
 #---------------------------------------------------------------------------
 my $softwareVersion = "0.1.12";
-my $dbh = mysql_connect();
+my $dbh = sgx_db_connect();
 my $s = SGX::User->new(-handle        => $dbh,
                -expire_in    => 3600, # expire in 3600 seconds (1 hour)
                -check_ip    => 1,
@@ -509,7 +510,7 @@ function init() {
         if ($s->is_authorized('unauth')) {
             $action = DEFAULT_ACTION;
         } else {
-            $title = 'Register';
+            $title = 'Sign up';
             $content = \&form_registerUser;
             $action = undef;    # final state
         }
@@ -698,20 +699,12 @@ sub cgi_end_html {
 }
 #######################################################################################
 sub main {
-    print $q->p('The SEGEX database will provide public access to previously released datasets from the Waxman laboratory, and data mining and visualization modules to query gene expression across several studies and experimental conditions.');
-    print $q->p('This database was developed at Boston University as part of the BE768 Biological Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.');
+    print main_text();
 }
 #######################################################################################
 sub about {
     print $q->h2('About');
-    print $q->p('The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. 
-    Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the 
-    GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to 
-    examine sexually dimorphic gene expression in mouse livers.') .
-
-    $q->p('This SEGEX database provides public access to previously released datasets from the Waxman laboratory, and provides data mining tools and data visualization to query gene expression across several studies and experimental conditions.') .
-
-    $q->p('Developed at Boston University as part of the BE768 Biologic Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.');
+    print about_text();
 }
 #######################################################################################
 sub form_error {
@@ -748,7 +741,7 @@ sub form_login {
                 -title=>'Email me a new password'},'I Forgot My Password'),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.REGISTERUSER,
-                -title=>'Set up a new account'},'Register')
+                -title=>'Set up a new account'}, 'Sign up')
         )
     )
     .
@@ -777,18 +770,13 @@ sub form_resetPassword {
 }
 #######################################################################################
 sub resetPassword_success {
-    print $q->p('A new password has been emailed to you. Once you receive the email message, 
-        you will be able to change the password sent to you by following the link in the email text.') .
+    print $q->p($s->reset_password_text()) .
     $q->p($q->a({-href=>$q->url(-absolute=>1),
              -title=>'Back to login page'},'Back'));
 }
 #######################################################################################
 sub registration_success {
-    print $q->p('An email message has been sent to the email address you have entered. You
-    should confirm your email address by clicking on a link included in the email
-    message. Another email message has been sent to the administrator(s) of this site. 
-    Once your request for access is approved, you can start browsing the content hosted
-    on this site.') .
+    print $q->p($s->register_user_text()) .
     $q->p($q->a({-href=>$q->url(-absolute=>1),
              -title=>'Back to login page'},'Back'));
 }
@@ -858,9 +846,7 @@ sub form_changeEmail {
 }
 #######################################################################################
 sub changeEmail_success {
-    print $q->p('You have changed your email address. Please confirm your new email
-        address by clicking on the link in the message has been sent to the address
-        you provided.') .
+    print $q->p($s->change_email_text()) .
     $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
          -title=>'Back to my profile'},'Back'));
 }

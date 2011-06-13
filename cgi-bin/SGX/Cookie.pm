@@ -109,9 +109,18 @@ use File::Basename;
 #
 our @cookies;
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Cookie
+#       METHOD:  new
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub new {
 
-    # This is the constructor
     my ($class, %p) = @_;
 
     # :TODO:06/05/2011 22:48:28:es: figure out a more reliable way to
@@ -135,9 +144,18 @@ sub new {
     return $self;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Cookie
+#       METHOD:  commit
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  calls the parent method and bakes a cookie on success
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub commit {
 
-    # calls the parent method and bakes a cookie on success
     my $self = shift;
     if ( $self->SUPER::commit() ) {
         push @cookies, CGI::Cookie->new(
