@@ -9,7 +9,7 @@ use File::Basename;
 use SGX::Util qw/replace/;
 
 our @EXPORT =
-  qw/PROJECT_NAME CGI_ROOT YUI_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR
+  qw/PROJECT_NAME CGI_ROOT YUI_BUILD_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR
   sgx_db_connect about_text main_text/;
 
 #---------------------------------------------------------------------------
@@ -32,7 +32,7 @@ use constant PROJECT_NAME    => 'SEGEX';
 # convert cgi root to documents root by dropping /cgi-bin prefix
 use constant CGI_ROOT       => dirname( $ENV{SCRIPT_NAME} );
 use constant DOCUMENTS_ROOT => replace( CGI_ROOT, '^\/cgi-bin', '' );
-use constant YUI_ROOT       => '/yui';
+use constant YUI_BUILD_ROOT       => '/yui/build';
 
 use constant IMAGES_DIR => DOCUMENTS_ROOT . '/images';
 use constant JS_DIR     => DOCUMENTS_ROOT . '/js';

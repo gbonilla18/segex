@@ -26,9 +26,16 @@ package SGX::FindProbes;
 
 use strict;
 use warnings;
+
+use base qw/Exporter/;
+
 use Switch;
+use CGI::Carp;
 
 use Data::Dumper;
+
+our @EXPORT_OK =
+  qw/getform_findProbes/;
 
 sub new {
 	# This is the constructor
@@ -1069,6 +1076,587 @@ sub getFullExperimentData
 	$self->{_FullExperimentRec}->finish;
 
 }
+
 #######################################################################################
+sub list_yui_deps
+{
+    my ($self, $list) = @_;
+    push @$list, (
+        'yahoo-dom-event/yahoo-dom-event.js',
+        'connection/connection-min.js',
+        'dragdrop/dragdrop-min.js',
+        'container/container-min.js',
+        'element/element-min.js',
+        'datasource/datasource-min.js',
+        'paginator/paginator-min.js',
+        'datatable/datatable-min.js',
+        'selector/selector-min.js'
+    );
+}
+#######################################################################################
+
+#===  FUNCTION  ================================================================
+#         NAME:  getform_findProbes
+#      PURPOSE:  display Find Probes form
+#   PARAMETERS:  $q - CGI object
+#                $a - name of the top-level action
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getform_findProbes {
+    my ($q, $a) = @_;
+
+    my %type_dropdown = (
+        'gene'=>'Gene Symbols',
+        'transcript'=>'Transcripts',
+        'probe'=>'Probes'
+    );
+    my %match_dropdown = (
+        'full'=>'Full Word',
+        'prefix'=>'Prefix',
+        'part'=>'Part of the Word / Regular Expression*'
+    );
+    my %opts_dropdown = (
+        '0'=>'Basic (names,IDs only)',
+        '1'=>'Full annotation',
+        '2'=>'Full annotation with experiment data (CSV)',
+        '3'=>'Full annotation with experiment data (Not implemented yet)'
+    );
+    my %trans_dropdown = (
+        'fold' => 'Fold Change +/- 1', 
+        'ln'=>'Log2 Ratio'
+    );
+
+    return $q->start_form(-method=>'GET',
+        -action=>$q->url(absolute=>1),
+        -enctype=>'application/x-www-form-urlencoded') .
+    $q->h2('Find Probes') .
+    $q->p('Enter search text below to find the data for that probe. The textbox will allow a comma separated list of values, or one value per line, to obtain information on multiple probes.') .
+    $q->p('Regular Expression Example: "^cyp.b" would retrieve all genes starting with cyp.b where the period represents any one character. More examples can be found at <a href="http://en.wikipedia.org/wiki/Regular_expression_examples">Wikipedia Examples</a>.') .
+    $q->dl(
+        $q->dt('Search string(s):'),
+        $q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
+        $q->dt('Search type :'),
+        $q->dd($q->popup_menu(
+                -name=>'type',
+                -default=>'gene',
+                -values=>[keys %type_dropdown],
+                -labels=>\%type_dropdown
+        )),
+        $q->dt('Pattern to match :'),
+        $q->dd($q->radio_group(
+                -tabindex=>2, 
+                -name=>'match', 
+                -linebreak=>'true', 
+                -default=>'full', 
+                -values=>[keys %match_dropdown], 
+                -labels=>\%match_dropdown
+        )),
+        $q->dt('Display options :'),
+        $q->dd($q->popup_menu(
+                -tabindex=>3, 
+                -name=>'opts',
+                -values=>[keys %opts_dropdown], 
+                -default=>'1',
+                -labels=>\%opts_dropdown
+        )),
+        $q->dt('Graph(s) :'),
+        $q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
+        $q->dt({id=>'graph_option_names'}, "Response variable:"),
+        $q->dd({id=>'graph_option_values'}, $q->radio_group(
+                -tabindex=>5, 
+                -name=>'trans', 
+                -linebreak=>'true', 
+                -default=>'fold', 
+                -values=>[keys %trans_dropdown], 
+                -labels=>\%trans_dropdown
+        )),
+        $q->dt('&nbsp;'),
+        $q->dd($q->submit(-tabindex=>6, -name=>'a', -value=>$a, -override=>1)),
+    ) 
+    .
+    $q->endform;
+}
+#######################################################################################
+sub findProbes_js 
+{
+    my ($self, $s) = @_;
+    # the two parameters below must be always set -- no defaults
+    my $text = $self->{_cgi}->param('text') or croak "You did not specify what to search for";    
+    my $type = $self->{_cgi}->param('type') or croak "You did not specify where to search";
+
+    my $trans = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
+    my $match = (defined($self->{_cgi}->param('match'))) ? $self->{_cgi}->param('match') : 'full';
+    my $opts = (defined($self->{_cgi}->param('opts'))) ? $self->{_cgi}->param('opts') : 1;
+    my $speciesColumn = 5;
+
+    my @extra_fields;
+
+    switch ($opts) {
+    case 0 {}
+    case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
+    case 2 {}
+    }
+
+    my $extra_sql = (@extra_fields) ? ', '.join(', ', @extra_fields) : '';
+
+    my $qtext;
+    
+    #This will be the array that holds all the splitted items.
+    my @textSplit;    
+    
+    #If we find a comma, split on that, otherwise we split on new lines.
+    if($text =~ m/,/)
+    {
+        #Split the input on commas.    
+        @textSplit = split(/\,/,trim($text));
+    }
+    else
+    {
+        #Split the input on the new line.    
+        @textSplit = split(/\r\n/,$text);
+    }
+    
+    #Get the count of how many search terms were found.
+    my $searchesFound = @textSplit;
+    
+    #This will be the string we output.
+    my $out = '';
+
+    if($searchesFound < 2)
+    {
+        switch ($match) 
+        {
+            case 'full'        { $qtext = '^'.$textSplit[0].'$' }
+            case 'prefix'    { $qtext = '^'.$textSplit[0] }
+            case 'part'        { $qtext = $textSplit[0] } 
+            else            { assert(0) }
+        }
+    }
+    else
+    {
+        #Begining of the SQL regex.
+        $qtext = '^';
+        
+        #Add the search items seperated by a bar.
+        foreach(@textSplit)
+        {
+            if($_)
+            {
+                $qtext .= trim($_) . "|";
+            }
+        }
+        
+        #Remove the double backslashes.
+        $qtext =~ s/\|$//;
+        
+        #Add the closing regex character.
+        $qtext .= '$';
+    }
+    
+    my $g0_sql;
+    switch ($type) 
+    {
+        case 'probe' 
+        {
+            $g0_sql = <<"END_innerSQL_probe";
+SELECT NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, 
+       gid, coalesce(g1.accnum, gene.accnum) as accnum, coalesce(g1.seqname, gene.seqname) as seqname, description, gene_note 
+FROM (
+    SELECT DISTINCT gene.accnum, gene.seqname
+    FROM probe 
+    LEFT JOIN annotates USING(rid) 
+    LEFT JOIN gene USING(gid) 
+    WHERE reporter REGEXP ?
+) as g1
+LEFT JOIN gene ON (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
+GROUP BY gid
+
+END_innerSQL_probe
+        }
+        case 'gene' 
+        {
+            $g0_sql = <<"END_innerSQL_gene"
+select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid,
+       gid, coalesce(g1.accnum, gene.accnum) as accnum, coalesce(g1.seqname, gene.seqname) as seqname, description, gene_note
+from (
+    SELECT DISTINCT accnum, seqname
+    FROM gene 
+    WHERE seqname REGEXP ?
+) as g1
+left join gene on (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
+group by gid
+
+END_innerSQL_gene
+        }
+        case 'transcript' 
+        {
+            $g0_sql = <<"END_innerSQL_transcript";
+select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid,
+       gid, coalesce(g1.accnum, gene.accnum) as accnum, coalesce(g1.seqname, gene.seqname) as seqname, description, gene_note
+from (
+    SELECT DISTINCT accnum, seqname
+    FROM gene 
+    WHERE accnum REGEXP ?
+) as g1
+left join gene on (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
+group by gid
+
+END_innerSQL_transcript
+        } 
+        else 
+        {
+            assert(0); # shouldn't happen
+        }
+    }
+
+    my $probeSQLStatement = qq{
+select distinct 
+    probe.reporter as Probe, 
+    pname as Platform,
+    group_concat(distinct if(isnull(g0.accnum),'',g0.accnum) order by g0.seqname asc separator ',') as 'Transcript', 
+    if(isnull(g0.seqname),'',g0.seqname) as 'Gene'
+    $extra_sql,
+    platform.species
+    from
+    ($g0_sql) as g0
+left join (annotates natural join probe) on annotates.gid=g0.gid
+left join platform on platform.pid=probe.pid
+group by probe.rid
+};
+
+    if($opts==2)
+    {
+        $s->commit();
+        #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+        #$self = SGX::FindProbes->new($self->{_dbh},$q,$type,$qtext);
+        $self->{_SearchType} = $type;
+        $self->{_SearchText} = $qtext;
+        $self->setInsideTableQuery($g0_sql);
+        $self->loadProbeData($qtext);
+        $self->loadExperimentData();
+        $self->fillPlatformHash();
+        $self->getFullExperimentData();        
+        $self->printFindProbeCSV();
+        exit;
+    }
+    elsif($opts==3)
+    {
+        $s->commit();
+        #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+        #$self = SGX::FindProbes->new($self->{_dbh},$q,$type,$qtext);
+        $self->{_SearchType} = $type;
+        $self->{_SearchText} = $qtext;
+        $self->setInsideTableQuery($g0_sql);
+        $self->loadProbeData($qtext);
+        $self->loadExperimentData();
+        $self->fillPlatformHash();
+        $out = $self->printFindProbeToScreen();
+        $out;
+    }
+    else
+    {
+        my $sth = $self->{_dbh}->prepare($probeSQLStatement) or croak $self->{_dbh}->errstr;
+        #warn $sth->{Statement};    
+
+        my $rowcount = $sth->execute($qtext) or croak $self->{_dbh}->errstr;
+
+        my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
+
+        $out .= "
+    var probelist = {
+    caption: \"$caption\",
+    records: [
+    ";
+
+        my @names = @{$sth->{NAME}};    # cache the field name array
+
+        my $data = $sth->fetchall_arrayref;
+        $sth->finish;
+
+        # data are sent as a JSON object plus Javascript code (at the moment)
+        foreach (sort {$a->[3] cmp $b->[3]} @$data) {
+            foreach (@$_) {
+                $_ = '' if !defined $_;
+                $_ =~ s/"//g;    # strip all double quotes (JSON data are bracketed with double quotes)
+                        # TODO: perhaps escape quotation marks instead of removing them
+            }
+
+            # TODO: add a species table to the schema. Each Experiment table entry (a single microarray)
+            # will then have a foreign key to species (because expression microarrays are species-specific).
+            # Will also need species reference from either Probe table or Gene table or both (or something similar).
+            # the following NCBI search shows only genes specific to a given species:
+            # http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
+            $out .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'"';
+
+
+            switch ($opts) 
+            {
+                case 0 
+                {
+                    $speciesColumn = 5;
+                    $out .= ',5:"'.$_->[5].'"';
+                }
+
+                case 1 
+                { 
+                    $speciesColumn = 8;
+                    $out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'"';
+                }
+
+                case 2 
+                {
+                    $speciesColumn = 4;
+                    $out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'"';
+                }
+            }
+            $out .= "},\n";
+        }
+        $out =~ s/,\s*$//;    # strip trailing comma
+
+        my $tableOut = '';
+        my $columnList = '';
+
+        switch ($opts) 
+            {
+                case 0 
+                {
+                    $tableOut = '';
+                }
+
+                case 1 
+                { 
+                    $columnList = ',"4","5","6","7","8"';
+                    $tableOut = ',
+                            {key:"4", sortable:true, resizeable:true, label:"'.$names[4].'",
+                    editor:new YAHOO.widget.TextareaCellEditor({
+                    disableBtns: false,
+                    asyncSubmitter: function(callback, newValue) { 
+                        var record = this.getRecord();
+                        //var column = this.getColumn();
+                        //var datatable = this.getDataTable(); 
+                        if (this.value == newValue) { callback(); } 
+
+                        YAHOO.util.Connect.asyncRequest("POST", "'.$self->{_cgi}->url(-absolute=>1).'?a=updateCell", { 
+                            success:function(o) { 
+                                if(o.status === 200) {
+                                    // HTTP 200 OK
+                                    callback(true, newValue); 
+                                } else { 
+                                    alert(o.statusText);
+                                    //callback();
+                                } 
+                            }, 
+                            failure:function(o) { 
+                                alert(o.statusText); 
+                                callback(); 
+                            },
+                            scope:this 
+                        }, "type=probe&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&reporter=" + encodeURI(record.getData("0"))
+                        );
+                    }})},
+                            {key:"5", sortable:true, resizeable:true, label:"'.$names[5].'", formatter:"formatSequence"},
+                            {key:"6", sortable:true, resizeable:true, label:"'.$names[6].'"},
+                            {key:"7", sortable:true, resizeable:true, label:"'.$names[7].'",
+
+                    editor:new YAHOO.widget.TextareaCellEditor({
+                    disableBtns: false,
+                    asyncSubmitter: function(callback, newValue) {
+                        var record = this.getRecord();
+                        //var column = this.getColumn();
+                        //var datatable = this.getDataTable();
+                        if (this.value == newValue) { callback(); }
+                        YAHOO.util.Connect.asyncRequest("POST", "'.$self->{_cgi}->url(-absolute=>1).'?a=updateCell", {
+                            success:function(o) {
+                                if(o.status === 200) {
+                                    // HTTP 200 OK
+                                    callback(true, newValue);
+                                } else {
+                                    alert(o.statusText);
+                                    //callback();
+                                }
+                            },
+                            failure:function(o) {
+                                alert(o.statusText);
+                                callback();
+                            },
+                            scope:this
+                        }, "type=gene&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&seqname=" + encodeURI(record.getData("3")) + "&accnum=" + encodeURI(record.getData("2"))
+                        );
+                    }})}';
+                }
+
+                case 2 
+                {
+                    $columnList = ',"4","5","6","7","8","9"';
+                    $tableOut = ',' . "\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
+                    $tableOut .= ',' . "\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
+                }
+            }
+
+
+        $out .= '
+    ]}
+
+    function export_table(e) {
+        var r = this.records;
+        var bl = this.headers.length;
+        var w = window.open("");
+        var d = w.document.open("text/html");
+        d.title = "Tab-Delimited Text";
+        d.write("<pre>");
+        for (var i=0, al = r.length; i < al; i++) {
+            for (var j=0; j < bl; j++) {
+                d.write(r[i][j] + "\t");
+            }
+            d.write("\n");
+        }
+        d.write("</pre>");
+        d.close();
+        w.focus();
+    }
+
+    YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
+    YAHOO.util.Event.addListener(window, "load", function() {
+        ';
+        if (defined($self->{_cgi}->param('graph'))) {
+            $out .= 'var graph_content = "";
+        var graph_ul = YAHOO.util.Dom.get("graphs");';
+        }
+        $out .= '
+        YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
+
+        YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
+            var i = oRecord.getCount();
+            ';
+            if (defined($self->{_cgi}->param('graph'))) {
+                $out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
+            elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
+            } else {
+                $out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
+            }
+        $out .= '
+        }
+        YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
+            var a = oData.split(/ *, */);
+            var out = "";
+            for (var i=0, al=a.length; i < al; i++) {
+                var b = a[i];
+                if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
+                    out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
+                } else {
+                    out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
+                }
+            }
+            elCell.innerHTML = out.replace(/,\s*$/, "");
+        }
+        YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
+            if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
+                elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
+            } else {
+                elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
+            }
+        }
+        YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
+            elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
+        }
+        YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
+            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("' . $speciesColumn . '") + "\" title=\"UCSC BLAT on " + oRecord.getData("' . $speciesColumn . '") + " DNA\" target=\"_blank\">" + oData + "</a>";
+        }
+        var myColumnDefs = [
+            {key:"0", sortable:true, resizeable:true, label:"'.$names[0].'", formatter:"formatProbe"},
+            {key:"1", sortable:true, resizeable:true, label:"'.$names[1].'"},
+            {key:"2", sortable:true, resizeable:true, label:"'.$names[2].'", formatter:"formatTranscript"}, 
+            {key:"3", sortable:true, resizeable:true, label:"'.$names[3].'", formatter:"formatGene"}'. $tableOut.'];
+
+        var myDataSource = new YAHOO.util.DataSource(probelist.records);
+        myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+        myDataSource.responseSchema = {
+            fields: ["0","1","2","3"'. $columnList . ']
+        };
+        var myData_config = {
+            paginator: new YAHOO.widget.Paginator({
+                rowsPerPage: 50 
+            })
+        };
+
+        var myDataTable = new YAHOO.widget.DataTable("probetable", myColumnDefs, myDataSource, myData_config);
+
+        // Set up editing flow 
+        var highlightEditableCell = function(oArgs) { 
+            var elCell = oArgs.target; 
+            if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
+            this.highlightCell(elCell); 
+            } 
+        }; 
+        myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
+        myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
+        myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
+
+        var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
+        var nl = nodes.length;
+
+        // Ideally, would want to use a "pre-formatter" event to clear graph_content
+        // TODO: fix the fact that when cells are updated via cell editor, the graphs are rebuilt unnecessarily.
+        myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
+            graph_content = "";
+            return true;
+        };
+        myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
+            graph_content = "";
+            return true;
+        };
+        myDataTable.subscribe("renderEvent", function () {
+        ';
+
+        if (defined($self->{_cgi}->param('graph'))) 
+        {
+            $out .= '
+            graph_ul.innerHTML = graph_content;
+            ';
+
+        } else {
+            $out .=
+        '
+            // if the line below is moved to window.load closure,
+            // panels will no longer show up after sorting
+            var manager = new YAHOO.widget.OverlayManager();
+            var myEvent = YAHOO.util.Event;
+            var i;
+            var imgFile;
+            for (i = 0; i < nl; i++) {
+                myEvent.addListener("show" + i, "click", function () {
+                    var index = this.getAttribute("id").substring(4);
+                    var panel_old = manager.find("panel" + index);
+
+                    if (panel_old === null) {
+                        imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
+                        var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
+                        panel.setHeader(imgFile);
+                        panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object>");
+                        manager.register(panel);
+                        panel.render("container" + index);
+                        // panel.show is unnecessary here because visible:true is set
+                    } else {
+                        panel_old.show();
+                    }
+                }, nodes[i], true);
+            }
+        '};
+        $out .= '
+        });
+
+        return {
+            oDS: myDataSource,
+            oDT: myDataTable
+        };
+    });
+    ';
+        $out;
+    }
+}
 
 1;

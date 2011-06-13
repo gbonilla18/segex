@@ -55,12 +55,11 @@ sub bounds {
 
 #===  FUNCTION  ================================================================
 #         NAME:  label_format
-#      PURPOSE:  first rounds the number to only one significant figure, then further
-#                rounds the significant figure to 1, 2, 5, or 10 (useful for making
-#                labels for graphs)
+#      PURPOSE:  choose "nice" numbers, for example for making labels on plots
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  ????
+#  DESCRIPTION:  first rounds the number to only one significant figure, then further
+#                rounds the significant figure to 1, 2, 5, or 10
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -73,23 +72,21 @@ sub label_format {
     my $remainder = substr( $num, 1 );
 
     # choose "nice" numbers:
-    if ( $fig < 2 ) {
-
-        # 1 => 1
+    if ( $fig < 3 ) {
         # do nothing here
+        # 0 => 0
+        # 1 => 1
+        # 2 => 2
     }
     elsif ( $fig < 4 ) {
-
-        # 2, 3 => 1
+        # 3 => 2
         $fig = 2;
     }
     elsif ( $fig < 8 ) {
-
         # 4, 5, 6, 7 => 5
         $fig = 5;
     }
     else {
-
         # 8, 9 => 10
         $fig = 10;
     }

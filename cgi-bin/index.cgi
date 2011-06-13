@@ -26,7 +26,7 @@ use lib 'SGX';
 
 use SGX::Debug;        # all debugging code goes here
 use SGX::Config;    # all configuration for our project goes here
-use SGX::Util qw/trim/;
+use SGX::Util qw/trim max/;
 use SGX::User 0.07;    # user authentication, sessions and cookies
 use SGX::Session 0.08;    # email verification
 use SGX::ManageMicroarrayPlatforms;
@@ -36,7 +36,7 @@ use SGX::ManageExperiments;
 use SGX::OutputData;
 use SGX::JavaScriptDeleteConfirm;
 use SGX::TFSDisplay;
-use SGX::FindProbes;
+use SGX::FindProbes qw/getform_findProbes/;
 use SGX::ChooseProject;
 
 #---------------------------------------------------------------------------
@@ -59,22 +59,17 @@ my $q = CGI->new();
 my $error_string;
 my $title;
 my $css = [
-    {-src=>YUI_ROOT . '/build/reset-fonts/reset-fonts.css'},
-    {-src=>YUI_ROOT . '/build/container/assets/skins/sam/container.css'},
-    {-src=>YUI_ROOT . '/build/paginator/assets/skins/sam/paginator.css'},
-    {-src=>YUI_ROOT . '/build/datatable/assets/skins/sam/datatable.css'},
+    {-src=>YUI_BUILD_ROOT . '/reset-fonts/reset-fonts.css'},
+    {-src=>YUI_BUILD_ROOT . '/container/assets/skins/sam/container.css'},
+    {-src=>YUI_BUILD_ROOT . '/paginator/assets/skins/sam/paginator.css'},
+    {-src=>YUI_BUILD_ROOT . '/datatable/assets/skins/sam/datatable.css'},
     {-src=>CSS_DIR . '/style.css'}
 ];
 
-my $js = [{-type=>'text/javascript',-src=>JS_DIR . '/prototype.js'},
-      {-type=>'text/javascript',-src=>JS_DIR . '/form.js'}];
+my @js_src_yui;
+my @js_src_code = ({-src=>'prototype.js'}, {-src=>'form.js'});
 
 my $content;    # this will be a reference to a subroutine that displays the main content
-
-#This is a reference to the manage platform module. Module gets instanstiated when visitng the page.
-my $TFSDisplay;
-my $findProbes;
-my $ChooseProject;
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
@@ -117,10 +112,12 @@ while (defined($action)) { switch ($action) {
         # TODO: only admins should be allowed to perform this action
         if ($s->is_authorized('user')) {
             $title = 'Upload/Update Annotations';
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/animation/animation-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript',-src=>JS_DIR . '/annot.js'};
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'animation/animation-min.js', 
+                'dragdrop/dragdrop-min.js'
+            );
+            push @js_src_code, {-src=>'annot.js'};
             $content = \&form_uploadAnnot;
             $action = undef;    # final state
         } else {
@@ -176,15 +173,17 @@ while (defined($action)) { switch ($action) {
     }
     case MANAGEPLATFORMS {
         if ($s->is_authorized('user')) {    
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'connection/connection-min.js',
+                'dragdrop/dragdrop-min.js',
+                'container/container-min.js',
+                'element/element-min.js',
+                'datasource/datasource-min.js',
+                'paginator/paginator-min.js',
+                'datatable/datatable-min.js',
+                'selector/selector-min.js'
+            );
         
             $content = \&managePlatforms;
             $title = 'Platforms';
@@ -196,15 +195,17 @@ while (defined($action)) { switch ($action) {
     case MANAGEPROJECTS {
         if ($s->is_authorized('user')) {
 
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'connection/connection-min.js',
+                'dragdrop/dragdrop-min.js',
+                'container/container-min.js',
+                'element/element-min.js',
+                'datasource/datasource-min.js',
+                'paginator/paginator-min.js',
+                'datatable/datatable-min.js',
+                'selector/selector-min.js'
+            );
 
             $content = \&manageProjects;
             $title = 'Projects';
@@ -215,17 +216,17 @@ while (defined($action)) { switch ($action) {
     }
     case MANAGESTUDIES {
         if ($s->is_authorized('user')) {
-
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
-
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'connection/connection-min.js',
+                'dragdrop/dragdrop-min.js',
+                'container/container-min.js',
+                'element/element-min.js',
+                'datasource/datasource-min.js',
+                'paginator/paginator-min.js',
+                'datatable/datatable-min.js',
+                'selector/selector-min.js'
+            );
 
             $content = \&manageStudies;
 
@@ -236,16 +237,18 @@ while (defined($action)) { switch ($action) {
         }
     }
     case MANAGEEXPERIMENTS {
-        if ($s->is_authorized('user')) {    
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
+        if ($s->is_authorized('user')) {
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'connection/connection-min.js',
+                'dragdrop/dragdrop-min.js',
+                'container/container-min.js',
+                'element/element-min.js',
+                'datasource/datasource-min.js',
+                'paginator/paginator-min.js',
+                'datatable/datatable-min.js',
+                'selector/selector-min.js'
+            );
 
             $content = \&manageExperiments;
             $title = 'Experiments';
@@ -256,15 +259,17 @@ while (defined($action)) { switch ($action) {
     }
     case OUTPUTDATA {
         if ($s->is_authorized('user')) {
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'connection/connection-min.js',
+                'dragdrop/dragdrop-min.js',
+                'container/container-min.js',
+                'element/element-min.js',
+                'datasource/datasource-min.js',
+                'paginator/paginator-min.js',
+                'datatable/datatable-min.js',
+                'selector/selector-min.js'
+            );
 
             $content = \&outputData;
             $title = 'Output Data';
@@ -276,12 +281,12 @@ while (defined($action)) { switch ($action) {
     case FORM.FINDPROBES            {
         if ($s->is_authorized('user')) {
             $title = 'Find Probes';
-            push @$js, {-type=>'text/javascript',-code=>'
+            push @js_src_code, {-code =>'
 Event.observe(window, "load", init);
 function init() {
-    sgx_toggle($("graph").checked, [\'graph_option_names\', \'graph_option_values\']);
-}
-'};
+    sgx_toggle($("graph").checked, ["graph_option_names", "graph_option_values"]);
+}'
+};
             $content = \&form_findProbes;
             $action = undef;    # final state
         } else {
@@ -291,16 +296,11 @@ function init() {
     case FINDPROBES                {
         if ($s->is_authorized('user')) {
             $title = 'Find Probes';
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/connection/connection-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/dragdrop/dragdrop-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/container/container-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/selector/selector-min.js'};
-            push @$js, {-type=>'text/javascript',-code=>findProbes_js()};
+            my $findProbes = SGX::FindProbes->new($dbh,$q);
+            # push YUI dependencies to @js_src_yui array
+            $findProbes->list_yui_deps(\@js_src_yui);
+            # push data + JS code to @js_src_code array
+            push @js_src_code, {-code=>$findProbes->findProbes_js($s)};
             $content = \&findProbes;
             $action = undef;    # final state
         } else {
@@ -323,13 +323,15 @@ function init() {
         if ($s->is_authorized('user')) {
             $title = 'View Slice';
 
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo/yahoo.js'};
-            push @$js, {-type=>'text/javascript',-code=>show_tfs_js()};
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'element/element-min.js',
+                'paginator/paginator-min.js',
+                'datasource/datasource-min.js',
+                'datatable/datatable-min.js',
+                'yahoo/yahoo.js'
+            );
+            push @js_src_code, {-code =>show_tfs_js()};
 
             $content = \&show_tfs;
             $action = undef;
@@ -362,8 +364,8 @@ function init() {
     case FORM.COMPAREEXPERIMENTS        {
         if ($s->is_authorized('user')) {
             $title = 'Compare Experiments';
-            push @$js, {-type=>'text/javascript',-code=>form_compareExperiments_js()};
-            push @$js, {-type=>'text/javascript',-src=>JS_DIR . '/experiment.js'};
+            push @js_src_code, {-code=>form_compareExperiments_js()};
+            push @js_src_code, {-src=>'experiment.js'};
             $content = \&form_compareExperiments;
             $action = undef;    # final state
         } else {
@@ -374,12 +376,14 @@ function init() {
         if ($s->is_authorized('user')) {
             $title = 'Compare Experiments';
 
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/yahoo-dom-event/yahoo-dom-event.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/element/element-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/paginator/paginator-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datasource/datasource-min.js'};
-            push @$js, {-type=>'text/javascript', -src=>YUI_ROOT . '/build/datatable/datatable-min.js'};
-            push @$js, {-type=>'text/javascript',-code=>compare_experiments_js()};
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'element/element-min.js',
+                'paginator/paginator-min.js',
+                'datasource/datasource-min.js',
+                'datatable/datatable-min.js'
+            );
+            push @js_src_code, {-code=>compare_experiments_js()};
 
             $content = \&compare_experiments;
             $action = undef;    # final state
@@ -681,10 +685,22 @@ cgi_end_html();
 sub cgi_start_html {
 # to add plain javascript code to the header, add the following to the -script array:
 # {-type=>'text/javasccript', -code=>$JSCRIPT}
+    my @js;
+    foreach (@js_src_yui) {
+        push @js, {-type=>'text/javascript', -src=>YUI_BUILD_ROOT . '/' . $_}
+    }
+    foreach (@js_src_code) {
+        $_->{-type} = 'text/javascript';
+        if (defined($_->{-src})) {
+            $_->{-src} = JS_DIR . '/' . $_->{-src};
+        }
+        push @js, $_;
+    }
+
     print $q->start_html(
             -title=>PROJECT_NAME." : $title",
             -style=>$css,
-            -script=>$js,
+            -script=>\@js,
             -class=>'yui-skin-sam',
             -head=>[$q->Link({-type=>'image/x-icon',-href=>IMAGES_DIR.'/favicon.ico',-rel=>'icon'})]
         );
@@ -1044,547 +1060,12 @@ sub updateCell {
     }
 }
 #######################################################################################
-sub form_findProbes {
-    my %type_dropdown = (
-        'gene'=>'Gene Symbols',
-        'transcript'=>'Transcripts',
-        'probe'=>'Probes'
-    );
-    my %match_dropdown = (
-        'full'=>'Full Word',
-        'prefix'=>'Prefix',
-        'part'=>'Part of the Word / Regular Expression*'
-    );
-    my %opts_dropdown = (
-        '0'=>'Basic (names,IDs only)',
-        '1'=>'Full annotation',
-        '2'=>'Full annotation with experiment data (CSV)',
-        '3'=>'Full annotation with experiment data (Not implemented yet)'
-    );
-    my %trans_dropdown = (
-        'fold' => 'Fold Change +/- 1', 
-        'ln'=>'Log2 Ratio'
-    );
-
-    print $q->start_form(-method=>'GET',
-        -action=>$q->url(absolute=>1),
-        -enctype=>'application/x-www-form-urlencoded') .
-    $q->h2('Find Probes') .
-    $q->p('Enter search text below to find the data for that probe. The textbox will allow a comma separated list of values, or one value per line, to obtain information on multiple probes.') .
-    $q->p('Regular Expression Example: "^cyp.b" would retrieve all genes starting with cyp.b where the period represents any one character. More examples can be found at <a href="http://en.wikipedia.org/wiki/Regular_expression_examples">Wikipedia Examples</a>.') .
-    $q->dl(
-        $q->dt('Search string(s):'),
-        $q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
-        $q->dt('Search type :'),
-        $q->dd($q->popup_menu(
-                -name=>'type',
-                -default=>'gene',
-                -values=>[keys %type_dropdown],
-                -labels=>\%type_dropdown
-        )),
-        $q->dt('Pattern to match :'),
-        $q->dd($q->radio_group(
-                -tabindex=>2, 
-                -name=>'match', 
-                -linebreak=>'true', 
-                -default=>'full', 
-                -values=>[keys %match_dropdown], 
-                -labels=>\%match_dropdown
-        )),
-        $q->dt('Display options :'),
-        $q->dd($q->popup_menu(
-                -tabindex=>3, 
-                -name=>'opts',
-                -values=>[keys %opts_dropdown], 
-                -default=>'1',
-                -labels=>\%opts_dropdown
-        )),
-        $q->dt('Graph(s) :'),
-        $q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
-        $q->dt({id=>'graph_option_names'}, "Response variable:"),
-        $q->dd({id=>'graph_option_values'}, $q->radio_group(
-                -tabindex=>5, 
-                -name=>'trans', 
-                -linebreak=>'true', 
-                -default=>'fold', 
-                -values=>[keys %trans_dropdown], 
-                -labels=>\%trans_dropdown
-        )),
-        $q->dt('&nbsp;'),
-        $q->dd($q->submit(-tabindex=>6, -name=>'a', -value=>FINDPROBES, -override=>1)),
-    ) 
-    .
-    $q->endform;
+sub form_findProbes
+{
+    print getform_findProbes($q, FINDPROBES);
 }
 #######################################################################################
-sub findProbes_js 
-{
-    my $text         = $q->param('text') or croak "You did not specify what to search for";    # must be always set -- no defaults
-    my $type         = $q->param('type') or croak "You did not specify where to search";    # must be always set -- no defaults
-    my $trans         = (defined($q->param('trans'))) ? $q->param('trans') : 'fold';
-    my $match         = (defined($q->param('match'))) ? $q->param('match') : 'full';
-    my $opts         = (defined($q->param('opts'))) ? $q->param('opts') : 1;
-    my $speciesColumn    = 5;
 
-    my @extra_fields;
-
-    switch ($opts) {
-    case 0 {}
-    case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
-    case 2 {}
-    }
-
-    my $extra_sql = (@extra_fields) ? ', '.join(', ', @extra_fields) : '';
-
-    my $qtext;
-    
-    #This will be the array that holds all the splitted items.
-    my @textSplit;    
-    
-    #If we find a comma, split on that, otherwise we split on new lines.
-    if($text =~ m/,/)
-    {
-        #Split the input on commas.    
-        @textSplit = split(/\,/,trim($text));
-    }
-    else
-    {
-        #Split the input on the new line.    
-        @textSplit = split(/\r\n/,$text);
-    }
-    
-    #Get the count of how many search terms were found.
-    my $searchesFound = @textSplit;
-    
-    #This will be the string we output.
-    my $out = "";
-
-    if($searchesFound < 2)
-    {
-        switch ($match) 
-        {
-            case 'full'        { $qtext = '^'.$textSplit[0].'$' }
-            case 'prefix'    { $qtext = '^'.$textSplit[0] }
-            case 'part'        { $qtext = $textSplit[0] } 
-            else            { assert(0) }
-        }
-    }
-    else
-    {
-        #Begining of the SQL regex.
-        $qtext = '^';
-        
-        #Add the search items seperated by a bar.
-        foreach(@textSplit)
-        {
-            if($_)
-            {
-                $qtext .= trim($_) . "|";
-            }
-        }
-        
-        #Remove the double backslashes.
-        $qtext =~ s/\|$//;
-        
-        #Add the closing regex character.
-        $qtext .= '$';
-    }
-    
-    my $g0_sql;
-    switch ($type) 
-    {
-        case 'probe' 
-        {
-            $g0_sql = "
-            select rid, reporter, note, probe_sequence, g1.pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join 
-            (select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, accnum from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid where reporter REGEXP ?) as g1
-            on g2.accnum=g1.accnum where rid is not NULL
-            
-            union
-
-            select rid, reporter, note, probe_sequence, g3.pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
-            (select distinct probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, seqname from probe left join annotates on annotates.rid=probe.rid left join gene on gene.gid=annotates.gid where reporter REGEXP ?) as g3
-            on g4.seqname=g3.seqname where rid is not NULL
-            ";
-
-        }
-        case 'gene' 
-        {
-            $g0_sql = "
-            select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
-            (select distinct accnum from gene where seqname REGEXP ? and accnum is not NULL) as g1
-            on g2.accnum=g1.accnum where g2.gid is not NULL
-
-            union
-
-            select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
-            (select distinct seqname from gene where seqname REGEXP ? and seqname is not NULL) as g3
-            on g4.seqname=g3.seqname where g4.gid is not NULL
-            ";
-        }
-        case 'transcript' 
-        {
-            $g0_sql = "
-            select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g2.gid, g2.accnum, g2.seqname, g2.description, g2.gene_note from gene g2 right join
-            (select distinct accnum from gene where accnum REGEXP ? and accnum is not NULL) as g1
-            on g2.accnum=g1.accnum where g2.gid is not NULL
-
-            union
-
-            select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, g4.gid, g4.accnum, g4.seqname, g4.description, g4.gene_note from gene g4 right join
-            (select distinct seqname from gene where accnum REGEXP ? and seqname is not NULL) as g3
-            on g4.seqname=g3.seqname where g4.gid is not NULL
-            ";
-        } 
-        else 
-        {
-            assert(0); # shouldn't happen
-        }
-    }
-
-    my $probeSQLStatement = qq{
-            select distinct 
-                coalesce(probe.reporter, g0.reporter) as Probe, 
-                pname as Platform,
-                group_concat(distinct if(isnull(g0.accnum),'',g0.accnum) order by g0.seqname asc separator ',') as 'Transcript', 
-                if(isnull(g0.seqname),'',g0.seqname) as 'Gene'
-                $extra_sql,
-                platform.species
-                from
-                ($g0_sql) as g0
-            left join (annotates natural join probe) on annotates.gid=g0.gid
-            left join platform on platform.pid=coalesce(probe.pid, g0.pid)
-            group by coalesce(probe.rid, g0.rid)
-            };
-
-            
-    if($opts==2)
-    {
-        $s->commit();
-        #print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-        $findProbes = SGX::FindProbes->new($dbh,$q,$type,$qtext);
-        $findProbes->setInsideTableQuery($g0_sql);
-        $findProbes->loadProbeData($qtext);
-        $findProbes->loadExperimentData();
-        $findProbes->fillPlatformHash();
-        $findProbes->getFullExperimentData();        
-        $findProbes->printFindProbeCSV();
-        exit;
-    }
-    elsif($opts==3)
-    {
-        $s->commit();
-        #print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-        $findProbes = SGX::FindProbes->new($dbh,$q,$type,$qtext);
-        $findProbes->setInsideTableQuery($g0_sql);
-        $findProbes->loadProbeData($qtext);
-        $findProbes->loadExperimentData();
-        $findProbes->fillPlatformHash();
-        $out = $findProbes->printFindProbeToScreen();
-        $out;
-    }
-    else
-    {
-        my $sth = $dbh->prepare($probeSQLStatement) or croak $dbh->errstr;
-        #warn $sth->{Statement};    
-
-        my $rowcount = $sth->execute($qtext, $qtext) or croak $dbh->errstr;
-
-        my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
-
-        $out .= "
-    var probelist = {
-    caption: \"$caption\",
-    records: [
-    ";
-
-        my @names = @{$sth->{NAME}};    # cache the field name array
-
-        my $data = $sth->fetchall_arrayref;
-        $sth->finish;
-
-        # data are sent as a JSON object plus Javascript code (at the moment)
-        foreach (sort {$a->[3] cmp $b->[3]} @$data) {
-            foreach (@$_) {
-                $_ = '' if !defined $_;
-                $_ =~ s/"//g;    # strip all double quotes (JSON data are bracketed with double quotes)
-                        # TODO: perhaps escape quotation marks instead of removing them
-            }
-
-            # TODO: add a species table to the schema. Each Experiment table entry (a single microarray)
-            # will then have a foreign key to species (because expression microarrays are species-specific).
-            # Will also need species reference from either Probe table or Gene table or both (or something similar).
-            # the following NCBI search shows only genes specific to a given species:
-            # http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
-            $out .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'"';
-
-
-            switch ($opts) 
-            {
-                case 0 
-                {
-                    $speciesColumn = 5;
-                    $out .= ',5:"'.$_->[5].'"';
-                }
-
-                case 1 
-                { 
-                    $speciesColumn = 8;
-                    $out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'"';
-                }
-
-                case 2 
-                {
-                    $speciesColumn = 4;
-                    $out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'"';
-                }
-            }
-            $out .= "},\n";
-        }
-        $out =~ s/,\s*$//;    # strip trailing comma
-
-        my $tableOut = '';
-        my $columnList = '';
-
-        #We need different 
-        switch ($opts) 
-            {
-                case 0 
-                {
-                    $tableOut = '';
-                }
-
-                case 1 
-                { 
-                    $columnList = ',"4","5","6","7","8"';
-                    $tableOut = ',
-                            {key:"4", sortable:true, resizeable:true, label:"'.$names[4].'",
-                    editor:new YAHOO.widget.TextareaCellEditor({
-                    disableBtns: false,
-                    asyncSubmitter: function(callback, newValue) { 
-                        var record = this.getRecord();
-                        //var column = this.getColumn();
-                        //var datatable = this.getDataTable(); 
-                        if (this.value == newValue) { callback(); } 
-
-                        YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", { 
-                            success:function(o) { 
-                                if(o.status === 200) {
-                                    // HTTP 200 OK
-                                    callback(true, newValue); 
-                                } else { 
-                                    alert(o.statusText);
-                                    //callback();
-                                } 
-                            }, 
-                            failure:function(o) { 
-                                alert(o.statusText); 
-                                callback(); 
-                            },
-                            scope:this 
-                        }, "type=probe&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&reporter=" + encodeURI(record.getData("0"))
-                        );
-                    }})},
-                            {key:"5", sortable:true, resizeable:true, label:"'.$names[5].'", formatter:"formatSequence"},
-                            {key:"6", sortable:true, resizeable:true, label:"'.$names[6].'"},
-                            {key:"7", sortable:true, resizeable:true, label:"'.$names[7].'",
-
-                    editor:new YAHOO.widget.TextareaCellEditor({
-                    disableBtns: false,
-                    asyncSubmitter: function(callback, newValue) {
-                        var record = this.getRecord();
-                        //var column = this.getColumn();
-                        //var datatable = this.getDataTable();
-                        if (this.value == newValue) { callback(); }
-                        YAHOO.util.Connect.asyncRequest("POST", "'.$q->url(-absolute=>1).'?a=updateCell", {
-                            success:function(o) {
-                                if(o.status === 200) {
-                                    // HTTP 200 OK
-                                    callback(true, newValue);
-                                } else {
-                                    alert(o.statusText);
-                                    //callback();
-                                }
-                            },
-                            failure:function(o) {
-                                alert(o.statusText);
-                                callback();
-                            },
-                            scope:this
-                        }, "type=gene&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&seqname=" + encodeURI(record.getData("3")) + "&accnum=" + encodeURI(record.getData("2"))
-                        );
-                    }})}';
-                }
-
-                case 2 
-                {
-                    $columnList = ',"4","5","6","7","8","9"';
-                    $tableOut = ',' . "\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
-                    $tableOut .= ',' . "\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
-                }
-            }
-
-
-        $out .= '
-    ]}
-
-    function export_table(e) {
-        var r = this.records;
-        var bl = this.headers.length;
-        var w = window.open("");
-        var d = w.document.open("text/html");
-        d.title = "Tab-Delimited Text";
-        d.write("<pre>");
-        for (var i=0, al = r.length; i < al; i++) {
-            for (var j=0; j < bl; j++) {
-                d.write(r[i][j] + "\t");
-            }
-            d.write("\n");
-        }
-        d.write("</pre>");
-        d.close();
-        w.focus();
-    }
-
-    YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
-    YAHOO.util.Event.addListener(window, "load", function() {
-        ';
-        if (defined($q->param('graph'))) {
-            $out .= 'var graph_content = "";
-        var graph_ul = YAHOO.util.Dom.get("graphs");';
-        }
-        $out .= '
-        YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
-
-        YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
-            var i = oRecord.getCount();
-            ';
-            if (defined($q->param('graph'))) {
-                $out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
-            elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
-            } else {
-                $out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
-            }
-        $out .= '
-        }
-        YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
-            var a = oData.split(/ *, */);
-            var out = "";
-            for (var i=0, al=a.length; i < al; i++) {
-                var b = a[i];
-                if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
-                    out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
-                } else {
-                    out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
-                }
-            }
-            elCell.innerHTML = out.replace(/,\s*$/, "");
-        }
-        YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
-            if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
-                elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
-            } else {
-                elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
-            }
-        }
-        YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
-            elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
-        }
-        YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
-            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("' . $speciesColumn . '") + "\" title=\"UCSC BLAT on " + oRecord.getData("' . $speciesColumn . '") + " DNA\" target=\"_blank\">" + oData + "</a>";
-        }
-        var myColumnDefs = [
-            {key:"0", sortable:true, resizeable:true, label:"'.$names[0].'", formatter:"formatProbe"},
-            {key:"1", sortable:true, resizeable:true, label:"'.$names[1].'"},
-            {key:"2", sortable:true, resizeable:true, label:"'.$names[2].'", formatter:"formatTranscript"}, 
-            {key:"3", sortable:true, resizeable:true, label:"'.$names[3].'", formatter:"formatGene"}'. $tableOut.'];
-
-        var myDataSource = new YAHOO.util.DataSource(probelist.records);
-        myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-        myDataSource.responseSchema = {
-            fields: ["0","1","2","3"'. $columnList . ']
-        };
-        var myData_config = {
-            paginator: new YAHOO.widget.Paginator({
-                rowsPerPage: 50 
-            })
-        };
-
-        var myDataTable = new YAHOO.widget.DataTable("probetable", myColumnDefs, myDataSource, myData_config);
-
-        // Set up editing flow 
-        var highlightEditableCell = function(oArgs) { 
-            var elCell = oArgs.target; 
-            if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
-            this.highlightCell(elCell); 
-            } 
-        }; 
-        myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
-        myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
-        myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
-
-        var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
-        var nl = nodes.length;
-
-        // Ideally, would want to use a "pre-formatter" event to clear graph_content
-        // TODO: fix the fact that when cells are updated via cell editor, the graphs are rebuilt unnecessarily.
-        myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
-            graph_content = "";
-            return true;
-        };
-        myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
-            graph_content = "";
-            return true;
-        };
-        myDataTable.subscribe("renderEvent", function () {
-        ';
-
-        if (defined($q->param('graph'))) 
-        {
-            $out .= '
-            graph_ul.innerHTML = graph_content;
-            ';
-
-        } else {
-            $out .=
-        '
-            // if the line below is moved to window.load closure,
-            // panels will no longer show up after sorting
-            var manager = new YAHOO.widget.OverlayManager();
-            var myEvent = YAHOO.util.Event;
-            var i;
-            var imgFile;
-            for (i = 0; i < nl; i++) {
-                myEvent.addListener("show" + i, "click", function () {
-                    var index = this.getAttribute("id").substring(4);
-                    var panel_old = manager.find("panel" + index);
-
-                    if (panel_old === null) {
-                        imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
-                        var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
-                        panel.setHeader(imgFile);
-                        panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object>");
-                        manager.register(panel);
-                        panel.render("container" + index);
-                        // panel.show is unnecessary here because visible:true is set
-                    } else {
-                        panel_old.show();
-                    }
-                }, nodes[i], true);
-            }
-        '};
-        $out .= '
-        });
-
-        return {
-            oDS: myDataSource,
-            oDT: myDataTable
-        };
-    });
-    ';
-        $out;
-    }
-}
 #######################################################################################
 sub findProbes {
     print    '<h2 id="caption"></h2>',
@@ -1867,7 +1348,7 @@ sub compare_experiments_js {
     
     if($filterType eq "file")
     {
-        $findProbes = SGX::FindProbes->new($dbh,$q);
+        my $findProbes = SGX::FindProbes->new($dbh,$q);
         $findProbes->createInsideTableQueryFromFile();
         $findProbes->loadProbeReporterData($findProbes->getQueryTerms);
         $probeList     = $findProbes->getProbeList();
@@ -1875,7 +1356,7 @@ sub compare_experiments_js {
     }
     elsif($filterType eq "list")
     {
-        $findProbes = SGX::FindProbes->new($dbh,$q);
+        my $findProbes = SGX::FindProbes->new($dbh,$q);
         $findProbes->createInsideTableQuery();
         $findProbes->loadProbeData($findProbes->getQueryTerms);
         $findProbes->setProbeList();
@@ -2232,6 +1713,7 @@ sub dump_table {
 #######################################################################################
 sub show_tfs_js {
 
+    my $TFSDisplay;
     if(defined($q->param('CSV')))
     {
         $s->commit();
@@ -2638,25 +2120,6 @@ sub uploadAnnot {
         undef,
         $pid_value
     ) or croak $dbh->errstr;
-
-}
-
-sub cleanSQLString
-{
-    my $value = shift;
-    my $regex_strip_quotes = qr/^("?)(.*)\1$/;
-
-    if ($value) 
-    {
-        $value =~ $regex_strip_quotes;
-        $value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-    } 
-    else 
-    {
-        $value = 'NULL';
-    }
-
-    return $value;
 
 }
 
