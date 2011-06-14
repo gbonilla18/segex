@@ -1096,13 +1096,29 @@ sub schema {
 }
 #######################################################################################
 sub form_compareExperiments_js {
+ # :TODO:06/14/2011 17:19:36:es: Only one query should be enough to select a list of
+ # platforms and studies
     my $out = '';
 
+    # find out what the current project is set to
+    $s->read_perm_cookie();
+    my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
+
     # get a list of platforms and cutoff values
-    my $sth = $dbh->prepare(qq{select pid, pname, def_p_cutoff, def_f_cutoff from platform})
-        or croak $dbh->errstr;
-    my $rowcount = $sth->execute
-        or croak $dbh->errstr;
+    my ($sth, $rowcount);
+    if (!defined($curr_proj) or $curr_proj eq '') {
+        # current project not set or set to 'All Projets'
+        $sth = $dbh->prepare(qq{select pid, pname, def_p_cutoff, def_f_cutoff from platform})
+            or croak $dbh->errstr;
+        $rowcount = $sth->execute()
+            or croak $dbh->errstr;
+    } else {
+        # current project is set
+        $sth = $dbh->prepare(qq{select pid, pname, def_p_cutoff, def_f_cutoff from platform RIGHT JOIN study USING(pid) RIGHT JOIN ProjectStudy USING(stid) WHERE prid=?})
+            or croak $dbh->errstr;
+        $rowcount = $sth->execute($curr_proj)
+            or croak $dbh->errstr;
+    }
     assert($rowcount);
 
     ### populate a Javascript hash with the content of the platform recordset
@@ -1120,12 +1136,20 @@ var platform = {};
     }
     $sth->finish;
 
-
     # get a list of studies
-    $sth = $dbh->prepare(qq{select stid, description, pid from study})
-        or croak $dbh->errstr;
-    $rowcount = $sth->execute
-        or croak $dbh->errstr;
+    if (!defined($curr_proj) or $curr_proj eq '') {
+        # current project not set or set to 'All Projects'
+        $sth = $dbh->prepare(qq{select stid, description, pid from study})
+            or croak $dbh->errstr;
+        $rowcount = $sth->execute
+            or croak $dbh->errstr;
+    } else {
+        # current project is set
+        $sth = $dbh->prepare(qq{select stid, description, pid from study RIGHT JOIN ProjectStudy USING(stid) WHERE prid=?})
+            or croak $dbh->errstr;
+        $rowcount = $sth->execute($curr_proj)
+            or croak $dbh->errstr;
+    }
     assert($rowcount);
 
     ### populate a Javascript hash with the content of the study recordset
