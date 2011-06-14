@@ -360,9 +360,9 @@ sub destroy {
         $self->delete_object();
 
         # set all copied session data to undef
-        while ( my ( $key, $value ) = each( %{ $self->{data} } ) ) {
-            $self->{data}->{$key} = undef;
-        }
+        #while ( my ( $key, $value ) = each( %{ $self->{data} } ) ) {
+        #    $self->{data}->{$key} = undef;
+        #}
     }
 
     # (2) delete old if it exists
@@ -373,7 +373,7 @@ sub destroy {
         # commenced as a result -- only to be deleted in the current block.
         if ( $self->safe_tie( $self->{old_session_id} ) ) {
             $self->delete_object();
-            $self->{old_session_id} = undef;
+            #$self->{old_session_id} = undef;
         }
     }
     return;
@@ -392,7 +392,9 @@ sub destroy {
 sub delete_object {
 
     my $self = shift;
-    tied( %{ $self->{object} } )->delete();
+    $self->expire();
+    untie( %{ $self->{object} } );
+    #tied( %{ $self->{object} } )->delete();
     $self->{active} = 0;
     return;
 }
