@@ -114,7 +114,8 @@ our @cookies;
 #       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
+#  DESCRIPTION:  This is the constructor. Redefining the constructor from
+#                SGX::Session -- try to obtain an id from a cookie first.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a

@@ -140,6 +140,57 @@ sub safe_tie {
     $self->{active} = 1;
     return 1;
 }
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  expire current session
+#   PARAMETERS:  ????
+#      RETURNS:  1 if session was non-expired, 0 otherwise
+#  DESCRIPTION:  Sets time-to-live (ttl) to the difference between now and
+#                time-last-accessed (tla)
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub expire
+{
+    my $self = shift;
+    if ($self->now() < ($self->{object}->{tla} + $self->{object}->{ttl})) {
+        $self->{object}->{ttl} = $self->now() - $self->{object}->{tla};
+        return 1;
+    }
+    return 0;
+}
+
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  is_mint
+#   PARAMETERS:  ????
+#      RETURNS:  true value if yes, false if no
+#  DESCRIPTION:  a) if not expired then
+#                b) if not check ip -> OK
+#                c) if check ip then
+#                d) if stored_ip = ip -> OK
+#                e) if stored_ip != ip -> not OK 
+#               
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub is_mint
+{
+ # :TODO:06/13/2011 15:25:42:es: figure out why, at this point, {object} is empty
+ # but {data} is full -- seems to be a huge mystery!
+    my $self = shift;
+    my $tla = $self->{data}->{tla};
+    my $ttl = $self->{data}->{ttl};
+    my $ip = $self->{data}->{ip};
+
+    my $solid = ($self->now() < $tla + $ttl and
+            (!$self->{check_ip} or $ENV{REMOTE_ADDR} eq $ip));
+
+    return $solid;
+}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session
@@ -154,19 +205,12 @@ sub safe_tie {
 sub try_commence {
 
     my ( $self, $id ) = @_;
+    # safe_tie() sets the "active" property
     if ( $self->safe_tie($id) ) {
         if ( defined($id) ) {
 
             # old session has been restored
-            if (   $self->{object}->{tla} + $self->{object}->{ttl} < $self->now
-                || $self->{check_ip}
-                && $ENV{REMOTE_ADDR} ne $self->{object}->{ip} )
-            {
-
-       # delete if tla + ttl < cur_time or if user IP doesn't match stored value
-                $self->delete_object;
-            }
-            else {
+            if ($self->is_mint()) {
 
                 # update TLA (time last accessed)
                 $self->{object}->{tla} = $self->now;
@@ -175,6 +219,11 @@ sub try_commence {
                 while ( my ( $key, $value ) = each( %{ $self->{object} } ) ) {
                     $self->{data}->{$key} = $value;
                 }
+            }
+            else {
+
+       # delete if tla + ttl < cur_time or if user IP doesn't match stored value
+                $self->delete_object();
             }
         }
         else {
