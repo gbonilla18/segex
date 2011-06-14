@@ -1324,9 +1324,19 @@ select distinct
     from
     ($g0_sql) as g0
 left join (annotates natural join probe) on annotates.gid=g0.gid
-left join platform on platform.pid=probe.pid
-group by probe.rid
+right join platform ON probe.pid = platform.pid
 };
+
+    # find out what the current project is set to
+    $s->read_perm_cookie();
+    my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
+
+    if (!defined($curr_proj) or $curr_proj eq '') {
+        $probeSQLStatement .= ' group by probe.rid';
+    } else {
+        $curr_proj = $self->{_dbh}->quote($curr_proj);
+        $probeSQLStatement .= " right join study ON probe.pid=study.pid right join ProjectStudy USING(stid) WHERE prid=$curr_proj group by probe.rid";
+    }
 
     if($opts==2)
     {
