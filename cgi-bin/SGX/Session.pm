@@ -359,7 +359,8 @@ sub destroy {
     if ( $self->{active} ) {
         $self->delete_object();
 
-        # set all copied session data to undef
+        # clear copied session data
+        undef %{ $self->{data} };
         #while ( my ( $key, $value ) = each( %{ $self->{data} } ) ) {
         #    $self->{data}->{$key} = undef;
         #}

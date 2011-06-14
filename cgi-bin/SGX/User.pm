@@ -646,28 +646,36 @@ sub verify_email {
 sub is_authorized {
 
     my ( $self, $req_user_level ) = @_;
-    if ( defined( $self->{data}->{user_level} ) ) {
-        if ( $req_user_level eq 'admin' ) {
-            if ( $self->{data}->{user_level} eq 'admin' ) { return 1; }
+    if (!defined ($self->{data})) {
+        return 0;
+    }
+    my $current_level = $self->{data}->{user_level};
+    if (!defined( $current_level)) {
+        return 0;
+    }
+    if ( $req_user_level eq 'admin' ) {
+        if ( $current_level eq 'admin' ) { 
+            return 1; 
         }
-        elsif ( $req_user_level eq 'user' ) {
-            if (   $self->{data}->{user_level} eq 'admin'
-                || $self->{data}->{user_level} eq 'user' )
-            {
-                return 1;
-            }
+    }
+    elsif ( $req_user_level eq 'user' ) {
+        if (   $current_level eq 'admin'
+            || $current_level eq 'user' )
+        {
+            return 1;
         }
-        elsif ( $req_user_level eq 'unauth' ) {
-            if (   $self->{data}->{user_level} eq 'admin'
-                || $self->{data}->{user_level} eq 'user'
-                || $self->{data}->{user_level} eq 'unauth' )
-            {
-                return 1;
-            }
+    }
+    elsif ( $req_user_level eq 'unauth' ) {
+        if (   $current_level eq 'admin'
+            || $current_level eq 'user'
+            || $current_level eq 'unauth' )
+        {
+            return 1;
         }
     }
     return 0;
 }
+
 1;    # for require
 
 __END__
