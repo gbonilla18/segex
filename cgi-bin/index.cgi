@@ -661,8 +661,8 @@ print $q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108, alt=>PROJ
 print $q->ul({-id=>'menu'},$q->li(\@menu));
 
 #---------------------------------------------------------------------------
-#  Don't delete commented-out block below: it is useful for debugging
-#  user sessions.
+#  Don't delete commented-out block below: it is meant to be used for 
+#  debugging user sessions.
 #---------------------------------------------------------------------------
 #print $q->pre("
 #cookies sent to user:            
