@@ -181,10 +181,10 @@ sub is_mint
 {
  # :TODO:06/13/2011 15:25:42:es: figure out why, at this point, {object} is empty
  # but {data} is full -- seems to be a huge mystery!
-    my $self = shift;
-    my $tla = $self->{data}->{tla};
-    my $ttl = $self->{data}->{ttl};
-    my $ip = $self->{data}->{ip};
+    my ($self, $store) = @_;
+    my $tla = $store->{tla};
+    my $ttl = $store->{ttl};
+    my $ip = $store->{ip};
 
     my $solid = ($self->now() < $tla + $ttl and
             (!$self->{check_ip} or $ENV{REMOTE_ADDR} eq $ip));
@@ -209,8 +209,9 @@ sub try_commence {
     if ( $self->safe_tie($id) ) {
         if ( defined($id) ) {
 
-            # old session has been restored
-            if ($self->is_mint()) {
+            # old session has been restored. At this point, %{data} does not yet
+            # reflect %{object}
+            if ($self->is_mint($self->{object})) {
 
                 # update TLA (time last accessed)
                 $self->{object}->{tla} = $self->now;
