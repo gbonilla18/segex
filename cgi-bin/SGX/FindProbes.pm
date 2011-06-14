@@ -533,7 +533,7 @@ sub loadProbeData
 	$probeQuery 				=~ s/\\//g;
 
 	$self->{_ProbeRecords}	= $self->{_dbh}->prepare($probeQuery) 				or die $self->{_dbh}->errstr;
-	$self->{_ProbeCount}	= $self->{_ProbeRecords}->execute($qtext, $qtext) 	or die $self->{_dbh}->errstr;	
+	$self->{_ProbeCount}	= $self->{_ProbeRecords}->execute($qtext) 	or die $self->{_dbh}->errstr;	
 	$self->{_ProbeColNames} = @{$self->{_ProbeRecords}->{NAME}};
 	$self->{_Data}			= $self->{_ProbeRecords}->fetchall_arrayref;
 	
