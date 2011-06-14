@@ -129,14 +129,15 @@ sub new {
     # property.
 
     my %cookies = fetch CGI::Cookie;
-    my $id = eval { $cookies{ $p{-cookie_name} }->value };
+    my $session_cookie_name = 'user';
+    my $id = eval { $cookies{ $session_cookie_name }->value };
 
     my $self = {
         dbh            => $p{-handle},
         ttl            => $p{-expire_in},
         check_ip       => $p{-check_ip},
         old_session_id => $id,
-        cookie_name    => $p{-cookie_name},
+        cookie_name    => $session_cookie_name,
         active         => 0,
         object         => {},
         data           => {}

@@ -46,8 +46,7 @@ my $softwareVersion = "0.1.12";
 my $dbh = sgx_db_connect();
 my $s = SGX::User->new(-handle        => $dbh,
                -expire_in    => 3600, # expire in 3600 seconds (1 hour)
-               -check_ip    => 1,
-               -cookie_name    => 'user');
+               -check_ip    => 1);
 
 $s->restore();    # restore old session if it exists
 
@@ -664,13 +663,13 @@ print $q->ul({-id=>'menu'},$q->li(\@menu));
 #  Don't delete commented-out block below: it is meant to be used for 
 #  debugging user sessions.
 #---------------------------------------------------------------------------
-#print $q->pre("
-#cookies sent to user:            
-#".Dumper(\@SGX::Cookie::cookies)."
-#session data stored:        
-#".Dumper($s->{data})."
-#session expires after:    ".$s->{ttl}." seconds of inactivity
-#");
+print $q->pre("
+cookies sent to user:            
+".Dumper(\@SGX::Cookie::cookies)."
+session data stored:        
+".Dumper($s->{data})."
+session expires after:    ".$s->{ttl}." seconds of inactivity
+");
 
 # Main part
 &$content();

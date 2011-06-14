@@ -18,8 +18,7 @@ use SGX::User 0.07;	# user authentication, sessions and cookies
 my $dbh = sgx_db_connect();
 my $s = SGX::User->new(-handle		=> $dbh,
 			-expire_in	=> 3600, # expire in 3600 seconds (1 hour)
-			-check_ip	=> 1,
-			-cookie_name	=> 'user');
+			-check_ip	=> 1);
 
 $s->restore;	# restore old session if it exists
 
