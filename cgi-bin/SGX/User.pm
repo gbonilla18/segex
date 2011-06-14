@@ -147,6 +147,7 @@ use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
 use SGX::Debug;
 use SGX::Session;    # for email confirmation
+use Data::Dumper;
 
 # Variables declared as "our" within a class (package) scope will be shared between
 # all instances of the class *and* can be addressed from the outside like so:
@@ -198,13 +199,10 @@ sub authenticate {
         # get a new session handle
         $self->fresh;
 
-        # 1. save user info into the session object
-        $self->{object}->{username}   = $username;
-        $self->{object}->{user_level} = $level;
-
-        # 2. copy user info to class variables
-        $self->{data}->{username}   = $username;
-        $self->{data}->{user_level} = $level;
+        $self->session_store(
+            username   => $username,
+            user_level => $level
+        );
 
         # flush the session and prepare the cookie
         #$self->restore;
@@ -268,7 +266,7 @@ sub reset_password {
             To      => $u->{email}
         );
         $msg->add( 'From', ('NOREPLY') );
-        my $fh = $msg->open;
+        my $fh             = $msg->open;
         my $user_full_name = $u->{full_name};
         print $fh <<"END_RESET_PWD_MSG";
 Hi $user_full_name,
@@ -320,7 +318,7 @@ END_RESET_PWD_MSG
 #       METHOD:  reset_password_text
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -337,7 +335,7 @@ END_reset_password_text
 #       METHOD:  change_password
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success, 0 on failure
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  DBI::errstr
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -367,7 +365,7 @@ sub change_password {
     }
     $new_password1 = sha1_hex($new_password1);
     $old_password  = sha1_hex($old_password);
-    my $username = $self->{data}->{username};
+    my $username = $self->{session_view}->{username};
     assert($username);
 
     my $rows_affected =
@@ -395,7 +393,7 @@ sub change_password {
 #       METHOD:  change_email
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success, 0 on failure
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  DBI::errstr
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -421,7 +419,7 @@ sub change_email {
         return 0;
     }
     $password = sha1_hex($password);
-    my $username = $self->{data}->{username};
+    my $username = $self->{session_view}->{username};
     assert($username);
 
     my $rows_affected = $self->{dbh}->do(
@@ -433,13 +431,14 @@ sub change_email {
         $self->send_verify_email( $project_name, $username, $username, $email1,
             $login_uri );
         return 1;
-    } 
+    }
     elsif ( $rows_affected == 0 ) {
-            $$error =
+        $$error =
 'The email was not changed. Please make sure you entered your password correctly and that your new email address is different from your old one.';
-            return 0;
-    } 
+        return 0;
+    }
     else {
+
         # should never happen
         croak 'Internal error occurred';
     }
@@ -450,7 +449,7 @@ sub change_email {
 #       METHOD:  change_email_text
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -461,12 +460,13 @@ You have changed your email address. Please confirm your new email address by cl
 on the link in the message has been sent to the address you provided.
 END_change_email_text
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::User
 #       METHOD:  register_user
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success, 0 on failure
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  DBI::errstr
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -545,7 +545,7 @@ sub register_user {
 #       METHOD:  register_user_text
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -558,12 +558,13 @@ message has been sent to the administrator(s) of this site. Once your request fo
 is approved, you can start browsing the content hosted on this site.
 END_register_user_text
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::User
 #       METHOD:  send_verify_email
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  DBI::errstr, Mail::Send::close failure
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -577,8 +578,9 @@ sub send_verify_email {
         -id        => undef
     );
     $s->commence();
+
     # make the session object store the username
-    $s->{object}->{username} = $username;    
+    $s->session_store( username => $username );
     if ( $s->commit() ) {
 
         # email the confirmation link
@@ -588,8 +590,8 @@ sub send_verify_email {
         );
         $msg->add( 'From', ('NOREPLY') );
         my $fh = $msg->open()
-            or croak 'Failed to open default mailer';
-        my $session_id = $s->{data}->{_session_id};
+          or croak 'Failed to open default mailer';
+        my $session_id = $s->{session_view}->{_session_id};
         print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $full_name,
 
@@ -612,14 +614,14 @@ END_CONFIRM_EMAIL_MSG
 #       METHOD:  verify_email
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  DBI::errstr
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub verify_email {
     my ( $self, $username ) = @_;
-    if ( $self->{data}->{username} ne $username ) {
+    if ( $self->{session_view}->{username} ne $username ) {
         return 0;
     }
     my $rows_affected =
@@ -629,6 +631,59 @@ sub verify_email {
 
     assert( $rows_affected == 1 );
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  add_perm_cookie
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides SGX::Cookie::add_perm_cookie
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub add_perm_cookie {
+    my ( $self, %p ) = @_;
+    my $username = $self->{session_view}->{username};
+    if ( defined($username) ) {
+        my $cookie_name = sha1_hex($username);
+        $self->SUPER::add_perm_cookie( $cookie_name, %p );
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::User
+#       METHOD:  read_perm_cookie
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Sets perm_cookie_value to value of cookie just read
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub read_perm_cookie {
+    my $self        = shift;
+    my $cookie_name = sha1_hex( $self->{session_view}->{username} );
+    my $cookies_ref = $self->{fetched_cookies};
+
+    # in hash context, CGI::Cookie::value returns a hash
+    my %val = eval { $cookies_ref->{$cookie_name}->value };
+    $self->{perm_cookie_value} = \%val;
+    if (%val) {
+
+        # hash has members (is not empty)
+        return 1;
+    }
+    else {
+
+        # hash is empty
+        return 0;
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -646,16 +701,16 @@ sub verify_email {
 sub is_authorized {
 
     my ( $self, $req_user_level ) = @_;
-    if (!defined ($self->{data})) {
+    if ( !defined( $self->{session_view} ) ) {
         return 0;
     }
-    my $current_level = $self->{data}->{user_level};
-    if (!defined( $current_level)) {
+    my $current_level = $self->{session_view}->{user_level};
+    if ( !defined($current_level) ) {
         return 0;
     }
     if ( $req_user_level eq 'admin' ) {
-        if ( $current_level eq 'admin' ) { 
-            return 1; 
+        if ( $current_level eq 'admin' ) {
+            return 1;
         }
     }
     elsif ( $req_user_level eq 'user' ) {

@@ -87,20 +87,20 @@ use Carp;
 #===============================================================================
 sub new {
 
-    my ($class, %p) = @_;
+    my ( $class, %p ) = @_;
 
     # :TODO:06/05/2011 22:48:28:es: figure out a more reliable way to
     # tell whether a session is active than relying on the `active'
     # property.
 
     my $self = {
-        dbh            => $p{-handle},
-        ttl            => $p{-expire_in},
-        check_ip       => $p{-check_ip},
-        old_session_id => $p{-id},
-        active         => 0,
-        object         => {},
-        data           => {}
+        dbh          => $p{-handle},
+        ttl          => $p{-expire_in},
+        check_ip     => $p{-check_ip},
+        session_id   => $p{-id},
+        session_obj  => {},
+        session_view => {},
+        active       => 0
     };
     bless $self, $class;
     return $self;
@@ -112,7 +112,7 @@ sub new {
 #   PARAMETERS:  ????
 #      RETURNS:  returns 1 if a new session was commenced or an old one restored *by
 #                this subroutine*, 0 otherwise
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  croak() if active session present
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -124,70 +124,91 @@ sub safe_tie {
         croak 'Cannot tie to session hash: another session is currently active';
     }
     my $ret = eval {
-        tie %{ $self->{object} }, 'Apache::Session::MySQL', $id,
+        tie %{ $self->{session_obj} }, 'Apache::Session::MySQL', $id,
           {
             Handle     => $self->{dbh},
             LockHandle => $self->{dbh},
           };
     };
-    if (!$ret || $@) {
+    if ( !$ret || $@ ) {
+
         # error
         #carp "Could not tie session object (session id: $@)";
         return 0;
-    };
+    }
 
     # no error
     $self->{active} = 1;
     return 1;
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session
-#       METHOD:  expire current session
+#       METHOD:  session_store
 #   PARAMETERS:  ????
-#      RETURNS:  1 if session was non-expired, 0 otherwise
-#  DESCRIPTION:  Sets time-to-live (ttl) to the difference between now and
-#                time-last-accessed (tla)
+#      RETURNS:  ????
+#  DESCRIPTION:  Stores key-value combinations to session object and updates
+#                session view
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub expire
-{
-    my $self = shift;
-    if ($self->now() < ($self->{object}->{tla} + $self->{object}->{ttl})) {
-        $self->{object}->{ttl} = $self->now() - $self->{object}->{tla};
+sub session_store {
+    my ( $self, %p ) = @_;
+    while ( my ( $key, $value ) = each(%p) ) {
+        $self->{session_obj}->{$key}  = $value;
+        $self->{session_view}->{$key} = $value;
+    }
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  expire_session
+#   PARAMETERS:  ????
+#      RETURNS:  1 if session was non-expired, 0 otherwise
+#  DESCRIPTION:  Expires current session by setting time-to-live (ttl) to the
+#                difference between now and time-last-accessed (tla)
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub expire_session {
+    my $self      = shift;
+    my $curr_time = now();
+    if (
+        $curr_time < $self->{session_obj}->{tla} + $self->{session_obj}->{ttl} )
+    {
+        $self->{session_obj}->{ttl} = $curr_time - $self->{session_obj}->{tla};
         return 1;
     }
     return 0;
 }
 
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session
-#       METHOD:  is_mint
+#       METHOD:  session_is_mint
 #   PARAMETERS:  ????
 #      RETURNS:  true value if yes, false if no
 #  DESCRIPTION:  a) if not expired then
 #                b) if not check ip -> OK
 #                c) if check ip then
 #                d) if stored_ip = ip -> OK
-#                e) if stored_ip != ip -> not OK 
-#               
+#                e) if stored_ip != ip -> not OK
+#
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub is_mint
-{
- # :TODO:06/13/2011 15:25:42:es: figure out why, at this point, {object} is empty
- # but {data} is full -- seems to be a huge mystery!
-    my ($self, $store) = @_;
-    my $tla = $store->{tla};
-    my $ttl = $store->{ttl};
-    my $ip = $store->{ip};
+sub session_is_mint {
+    my $self  = shift;
+    my $store = $self->{session_obj};
+    my $tla   = $store->{tla};
+    my $ttl   = $store->{ttl};
+    my $ip    = $store->{ip};
 
-    my $solid = ($self->now() < $tla + $ttl and
-            (!$self->{check_ip} or $ENV{REMOTE_ADDR} eq $ip));
+    my $solid =
+      ( now() < $tla + $ttl
+          and ( !$self->{check_ip} or $ENV{REMOTE_ADDR} eq $ip ) );
 
     return $solid;
 }
@@ -197,7 +218,7 @@ sub is_mint
 #       METHOD:  try_commence
 #   PARAMETERS:  ????
 #      RETURNS:  returns the same value as safe_tie method
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -205,54 +226,61 @@ sub is_mint
 sub try_commence {
 
     my ( $self, $id ) = @_;
-    # safe_tie() sets the "active" property
-    if ( $self->safe_tie($id) ) {
-        if ( defined($id) ) {
+    if ( !$self->safe_tie($id) ) {
+        return 0;
+    }
 
-            # old session has been restored. At this point, %{data} does not yet
-            # reflect %{object}
-            if ($self->is_mint($self->{object})) {
+    # check that safe_tie() set the "active" property
+    assert( $self->{active} );
+    if ( defined($id) ) {
 
-                # update TLA (time last accessed)
-                $self->{object}->{tla} = $self->now;
+    # old session has been restored. At this point, %{session_view} does not yet
+    # reflect %{session_obj}
+        if ( $self->session_is_mint() ) {
 
-                # sync all session data
-                while ( my ( $key, $value ) = each( %{ $self->{object} } ) ) {
-                    $self->{data}->{$key} = $value;
-                }
-            }
-            else {
+            # update TLA (time last accessed)
+            $self->{session_obj}->{tla} = now();
 
-       # delete if tla + ttl < cur_time or if user IP doesn't match stored value
-                $self->delete_object();
+            # sync all session data
+            while ( my ( $key, $value ) = each( %{ $self->{session_obj} } ) ) {
+                $self->{session_view}->{$key} = $value;
             }
         }
         else {
 
-            # new session has been commenced
-            # store remote user IP address if ip_check is set to 1
-            $self->{object}->{ip} = $ENV{REMOTE_ADDR} if $self->{check_ip};
-
-            # store time info
-            $self->{object}->{tla} = $self->now;
-            $self->{object}->{ttl} = $self->{ttl};
-
-            # sync all session data
-            while ( my ( $key, $value ) = each( %{ $self->{object} } ) ) {
-                $self->{data}->{$key} = $value;
-            }
+       # delete if tla + ttl < cur_time or if user IP doesn't match stored value
+            $self->delete_object();
         }
-        return 1;
     }
-    return 0;
+    else {
+
+        # new session has been commenced
+        # store remote user IP address if ip_check is set to 1
+        $self->{session_obj}->{ip} = $ENV{REMOTE_ADDR} if $self->{check_ip};
+
+        # store time info
+        $self->{session_obj}->{tla} = now();
+        $self->{session_obj}->{ttl} = $self->{ttl};
+
+        # sync all session data
+        while ( my ( $key, $value ) = each( %{ $self->{session_obj} } ) ) {
+            $self->{session_view}->{$key} = $value;
+        }
+    }
+
+    # checks that _session_id has been obtained and synced correctly
+    #if ($self->{active}) {
+    #    assert($id eq $self->{session_view}->{_session_id});
+    #}
+    return 1;
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
-#       METHOD:  now
+#===  FUNCTION  ================================================================
+#         NAME:  now
+#      PURPOSE:  Returns time
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:  ????
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -279,21 +307,20 @@ sub now {
 #===============================================================================
 sub restore {
 
-    my $self = shift;
-    if ( defined( $self->{old_session_id} ) && !$self->{active} ) {
-        if ( $self->try_commence( $self->{old_session_id} ) ) {
+    my $self           = shift;
+    my $old_session_id = $self->{session_id};
+    if ( defined($old_session_id) && !$self->{active} ) {
+        if ( $self->try_commence($old_session_id) ) {
 
             # successfully restored an old session. Now that old session
             # id is the same as the active session id, undefine the old.
-            assert( $self->{old_session_id} eq $self->{data}->{_session_id} )
-              if $self->{active};
-            $self->{old_session_id} = undef;
+            $self->{session_id} = undef;
             return 1;
         }
 
         #if (!$self->{active}) {
         #    # if restoring a saved session fails, create a new one
-        #    $self->{old_session_id} = undef;
+        #    $self->{session_id} = undef;
         #    $self->try_commence(undef);
         #}
     }
@@ -334,7 +361,7 @@ sub commit {
 
     my $self = shift;
     if ( $self->{active} ) {
-        untie( %{ $self->{object} } );
+        untie( %{ $self->{session_obj} } );
         $self->{active} = 0;
         return 1;
     }
@@ -360,21 +387,24 @@ sub destroy {
         $self->delete_object();
 
         # clear copied session data
-        undef %{ $self->{data} };
-        #while ( my ( $key, $value ) = each( %{ $self->{data} } ) ) {
-        #    $self->{data}->{$key} = undef;
+        undef %{ $self->{session_view} };
+
+        #while ( my ( $key, $value ) = each( %{ $self->{session_view} } ) ) {
+        #    $self->{session_view}->{$key} = undef;
         #}
     }
 
     # (2) delete old if it exists
-    if ( defined( $self->{old_session_id} ) ) {
+    my $old_session_id = $self->{session_id};
+    if ( defined($old_session_id) ) {
 
         # Warning: if we do not check whether {old_session_id} is defined,
         # an undef will be passed to safe_tie and a new session will be
         # commenced as a result -- only to be deleted in the current block.
-        if ( $self->safe_tie( $self->{old_session_id} ) ) {
+        if ( $self->safe_tie($old_session_id) ) {
             $self->delete_object();
-            #$self->{old_session_id} = undef;
+
+            #$self->{session_id} = undef;
         }
     }
     return;
@@ -385,7 +415,7 @@ sub destroy {
 #       METHOD:  delete_object
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  no status/error checking in this subroutine -- use with caution
 #     SEE ALSO:  n/a
@@ -393,9 +423,10 @@ sub destroy {
 sub delete_object {
 
     my $self = shift;
-    $self->expire();
-    untie( %{ $self->{object} } );
-    #tied( %{ $self->{object} } )->delete();
+    $self->expire_session();
+    untie( %{ $self->{session_obj} } );
+
+    #tied( %{ $self->{session_obj} } )->delete();
     $self->{active} = 0;
     return;
 }
@@ -406,7 +437,7 @@ sub delete_object {
 #   PARAMETERS:  ????
 #      RETURNS:  Returns 1 if a new session was commenced *within this subroutine*, 0
 #                otherwise
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a

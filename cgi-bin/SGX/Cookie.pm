@@ -122,26 +122,29 @@ our @cookies;
 #===============================================================================
 sub new {
 
-    my ($class, %p) = @_;
+    my ( $class, %p ) = @_;
 
     # :TODO:06/05/2011 22:48:28:es: figure out a more reliable way to
     # tell whether a session is active than relying on the `active'
     # property.
 
     my %cookies = fetch CGI::Cookie;
-    my $session_cookie_name = 'user';
-    my $id = eval { $cookies{ $session_cookie_name }->value };
 
     my $self = {
-        dbh            => $p{-handle},
-        ttl            => $p{-expire_in},
-        check_ip       => $p{-check_ip},
-        old_session_id => $id,
-        cookie_name    => $session_cookie_name,
-        active         => 0,
-        object         => {},
-        data           => {}
+        dbh             => $p{-handle},
+        ttl             => $p{-expire_in},
+        check_ip        => $p{-check_ip},
+        fetched_cookies => \%cookies,
+        session_name    => 'session',
+        session_obj     => {},
+        session_view    => {},
+        active          => 0
     };
+
+    # in scalar context, the result of CGI::Cookie::value is a scalar
+    my $session_id = eval { $cookies{ $self->{session_name} }->value };
+    $self->{session_id} = $session_id;
+
     bless $self, $class;
     return $self;
 }
@@ -160,17 +163,42 @@ sub commit {
 
     my $self = shift;
     if ( $self->SUPER::commit() ) {
-        push @cookies, CGI::Cookie->new(
-            -name  => $self->{cookie_name},
-            -value => $self->{data}->{_session_id},
-            -path  => dirname( $ENV{SCRIPT_NAME} )
-        );
+        push @cookies,
+          CGI::Cookie->new(
+            -name     => $self->{session_name},
+            -value    => $self->{session_view}->{_session_id},
+            -path     => dirname( $ENV{SCRIPT_NAME} ),
+            -httponly => 1
+          );
 
         #   -domain    => $ENV{SERVER_NAME},
         #warn Dumper(\@cookies);
     }
     return;
 }
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Cookie
+#       METHOD:  add_perm_cookie
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub add_perm_cookie {
+    my ( $self, $cookie_name, %p ) = @_;
+    push @cookies,
+      CGI::Cookie->new(
+        -name     => $cookie_name,
+        -value    => \%p,
+        -path     => dirname( $ENV{SCRIPT_NAME} ),
+        -httponly => 1,
+        -expires  => '+3M'
+      );
+}
+
 1;    # for require
 
 __END__

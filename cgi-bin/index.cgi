@@ -149,7 +149,9 @@ while (defined($action)) { switch ($action) {
             # store project information in the session: note that
             # this must be done before cookie is committed, which
             # must be done before anything is written
-            $s->{object}->{curr_proj} = $project_set_to;
+            #$s->{session_obj}->{curr_proj} = $project_set_to;
+
+            $s->add_perm_cookie(curr_proj => $project_set_to);
             $action = FORM.CHOOSEPROJECT;
         } else {
             $action = FORM.LOGIN;
@@ -561,7 +563,7 @@ function init() {
                 -check_ip  => 0
             );
             if ($t->restore()) {
-                if ($s->verify_email($t->{data}->{username})) {
+                if ($s->verify_email($t->{session_view}->{username})) {
                     $title = 'Email Verification';
                     $content = \&verifyEmail_success;
                     $action = undef;    # final state
@@ -604,7 +606,7 @@ if ($s->is_authorized('unauth')) {
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
                 -title=>'My user profile.'},'My Profile');
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.LOGOUT,
-                -title=>'You are signed in as '.$s->{data}->{username}.'. Click on this link to log out.'},'Log out');
+                -title=>'You are signed in as '.$s->{session_view}->{username}.'. Click on this link to log out.'},'Log out');
 } else {
     # add top options for anonymous users
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.LOGIN,
@@ -663,13 +665,13 @@ print $q->ul({-id=>'menu'},$q->li(\@menu));
 #  Don't delete commented-out block below: it is meant to be used for 
 #  debugging user sessions.
 #---------------------------------------------------------------------------
-print $q->pre("
-cookies sent to user:            
-".Dumper(\@SGX::Cookie::cookies)."
-session data stored:        
-".Dumper($s->{data})."
-session expires after:    ".$s->{ttl}." seconds of inactivity
-");
+#print $q->pre("
+#cookies sent to user:
+#".Dumper(\@SGX::Cookie::cookies)."
+#object stored in the \"sessions\" table in the database:
+#".Dumper($s->{session_view})."
+#session expires after:    ".$s->{ttl}." seconds of inactivity
+#");
 
 # Main part
 &$content();
@@ -2215,7 +2217,9 @@ sub outputData
 #===============================================================================
 sub chooseProject
 {
-    my $cp = SGX::ChooseProject->new($dbh,$q,$s->{data}->{curr_proj});
+    $s->read_perm_cookie();
+    my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
+    my $cp = SGX::ChooseProject->new($dbh, $q, $curr_proj);
     $cp->dispatch($q->url_param('projectAction'));
 }
 

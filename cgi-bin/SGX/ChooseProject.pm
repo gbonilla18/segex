@@ -97,7 +97,7 @@ sub loadProjectData {
     my $projectDropDown =
       SGX::DropDownData->new( $self->{_dbh}, $self->{_ProjectDropdownQuery} );
 
-    $projectDropDown->Push(0 => 'None');
+    $projectDropDown->Push('' => 'All Projects');
     $self->{_projectList} = $projectDropDown->loadDropDownValues();
     return;
 }
@@ -149,7 +149,9 @@ sub drawChangeProjectScreen {
     my $self = shift;
 
     #Load the study dropdown to choose which experiments to load into table.
-    print $self->{_cgi}->start_form(
+    print 
+      $self->{_cgi}->h2('Select working project') .
+      $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
           . '?a=chooseProject'
