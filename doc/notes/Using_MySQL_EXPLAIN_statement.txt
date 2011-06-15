@@ -1,17 +1,38 @@
-A typical "Find Probes" (listed below) is something like: "list all probes related to genes whose names match '^cyp.b'". When limited to project 13, the query takes 3.04 seconds. Here we will make lookups more efficient with the use of EXPLAIN statement. When placed in front of a query, MySQL EXPLAIN statement returns a table with list of lookups performed by the MySQL daemon. We will look at columns "possyble_keys" and "key". The "keys" column lists what key (index) is actually used to perform lookups, and the "possible_keys" column lists what keys *could* be used to speed up searches. In this case, we notice that in the penultimate row in the table returned, EXPLAIN suggests that a key on two columns (accnum, seqname) could potentially be used. We add this key using CREATE INDEX statement (see below). Running the query once more, once the index has been created, takes only 2.39 seconds. The runnning time improvement is expected to be super-linear as the size of the database grows.
+A typical "Find Probes" (listed below) is something like: "list all probes related to
+genes whose names match '^cyp.b'". When limited to project 13, the query takes 3.04
+seconds. Here we will make lookups more efficient with the use of EXPLAIN statement.
+When placed in front of a query, MySQL EXPLAIN statement returns a table with list of
+lookups performed by the MySQL daemon. We will look at columns "possyble_keys" and
+"key". The "keys" column lists what key (index) is actually used to perform lookups, and
+the "possible_keys" column lists what keys *could* be used to speed up searches. In this
+case, we notice that in the penultimate row in the table returned, EXPLAIN suggests that
+a key on two columns (accnum, seqname) could potentially be used. We add this key using
+CREATE INDEX statement (see below). Running the query once more, once the index has been
+created, takes only 2.39 seconds. The runnning time improvement is expected to be
+super-linear as the size of the database grows.
 
 > EXPLAIN SELECT
     probe.reporter AS Probe,
     pname AS Platform,
-    group_concat(distinct if(isnull(g0.accnum),'',g0.accnum) order by g0.seqname asc separator ',') AS 'Transcript',
+    group_concat(
+        distinct if(isnull(g0.accnum),'',g0.accnum) order by g0.seqname asc separator ','
+    ) AS 'Transcript',
     if(isnull(g0.seqname),'',g0.seqname) AS 'Gene',
     probe.note AS 'Probe Specificity - Comment', probe.probe_sequence AS 'Probe Sequence',
-    group_concat(distinct g0.description order by g0.seqname asc separator '; ') AS 'Gene Description',
-    group_concat(distinct gene_note order by g0.seqname asc separator '; ') AS 'Gene Ontology - Comment',
+    group_concat(
+        distinct g0.description order by g0.seqname asc separator '; '
+    ) AS 'Gene Description',
+    group_concat(
+        distinct gene_note order by g0.seqname asc separator '; '
+    ) AS 'Gene Ontology - Comment',
     platform.species
 FROM
 (
-    SELECT gid, coalesce(g1.accnum, gene.accnum) AS accnum, coalesce(g1.seqname, gene.seqname) AS seqname, description, gene_note
+    SELECT gid, 
+           coalesce(g1.accnum, gene.accnum) AS accnum, 
+           coalesce(g1.seqname, gene.seqname) AS seqname, 
+           description, 
+           gene_note
     FROM (
         SELECT DISTINCT accnum, seqname
         FROM gene
