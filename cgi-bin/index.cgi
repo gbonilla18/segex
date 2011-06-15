@@ -19,6 +19,7 @@ use Math::BigInt;
 #use Time::HiRes qw/clock/;
 use Data::Dumper;
 use JSON;
+use Tie::IxHash;
 
 #---------------------------------------------------------------------------
 # Custom modules in SGX directory
@@ -1226,17 +1227,21 @@ function init() {
 }
 #######################################################################################
 sub form_compareExperiments {
-    my %geneFilter_dropdown = (
+
+    my %geneFilter_dropdown;
+    my $geneFilter_dropdown_t = tie(%geneFilter_dropdown, 'Tie::IxHash',
         'none'=>'none',
         'file'=>'file',
         'list'=>'list'
     );
-    my %gene_dropdown = (
+    my %gene_dropdown;
+    my $gene_dropdown_t = tie(%gene_dropdown, 'Tie::IxHash',
         'gene'=>'Gene Symbols',
         'transcript'=>'Transcripts',
         'probe'=>'Probes'
     );
-    my %match_dropdown = (
+    my %match_dropdown;
+    my $match_dropdown_t = tie(%match_dropdown, 'Tie::IxHash',
         'full'=>'Full Word',
         'prefix'=>'Prefix',
         'part'=>'Part of the Word / Regular Expression*'

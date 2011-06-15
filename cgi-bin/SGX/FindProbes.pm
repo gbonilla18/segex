@@ -31,7 +31,7 @@ use base qw/Exporter/;
 
 use Switch;
 use CGI::Carp;
-
+use Tie::IxHash;
 use Data::Dumper;
 
 our @EXPORT_OK =
@@ -1109,23 +1109,27 @@ sub list_yui_deps
 sub getform_findProbes {
     my ($q, $a) = @_;
 
-    my %type_dropdown = (
+    my %type_dropdown;
+    my $type_dropdown_t = tie(%type_dropdown, 'Tie::IxHash',
         'gene'=>'Gene Symbols',
         'transcript'=>'Transcripts',
         'probe'=>'Probes'
     );
-    my %match_dropdown = (
+    my %match_dropdown;
+    my $match_dropdown_t = tie(%match_dropdown, 'Tie::IxHash',
         'full'=>'Full Word',
         'prefix'=>'Prefix',
         'part'=>'Part of the Word / Regular Expression*'
     );
-    my %opts_dropdown = (
+    my %opts_dropdown;
+    my $opts_dropdown_t = tie(%opts_dropdown, 'Tie::IxHash',
         '0'=>'Basic (names,IDs only)',
         '1'=>'Full annotation',
         '2'=>'Full annotation with experiment data (CSV)',
         '3'=>'Full annotation with experiment data (Not implemented yet)'
     );
-    my %trans_dropdown = (
+    my %trans_dropdown;
+    my $trans_dropdown_t = tie(%trans_dropdown, 'Tie::IxHash',
         'fold' => 'Fold Change +/- 1', 
         'ln'=>'Log2 Ratio'
     );

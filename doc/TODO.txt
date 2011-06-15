@@ -70,3 +70,7 @@ is in many ways similar to ManageProjects. Formalize this similarity and abstrac
 14) Installation: automate file copying: have user provide only two directories: CGI_ROOT and
 DOCUMENTS_ROOT. Create the subtree containing css/, images/, and js/ directories under
 DOCUMENTS_ROOT and the subtree corresponding to cgi-bin under CGI_ROOT.
+
+15) Since permanent cookie storage was introduced (initially to store current Working
+Project ids), it is now possible to recover expired sessions by storing the session id
+in permanent storage. Implementing this would help keep "sessions" table small.
