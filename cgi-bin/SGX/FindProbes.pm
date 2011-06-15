@@ -1201,11 +1201,22 @@ sub findProbes_js
 
     switch ($opts) {
     case 0 {}
-    case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
+    case 1 { 
+        push @extra_fields, (
+            'probe.note AS \'Probe Specificity - Comment\'',
+            'probe.probe_sequence AS \'Probe Sequence\'',
+            'GROUP_CONCAT(
+                DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR \'; \'
+            ) AS \'Gene Description\'',
+            'GROUP_CONCAT(
+                DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR \'; \'
+            ) AS \'Gene Ontology - Comment\''
+        );
+    }
     case 2 {}
     }
 
-    my $extra_sql = (@extra_fields) ? ', '.join(', ', @extra_fields) : '';
+    my $extra_sql = (@extra_fields) ? ",\n    ".join(",\n    ", @extra_fields) : '';
 
     my $qtext;
     
@@ -1264,71 +1275,67 @@ sub findProbes_js
     my $g0_sql;
     switch ($type) 
     {
-        case 'probe' 
-        {
+        case 'probe' {
             $g0_sql = <<"END_innerSQL_probe";
-SELECT NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid, 
-       gid, coalesce(g1.accnum, gene.accnum) as accnum, coalesce(g1.seqname, gene.seqname) as seqname, description, gene_note 
+SELECT gid, coalesce(g1.accnum, gene.accnum) AS accnum, coalesce(g1.seqname, gene.seqname) AS seqname, description, gene_note 
 FROM (
-    SELECT DISTINCT gene.accnum, gene.seqname
-    FROM probe 
-    LEFT JOIN annotates USING(rid) 
-    LEFT JOIN gene USING(gid) 
-    WHERE reporter REGEXP ?
-) as g1
-LEFT JOIN gene ON (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
+    SELECT DISTINCT accnum, seqname
+    FROM gene 
+    RIGHT JOIN annotates USING(gid)
+    RIGHT JOIN probe USING(rid)
+    WHERE probe.reporter REGEXP ?
+) AS g1
+INNER JOIN gene ON (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
 GROUP BY gid
 
 END_innerSQL_probe
         }
-        case 'gene' 
-        {
+        case 'gene' {
             $g0_sql = <<"END_innerSQL_gene"
-select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid,
-       gid, coalesce(g1.accnum, gene.accnum) as accnum, coalesce(g1.seqname, gene.seqname) as seqname, description, gene_note
-from (
+SELECT gid, coalesce(g1.accnum, gene.accnum) AS accnum, coalesce(g1.seqname, gene.seqname) AS seqname, description, gene_note
+FROM (
     SELECT DISTINCT accnum, seqname
     FROM gene 
-    WHERE seqname REGEXP ?
-) as g1
-left join gene on (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
-group by gid
+    WHERE gene.seqname REGEXP ?
+) AS g1
+INNER JOIN gene ON (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
+GROUP BY gid
 
 END_innerSQL_gene
         }
-        case 'transcript' 
-        {
+        case 'transcript' {
             $g0_sql = <<"END_innerSQL_transcript";
-select NULL as rid, NULL as note, NULL as reporter, NULL as probe_sequence, NULL as pid,
-       gid, coalesce(g1.accnum, gene.accnum) as accnum, coalesce(g1.seqname, gene.seqname) as seqname, description, gene_note
-from (
+SELECT gid, coalesce(g1.accnum, gene.accnum) AS accnum, coalesce(g1.seqname, gene.seqname) AS seqname, description, gene_note
+FROM (
     SELECT DISTINCT accnum, seqname
     FROM gene 
-    WHERE accnum REGEXP ?
-) as g1
-left join gene on (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
-group by gid
+    WHERE gene.accnum REGEXP ?
+) AS g1
+INNER JOIN gene ON (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
+GROUP BY gid
 
 END_innerSQL_transcript
         } 
-        else 
-        {
-            assert(0); # shouldn't happen
+        else {
+            croak "Unknown request parameter value type=$type";
         }
     }
 
     my $probeSQLStatement = qq{
-select distinct 
-    probe.reporter as Probe, 
-    pname as Platform,
-    group_concat(distinct if(isnull(g0.accnum),'',g0.accnum) order by g0.seqname asc separator ',') as 'Transcript', 
-    if(isnull(g0.seqname),'',g0.seqname) as 'Gene'
-    $extra_sql,
+SELECT
+    probe.reporter AS Probe, 
+    pname AS Platform,
+    GROUP_CONCAT(
+        DISTINCT IF(ISNULL(g0.accnum),'',g0.accnum) 
+        ORDER BY g0.seqname ASC SEPARATOR ','
+    ) AS 'Transcript', 
+    IF(ISNULL(g0.seqname),'',g0.seqname) AS 'Gene' $extra_sql,
     platform.species
-    from
-    ($g0_sql) as g0
-left join (annotates natural join probe) on annotates.gid=g0.gid
-right join platform ON probe.pid = platform.pid
+FROM
+    ($g0_sql) AS g0
+INNER JOIN annotates USING(gid)
+INNER JOIN probe using(rid)
+INNER JOIN platform USING(pid)
 };
 
     # find out what the current project is set to
@@ -1336,12 +1343,18 @@ right join platform ON probe.pid = platform.pid
     my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
 
     if (!defined($curr_proj) or $curr_proj eq '') {
-        $probeSQLStatement .= ' group by probe.rid';
+        $probeSQLStatement .= '
+GROUP BY probe.rid';
     } else {
         $curr_proj = $self->{_dbh}->quote($curr_proj);
-        $probeSQLStatement .= " right join study ON probe.pid=study.pid right join ProjectStudy USING(stid) WHERE prid=$curr_proj group by probe.rid";
+        $probeSQLStatement .= "
+INNER JOIN study USING(pid) 
+INNER JOIN ProjectStudy USING(stid) 
+WHERE prid=$curr_proj 
+GROUP BY probe.rid";
     }
 
+    warn $probeSQLStatement;
     if($opts==2)
     {
         $s->commit();
