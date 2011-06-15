@@ -18,6 +18,7 @@ use Carp;
 use Math::BigInt;
 #use Time::HiRes qw/clock/;
 use Data::Dumper;
+use JSON;
 
 #---------------------------------------------------------------------------
 # Custom modules in SGX directory
@@ -1108,13 +1109,21 @@ sub form_compareExperiments_js {
     my ($sth, $rowcount);
     if (!defined($curr_proj) or $curr_proj eq '') {
         # current project not set or set to 'All Projets'
-        $sth = $dbh->prepare(qq{select pid, pname, def_p_cutoff, def_f_cutoff from platform})
+        $sth = $dbh->prepare(qq{SELECT pid, pname, def_p_cutoff, def_f_cutoff FROM platform})
             or croak $dbh->errstr;
         $rowcount = $sth->execute()
             or croak $dbh->errstr;
     } else {
         # current project is set
-        $sth = $dbh->prepare(qq{select pid, pname, def_p_cutoff, def_f_cutoff from platform RIGHT JOIN study USING(pid) RIGHT JOIN ProjectStudy USING(stid) WHERE prid=?})
+        $sth = $dbh->prepare(<<"END_PLATFORM_QUERY")
+SELECT pid, pname, def_p_cutoff, def_f_cutoff 
+FROM platform 
+RIGHT JOIN study USING(pid) 
+RIGHT JOIN ProjectStudy USING(stid)
+WHERE prid=? 
+GROUP BY pid
+
+END_PLATFORM_QUERY
             or croak $dbh->errstr;
         $rowcount = $sth->execute($curr_proj)
             or croak $dbh->errstr;
@@ -1122,19 +1131,22 @@ sub form_compareExperiments_js {
     assert($rowcount);
 
     ### populate a Javascript hash with the content of the platform recordset
-    $out .= '
-Event.observe(window, "load", init);
+    $out .= "Event.observe(window, 'load', init);\n";
+    $out .= 'var form = "' . FORM.COMPAREEXPERIMENTS . "\";\n";
 
-var form = "'.FORM.COMPAREEXPERIMENTS.'"
-var platform = {};
-';
+    my %json_platform;
     while (my @row = $sth->fetchrow_array) {
-        $out .= 'platform['.$row[0]."] = {};\n";
-        $out .= 'platform['.$row[0].'][0] = \''.$row[1]."';\n"; # platform name
-        $out .= 'platform['.$row[0].'][1] = \''.$row[2]."';\n";    # P-calue cutoff
-        $out .= 'platform['.$row[0].'][2] = \''.$row[3]."';\n";    # Fold change cutoff
+        # format:
+        # 0 - platform id => [
+        #   1 - platform name
+        #   2 - P-value cutoff
+        #   3 - fold-change cutoff 
+        # ];
+        $json_platform{$row[0]} = [ $row[1], $row[2], $row[3] ];
     }
     $sth->finish;
+
+    $out .= 'var platform = ' . encode_json(\%json_platform) . ";\n";
 
     # get a list of studies
     if (!defined($curr_proj) or $curr_proj eq '') {
@@ -1145,7 +1157,7 @@ var platform = {};
             or croak $dbh->errstr;
     } else {
         # current project is set
-        $sth = $dbh->prepare(qq{select stid, description, pid from study RIGHT JOIN ProjectStudy USING(stid) WHERE prid=?})
+        $sth = $dbh->prepare(qq{select stid, description, pid from study RIGHT JOIN ProjectStudy USING(stid) WHERE prid=? group by stid})
             or croak $dbh->errstr;
         $rowcount = $sth->execute($curr_proj)
             or croak $dbh->errstr;
@@ -1153,33 +1165,58 @@ var platform = {};
     assert($rowcount);
 
     ### populate a Javascript hash with the content of the study recordset
-    $out .= '
-var study = {};
-';
+    my %json_study;
     while (my @row = $sth->fetchrow_array) {
-        $out .= 'study['.$row[0]."] = {};\n";
-        $out .= 'study['.$row[0].'][0] = \''.$row[1]."';\n"; # study description
-        $out .= 'study['.$row[0]."][1] = {};\n";     # sample 1 name
-        $out .= 'study['.$row[0]."][2] = {};\n";     # sample 2 name
-        $out .= 'study['.$row[0].'][3] = \''.$row[2]."';\n"; # platform id
+        # format:
+        # study_id => [
+        #   0 - study description
+        #   1 - sample 1 name
+        #   2 - sample 2 name
+        #   3 - platform id
+        # ];
+        $json_study{$row[0]} = [$row[1], {}, {}, $row[2] ];
     }
     $sth->finish;
 
     # get a list of all experiments
-    $sth = $dbh->prepare(qq{select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc from study natural join StudyExperiment natural join experiment order by eid})
-        or croak $dbh->errstr;
-    $rowcount = $sth->execute
-        or croak $dbh->errstr;
-    assert($rowcount);
+    if (!defined($curr_proj) or $curr_proj eq '') {
+        $sth = $dbh->prepare(<<"END_EXP_QUERY")
+select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc 
+from study 
+inner join StudyExperiment USING(stid)
+inner join experiment using(eid)
+
+END_EXP_QUERY
+            or croak $dbh->errstr;
+        $rowcount = $sth->execute
+            or croak $dbh->errstr;
+    } else {
+        $sth = $dbh->prepare(<<"END_EXP_QUERY")
+select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc 
+from experiment
+inner join StudyExperiment USING(eid)
+inner join study using(stid)
+inner join ProjectStudy USING(stid)
+WHERE prid = ?
+GROUP BY eid
+
+END_EXP_QUERY
+            or croak $dbh->errstr;
+        $rowcount = $sth->execute($curr_proj)
+            or croak $dbh->errstr;
+    }
+        assert($rowcount);
 
     ### populate the Javascript hash with the content of the experiment recordset
     while (my @row = $sth->fetchrow_array) {
-        $out .= 'study['.$row[0].'][1]['.$row[1].'] = \''.$row[2]."';\n";
-        $out .= 'study['.$row[0].'][2]['.$row[1].'] = \''.$row[3]."';\n";
+        $json_study{$row[0]}->[1]->{$row[1]} = $row[2];
+        $json_study{$row[0]}->[2]->{$row[1]} = $row[3];
     }
     $sth->finish;
 
-    $ out .= '
+    $out .= 'var study = ' . encode_json(\%json_study) . ";\n";
+
+    $out .= '
 function init() {
     populatePlatforms("platform");
     addExperiment();
