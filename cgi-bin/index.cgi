@@ -18,7 +18,7 @@ use Carp;
 use Math::BigInt;
 #use Time::HiRes qw/clock/;
 use Data::Dumper;
-use JSON;
+use JSON::XS;
 use Tie::IxHash;
 
 #---------------------------------------------------------------------------

@@ -33,6 +33,7 @@ use Switch;
 use CGI::Carp;
 use Tie::IxHash;
 use Data::Dumper;
+use JSON::XS;
 
 our @EXPORT_OK =
   qw/getform_findProbes/;
@@ -70,27 +71,27 @@ sub new {
 		_PlatformInfoHash	=> '',
 		_ProbeQuery		=> "
 				select DISTINCT 
-					coalesce(probe.reporter, g0.reporter) as Probe,
+					COALESCE(probe.reporter, g0.reporter) as Probe,
 					platform.pid,					
 					group_concat(DISTINCT IF(ISNULL(g0.accnum),'NONE',g0.accnum) ORDER BY g0.seqname ASC separator ' # ') AS 'Accession',
 					IF(ISNULL(g0.seqname),'NONE',g0.seqname)                                                            AS 'Gene',
-					coalesce(probe.probe_sequence, g0.probe_sequence) AS 'Probe Sequence',
+					COALESCE(probe.probe_sequence, g0.probe_sequence) AS 'Probe Sequence',
 					group_concat(distinct g0.description order by g0.seqname asc separator '; ') AS 'Gene Description',
 					group_concat(distinct gene_note order by g0.seqname asc separator '; ') AS 'Gene Ontology - Comment'					
 					from
 					({0}) as g0
 			left join (annotates natural join probe) on annotates.gid=g0.gid
-			left join platform on platform.pid=coalesce(probe.pid, g0.pid)
-			group by coalesce(probe.rid, g0.rid)
+			left join platform on platform.pid=COALESCE(probe.pid, g0.pid)
+			group by COALESCE(probe.rid, g0.rid)
 							",
 		_ProbeReporterQuery		=> "
 				select DISTINCT 
-					coalesce(probe.reporter, g0.reporter) as Probe					
+					COALESCE(probe.reporter, g0.reporter) as Probe					
 					from
 					({0}) as g0
 			left join (annotates natural join probe) on annotates.gid=g0.gid
-			left join platform on platform.pid=coalesce(probe.pid, g0.pid)
-			group by coalesce(probe.rid, g0.rid)
+			left join platform on platform.pid=COALESCE(probe.pid, g0.pid)
+			group by COALESCE(probe.rid, g0.rid)
 							",							
 		_ExperimentListHash 	=> '',
 		_ExperimentStudyListHash	=> '',		
@@ -145,7 +146,7 @@ sub createInsideTableQuery
 
 	switch ($opts) {
 	case 0 {}
-	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
+	case 1 { @extra_fields = ('COALESCE(probe.note, g0.note) as \'Probe Specificity - Comment\', COALESCE(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
 	case 2 {}
 	}
 
@@ -275,7 +276,7 @@ sub createInsideTableQueryFromFile
 
 	switch ($opts) {
 	case 0 {}
-	case 1 { @extra_fields = ('coalesce(probe.note, g0.note) as \'Probe Specificity - Comment\', coalesce(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
+	case 1 { @extra_fields = ('COALESCE(probe.note, g0.note) as \'Probe Specificity - Comment\', COALESCE(probe.probe_sequence, g0.probe_sequence) AS \'Probe Sequence\'', 'group_concat(distinct g0.description order by g0.seqname asc separator \'; \') AS \'Gene Description\'', 'group_concat(distinct gene_note order by g0.seqname asc separator \'; \') AS \'Gene Ontology - Comment\'') }
 	case 2 {}
 	}
 
@@ -1123,10 +1124,9 @@ sub getform_findProbes {
     );
     my %opts_dropdown;
     my $opts_dropdown_t = tie(%opts_dropdown, 'Tie::IxHash',
-        '0'=>'Basic (names,IDs only)',
+        '0'=>'Basic (names and ids only)',
         '1'=>'Full annotation',
-        '2'=>'Full annotation with experiment data (CSV)',
-        '3'=>'Full annotation with experiment data (Not implemented yet)'
+        '2'=>'Full annotation with experiment data (CSV)'
     );
     my %trans_dropdown;
     my $trans_dropdown_t = tie(%trans_dropdown, 'Tie::IxHash',
@@ -1188,49 +1188,49 @@ sub getform_findProbes {
 sub findProbes_js 
 {
     my ($self, $s) = @_;
+
     # the two parameters below must be always set -- no defaults
-    my $text = $self->{_cgi}->param('text') or croak "You did not specify what to search for";    
-    my $type = $self->{_cgi}->param('type') or croak "You did not specify where to search";
+    my $text = $self->{_cgi}->param('text') or croak 'You did not specify what to search for';
+    my $type = $self->{_cgi}->param('type') or croak 'You did not specify where to search';
 
     my $trans = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
     my $match = (defined($self->{_cgi}->param('match'))) ? $self->{_cgi}->param('match') : 'full';
     my $opts = (defined($self->{_cgi}->param('opts'))) ? $self->{_cgi}->param('opts') : 1;
-    my $speciesColumn = 5;
 
     my @extra_fields;
 
     switch ($opts) {
-    case 0 {}
-    case 1 { 
-        push @extra_fields, (
-            'probe.note AS \'Probe Specificity - Comment\'',
-            'probe.probe_sequence AS \'Probe Sequence\'',
-            'GROUP_CONCAT(
-                DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR \'; \'
-            ) AS \'Gene Description\'',
-            'GROUP_CONCAT(
-                DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR \'; \'
-            ) AS \'Gene Ontology - Comment\''
-        );
-    }
-    case 2 {}
+        case 0 {
+            # Basic (names,IDs only)
+        }
+        case 1 { 
+            # Full annotation
+            push @extra_fields, (
+                'probe.note AS \'Probe Specificity - Comment\'',
+                'probe.probe_sequence AS \'Probe Sequence\'',
+                'GROUP_CONCAT(
+            DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR \'; \'
+        ) AS \'Gene Description\'',
+                'GROUP_CONCAT(
+            DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR \'; \'
+        ) AS \'Gene Ontology - Comment\''
+            );
+        }
+        case 2 {
+            # Full annotation with experiment data (CSV)
+        }
     }
 
     my $extra_sql = (@extra_fields) ? ",\n    ".join(",\n    ", @extra_fields) : '';
 
-    my $qtext;
-    
     #This will be the array that holds all the splitted items.
     my @textSplit;    
     
     #If we find a comma, split on that, otherwise we split on new lines.
-    if($text =~ m/,/)
-    {
+    if ($text =~ m/,/) {
         #Split the input on commas.    
         @textSplit = split(/\,/,trim($text));
-    }
-    else
-    {
+    } else {
         #Split the input on the new line.    
         @textSplit = split(/\r\n/,$text);
     }
@@ -1238,29 +1238,21 @@ sub findProbes_js
     #Get the count of how many search terms were found.
     my $searchesFound = @textSplit;
     
-    #This will be the string we output.
-    my $out = '';
-
-    if($searchesFound < 2)
-    {
-        switch ($match) 
-        {
-            case 'full'        { $qtext = '^'.$textSplit[0].'$' }
-            case 'prefix'    { $qtext = '^'.$textSplit[0] }
-            case 'part'        { $qtext = $textSplit[0] } 
+    my $qtext;
+    if ($searchesFound < 2) {
+        switch ($match) {
+            case 'full'     { $qtext = '^'.$textSplit[0].'$' }
+            case 'prefix'   { $qtext = '^'.$textSplit[0] }
+            case 'part'     { $qtext = $textSplit[0] } 
             else            { assert(0) }
         }
-    }
-    else
-    {
+    } else {
         #Begining of the SQL regex.
         $qtext = '^';
         
         #Add the search items seperated by a bar.
-        foreach(@textSplit)
-        {
-            if($_)
-            {
+        foreach(@textSplit) {
+            if($_) {
                 $qtext .= trim($_) . "|";
             }
         }
@@ -1277,43 +1269,25 @@ sub findProbes_js
     {
         case 'probe' {
             $g0_sql = <<"END_innerSQL_probe";
-SELECT gid, coalesce(g1.accnum, gene.accnum) AS accnum, coalesce(g1.seqname, gene.seqname) AS seqname, description, gene_note 
-FROM (
-    SELECT DISTINCT accnum, seqname
-    FROM gene 
-    RIGHT JOIN annotates USING(gid)
-    RIGHT JOIN probe USING(rid)
-    WHERE probe.reporter REGEXP ?
-) AS g1
-INNER JOIN gene ON (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
-GROUP BY gid
-
+SELECT DISTINCT accnum, seqname
+        FROM gene 
+        RIGHT JOIN annotates USING(gid)
+        RIGHT JOIN probe USING(rid)
+        WHERE probe.reporter REGEXP ?
 END_innerSQL_probe
         }
         case 'gene' {
             $g0_sql = <<"END_innerSQL_gene"
-SELECT gid, coalesce(g1.accnum, gene.accnum) AS accnum, coalesce(g1.seqname, gene.seqname) AS seqname, description, gene_note
-FROM (
-    SELECT DISTINCT accnum, seqname
-    FROM gene 
-    WHERE gene.seqname REGEXP ?
-) AS g1
-INNER JOIN gene ON (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
-GROUP BY gid
-
+SELECT DISTINCT accnum, seqname
+        FROM gene 
+        WHERE gene.seqname REGEXP ?
 END_innerSQL_gene
         }
         case 'transcript' {
             $g0_sql = <<"END_innerSQL_transcript";
-SELECT gid, coalesce(g1.accnum, gene.accnum) AS accnum, coalesce(g1.seqname, gene.seqname) AS seqname, description, gene_note
-FROM (
-    SELECT DISTINCT accnum, seqname
-    FROM gene 
-    WHERE gene.accnum REGEXP ?
-) AS g1
-INNER JOIN gene ON (g1.accnum = gene.accnum OR g1.seqname = gene.seqname)
-GROUP BY gid
-
+SELECT DISTINCT accnum, seqname
+        FROM gene 
+        WHERE gene.accnum REGEXP ?
 END_innerSQL_transcript
         } 
         else {
@@ -1321,22 +1295,33 @@ END_innerSQL_transcript
         }
     }
 
-    my $probeSQLStatement = qq{
+    my $probeSQLStatement = <<"END_FindProbes_Query";
 SELECT
     probe.reporter AS Probe, 
     pname AS Platform,
     GROUP_CONCAT(
-        DISTINCT IF(ISNULL(g0.accnum),'',g0.accnum) 
+        DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
         ORDER BY g0.seqname ASC SEPARATOR ','
     ) AS 'Transcript', 
-    IF(ISNULL(g0.seqname),'',g0.seqname) AS 'Gene' $extra_sql,
-    platform.species
-FROM
-    ($g0_sql) AS g0
+    IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
+    platform.species AS 'Species' $extra_sql
+FROM (
+    SELECT 
+        gid, 
+        COALESCE(g1.accnum, gene.accnum) AS accnum, 
+        COALESCE(g1.seqname, gene.seqname) AS seqname, 
+        description, 
+        gene_note
+    FROM (
+        $g0_sql
+    ) AS g1
+    INNER JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
+    GROUP BY gid
+) AS g0
 INNER JOIN annotates USING(gid)
-INNER JOIN probe using(rid)
+INNER JOIN probe USING(rid)
 INNER JOIN platform USING(pid)
-};
+END_FindProbes_Query
 
     # find out what the current project is set to
     $s->read_perm_cookie();
@@ -1354,9 +1339,9 @@ WHERE prid=$curr_proj
 GROUP BY probe.rid";
     }
 
-    warn $probeSQLStatement;
-    if($opts==2)
-    {
+
+    if ($opts == 2) {
+        # Full annotation with experiment data (CSV)
         $s->commit();
         #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
         #$self = SGX::FindProbes->new($self->{_dbh},$q,$type,$qtext);
@@ -1370,83 +1355,57 @@ GROUP BY probe.rid";
         $self->printFindProbeCSV();
         exit;
     }
-    elsif($opts==3)
-    {
-        $s->commit();
-        #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-        #$self = SGX::FindProbes->new($self->{_dbh},$q,$type,$qtext);
-        $self->{_SearchType} = $type;
-        $self->{_SearchText} = $qtext;
-        $self->setInsideTableQuery($g0_sql);
-        $self->loadProbeData($qtext);
-        $self->loadExperimentData();
-        $self->fillPlatformHash();
-        $out = $self->printFindProbeToScreen();
-        $out;
-    }
-    else
-    {
-        my $sth = $self->{_dbh}->prepare($probeSQLStatement) or croak $self->{_dbh}->errstr;
-        #warn $sth->{Statement};    
-
-        my $rowcount = $sth->execute($qtext) or croak $self->{_dbh}->errstr;
+    #elsif($opts==3)
+    #{
+    #    $s->commit();
+    #    #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+    #    #$self = SGX::FindProbes->new($self->{_dbh},$q,$type,$qtext);
+    #    $self->{_SearchType} = $type;
+    #    $self->{_SearchText} = $qtext;
+    #    $self->setInsideTableQuery($g0_sql);
+    #    $self->loadProbeData($qtext);
+    #    $self->loadExperimentData();
+    #    $self->fillPlatformHash();
+    #    $out = $self->printFindProbeToScreen();
+    #    $out;
+    #}
+    else {
+        # HTML output
+        my $sth = $self->{_dbh}->prepare($probeSQLStatement) 
+            or croak $self->{_dbh}->errstr;
+        my $rowcount = $sth->execute($qtext) 
+            or croak $self->{_dbh}->errstr;
 
         my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
 
-        $out .= "
-    var probelist = {
-    caption: \"$caption\",
-    records: [
-    ";
+        my @json_records;
+        my %json_probelist = (
+            caption => $caption,
+            records => \@json_records
+        );
 
-        my @names = @{$sth->{NAME}};    # cache the field name array
+        # cache the field name array
+        my @names = @{$sth->{NAME}};
 
         my $data = $sth->fetchall_arrayref;
         $sth->finish;
 
         # data are sent as a JSON object plus Javascript code (at the moment)
-        foreach (sort {$a->[3] cmp $b->[3]} @$data) {
-            foreach (@$_) {
-                $_ = '' if !defined $_;
-                $_ =~ s/"//g;    # strip all double quotes (JSON data are bracketed with double quotes)
-                        # TODO: perhaps escape quotation marks instead of removing them
-            }
-
-            # TODO: add a species table to the schema. Each Experiment table entry (a single microarray)
-            # will then have a foreign key to species (because expression microarrays are species-specific).
-            # Will also need species reference from either Probe table or Gene table or both (or something similar).
-            # the following NCBI search shows only genes specific to a given species:
-            # http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
-            $out .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'"';
-
-
-            switch ($opts) 
-            {
-                case 0 
-                {
-                    $speciesColumn = 5;
-                    $out .= ',5:"'.$_->[5].'"';
-                }
-
-                case 1 
-                { 
-                    $speciesColumn = 8;
-                    $out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'"';
-                }
-
-                case 2 
-                {
-                    $speciesColumn = 4;
-                    $out .= ',4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'"';
-                }
-            }
-            $out .= "},\n";
+        #foreach (sort {$a->[3] cmp $b->[3]} @$data) {
+        foreach my $array_ref (@$data) {
+            # the below "trick" converts an array into a hash such that array elements
+            # become hash values and array indexes become hash keys
+            my $i = 0;
+            my %row = map { $i++ => $_ } @$array_ref;
+            push @json_records, \%row;
         }
-        $out =~ s/,\s*$//;    # strip trailing comma
 
+        my $out = 'var probelist = ' . encode_json(\%json_probelist) . ";\n";
         my $tableOut = '';
         my $columnList = '';
 
+        # Note: the following NCBI search shows only genes specific to a given species:
+        # http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
         switch ($opts) 
             {
                 case 0 
@@ -1519,15 +1478,13 @@ GROUP BY probe.rid";
                 case 2 
                 {
                     $columnList = ',"4","5","6","7","8","9"';
-                    $tableOut = ',' . "\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
-                    $tableOut .= ',' . "\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
+                    $tableOut = ",\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
+                    $tableOut .= ",\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
                 }
             }
 
 
         $out .= '
-    ]}
-
     function export_table(e) {
         var r = this.records;
         var bl = this.headers.length;
@@ -1575,7 +1532,7 @@ GROUP BY probe.rid";
                 if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
                     out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
                 } else {
-                    out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
+                    out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
                 }
             }
             elCell.innerHTML = out.replace(/,\s*$/, "");
@@ -1584,14 +1541,14 @@ GROUP BY probe.rid";
             if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
                 elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
             } else {
-                elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
+                elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("4") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
             }
         }
         YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
             elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
         }
         YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
-            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("' . $speciesColumn . '") + "\" title=\"UCSC BLAT on " + oRecord.getData("' . $speciesColumn . '") + " DNA\" target=\"_blank\">" + oData + "</a>";
+            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("4") + "\" title=\"UCSC BLAT on " + oRecord.getData("4") + " DNA\" target=\"_blank\">" + oData + "</a>";
         }
         var myColumnDefs = [
             {key:"0", sortable:true, resizeable:true, label:"'.$names[0].'", formatter:"formatProbe"},

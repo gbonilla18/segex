@@ -74,3 +74,8 @@ DOCUMENTS_ROOT and the subtree corresponding to cgi-bin under CGI_ROOT.
 15) Since permanent cookie storage was introduced (initially to store current Working
 Project ids), it is now possible to recover expired sessions by storing the session id
 in permanent storage. Implementing this would help keep "sessions" table small.
+
+16) The following does not seem to work:
+Although both ^Cyp2b and ^Cyp4b are present in the database, only Cyp2b-prefixed genes
+show up in the following query:
+http://localhost/cgi-bin/segex/index.cgi?text=Cyp2b%0D%0ACyp4b&type=gene&match=prefix&opts=1&trans=fold&a=Search
