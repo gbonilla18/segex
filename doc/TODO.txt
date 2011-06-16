@@ -87,3 +87,7 @@ http://localhost/cgi-bin/segex/index.cgi?text=Transcribed&type=gene&match=prefix
 18) Project ID must be an URL parameter for the Compare Experiments and Find Probes
 modules, otherwise their execution and results will be state-dependent, which will cause
 problems when emailing links, for example.
+
+19) Move out Javascript from findProbes_js() Perl function int a standalone JS file.
+
+20) Drop the requirement for the Prototype Javascript library to be installed.
