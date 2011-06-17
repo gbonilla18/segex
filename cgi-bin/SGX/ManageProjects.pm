@@ -731,12 +731,14 @@ sub removeStudy {
 #===============================================================================
 sub editProject {
     my $self = shift;
-    print '<h2>Editing Project</h2><br /><br />' . "\n";
 
-    #Edit existing
-    #
+    print '<script src="'
+      . $self->{_js_dir}
+      . '/AddExisting.js" type="text/javascript"></script>';
 
-    print $self->{_cgi}->start_form(
+    print
+      $self->{_cgi}->h2('Editing Project'), 
+      $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
           . '?a=manageProjects&ManageAction=editSubmit&id='
@@ -784,9 +786,8 @@ sub editProject {
             ),
             $self->{_cgi}->span( { -class => 'separator' } )
         )
-      );
-
-    print '<div id="StudyTable"></div>', "\n";
+      ),
+      $self->{_cgi}->div({-style=>'clear:both;',-id=>'StudyTable', -class=>'clearfix'});
 
     my $JSStudyList_records = getJSStudyRecords($self);
     my $JSStudyList_headers = getJSStudyHeaders($self);
@@ -806,21 +807,12 @@ $DrawStudyResultsTableJS
 END_JSStudyList
 
     print $self->{_cgi}->end_form;
+    print $self->{_cgi}->br(), $self->{_cgi}->br();
 
-    print '<script src="'
-      . $self->{_js_dir}
-      . '/AddExisting.js" type="text/javascript"></script>';
-    print
-'<br /><h3 name = "Add_Caption" id = "Add_Caption">Add Existing Study to this Project</h3>'
-      . "\n";
+    print $self->{_cgi}->h2('Add Existing Study to this Project'),
+          $self->{_cgi}->h3('Studies in other projects');
 
-    print
-'<br /><h3 name = "Add_Caption1" id = "Add_Caption1">Studies in other projects.</h3>'
-      . "\n";
-
-    print "<script>\n";
-    print getJavaScriptRecordsForExistingDropDowns($self);
-    print "</script>\n";
+    print $self->{_cgi}->script(getJavaScriptRecordsForExistingDropDowns($self));
 
     print $self->{_cgi}->start_form(
         -method => 'POST',
@@ -864,10 +856,7 @@ END_JSStudyList
         )
       ) . $self->{_cgi}->end_form;
 
-    #
-    print
-'<br /><h3 name = "Add_Caption2" id = "Add_Caption2">Studies not in a project.</h3>',
-      "\n";
+    print $self->{_cgi}->h3('Studies not in a project');
 
     my %unassignedList = %{ $self->{_unassignedList} };
     print $self->{_cgi}->start_form(

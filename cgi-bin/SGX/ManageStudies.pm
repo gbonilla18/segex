@@ -637,10 +637,11 @@ sub removeExperiment {
 
 sub editStudy {
     my $self = shift;
-    print '<h2>Editing Study</h2><br /><br />' . "\n";
 
     #Edit existing platform.
-    print $self->{_cgi}->start_form(
+    print 
+       $self->{_cgi}->h2('Editing Study'),
+       $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
           . '?a=manageStudies&ManageAction=editSubmit&id='
@@ -686,7 +687,8 @@ sub editStudy {
                 -value => 'Save Edits'
             )
         )
-      );
+      ),
+      $self->{_cgi}->div({-style=>'clear:both;',-id=>'ExperimentTable'});
 
     my $JSExperimentList = "var JSExperimentList = 
     {
@@ -694,7 +696,6 @@ sub editStudy {
         headers: [" . printJSExperimentHeaders($self) . "]
     };" . "\n";
 
-    print '<div id="ExperimentTable"></div>' . "\n";
     print "<script type=\"text/javascript\">\n";
     print $JSExperimentList;
 
