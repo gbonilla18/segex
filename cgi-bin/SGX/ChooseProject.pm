@@ -172,6 +172,7 @@ sub drawChangeProjectScreen {
             $self->{_cgi}->submit(
                 -name  => 'change',
                 -id    => 'change',
+                -class => 'css3button',
                 -value => 'Change'
             )
         )

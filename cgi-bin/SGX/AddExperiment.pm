@@ -116,7 +116,8 @@ sub drawAddExperimentMenu
 		$self->{_cgi}->dt("Data File to upload:"),
 		$self->{_cgi}->dd($self->{_cgi}->filefield(-name=>'uploaded_data_file',-id=>'uploaded_data_file')),
 		$self->{_cgi}->dt('&nbsp;'),
-		$self->{_cgi}->dd($self->{_cgi}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-value=>'Add Experiment'),$self->{_cgi}->span({-class=>'separator'},' / '))
+		$self->{_cgi}->dd( $self->{_cgi}->submit(-name=>'AddExperiment',-id=>'AddExperiment',-class=>'css3button',-value=>'Add Experiment')
+        )
 	) .
 	$self->{_cgi}->end_form;
 

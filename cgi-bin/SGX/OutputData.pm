@@ -157,8 +157,7 @@ sub showExperiments
         $self->{_cgi}->dt('Experiment : '),
         $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'experiment_exist',-multiple=>'true', -id=>'experiment_exist')),
         $self->{_cgi}->dt('&nbsp;'),
-        $self->{_cgi}->dd($self->{_cgi}->submit(-name=>'RunReport',-id=>'RunReport',-value=>'Run Report'),$self->{_cgi}->span({-class=>'separator'},' / ')
-        )
+        $self->{_cgi}->dd($self->{_cgi}->submit(-name=>'RunReport',-id=>'RunReport',-class=>'css3button', -value=>'Run Report'))
     ) .
     $self->{_cgi}->end_form;
     return;

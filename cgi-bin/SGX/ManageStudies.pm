@@ -382,6 +382,7 @@ sub showStudies {
             $self->{_cgi}->submit(
                 -name  => 'SelectStudy',
                 -id    => 'SelectStudy',
+                -class => 'css3button',
                 -value => 'Load'
             ),
             $self->{_cgi}->span( { -class => 'separator' } )
@@ -441,9 +442,9 @@ sub showStudies {
             $self->{_cgi}->submit(
                 -name  => 'AddStudy',
                 -id    => 'AddStudy',
+                -class => 'css3button',
                 -value => 'Add Study'
-            ),
-            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
+            )
         )
       ) . $self->{_cgi}->end_form;
       return;
@@ -681,9 +682,9 @@ sub editStudy {
             $self->{_cgi}->submit(
                 -name  => 'editSaveStudy',
                 -id    => 'editSaveStudy',
+                -class => 'css3button',
                 -value => 'Save Edits'
-            ),
-            $self->{_cgi}->span( { -class => 'separator' } )
+            )
         )
       );
 
@@ -755,9 +756,9 @@ sub editStudy {
             $self->{_cgi}->submit(
                 -name  => 'AddExperiment',
                 -id    => 'AddExperiment',
+                -class => 'css3button',
                 -value => 'Add Experiment'
-            ),
-            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
+            )
         )
       ) . $self->{_cgi}->end_form;
 
@@ -789,9 +790,9 @@ sub editStudy {
             $self->{_cgi}->submit(
                 -name  => 'AddExperiment',
                 -id    => 'AddExperiment',
+                -class => 'css3button',
                 -value => 'Add Experiment'
-            ),
-            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
+            )
         )
       ) . $self->{_cgi}->end_form;
     return;

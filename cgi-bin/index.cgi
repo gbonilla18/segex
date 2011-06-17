@@ -45,7 +45,8 @@ use SGX::ChooseProject;
 #  User Authentication
 #---------------------------------------------------------------------------
 # :NOTE:06/17/2011 12:57:58:es: bump up version from 0.1.12 to 0.2.0
-my $softwareVersion = '0.2.0';
+# :NOTE:06/17/2011 16:59:33:es: bump up version to 0.2.1
+my $softwareVersion = '0.2.1';
 
 my $dbh = sgx_db_connect();
 my $s = SGX::User->new(-handle        => $dbh,
@@ -756,7 +757,7 @@ sub form_login {
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string), 
-            $q->submit(-name=>'login',-id=>'login',-value=>'Login'),
+            $q->submit(-name=>'login',-id=>'login',-class=>'css3button',-value=>'Login'),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.RESETPASSWORD,
                 -title=>'Email me a new password'},'I Forgot My Password'),
@@ -781,7 +782,7 @@ sub form_resetPassword {
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
-            $q->submit(-name=>'resetPassword',-id=>'resetPassword',-value=>'Email me a new password'),
+            $q->submit(-name=>'resetPassword',-id=>'resetPassword',-class=>'css3button',-value=>'Email new password'),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.LOGIN,
                 -title=>'Back to login page'},'Back')
@@ -819,7 +820,7 @@ sub form_changePassword {
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
-            $q->submit(-name=>'changePassword',-id=>'changePassword',-value=>'Change password'),
+            $q->submit(-name=>'changePassword',-id=>'changePassword',-class=>'css3button',-value=>'Change password'),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
                 -title=>'Back to my profile'},'Back')
@@ -857,7 +858,7 @@ sub form_changeEmail {
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
-            $q->submit(-name=>'changeEmail',-id=>'changeEmail',-value=>'Change email'),
+            $q->submit(-name=>'changeEmail',-id=>'changeEmail',-class=>'css3button',-value=>'Change email'),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
                 -title=>'Back to my profile'},'Back')
@@ -915,7 +916,7 @@ sub form_registerUser {
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
-            $q->submit(-name=>'registerUser',-id=>'registerUser',-value=>'Register'),
+            $q->submit(-name=>'registerUser',-id=>'registerUser',-class=>'css3button',-value=>'Register'),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.LOGIN,
                 -title=>'Back to login page'},'Back')
@@ -1254,8 +1255,13 @@ sub form_compareExperiments {
     $q->dl(
         $q->dt('Add experiment from platform:'),
         $q->dd(    $q->popup_menu(-name=>'platform', -id=>'platform', -onChange=>"updatePlatform(this);"),
-            $q->span({-class=>'separator'},' / '),
-            $q->button(-value=>'Add experiment',-onclick=>'addExperiment();'))
+            $q->span({-class=>'separator'},' : '),
+            $q->button(
+                -value=>'Add experiment',
+                -class=>'plaintext',
+                -onclick=>'addExperiment();'
+            )
+        )
     );
     print
     $q->start_form(
@@ -1645,7 +1651,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     }
     Dom.get("tfs_caption").innerHTML = tfs.caption;
     Dom.get("tfs_all_dt").innerHTML = "View probes significant in at least one experiment:";
-    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"'.$rep_count.' significant probes\" /><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"(CSV)\" />";
+    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"'.$rep_count.' significant probes\" /> <span class=\"separator\">/</span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
     var tfs_table_defs = [
 '.$tfs_defs.'
     ];
@@ -1859,7 +1865,7 @@ sub form_uploadAnnot {
         $q->dt("File to upload (tab-delimited):"),
         $q->dd($q->filefield(-name=>'uploaded_file')),
         $q->dt("&nbsp;"),
-        $q->dd($q->submit(-value=>'Upload'),
+        $q->dd($q->submit(-class=>'css3button',-value=>'Upload'),
             $q->hidden(-id=>'fields', -name=>'fields'))
     );
     print $q->end_form;

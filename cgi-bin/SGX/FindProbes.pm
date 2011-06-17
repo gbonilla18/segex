@@ -73,41 +73,46 @@ sub new {
         _PlatformInfoQuery    => "SELECT pid, pname FROM platform",
         _PlatformInfoHash    => '',
         _ProbeQuery         => '',
-        _ProbeReporterQuery        => "
-                SELECT DISTINCT rid
-                FROM (
-                    SELECT gid
-                    FROM ({0}) AS g1
-                    INNER JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
-                    GROUP BY gid
-                ) as g0
-                INNER JOIN annotates USING(gid)
-                INNER JOIN probe USING(rid)",
+
+        _ProbeReporterQuery        => <<"END_ProbeReporterQuery",
+SELECT DISTINCT rid
+FROM (
+    SELECT gid
+    FROM ({0}) AS g1
+    INNER JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
+    GROUP BY gid
+) as g0
+INNER JOIN annotates USING(gid)
+INNER JOIN probe USING(rid)
+END_ProbeReporterQuery
 
         _ExperimentListHash     => '',
         _ExperimentStudyListHash    => '',        
         _TempTableID            => '',
         _ExperimentNameListHash     => '',
-        _ExperimentDataQuery     => "
-                    select     experiment.eid, 
-                        microarray.ratio,
-                        microarray.foldchange,
-                        microarray.pvalue,
-                        IFNULL(microarray.intensity1,0),
-                        IFNULL(microarray.intensity2,0),
-                        CONCAT(
-                            study.description, ': ', 
-                            experiment.sample2, '/', experiment.sample1
-                        ) AS 'Name',
-                        study.stid,
-                        study.pid
-                    FROM microarray 
-                    INNER JOIN experiment USING(eid)
-                    INNER JOIN StudyExperiment USING(eid)
-                    INNER JOIN study USING(stid)
-                    WHERE rid={0}
-                    ORDER BY experiment.eid ASC
-                    ",
+
+        _ExperimentDataQuery     => <<"END_ExperimentDataQuery",
+SELECT
+    experiment.eid, 
+    microarray.ratio,
+    microarray.foldchange,
+    microarray.pvalue,
+    IFNULL(microarray.intensity1,0),
+    IFNULL(microarray.intensity2,0),
+    CONCAT(
+        study.description, ': ', 
+        experiment.sample2, '/', experiment.sample1
+    ) AS 'Name',
+    study.stid,
+    study.pid
+FROM microarray 
+INNER JOIN experiment USING(eid)
+INNER JOIN StudyExperiment USING(eid)
+INNER JOIN study USING(stid)
+WHERE rid=?
+ORDER BY experiment.eid ASC
+END_ExperimentDataQuery
+
         _ReporterList        => undef
     };
 
@@ -306,7 +311,7 @@ sub fillPlatformHash
     #For each probe we get add an item to the hash. 
     foreach(@{$platformData})
     {
-        ${$self->{_PlatformInfoHash}{$_->[0]}} = $_->[1];
+        $self->{_PlatformInfoHash}->{$_->[0]} = $_->[1];
     }
 }
 #######################################################################################
@@ -372,44 +377,44 @@ sub loadProbeReporterData
 #######################################################################################
 sub loadProbeData
 {
-    my $self                = shift;
-    my $qtext                = shift;
+    my ($self, $qtext) = @_;
     
-    my $probeQuery                = $self->{_ProbeQuery};
-    
-    $self->{_ProbeRecords}    = $self->{_dbh}->prepare($probeQuery)
+    $self->{_ProbeRecords} = $self->{_dbh}->prepare($self->{_ProbeQuery})
         or croak $self->{_dbh}->errstr;
-    $self->{_ProbeCount}    = $self->{_ProbeRecords}->execute($qtext)
+    $self->{_ProbeCount} = $self->{_ProbeRecords}->execute($qtext)
         or croak $self->{_dbh}->errstr;    
     $self->{_ProbeColNames} = @{$self->{_ProbeRecords}->{NAME}};
-    $self->{_Data}            = $self->{_ProbeRecords}->fetchall_arrayref;
-    
+    $self->{_Data} = $self->{_ProbeRecords}->fetchall_arrayref;
     $self->{_ProbeRecords}->finish;
     
-    $self->{_ProbeHash}     = {};
-    
-    my $DataCount            = @{$self->{_Data}};
-    
-    if($DataCount < 1)
+    if(scalar(@{$self->{_Data}}) < 1)
     {
         print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
         print "No records found! Please click back on your browser and search again!";
         exit;
     }
-    
-    foreach (@{$self->{_Data}}) 
-    {
-        foreach (@$_)
-        {
-            $_ = '' if !defined $_;
-            $_ =~ s/"//g;
-        }
 
-        $self->{_ProbeHash}->{$_->[0]} = [@$_[1..7]];
+    # Find the number of columns and subtract one to get the index of the last column
+    # This index value is needed for slicing of rows...
+    my $last_index = scalar(@{$self->{_ProbeRecords}->{NAME}}) - 1;
 
-        #[$_->[1], $_->[2], $_->[3], $_->[4], $_->[5], $_->[6]];
-        #"$_->[1]|$_->[2]|$_->[3]|$_->[4]|$_->[5]|$GOField|";
-    }    
+    # From each row in _Data, create a key-value pair such that the first column
+    # becomes the key and the rest of the columns are sliced off into an anonymous array
+    my %trans_hash = map { $_->[0] => [@$_[1..$last_index]] } @{$self->{_Data}};
+    $self->{_ProbeHash} = \%trans_hash; 
+
+    #$self->{_ProbeHash}     = {};
+    #foreach (@{$self->{_Data}}) 
+    #{
+    #    #foreach (@$_)
+    #    #{
+    #    #    $_ = '' if !defined $_;
+    #    #    $_ =~ s/"//g;
+    #    #}
+    #    $self->{_ProbeHash}->{$_->[0]} = [@$_[1..$last_index]];
+    #    #[$_->[1], $_->[2], $_->[3], $_->[4], $_->[5], $_->[6]];
+    #    #"$_->[1]|$_->[2]|$_->[3]|$_->[4]|$_->[5]|$GOField|";
+    #}    
 }
 #######################################################################################
 
@@ -420,8 +425,6 @@ sub loadExperimentData
 {
     my $self                         = shift;
     my $experimentDataString        = '';
-    my $transform                    = '';
-    my $sql_trans                    = '';
     
     $self->{_ProbeExperimentHash}        = {};
     $self->{_ExperimentListHash}        = {};
@@ -429,33 +432,34 @@ sub loadExperimentData
     $self->{_ExperimentNameListHash}    = {};
     
     #Grab the format for the output from the form.
-    $transform     = ($self->{_cgi}->param('trans'))     if defined($self->{_cgi}->param('trans'));
-    
+    #$transform = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : '';
     #Build SQL statement based on desired output type.
-    switch ($transform) 
-    {
-        case 'fold'
-        {
-            $sql_trans = 'if(foldchange>0,foldchange-1,foldchange+1)';
-        }
-        case 'ln'
-        {
-            $sql_trans = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
-        }
-    }    
+    #my $sql_trans                    = '';
+    #switch ($transform) 
+    #{
+    #    case 'fold' {
+    #        $sql_trans = 'if(foldchange>0,foldchange-1,foldchange+1)';
+    #    }
+    #    case 'ln' {
+    #        $sql_trans = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
+    #    }
+    #    else  {
+    #        $sql_trans = '';
+    #    }
+    #}    
 
     #while (my ($key, $splitPlatformID) = each %{$self->{_ProbeHash}})
     foreach my $key (keys %{$self->{_ProbeHash}})
     {
         my $tempReportQuery = $self->{_ExperimentDataQuery};
+        #$tempReportQuery                 =~ s/\{1\}/\Q$sql_trans\E/;
+        #$tempReportQuery                 =~ s/\\//g;
 
-        $tempReportQuery                 =~ s/\{0\}/\Q$key\E/;
-        $tempReportQuery                 =~ s/\{1\}/\Q$sql_trans\E/;
-        $tempReportQuery                 =~ s/\\//g;
-
-        $self->{_ExperimentRec}         = $self->{_dbh}->prepare($tempReportQuery)     or croak $self->{_dbh}->errstr;
-        $self->{_ExperimentCount}         = $self->{_ExperimentRec}->execute()         or croak $self->{_dbh}->errstr;    
-        $self->{_ExperimentData}        = $self->{_ExperimentRec}->fetchall_arrayref;
+        $self->{_ExperimentRec} = $self->{_dbh}->prepare($tempReportQuery)     
+            or croak $self->{_dbh}->errstr;
+        $self->{_ExperimentCount} = $self->{_ExperimentRec}->execute($key)
+            or croak $self->{_dbh}->errstr;    
+        $self->{_ExperimentData} = $self->{_ExperimentRec}->fetchall_arrayref;
         $self->{_ExperimentRec}->finish;
         
         #We use a temp hash that gets added to the _ProbeExperimentHash.
@@ -469,24 +473,25 @@ sub loadExperimentData
         foreach(@{$self->{_ExperimentData}})
         {
             #This is a | seperated string with all the experiment info.
-            $experimentDataString = $_->[1] . '|' . $_->[2] . '|' . $_->[3] . '|' . $_->[4] . '|' . $_->[5];
+            #$experimentDataString = $_->[1] . '|' . $_->[2] . '|' . $_->[3] . '|' . $_->[4] . '|' . $_->[5];
 
             #Add this experiment to the hash which will have all the experiments and their data for a given reporter.
-            $tempHash{$_->[0]} = $experimentDataString;
+            #$tempHash{$_->[0]} = $experimentDataString;
+            $tempHash{$_->[0]} = [@$_[1..5]];
 
             #Keep a hash of EID and PID.
-            ${$self->{_ExperimentListHash}{$_->[0]}} = $_->[8];
+            $self->{_ExperimentListHash}->{$_->[0]} = $_->[8];
 
             #Keep a hash of EID and STID.
-            ${$self->{_ExperimentStudyListHash}{$_->[0] . '|' . $_->[7]}} = 1;
+            $self->{_ExperimentStudyListHash}->{$_->[0] . '|' . $_->[7]} = 1;
             
             #Keep a hash of experiment names and EID.            
-            ${$self->{_ExperimentNameListHash}{$_->[0]}} = $_->[6];
+            $self->{_ExperimentNameListHash}->{$_->[0]} = $_->[6];
             
         }
 
         #Add the hash of experiment data to the hash of reporters.
-        ${$self->{_ProbeExperimentHash}}{$_} = \%tempHash;
+        $self->{_ProbeExperimentHash}->{$key} = \%tempHash;
 
     }
     
@@ -494,203 +499,203 @@ sub loadExperimentData
 #######################################################################################
 
 #######################################################################################
-sub printFindProbeToScreen
-{
-        my $self        = shift;
-        my $caption         = sprintf("Found %d probe", $self->{_ProbeCount}) .(($self->{_ProbeCount} != 1) ? 's' : '')." annotated with $self->{_SearchType} groups matching '$self->{_SearchText}' ($self->{_SearchType}s grouped by gene symbol or transcript accession number)";
-        my $trans         = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
-        my $speciesColumn    = 4;
-        
-        my $out .= "
-        var probelist = {
-        caption: \"$caption\",
-        records: [
-        ";
-
-        my @names = $self->{_ProbeColNames};    # cache the field name array
-
-        my $data = $self->{_Data};
-
-        # data are sent as a JSON object plus Javascript code (at the moment)
-        foreach (sort {$a->[3] cmp $b->[3]} @$data) 
-        {
-            foreach (@$_) 
-            {
-                $_ = '' if !defined $_;
-                $_ =~ s/"//g;
-            }
-
-            my $currentPID = $_->[1];
-            
-            $out .= '{0:"'.${$self->{_PlatformInfoHash}{$currentPID}}.'",1:"'.$_->[0].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'"';
-            $out .= "},\n";
-        }
-        $out =~ s/,\s*$//;    # strip trailing comma
-
-        my $tableOut = '';
-
-        $out .= '
-    ]}
-
-    function export_table(e) {
-        var r = this.records;
-        var bl = this.headers.length;
-        var w = window.open("");
-        var d = w.document.open("text/html");
-        d.title = "Tab-Delimited Text";
-        d.write("<pre>");
-        for (var i=0, al = r.length; i < al; i++) {
-            for (var j=0; j < bl; j++) {
-                d.write(r[i][j] + "\t");
-            }
-            d.write("\n");
-        }
-        d.write("</pre>");
-        d.close();
-        w.focus();
-    }
-
-    YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
-    YAHOO.util.Event.addListener(window, "load", function() {
-        ';
-        if (defined($self->{_cgi}->param('graph'))) {
-            $out .= 'var graph_content = "";
-        var graph_ul = YAHOO.util.Dom.get("graphs");';
-        }
-        $out .= '
-        YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
-
-        YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
-            var i = oRecord.getCount();
-            ';
-            if (defined($self->{_cgi}->param('graph'))) {
-                $out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
-            elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
-            } else {
-                $out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
-            }
-        $out .= '
-        }
-        YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
-            var a = oData.split(/ *, */);
-            var out = "";
-            for (var i=0, al=a.length; i < al; i++) {
-                var b = a[i];
-                if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
-                    out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
-                } else {
-                    out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
-                }
-            }
-            elCell.innerHTML = out.replace(/,\s*$/, "");
-        }
-        YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
-            if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
-                elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
-            } else {
-                elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
-            }
-        }
-        YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
-            elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
-        }
-        YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
-            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("' . $speciesColumn . '") + "\" title=\"UCSC BLAT on " + oRecord.getData("' . $speciesColumn . '") + " DNA\" target=\"_blank\">" + oData + "</a>";
-        }
-        var myColumnDefs = [
-            {key:"0", sortable:true, resizeable:true, label:"Platform"},
-            {key:"1", sortable:true, resizeable:true, label:"Reporter ID", formatter:"formatProbe"},
-            {key:"2", sortable:true, resizeable:true, label:"Accession Number", formatter:"formatTranscript"}, 
-            {key:"3", sortable:true, resizeable:true, label:"Gene Name", formatter:"formatGene"},
-            {key:"4", sortable:true, resizeable:true, label:"Probe Sequence"},
-            {key:"5", sortable:true, resizeable:true, label:"Experiment Number",formatter:"formatExperiment"}];
-
-        var myDataSource = new YAHOO.util.DataSource(probelist.records);
-        myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-        myDataSource.responseSchema = {
-            fields: ["0","1","2","3","4","5","6","7","8","9"]
-        };
-        var myData_config = {
-            paginator: new YAHOO.widget.Paginator({
-                rowsPerPage: 50 
-            })
-        };
-
-        var myDataTable = new YAHOO.widget.DataTable("probetable", myColumnDefs, myDataSource, myData_config);
-
-        // Set up editing flow 
-        var highlightEditableCell = function(oArgs) { 
-            var elCell = oArgs.target; 
-            if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
-            this.highlightCell(elCell); 
-            } 
-        }; 
-        myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
-        myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
-        myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
-
-        var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
-        var nl = nodes.length;
-
-        // Ideally, would want to use a "pre-formatter" event to clear graph_content
-        // TODO: fix the fact that when cells are updated via cell editor, the graphs are rebuilt unnecessarily.
-        myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
-            graph_content = "";
-            return true;
-        };
-        myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
-            graph_content = "";
-            return true;
-        };
-        myDataTable.subscribe("renderEvent", function () {
-        ';
-
-        if (defined($self->{_cgi}->param('graph'))) 
-        {
-            $out .= '
-            graph_ul.innerHTML = graph_content;
-            ';
-
-        } else {
-            $out .=
-        '
-            // if the line below is moved to window.load closure,
-            // panels will no longer show up after sorting
-            var manager = new YAHOO.widget.OverlayManager();
-            var myEvent = YAHOO.util.Event;
-            var i;
-            var imgFile;
-            for (i = 0; i < nl; i++) {
-                myEvent.addListener("show" + i, "click", function () {
-                    var index = this.getAttribute("id").substring(4);
-                    var panel_old = manager.find("panel" + index);
-
-                    if (panel_old === null) {
-                        imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
-                        var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
-                        panel.setHeader(imgFile);
-                        panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object>");
-                        manager.register(panel);
-                        panel.render("container" + index);
-                        // panel.show is unnecessary here because visible:true is set
-                    } else {
-                        panel_old.show();
-                    }
-                }, nodes[i], true);
-            }
-        '};
-        $out .= '
-        });
-
-        return {
-            oDS: myDataSource,
-            oDT: myDataTable
-        };
-    });
-    ';
-    $out;
-
-}
+#sub printFindProbeToScreen
+#{
+#        my $self        = shift;
+#        my $caption         = sprintf("Found %d probe", $self->{_ProbeCount}) .(($self->{_ProbeCount} != 1) ? 's' : '')." annotated with $self->{_SearchType} groups matching '$self->{_SearchText}' ($self->{_SearchType}s grouped by gene symbol or transcript accession number)";
+#        my $trans         = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
+#        my $speciesColumn    = 4;
+#        
+#        my $out .= "
+#        var probelist = {
+#        caption: \"$caption\",
+#        records: [
+#        ";
+#
+#        my @names = $self->{_ProbeColNames};    # cache the field name array
+#
+#        my $data = $self->{_Data};
+#
+#        # data are sent as a JSON object plus Javascript code (at the moment)
+#        foreach (sort {$a->[3] cmp $b->[3]} @$data) 
+#        {
+#            foreach (@$_) 
+#            {
+#                $_ = '' if !defined $_;
+#                $_ =~ s/"//g;
+#            }
+#
+#            my $currentPID = $_->[1];
+#            
+#            $out .= '{0:"'.$self->{_PlatformInfoHash}->{$currentPID}.'",1:"'.$_->[0].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'"';
+#            $out .= "},\n";
+#        }
+#        $out =~ s/,\s*$//;    # strip trailing comma
+#
+#        my $tableOut = '';
+#
+#        $out .= '
+#    ]}
+#
+#    function export_table(e) {
+#        var r = this.records;
+#        var bl = this.headers.length;
+#        var w = window.open("");
+#        var d = w.document.open("text/html");
+#        d.title = "Tab-Delimited Text";
+#        d.write("<pre>");
+#        for (var i=0, al = r.length; i < al; i++) {
+#            for (var j=0; j < bl; j++) {
+#                d.write(r[i][j] + "\t");
+#            }
+#            d.write("\n");
+#        }
+#        d.write("</pre>");
+#        d.close();
+#        w.focus();
+#    }
+#
+#    YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
+#    YAHOO.util.Event.addListener(window, "load", function() {
+#        ';
+#        if (defined($self->{_cgi}->param('graph'))) {
+#            $out .= 'var graph_content = "";
+#        var graph_ul = YAHOO.util.Dom.get("graphs");';
+#        }
+#        $out .= '
+#        YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
+#
+#        YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
+#            var i = oRecord.getCount();
+#            ';
+#            if (defined($self->{_cgi}->param('graph'))) {
+#                $out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
+#            elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
+#            } else {
+#                $out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
+#            }
+#        $out .= '
+#        }
+#        YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
+#            var a = oData.split(/ *, */);
+#            var out = "";
+#            for (var i=0, al=a.length; i < al; i++) {
+#                var b = a[i];
+#                if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
+#                    out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
+#                } else {
+#                    out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
+#                }
+#            }
+#            elCell.innerHTML = out.replace(/,\s*$/, "");
+#        }
+#        YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
+#            if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
+#                elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
+#            } else {
+#                elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("' . $speciesColumn . '") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
+#            }
+#        }
+#        YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
+#            elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
+#        }
+#        YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
+#            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("' . $speciesColumn . '") + "\" title=\"UCSC BLAT on " + oRecord.getData("' . $speciesColumn . '") + " DNA\" target=\"_blank\">" + oData + "</a>";
+#        }
+#        var myColumnDefs = [
+#            {key:"0", sortable:true, resizeable:true, label:"Platform"},
+#            {key:"1", sortable:true, resizeable:true, label:"Reporter ID", formatter:"formatProbe"},
+#            {key:"2", sortable:true, resizeable:true, label:"Accession Number", formatter:"formatTranscript"}, 
+#            {key:"3", sortable:true, resizeable:true, label:"Gene Name", formatter:"formatGene"},
+#            {key:"4", sortable:true, resizeable:true, label:"Probe Sequence"},
+#            {key:"5", sortable:true, resizeable:true, label:"Experiment Number",formatter:"formatExperiment"}];
+#
+#        var myDataSource = new YAHOO.util.DataSource(probelist.records);
+#        myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+#        myDataSource.responseSchema = {
+#            fields: ["0","1","2","3","4","5","6","7","8","9"]
+#        };
+#        var myData_config = {
+#            paginator: new YAHOO.widget.Paginator({
+#                rowsPerPage: 50 
+#            })
+#        };
+#
+#        var myDataTable = new YAHOO.widget.DataTable("probetable", myColumnDefs, myDataSource, myData_config);
+#
+#        // Set up editing flow 
+#        var highlightEditableCell = function(oArgs) { 
+#            var elCell = oArgs.target; 
+#            if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
+#            this.highlightCell(elCell); 
+#            } 
+#        }; 
+#        myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
+#        myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
+#        myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
+#
+#        var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
+#        var nl = nodes.length;
+#
+#        // Ideally, would want to use a "pre-formatter" event to clear graph_content
+#        // TODO: fix the fact that when cells are updated via cell editor, the graphs are rebuilt unnecessarily.
+#        myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
+#            graph_content = "";
+#            return true;
+#        };
+#        myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
+#            graph_content = "";
+#            return true;
+#        };
+#        myDataTable.subscribe("renderEvent", function () {
+#        ';
+#
+#        if (defined($self->{_cgi}->param('graph'))) 
+#        {
+#            $out .= '
+#            graph_ul.innerHTML = graph_content;
+#            ';
+#
+#        } else {
+#            $out .=
+#        '
+#            // if the line below is moved to window.load closure,
+#            // panels will no longer show up after sorting
+#            var manager = new YAHOO.widget.OverlayManager();
+#            var myEvent = YAHOO.util.Event;
+#            var i;
+#            var imgFile;
+#            for (i = 0; i < nl; i++) {
+#                myEvent.addListener("show" + i, "click", function () {
+#                    var index = this.getAttribute("id").substring(4);
+#                    var panel_old = manager.find("panel" + index);
+#
+#                    if (panel_old === null) {
+#                        imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
+#                        var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
+#                        panel.setHeader(imgFile);
+#                        panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object>");
+#                        manager.register(panel);
+#                        panel.render("container" + index);
+#                        // panel.show is unnecessary here because visible:true is set
+#                    } else {
+#                        panel_old.show();
+#                    }
+#                }, nodes[i], true);
+#            }
+#        '};
+#        $out .= '
+#        });
+#
+#        return {
+#            oDS: myDataSource,
+#            oDT: myDataTable
+#        };
+#    });
+#    ';
+#    $out;
+#
+#}
 #######################################################################################
 
 #######################################################################################
@@ -708,34 +713,31 @@ sub printFindProbeCSV
     print "Find Probes Report," . localtime() . "\n\n";    
     
     #Sort the hash so the PID's are together.
-    foreach my $key (sort {$self->{_ProbeHash}{$a} cmp $self->{_ProbeHash}{$b} } keys %{$self->{_ProbeHash}})
+    foreach my $key (
+        sort { $self->{_ProbeHash}->{$a}->[0] cmp $self->{_ProbeHash}->{$b}->[0] } 
+        keys %{$self->{_ProbeHash}})
     {
-
-        #This lets us know if we should print the headers.
+        # This lets us know if we should print the headers.
         my $printHeaders            = 0;    
     
-        #Extract the PID from the string in the hash.
-        my $splitPlatformID = $self->{_ProbeHash}->{$key};
+        # Extract the PID from the string in the hash.
+        my $row = $self->{_ProbeHash}->{$key};
     
-        #If this is the first PID then grab it from the hash. If the hash is different from the current one put in a seperator.
-        if($currentPID == 0)
-        {
-            $currentPID = $splitPlatformID->[1];
+        if ($currentPID == 0) {
+            # grab first PID from the hash 
+            $currentPID = $row->[0];
             $printHeaders = 1;
-        }
-        elsif($splitPlatformID->[1] != $currentPID)
-        {
-            print "\n";
-
-            $currentPID = $splitPlatformID->[1];
+        } elsif($row->[0] != $currentPID) {
+            # if different from the current one, print a seperator
+            print "\n\n";
+            $currentPID = $row->[0];
             $printHeaders = 1;
         }
         
         if($printHeaders==1)
         {
             #Print the name of the current platform.
-            print "\"${$self->{_PlatformInfoHash}{$currentPID}}\"";
-            print "\n";
+            print "\"$self->{_PlatformInfoHash}->{$currentPID}\"\n";
             print "Experiment Number,Study Description, Experiment Heading,Experiment Description\n";
             
             #String representing the list of experiment names.
@@ -747,7 +749,9 @@ sub printFindProbeCSV
             #Loop through the list of experiments and print out the ones for this platform.
             foreach my $value (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
             {
-                if(${$self->{_ExperimentListHash}{$value}} == $currentPID)
+                #warn 'val '  .$self->{_ExperimentListHash}->{$value};
+                #warn 'currentPID: ' . $currentPID;
+                if($self->{_ExperimentListHash}->{$value} == $currentPID)
                 {
                     my $currentLine = "";
                 
@@ -757,7 +761,7 @@ sub printFindProbeCSV
                     $currentLine .= $self->{_FullExperimentData}->{$value}->{ExperimentDescription};
                     
                     #Current experiment name.
-                    my $currentExperimentName = ${$self->{_ExperimentNameListHash}{$value}};
+                    my $currentExperimentName = $self->{_ExperimentNameListHash}->{$value};
                     $currentExperimentName =~ s/\,//g;
                     
                     #Experiment Number,Study Description, Experiment Heading,Experiment Description
@@ -778,55 +782,43 @@ sub printFindProbeCSV
             $outLine =~ s/\,$//;
             
             #Print list of experiments.
-            print $experimentList;
-            print "\n";
+            print "$experimentList\n";
 
             #Print header line for probe rows.
-            print "Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description,Gene Ontology,";
-            
-            print "$outLine\n";
-                    
+            print "Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description,Gene Ontology,$outLine\n";
         }
-        
-        #This is the line of data we will output. We need to trim the trailing comma.
-        my $outRow = '';        
-        
-        #Print the probe ID.
-        #$outRow .= "$key,";
-        $outRow .= $splitPlatformID->[1] . ',';
 
-        #Trim any commas out of the Gene Name.
-        my $geneName     = $splitPlatformID->[3];
-        $geneName         =~ s/\,//g;
-        
-        my $geneDescription = $splitPlatformID->[5];
+        #Trim any commas out of the Gene Name, Gene Description, and Gene Ontology
+        my $geneName        = (defined($row->[4])) ? $row->[4] : '';
+        $geneName           =~ s/\,//g;
+        my $geneDescription = (defined($row->[8])) ? $row->[8] : '';
         $geneDescription    =~ s/\,//g;
-
-        my $geneOntology = $splitPlatformID->[6];
-        $geneOntology    =~ s/\,//g;
+        my $geneOntology    = (defined($row->[9])) ? $row->[9] : '';
+        $geneOntology        =~ s/\,//g;
         
-        #Print the probe info. (Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology).
-        $outRow .= "$splitPlatformID->[2],$geneName,$splitPlatformID->[4],$geneDescription,$geneOntology,,";
+        # Print the probe info: 
+        # Reporter ID,Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology
+        my $outRow = "$row->[1],$row->[3],$geneName,$row->[7],$geneDescription,$geneOntology,,";
                 
         #For this reporter we print out a column for all the experiments that we have data for.
         foreach my $EIDvalue (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
         {
             #Only try to see the EID's for platform $currentPID.
-            if(${$self->{_ExperimentListHash}{$EIDvalue}} == $currentPID)
+            if($self->{_ExperimentListHash}->{$EIDvalue} == $currentPID)
             {
-                my %currentProbeExperimentHash;
-                %currentProbeExperimentHash = %{$self->{_ProbeExperimentHash}->{$key}};
-                            
+                #my %currentProbeExperimentHash;
+                #%currentProbeExperimentHash = %{$self->{_ProbeExperimentHash}->{$key}};
                 #Split the output string.
-                my @outputColumns = split(/\|/,$currentProbeExperimentHash{$EIDvalue});
-                
-                #Add all the experiment data to the output string.
-                foreach(@outputColumns)
-                {
-                    $outRow .= "$_,";
-                }
-                
-                $outRow .= ",";
+                #my @outputColumns = split(/\|/,$currentProbeExperimentHash{$EIDvalue});
+                #foreach(@outputColumns)
+                #{
+                #    $outRow .= "$_,";
+                #}
+                #$outRow .= ",";
+               
+                # Add all the experiment data to the output string.
+                my $outputColumns = $self->{_ProbeExperimentHash}->{$key}->{$EIDvalue};
+                $outRow .= join(',', @$outputColumns) . ',,'; 
             }
         }
         
@@ -1000,7 +992,7 @@ sub getform_findProbes {
                 -labels=>\%trans_dropdown
         )),
         $q->dt('&nbsp;'),
-        $q->dd($q->submit(-tabindex=>6, -name=>'a', -value=>$a, -override=>1)),
+        $q->dd($q->submit(-tabindex=>6, -class=>'css3button', -name=>'a', -value=>$a, -override=>1)),
     ) 
     .
     $q->endform;
@@ -1065,8 +1057,8 @@ sub build_ProbeQuery
             # only probe ids (rid)
             $sql_select_fields = <<"END_select_fields_rid";
 probe.rid,
-probe.reporter,
 platform.pid,
+probe.reporter,
 GROUP_CONCAT(DISTINCT IF(ISNULL(g0.accnum),'NONE',g0.accnum) ORDER BY g0.seqname ASC separator ' # ') AS 'Accession',
 IF(ISNULL(g0.seqname),'NONE',g0.seqname) AS 'Gene',
 probe.probe_sequence AS 'Probe Sequence',
@@ -1077,8 +1069,10 @@ END_select_fields_rid
         case 1 {
             # basic
             $sql_select_fields = <<"END_select_fields_basic";
+probe.rid AS ID,
+platform.pid AS PID,
 probe.reporter AS Probe, 
-pname AS Platform,
+platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
     ORDER BY g0.seqname ASC SEPARATOR ','
@@ -1090,8 +1084,10 @@ END_select_fields_basic
         else {
             # with extras
             $sql_select_fields = <<"END_select_fields_extras";
+probe.rid AS ID,
+platform.pid AS PID,
 probe.reporter AS Probe, 
-pname AS Platform,
+platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
     ORDER BY g0.seqname ASC SEPARATOR ','
@@ -1195,19 +1191,25 @@ sub findProbes_js
             records => \@json_records
         );
 
-        # cache the field name array
-        my @names = @{$sth->{NAME}};
+        # cache the field name array; 
+        # skip first two columns (probe.rid, platform.pid)
+        my $all_names = $sth->{NAME};
+        my $last_index = scalar(@$all_names) - 1;
+        my @names = @$all_names[2..$last_index];
 
         my $data = $sth->fetchall_arrayref;
         $sth->finish;
 
-        # data are sent as a JSON object plus Javascript code (at the moment)
+        # :TODO:06/17/2011 15:23:31:es: decouple Javasript code from this Perl module
+        # (move Javascript to a separate .js file)
+        #
+        # data are sent as a JSON object plus Javascript code
         #foreach (sort {$a->[3] cmp $b->[3]} @$data) {
         foreach my $array_ref (@$data) {
             # the below "trick" converts an array into a hash such that array elements
             # become hash values and array indexes become hash keys
             my $i = 0;
-            my %row = map { $i++ => $_ } @$array_ref;
+            my %row = map { $i++ => $_ } @$array_ref[2..$last_index];
             push @json_records, \%row;
         }
 

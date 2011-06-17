@@ -244,8 +244,7 @@ sub showPlatforms
 		$self->{_cgi}->dt('species:'),
 		$self->{_cgi}->dd($self->{_cgi}->textfield(-name=>'species',-id=>'species',-maxlength=>255)),
 		$self->{_cgi}->dt('&nbsp;'),
-		$self->{_cgi}->dd($self->{_cgi}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-value=>'Add Platform'),$self->{_cgi}->span({-class=>'separator'},' / ')
-		)
+		$self->{_cgi}->dd($self->{_cgi}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-class=>'css3button',-value=>'Add Platform'))
 	) .
 	$self->{_cgi}->end_form;	
 }

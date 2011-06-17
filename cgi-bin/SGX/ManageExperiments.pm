@@ -378,6 +378,7 @@ sub showExperiments
         $self->{_cgi}->dd( $self->{_cgi}->submit(
                 -name=>'SelectStudy',
                 -id=>'SelectStudy',
+                -class=>'css3button',
                 -value=>'Load'),
             $self->{_cgi}->span({-class=>'separator'}
         ))

@@ -470,9 +470,9 @@ sub showProjects {
             $self->{_cgi}->submit(
                 -name  => 'AddProject',
                 -id    => 'AddProject',
+                -class => 'css3button',
                 -value => 'Add Project'
-            ),
-            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
+            )
         )
       ) . $self->{_cgi}->end_form;
     return;
@@ -779,6 +779,7 @@ sub editProject {
             $self->{_cgi}->submit(
                 -name  => 'editSaveProject',
                 -id    => 'editSaveProject',
+                -class => 'css3button',
                 -value => 'Save Edits'
             ),
             $self->{_cgi}->span( { -class => 'separator' } )
@@ -857,9 +858,9 @@ END_JSStudyList
             $self->{_cgi}->submit(
                 -name  => 'AddStudy',
                 -id    => 'AddStudy',
-                -value => 'Add Study'
-            ),
-            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
+                -value => 'Add Study',
+                -class => 'css3button'
+            )
         )
       ) . $self->{_cgi}->end_form;
 
@@ -892,9 +893,9 @@ END_JSStudyList
             $self->{_cgi}->submit(
                 -name  => 'AddStudy',
                 -id    => 'AddStudy',
+                -class => 'css3button',
                 -value => 'Add Study'
-            ),
-            $self->{_cgi}->span( { -class => 'separator' }, ' / ' )
+            )
         )
       ) . $self->{_cgi}->end_form;
     return;
