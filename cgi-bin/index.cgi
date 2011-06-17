@@ -1230,9 +1230,9 @@ sub form_compareExperiments {
 
     my %geneFilter_dropdown;
     my $geneFilter_dropdown_t = tie(%geneFilter_dropdown, 'Tie::IxHash',
-        'none'=>'none',
-        'file'=>'file',
-        'list'=>'list'
+        'none'=>'No Filtering',
+        'list'=>'List of Terms',
+        'file'=>'Uploaded File'
     );
     my %gene_dropdown;
     my $gene_dropdown_t = tie(%gene_dropdown, 'Tie::IxHash',
@@ -1250,7 +1250,7 @@ sub form_compareExperiments {
     print $q->h2('Compare Experiments');
     print 
     $q->dl(
-        $q->dt('Choose platform / add experiment:'),
+        $q->dt('Add experiment from platform:'),
         $q->dd(    $q->popup_menu(-name=>'platform', -id=>'platform', -onChange=>"updatePlatform(this);"),
             $q->span({-class=>'separator'},' / '),
             $q->button(-value=>'Add experiment',-onclick=>'addExperiment();'))
@@ -1262,9 +1262,11 @@ sub form_compareExperiments {
             -action=>$q->url(absolute=>1).'?a='.COMPAREEXPERIMENTS
     ),
     $q->dl(
-        $q->dt('Include all probes in output (Probes without a TFS will be labeled TFS 0):'),
-        $q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>'')),
-        $q->dt('Filter:'),
+        $q->dt('Include all probes in output:'),
+        $q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>''),
+            $q->p({-style=>'color:#777;'}, 'Probes without a TFS will be labeled \'TFS 0\'')
+        ),
+        $q->dt('Filter on:'),
         $q->dd($q->radio_group(
                 -tabindex=>2,
                 -onChange=>'toggleFilterOptions(this.value);', 
@@ -1274,126 +1276,61 @@ sub form_compareExperiments {
                 -labels=>\%geneFilter_dropdown
         ))
     ),
-    $q->dl(
-        $q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
-            $q->table({-style=>'width:100%'},
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '&nbsp;'
-                            )
-                    ),                
-                $q->TR(
-                        $q->th({-id=>'tableheader1',-colspan=>'2'},
-                            '<font style="font-size:150%">Search by file of terms</font>'
-                            )
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '<hr />'
-                            )
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '&nbsp;'
-                            )
-                    ),                        
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '<font color="red"><b>When uploading a file you will be limited to only full text matches. The uploaded file must be a .txt file with one line per search term.</b></font>'
-                            )
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '&nbsp;'
-                            )
-                    ),                        
-                $q->TR(
-                        $q->td({-id=>'tablecell2',-colspan=>'2'},'Gene File :',$q->filefield(-name=>'gene_file')),
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '&nbsp;'
-                            )
-                    )                    
-            )
-        )
-    ),
-    $q->dl(
-        $q->div({-id=>'divSearchItemsDiv2',-name=>'divSearchItemsDiv2',-style=>'display:none;'},    
-            $q->table({-style=>'width:100%'},
-                $q->TR(
-                        $q->th({-id=>'tableheader2',-colspan=>'2'},
-                            '<font style="font-size:150%">Search by strings</font>'
-                            )
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '<hr />'
-                            )
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            'Search type :',
-                            $q->popup_menu(
-                                -name=>'type',
-                                -values=>[keys %gene_dropdown],
-                                -default=>'gene',
-                                -labels=>\%gene_dropdown
-                            ))
-                    ),                    
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '&nbsp;'
-                            )
-                    ),                    
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '<font color="red"><b>Searches using this method may run slowly when inputting 25 terms!</b></font>'
-                            )
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '&nbsp;'
-                            )
-                    ),                    
-                $q->TR(
-                        $q->td({-id=>'tablecell1'},'Search string(s):'),
-                        $q->td({-id=>'tablecell2'},$q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text'))                        
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1'},'Pattern to match :'),
-                        $q->td($q->radio_group(
-                                -tabindex=>2, 
-                                -name=>'match', 
-                                -values=>[keys %match_dropdown], 
-                                -default=>'full', 
-                                -linebreak=>'true', 
-                                -labels=>\%match_dropdown
-                        ))
-                    ),
-                $q->TR(
-                        $q->td({-id=>'tablecell1',-colspan=>'2'},
-                            '&nbsp;'
-                            )
-                    )                    
-            )    
-        )
-    ),
-    $q->table({-style=>'width:100%;border-width: 1px;'},    
-        $q->TR(
-                $q->td({-id=>'tablecell1'},
-                        '<font style="font-size:150%">Compare selected experiments</font> : ',
-                        $q->submit(-name=>'submit',-value=>'Submit', -override=>1),
-                        $q->hidden(-name=>'a',-value=>COMPAREEXPERIMENTS, -override=>1)
-                    )
-            )
-    ),
-    $q->dl(
-        $q->dt('<br />')
+    $q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
+        $q->h3('Filter on input file'),
+        $q->dl(
+            $q->dt('Upload File:'),
+            $q->dd(
+                $q->filefield(-name=>'gene_file'),
+                $q->p({-style=>'color:#777;'}, 'The file must be in plain-text format
+                    with one search term per line')
             ),
+            $q->dt('Terms are:'),
+            $q->dd($q->popup_menu(
+                       -name=>'type',
+                       -values=>[keys %gene_dropdown],
+                       -default=>'gene',
+                       -labels=>\%gene_dropdown
+                   )
+            ),
+            $q->dt('Patterns to match:'),
+            $q->dd({-style=>'color:#777;'},'Full Word')
+        )
+    ),
+    $q->div({-id=>'divSearchItemsDiv2',-name=>'divSearchItemsDiv2',-style=>'display:none;'},
+        $q->h3('Filter on input list'),
+        $q->dl(
+            $q->dt('Search term(s):'),
+            $q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1,
+                -name=>'text')),
+
+            $q->dt('Terms are:'),
+            $q->dd($q->popup_menu(
+                       -name=>'type',
+                       -values=>[keys %gene_dropdown],
+                       -default=>'gene',
+                       -labels=>\%gene_dropdown
+                   )
+            ),
+            $q->dt('Patterns to match:'),
+            $q->dd($q->radio_group(
+                          -tabindex=>2, 
+                          -name=>'match', 
+                          -values=>[keys %match_dropdown], 
+                          -default=>'full', 
+                          -linebreak=>'true', 
+                          -labels=>\%match_dropdown
+                  )
+            )
+        )
+    ),
     $q->dl(
-        $q->dt('<br />')
-            ),            
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->submit(-name=>'submit',-class=>'css3button',-value=>'Compare', -override=>1),
+            $q->hidden(-name=>'a',-value=>COMPAREEXPERIMENTS, -override=>1)
+        )
+    ),
     $q->endform;
 }
 
@@ -1419,16 +1356,25 @@ sub compare_experiments_js {
         $findProbes->createInsideTableQueryFromFile();
         $findProbes->loadProbeReporterData($findProbes->getQueryTerms);
         $probeList     = $findProbes->getProbeList();
-        $probeListQuery    = " WHERE rid IN (SELECT rid FROM probe WHERE reporter in ($probeList)) ";
+        #$probeListQuery    = " WHERE rid IN (SELECT rid FROM probe WHERE reporter in ($probeList)) ";
+        $probeListQuery    = " WHERE rid IN ($probeList) ";
     }
     elsif($filterType eq "list")
     {
         my $findProbes = SGX::FindProbes->new($dbh,$q);
         $findProbes->createInsideTableQuery();
+
+        # find out what the current project is set to 
+        $s->read_perm_cookie();
+        my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
+        $findProbes->build_ProbeQuery(extra_fields => 0, curr_proj => $curr_proj);
+
+        #$findProbes->build_ProbeQuery(extra_fields => 0);
         $findProbes->loadProbeData($findProbes->getQueryTerms);
         $findProbes->setProbeList();
         $probeList     = $findProbes->getProbeList();
-        $probeListQuery    = " WHERE rid IN (SELECT rid FROM probe WHERE reporter in ($probeList)) ";
+        $probeListQuery    = " WHERE rid IN ($probeList) ";
+        #warn $probeListQuery;
     }
 
     #If we are filtering, generate the SQL statement for the rid's.    
@@ -1510,7 +1456,7 @@ sub compare_experiments_js {
 
 
 
-    ### Draw a 450x300 area-proportional Venn diagram using Google API if $exp_count is (2,3)
+    ### Draw a 750x300 area-proportional Venn diagram using Google API if $exp_count is (2,3)
     # http://code.google.com/apis/chart/types.html#venn
     # http://code.google.com/apis/chart/formats.html#data_scaling
     #
@@ -1527,6 +1473,8 @@ sub compare_experiments_js {
         my $AB = $c[2];
         my $A = $hc{0}; 
         my $B = $hc{1}; 
+        assert(defined($A));
+        assert(defined($B));
         assert($A == $c[0] + $AB);
         assert($B == $c[1] + $AB);
 
@@ -1539,7 +1487,7 @@ sub compare_experiments_js {
         my $scale = max($A, $B); # scale must be equal to the area of the largest circle
         my @nums = ($A, $B, 0, $AB);
         my $qstring = 'cht=v&amp;chd=t:'.join(',', @nums).'&amp;chds=0,'.$scale.
-            '&amp;chs=450x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='.
+            '&amp;chs=750x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='.
             uri_escape('1. '.$ht->{$currentEID1}->{title}).'|'.
             uri_escape('2. '.$ht->{$currentEID2}->{title});
 
@@ -1575,7 +1523,7 @@ sub compare_experiments_js {
         my $scale = max($A, $B, $C); # scale must be equal to the area of the largest circle
         my @nums = ($A, $B, $C, $AB, $AC, $BC, $ABC);
         my $qstring = 'cht=v&amp;chd=t:'.join(',', @nums).'&amp;chds=0,'.$scale.
-            '&amp;chs=450x300&chtt=Significant+Probes+(Approx.)&amp;chco=ff0000,00ff00,0000ff&amp;chdl='.
+            '&amp;chs=750x300&chtt=Significant+Probes+(Approx.)&amp;chco=ff0000,00ff00,0000ff&amp;chdl='.
             uri_escape('1. '.$ht->{$currentEID1}->{title}).'|'.
             uri_escape('2. '.$ht->{$currentEID2}->{title}).'|'.
             uri_escape('3. '.$ht->{$currentEID3}->{title});
@@ -1691,11 +1639,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     YAHOO.widget.DataTable.Formatter.formatDownload = function(elCell, oRecord, oColumn, oData) {
         var fs = oRecord.getData("0");
-        elCell.innerHTML = "<input type=\"submit\" name=\"get\" value=\"TFS: " + fs + "\" />&nbsp;&nbsp;&nbsp;<input type=\"submit\" name=\"CSV\" value=\"(TFS: " + fs + " CSV)\" />";
+        elCell.innerHTML = "<input class=\"plaintext\" type=\"submit\" name=\"get\" value=\"TFS: " + fs + "\" />&nbsp;&nbsp;&nbsp;<input class=\"plaintext\" type=\"submit\" name=\"CSV\" value=\"(TFS: " + fs + " CSV)\" />";
     }
     Dom.get("tfs_caption").innerHTML = tfs.caption;
     Dom.get("tfs_all_dt").innerHTML = "View probes significant in at least one experiment:";
-    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" value=\"'.$rep_count.' significant probes\" /><input type=\"submit\" name=\"CSV\" value=\"(CSV)\" />";
+    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"'.$rep_count.' significant probes\" /><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"(CSV)\" />";
     var tfs_table_defs = [
 '.$tfs_defs.'
     ];

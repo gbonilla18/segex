@@ -91,3 +91,7 @@ problems when emailing links, for example.
 19) Move out Javascript from findProbes_js() Perl function int a standalone JS file.
 
 20) Drop the requirement for the Prototype Javascript library to be installed.
+
+21) SQL queries are fast when the number of rows searched is minimized early on.
+Investigate whether there is a way to speed up FindProbes by limiting the search space
+by relying on Working Project selection.

@@ -115,15 +115,17 @@ dl dd {
 	min-height:1.665em;
 	/*color:#777;*/
 }
-form.getTFS input[type=submit] {
+/*** buttons that look like links: *****/
+input.plaintext {
 	color: #00f;
 	background-color: transparent;
 	border-width: 0; 
 	cursor: pointer;
 }
-form.getTFS input[type=submit]:focus { outline: none; }
-form.getTFS input[type=submit]:hover { color:#f00; }
-form.getTFS input[type=submit]:active { color:#fff; background:#55f; }
+input.plaintext:focus { outline: none; }
+input.plaintext:hover { color:#f00; }
+input.plaintext:active { color:#fff; background:#55f; }
+
 /****** begin Javascript form validation */
 form dl dd.error input, form dl dd.error textarea {
 	color:#000;
@@ -150,6 +152,8 @@ legend {
 	left:-7px;		/* IE/Win only */
 	top: -0.75em;		/* IE/Win only */
 
+	margin-bottom:0.5em;
+	font-size:120%;
 	font-weight:bold;
 	font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
 	padding-right:1em;
@@ -236,4 +240,45 @@ div.table_cont {
 }
 dl, table, div.table_cont {
 	clear:both;
+}
+#divSearchItemsDiv, #divSearchItemsDiv2 {
+	padding-top:0.5em;
+	border-top:1px solid #000;
+	clear:both;
+}
+
+/*
+ * http://css3button.net/ 
+ */
+.css3button {
+	cursor:pointer;
+	font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+	font-size: 14px;
+	color: #ffffff;
+	padding: 10px 20px;
+	background: -moz-linear-gradient(
+		top,
+		#a3a3a3 0%,
+		#3b3b3b 50%,
+		#242424 50%,
+		#000000);
+	background: -webkit-gradient(
+		linear, left top, left bottom, 
+		from(#a3a3a3),
+		color-stop(0.50, #3b3b3b),
+		color-stop(0.50, #242424),
+		to(#000000));
+	border-radius: 10px;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border: 1px solid #000000;
+	-moz-box-shadow:
+		0px 1px 3px rgba(000,000,000,0.5),
+		inset 0px 0px 1px rgba(255,255,255,0.6);
+	-webkit-box-shadow:
+		0px 1px 3px rgba(000,000,000,0.5),
+		inset 0px 0px 1px rgba(255,255,255,0.6);
+	text-shadow:
+		0px -1px 0px rgba(000,000,000,1),
+		0px 1px 0px rgba(255,255,255,0.2);
 }

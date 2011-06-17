@@ -109,7 +109,6 @@ sub loadTFSData
 	$self->{_pvals}			= \@pvalArray;
 	
 	$self->{_allProbes}		= $self->{_cgi}->param('allProbes');
-	$self->{_searchFilters}		= '';	
 	$self->{_searchFilters}		= $self->{_cgi}->param('searchFilter');
 	$self->{_fs} 			= $self->{_cgi}->param('get');
 	$self->{_outType}		= $self->{_cgi}->param('outType');
@@ -142,9 +141,9 @@ sub loadTFSData
 	#If we got a list to filter on, build the string.
 	my $probeListQuery	= '';
 	
-	if($self->{_searchFilters} ne '')
+	if(defined($self->{_searchFilters}) && $self->{_searchFilters} ne '')
 	{
-		$probeListQuery	= " WHERE rid IN (SELECT rid FROM probe WHERE reporter in (" . $self->{_searchFilters} . ")) ";
+		$probeListQuery	= " WHERE rid IN (" . $self->{_searchFilters} . ") ";
 	}
 
 	my $query_body = '';
@@ -298,7 +297,6 @@ sub loadDataFromSubmission
 	$self->{_outType}		= $self->{_cgi}->param('outType');
 	$self->{_opts} 			= $self->{_cgi}->param('opts');
 	$self->{_allProbes}		= $self->{_cgi}->param('allProbes');
-	$self->{_searchFilters}	= '';	
 	$self->{_searchFilters}	= $self->{_cgi}->param('searchFilter');
 	
 }
@@ -357,9 +355,9 @@ sub loadAllData
 	my $probeListQuery	= '';
 
 	#If we got a list to filter on, build the string.	
-	if($self->{_searchFilters} ne '')
+	if(defined($self->{_searchFilters}) && $self->{_searchFilters} ne '')
 	{
-		$probeListQuery	= " WHERE rid IN (SELECT rid FROM probe WHERE reporter in (" . $self->{_searchFilters} . ")) ";
+		$probeListQuery	= " WHERE rid IN (" . $self->{_searchFilters} . ") ";
 	}
 
 	my $i = 1; 

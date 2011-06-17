@@ -30,6 +30,8 @@ function populateSelectExperiments(obj, stid) {
         while(obj.options[0]) {
                 obj.removeChild(obj.options[0]);
         }
+	// sort by experiment name
+	
         // now add new ones
         for (var i in study[stid][1]) {
                 var new_opt = document.createElement("option");
@@ -134,7 +136,7 @@ function addExperiment() {
         var fieldset = document.createElement("fieldset");
         var fieldset_id = "exp_" + experiment_count;
         fieldset.setAttribute("id", fieldset_id);
-        fieldset.innerHTML = '<legend>Experiment ' + experiment_count + '</legend><dl><dt>Study / Experiment:</dt><dd><select id="stid_' + experiment_count + '" onChange="updateExperiments(this);"> ' + opt_studies + '</select> <span class="separator">/</span> <select id="eid_' + experiment_count + '" name="eid_' + experiment_count + '" > ' + opt_experiments + ' </select></dd><dt><label for="reverse_' + experiment_count + '">Reverse sample order:</label></dt><dd><input id="reverse_' + experiment_count + '" type="checkbox" onclick="setSampleOrder(this);" name="reverse_' + experiment_count + '"/></dd><dt>Significance cutoff:</dt><dd><label>&#124;Fold Change&#124; &gt; <input type="text" id="fc_' + experiment_count + '" name="fc_' + experiment_count + '" value="" size="10" maxlength="10" /></label> <em>and</em> <label>P &lt; <input type="text" id="pval_' + experiment_count + '" name="pval_' + experiment_count + '" value="" size="10" maxlength="10" /></label></dd><dt>&nbsp;</dt><dd><input type="button" id="remove_' + experiment_count + '" value="Remove" onclick="removeExperiment(this);" /></dd></dl>';
+        fieldset.innerHTML = '<legend>Experiment ' + experiment_count + '</legend><dl><dt>Study / Experiment:</dt><dd><select id="stid_' + experiment_count + '" onChange="updateExperiments(this);"> ' + opt_studies + '</select> <span class="separator">/</span> <select id="eid_' + experiment_count + '" name="eid_' + experiment_count + '" > ' + opt_experiments + ' </select></dd><dt><label for="reverse_' + experiment_count + '">Reverse sample order:</label></dt><dd><input id="reverse_' + experiment_count + '" type="checkbox" onclick="setSampleOrder(this);" name="reverse_' + experiment_count + '"/></dd><dt>Significance cutoff:</dt><dd><label>&#124;Fold Change&#124; &gt; <input type="text" id="fc_' + experiment_count + '" name="fc_' + experiment_count + '" value="" size="10" maxlength="10" /></label> <em>and</em> <label>P &lt; <input type="text" id="pval_' + experiment_count + '" name="pval_' + experiment_count + '" value="" size="10" maxlength="10" /></label></dd><dt>&nbsp;</dt><dd><input type="button" id="remove_' + experiment_count + '" value="Remove" class="plaintext" onclick="removeExperiment(this);" /></dd></dl>';
 
         $(form).appendChild(fieldset);
 
@@ -144,10 +146,25 @@ function addExperiment() {
 
 function populatePlatforms(id) {
 	obj = $(id);
+	// sort by platform name
+	var tuples = [];
 	for (var i in platform) {
+		tuples.push([i, platform[i][0]]);
+	}
+	// generic tuple sort (sort hash by value)
+	tuples.sort(function(a, b) {
+		a = a[1];
+		b = b[1];
+		return a < b ? -1 : (a > b ? 1 : 0); 
+	});
+	// build dropdown box
+	for (var i = 0, len = tuples.length; i < len; i++) {
+		var key = tuples[i][0];
+		var value = tuples[i][1];
 		var new_opt = document.createElement("option");
-		new_opt.setAttribute('value',i);
-		new_opt.innerHTML = platform[i][0];
+		new_opt.setAttribute('value', key);
+		//new_opt.text = value; // does not work in IE
+		new_opt.innerHTML = value;
 		obj.appendChild(new_opt); 
 	}
 	current_platform = obj.options[obj.selectedIndex].value;
