@@ -44,7 +44,9 @@ use SGX::ChooseProject;
 #---------------------------------------------------------------------------
 #  User Authentication
 #---------------------------------------------------------------------------
-my $softwareVersion = "0.1.12";
+# :NOTE:06/17/2011 12:57:58:es: bump up version from 0.1.12 to 0.2.0
+my $softwareVersion = '0.2.0';
+
 my $dbh = sgx_db_connect();
 my $s = SGX::User->new(-handle        => $dbh,
                -expire_in    => 3600, # expire in 3600 seconds (1 hour)
