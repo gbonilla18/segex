@@ -704,8 +704,13 @@ sub printFindProbeCSV
     print $self->{_cgi}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
 
     #Print a line to tell us what report this is.
+    my $workingProjectText = 
+        (defined($self->{_WorkingProject}) && $self->{_WorkingProject} ne '') 
+        ? $self->{_WorkingProject}
+        : 'Not set';
+
     print "Find Probes Report," . localtime() . "\n";
-    print "Working Project," . $self->{_WorkingProject} . "\n\n";
+    print "Working Project,$workingProjectText\n\n";
     
     #Sort the hash so the PID's are together.
     foreach my $key (
