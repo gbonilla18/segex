@@ -1110,16 +1110,15 @@ sub form_compareExperiments_js {
     my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
 
     # get a list of platforms and cutoff values
-    my ($sth, $rowcount);
+    my $query_text;
+    my @query_params;
     if (!defined($curr_proj) or $curr_proj eq '') {
         # current project not set or set to 'All Projets'
-        $sth = $dbh->prepare(qq{SELECT pid, pname, def_p_cutoff, def_f_cutoff FROM platform})
-            or croak $dbh->errstr;
-        $rowcount = $sth->execute()
-            or croak $dbh->errstr;
+        $query_text = qq{SELECT pid, pname, def_p_cutoff, def_f_cutoff FROM platform};
     } else {
         # current project is set
-        $sth = $dbh->prepare(<<"END_PLATFORM_QUERY")
+        push @query_params, $curr_proj;
+        $query_text = <<"END_PLATFORM_QUERY"
 SELECT pid, pname, def_p_cutoff, def_f_cutoff 
 FROM platform 
 RIGHT JOIN study USING(pid) 
@@ -1128,10 +1127,11 @@ WHERE prid=?
 GROUP BY pid
 
 END_PLATFORM_QUERY
-            or croak $dbh->errstr;
-        $rowcount = $sth->execute($curr_proj)
-            or croak $dbh->errstr;
     }
+    my $sth = $dbh->prepare($query_text)
+        or croak $dbh->errstr;
+    my $rowcount = $sth->execute(@query_params)
+        or croak $dbh->errstr;
     assert($rowcount);
 
     ### populate a Javascript hash with the content of the platform recordset

@@ -150,10 +150,10 @@ sub set_SearchItems
                     ? $self->{_cgi}->param('match') 
                     : 'full';
         switch ($match) {
-            case 'full'        { $qtext = '^'.$textSplit[0].'$' }
-            case 'prefix'    { $qtext = '^'.$textSplit[0] }
-            case 'part'        { $qtext = $textSplit[0] } 
-            else            { croak "Invalid match value $match" }
+            case 'full'    { $qtext = '^'.$textSplit[0].'$' }
+            case 'prefix'  { $qtext = '^'.$textSplit[0] }
+            case 'part'    { $qtext = $textSplit[0] } 
+            else           { croak "Invalid match value $match" }
         }
     } else {
         if ($mode == 0) {
@@ -165,6 +165,7 @@ sub set_SearchItems
         }
     }
     $self->{_SearchItems} = $qtext;
+    return;
 }
 #######################################################################################
 #This is the code that generates part of the SQL statement.
@@ -179,8 +180,8 @@ sub createInsideTableQuery
         or croak "You did not specify where to search";
 
     $self->build_InsideTableQuery($type);
+    return;
 }
-#######################################################################################
 
 #######################################################################################
 #This is the code that generates part of the SQL statement (From a file instead of a list of genes).
@@ -215,16 +216,17 @@ sub createInsideTableQueryFromFile
     #This is where we put the temp file we will import.
     my $outputFileName = $tmp->filename();
     #Open file we are writing to server.
-    open(OUTPUTTOSERVER,">$outputFileName");
+    open my $outputToServer, '>', $outputFileName
+        or croak "Could not open $outputFileName for writing: $!";
     #Each line is an item to search on.
     while ( <$uploadedFile> )
     {
         #Grab the current line (Or Whole file if file is using Mac line endings).
         #Replace all carriage returns, or carriage returns and line feed with just a line feed.
         $_ =~ s/(\r\n|\r)/\n/g;
-        print OUTPUTTOSERVER $_;
+        print {$outputToServer} $_;
     }
-    close(OUTPUTTOSERVER);
+    close($outputToServer);
 
     #--------------------------------------------
     #Now get the temp file into a temp MYSQL table.
@@ -250,71 +252,58 @@ END_inputStatement
     #Run the command to suck in the data.
     $self->{_dbh}->do($inputStatement, undef, $outputFileName)
         or croak $self->{_dbh}->errstr;
+
+    # Delete the temporary file we created:
+    #unlink($outputFileName);
     #--------------------------------------------
 
     $self->build_InsideTableQuery($type, tmp_table => $processID);
     $self->{_SearchItems} = undef;
+    return;
 }
-#######################################################################################
-
-#######################################################################################
-#This gets set in the index.cgi page based on input parameters.
-#######################################################################################
-#sub setInsideTableQuery
-#{
-#    my $self        = shift;
-#    my $tableQuery     = shift;
-#    
-#    $self->{_InsideTableQuery} = $tableQuery;
-#}
-#######################################################################################
 
 #######################################################################################
 #Return the inside table query.
 #######################################################################################
 sub getInsideTableQuery
 {
-    my $self        = shift;
-        
+    my $self = shift;
     return $self->{_InsideTableQuery};
 }
-#######################################################################################
 
 #######################################################################################
 #Return the search terms used in the query.
 #######################################################################################
 sub getQueryTerms
 {
-    my $self        = shift;
-
+    my $self = shift;
     return $self->{_SearchItems};
 }
-#######################################################################################
 
 #######################################################################################
 #Fill a hash with platform name and ID so we print it for the seperators.
 #######################################################################################
 sub fillPlatformHash
 {
-    my $self        = shift;
+    my $self = shift;
 
-    my $tempPlatformQuery     = $self->{_PlatformInfoQuery};
-    my $platformRecords    = $self->{_dbh}->prepare($tempPlatformQuery)     or croak $self->{_dbh}->errstr;
-    my $platformCount     = $platformRecords->execute()                     or croak $self->{_dbh}->errstr;    
-    my $platformData    = $platformRecords->fetchall_arrayref;
-
+    my $tempPlatformQuery = $self->{_PlatformInfoQuery};
+    my $platformRecords = $self->{_dbh}->prepare($tempPlatformQuery)
+        or croak $self->{_dbh}->errstr;
+    my $platformCount = $platformRecords->execute()
+        or croak $self->{_dbh}->errstr;
+    my $platformData = $platformRecords->fetchall_arrayref;
     $platformRecords->finish;
 
     #Initialize our hash.
     $self->{_PlatformInfoHash} = {};
 
     #For each probe we get add an item to the hash. 
-    foreach(@{$platformData})
-    {
-        $self->{_PlatformInfoHash}->{$_->[0]} = $_->[1];
-    }
+    my %PlatformInfoHash = 
+        map { $_->[0] => $_->[1] } @{$platformData};
+    $self->{_PlatformInfoHash} = \%PlatformInfoHash;
+    return;
 }
-#######################################################################################
 
 #######################################################################################
 #Get a list of the probes (Only the reporter field).
@@ -368,9 +357,9 @@ sub loadProbeReporterData
     my $dbh = $self->{_dbh};
     $self->{_ReporterList} = join(',',
         map { $_->[0] } @{$self->{_Data}});
-}
-#######################################################################################
 
+    return;
+}
 
 #######################################################################################
 #Get a list of the probes here so that we can get all experiment data for each probe in another query.
@@ -414,9 +403,9 @@ sub loadProbeData
     #    $self->{_ProbeHash}->{$_->[0]} = [@$_[1..$last_index]];
     #    #[$_->[1], $_->[2], $_->[3], $_->[4], $_->[5], $_->[6]];
     #    #"$_->[1]|$_->[2]|$_->[3]|$_->[4]|$_->[5]|$GOField|";
-    #}    
+    #}
+    return;
 }
-#######################################################################################
 
 #######################################################################################
 #For each probe in the list get all the experiment data.
@@ -465,10 +454,6 @@ sub loadExperimentData
         #We use a temp hash that gets added to the _ProbeExperimentHash.
         my %tempHash;
         
-        #Extract the PID from the string in the hash.
-        #We need this platform ID to use later on.
-        #my $currentPID = $splitPlatformID->[0];
-        
         #For each experiment we get, stash the results in a string 
         foreach(@{$self->{_ExperimentData}})
         {
@@ -494,7 +479,7 @@ sub loadExperimentData
         $self->{_ProbeExperimentHash}->{$key} = \%tempHash;
 
     }
-    
+    return;    
 }
 #######################################################################################
 
@@ -696,7 +681,6 @@ sub loadExperimentData
 #    $out;
 #
 #}
-#######################################################################################
 
 #######################################################################################
 #Print the data from the hashes into a CSV file.
@@ -824,8 +808,8 @@ sub printFindProbeCSV
         
         print "$outRow\n";
     }
+    return;
 }
-#######################################################################################
 
 #######################################################################################
 #Loop through the list of Reporters we are filtering on and create a list.
@@ -842,8 +826,8 @@ sub setProbeList
 
     my $dbh = $self->{_dbh};    
     $self->{_ReporterList} = join(',', keys %{$self->{_ProbeHash}});
+    return;
 }
-#######################################################################################
 
 #######################################################################################
 #Loop through the list of Reporters we are filtering on and create a list.
@@ -854,41 +838,42 @@ sub getProbeList
     return $self->{_ReporterList};
 }
 #######################################################################################
-#Loop through the list of experiments we are displaying and get the information on each. We need eid and stid for each.
+#Loop through the list of experiments we are displaying and get the information on each. 
+# We need eid and stid for each.
 #######################################################################################
 sub getFullExperimentData
 {
-    my $self                     = shift;
-    my $query_titles            = "";
-    
+    my $self = shift;
+
+    my @query_titles;
+    my @params;
     foreach my $currentRecord (keys %{$self->{_ExperimentStudyListHash}})
-    {    
+    {
+        push @params, split(/\|/,$currentRecord);
     
-        my @IDSplit = split(/\|/,$currentRecord);
-        
-        my $currentEID = $IDSplit[0];    
-        my $currentSTID = $IDSplit[1];
-    
-        $query_titles .= " SELECT     experiment.eid, 
-                                    CONCAT(study.description, ': ', experiment.sample1, ' / ', experiment.sample2) AS title, 
-                                    CONCAT(experiment.sample1, ' / ', experiment.sample2) AS experimentHeading,
-                                    study.description,
-                                    experiment.ExperimentDescription 
-                            FROM experiment 
-                            NATURAL JOIN StudyExperiment 
-                            NATURAL JOIN study 
-                            WHERE eid=$currentEID AND study.stid = $currentSTID UNION ALL ";
+        push @query_titles, <<"END_query_titles_element";
+SELECT experiment.eid, 
+    CONCAT(study.description, ': ', experiment.sample1, ' / ', experiment.sample2) AS title, 
+    CONCAT(experiment.sample1, ' / ', experiment.sample2) AS experimentHeading,
+    study.description,
+    experiment.ExperimentDescription 
+FROM experiment 
+NATURAL JOIN StudyExperiment 
+NATURAL JOIN study 
+WHERE eid=? AND study.stid=?
+END_query_titles_element
     }
     
-    # strip trailing 'UNION ALL' plus any trailing white space
-    $query_titles =~ s/UNION ALL\s*$//i;
+    my $query_titles = join(' UNION ALL ', @query_titles);
     
-    $self->{_FullExperimentRec}        = $self->{_dbh}->prepare($query_titles) or croak $self->{_dbh}->errstr;
-    $self->{_FullExperimentCount}    = $self->{_FullExperimentRec}->execute()     or croak $self->{_dbh}->errstr;    
-    $self->{_FullExperimentData}    = $self->{_FullExperimentRec}->fetchall_hashref('eid');
+    $self->{_FullExperimentRec} = $self->{_dbh}->prepare($query_titles) 
+        or croak $self->{_dbh}->errstr;
+    $self->{_FullExperimentCount} = $self->{_FullExperimentRec}->execute(@params)
+        or croak $self->{_dbh}->errstr;    
+    $self->{_FullExperimentData} = $self->{_FullExperimentRec}->fetchall_hashref('eid');
     
     $self->{_FullExperimentRec}->finish;
-
+    return;
 }
 
 #######################################################################################
@@ -906,6 +891,7 @@ sub list_yui_deps
         'datatable/datatable-min.js',
         'selector/selector-min.js'
     );
+    return;
 }
 #######################################################################################
 
@@ -1041,6 +1027,7 @@ END_InsideTableQuery_transcript
             croak "Unknown request parameter value type=$type";
         }
     }
+    return;
 }
 #######################################################################################
 sub build_ProbeQuery
@@ -1137,6 +1124,7 @@ INNER JOIN platform USING(pid)
 $sql_subset_by_project
 GROUP BY probe.rid
 END_ProbeQuery
+    return;
 }
 #######################################################################################
 sub findProbes_js 
