@@ -45,13 +45,15 @@ our @EXPORT_OK =
 
 sub new {
     # This is the constructor
-    my $class = shift;
+    my ($class, $dbh, %p) = @_;
 
     my $self = {
-        _dbh            => shift,
-        _cgi        => shift,
-        _SearchType        => shift,
-        _SearchText        => shift,
+        _dbh            => $dbh,
+        _cgi        => $p{cgi},
+        _UserSession    => $p{user_session},
+        _WorkingProject => undef,
+        _SearchType        => undef,
+        _SearchText        => undef,
         _ProbeRecords        => '',
         _ProbeCount        => 0,
         _ProbeColNames        => '',        
@@ -116,6 +118,13 @@ END_ExperimentDataQuery
         _ReporterList        => undef
     };
 
+    # find out what the current project is set to
+    if (defined($self->{_UserSession})) {
+        $self->{_UserSession}->read_perm_cookie();
+        $self->{_WorkingProject} 
+            = $self->{_UserSession}->{perm_cookie_value}->{curr_proj};
+    }
+
     #Reporter,Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}    
     
     bless $self, $class;
@@ -129,7 +138,7 @@ sub set_SearchItems
 
     # 'text' must always be set
     my $text = $self->{_cgi}->param('text') 
-        or croak 'You did not specify what to search for';
+        or croak 'No search terms specified';
 
     #This will be the array that holds all the splitted items.
     my @textSplit;    
@@ -198,7 +207,7 @@ sub createInsideTableQueryFromFile
     
     #This is the file that was uploaded.
     my $uploadedFile = $self->{_cgi}->upload('gene_file')
-        or croak "No file specified";
+        or croak "No file to upload";
 
     #We need to get the list from the user into SQL, We need to do some temp table/file trickery for this.
     #Get time to make our unique ID.
@@ -332,15 +341,16 @@ sub loadProbeReporterData
     
     # For the situation where we created a temp table for the user input, 
     # we need to drop that temp table. This is the command to drop the temp table.
-    my $dropStatement = "DROP TABLE " . $self->{_TempTableID} . ";";    
+    my $dropStatement = 'DROP TABLE ' . $self->{_TempTableID} . ';';    
     
     #Run the command to drop the temp table.
-    $self->{_dbh}->do($dropStatement) or croak $self->{_dbh}->errstr;
+    $self->{_dbh}->do($dropStatement) 
+        or croak $self->{_dbh}->errstr;
     
     if($DataCount < 1)
     {
         print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-        print "No records found! Please click back on your browser and search again!";
+        print 'No records found! Please click back on your browser and search again!';
         exit;
     }
     
@@ -379,7 +389,7 @@ sub loadProbeData
     if(scalar(@{$self->{_Data}}) < 1)
     {
         print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-        print "No records found! Please click back on your browser and search again!";
+        print 'No records found! Please click back on your browser and search again!';
         exit;
     }
 
@@ -694,7 +704,8 @@ sub printFindProbeCSV
     print $self->{_cgi}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
 
     #Print a line to tell us what report this is.
-    print "Find Probes Report," . localtime() . "\n\n";    
+    print "Find Probes Report," . localtime() . "\n";
+    print "Working Project," . $self->{_WorkingProject} . "\n\n";
     
     #Sort the hash so the PID's are together.
     foreach my $key (
@@ -937,11 +948,14 @@ sub getform_findProbes {
         -action=>$q->url(absolute=>1),
         -enctype=>'application/x-www-form-urlencoded') .
     $q->h2('Find Probes') .
-    $q->p('Enter search text below to find the data for that probe. The textbox will allow a comma separated list of values, or one value per line, to obtain information on multiple probes.') .
-    $q->p('Regular Expression Example: "^cyp.b" would retrieve all genes starting with cyp.b where the period represents any one character. More examples can be found at <a href="http://en.wikipedia.org/wiki/Regular_expression_examples">Wikipedia Examples</a>.') .
+    $q->p('You can enter here a list of probes, transcript accession numbers, or gene names. The results will contain probes that are related to the search terms.') .
     $q->dl(
-        $q->dt('Search string(s):'),
-        $q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1, -name=>'text')),
+        $q->dt('Search term(s):'),
+        $q->dd(
+            $q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1,
+                -name=>'text'),
+            $q->p({-style=>'color:#777'},'Multiple entries have to be separated by commas or be on separate lines')
+        ),
         $q->dt('Search type :'),
         $q->dd($q->popup_menu(
                 -name=>'type',
@@ -950,14 +964,17 @@ sub getform_findProbes {
                 -labels=>\%type_dropdown
         )),
         $q->dt('Pattern to match :'),
-        $q->dd($q->radio_group(
+        $q->dd(
+            $q->radio_group(
                 -tabindex=>2, 
                 -name=>'match', 
                 -linebreak=>'true', 
                 -default=>'full', 
                 -values=>[keys %match_dropdown], 
                 -labels=>\%match_dropdown
-        )),
+            ), 
+            $q->p({-style=>'color:#777'},'* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with cyp.b where the period represents any one character (2, 3, 4, "a", etc.). See <a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more examples.')
+        ),
         $q->dt('Display options :'),
         $q->dd($q->popup_menu(
                 -tabindex=>3, 
@@ -1035,7 +1052,7 @@ sub build_ProbeQuery
     my ($self, %p) = @_;
     my $sql_select_fields = '';
     my $sql_subset_by_project = '';
-    my $curr_proj = $p{curr_proj};
+    my $curr_proj = $self->{_WorkingProject};
 
     assert(defined($p{extra_fields}));
 
@@ -1129,7 +1146,7 @@ END_ProbeQuery
 #######################################################################################
 sub findProbes_js 
 {
-    my ($self, $s) = @_;
+    my $self = shift;
 
     $self->set_SearchItems(1);
     my $qtext = $self->{_SearchItems};
@@ -1140,20 +1157,15 @@ sub findProbes_js
 
     $self->build_InsideTableQuery($type);
 
-    # find out what the current project is set to
-    $s->read_perm_cookie();
-    my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
-
     my $opts = (defined($self->{_cgi}->param('opts'))) ? $self->{_cgi}->param('opts') : 1;
-    $self->build_ProbeQuery(extra_fields => $opts, curr_proj => $curr_proj);
+    $self->build_ProbeQuery(extra_fields => $opts);
 
     my $trans = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
 
     if ($opts == 3) {
         # Full annotation with experiment data (CSV)
-        $s->commit();
+        $self->{_UserSession}->commit();
         #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-        #$self = SGX::FindProbes->new($self->{_dbh},$q,$type,$qtext);
         $self->{_SearchType} = $type;
         $self->{_SearchText} = $qtext;
         #$self->setInsideTableQuery($g0_sql);

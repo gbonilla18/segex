@@ -138,6 +138,7 @@ sub new {
         session_name    => 'session',
         session_obj     => {},
         session_view    => {},
+        session_id      => undef,
         active          => 0
     };
 

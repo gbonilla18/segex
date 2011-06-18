@@ -302,7 +302,7 @@ function init() {
     case FINDPROBES                {
         if ($s->is_authorized('user')) {
             $title = 'Find Probes';
-            my $findProbes = SGX::FindProbes->new($dbh,$q);
+            my $findProbes = SGX::FindProbes->new($dbh, cgi => $q, user_session => $s);
             # push YUI dependencies to @js_src_yui array
             $findProbes->list_yui_deps(\@js_src_yui);
             # push data + JS code to @js_src_code array
@@ -409,7 +409,9 @@ function init() {
     case LOGIN            {
         $s->authenticate($q->param('username'), $q->param('password'), \$error_string);
         if ($s->is_authorized('unauth')) {
-            my $destination = (defined($q->url_param('destination'))) ? uri_unescape($q->url_param('destination')) : undef;
+            my $destination = (defined($q->url_param('destination'))) 
+                ? uri_unescape($q->url_param('destination')) 
+                : undef;
             if (defined($destination) && $destination ne $q->url(-absolute=>1) &&
                 $destination !~ m/(?:&|\?|&amp;)a=$action(?:\z|&|#)/ && $destination !~
                 m/(?:&|\?|&amp;)a=form_$action(?:\z|&|#)/) {
@@ -1358,9 +1360,13 @@ sub compare_experiments_js {
     my $probeListQuery    = '';
     my $probeList        = '';
     
+    $s->read_perm_cookie();
+    my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
+
     if($filterType eq "file")
     {
-        my $findProbes = SGX::FindProbes->new($dbh,$q);
+        my $findProbes = SGX::FindProbes->new($dbh, cgi => $q);
+        $findProbes->{_WorkingProject} = $curr_proj;
         $findProbes->createInsideTableQueryFromFile();
         $findProbes->loadProbeReporterData($findProbes->getQueryTerms);
         $probeList     = $findProbes->getProbeList();
@@ -1369,15 +1375,13 @@ sub compare_experiments_js {
     }
     elsif($filterType eq "list")
     {
-        my $findProbes = SGX::FindProbes->new($dbh,$q);
+        my $findProbes = SGX::FindProbes->new($dbh, cgi => $q);
+        $findProbes->{_WorkingProject} = $curr_proj;
         $findProbes->createInsideTableQuery();
 
         # find out what the current project is set to 
-        $s->read_perm_cookie();
-        my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
-        $findProbes->build_ProbeQuery(extra_fields => 0, curr_proj => $curr_proj);
+        $findProbes->build_ProbeQuery(extra_fields => 0);
 
-        #$findProbes->build_ProbeQuery(extra_fields => 0);
         $findProbes->loadProbeData($findProbes->getQueryTerms);
         $findProbes->setProbeList();
         $probeList     = $findProbes->getProbeList();
@@ -1481,8 +1485,8 @@ sub compare_experiments_js {
         my $AB = $c[2];
         my $A = $hc{0}; 
         my $B = $hc{1}; 
-        assert(defined($A));
-        assert(defined($B));
+        #assert(defined($A));
+        #assert(defined($B));
         assert($A == $c[0] + $AB);
         assert($B == $c[1] + $AB);
 
