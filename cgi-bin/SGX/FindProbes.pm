@@ -92,8 +92,39 @@ END_ProbeReporterQuery
         _ExperimentStudyListHash    => '',        
         _TempTableID            => '',
         _ExperimentNameListHash     => '',
+        _ExperimentDataQuery     => undef,
+        _ReporterList        => undef
+    };
 
-        _ExperimentDataQuery     => <<"END_ExperimentDataQuery",
+    # find out what the current project is set to
+    if (defined($self->{_UserSession})) {
+        $self->{_UserSession}->read_perm_cookie();
+        $self->{_WorkingProject} 
+            = $self->{_UserSession}->{perm_cookie_value}->{curr_proj};
+    }
+
+    #Reporter,Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}    
+    
+    bless $self, $class;
+    return $self;
+}
+#######################################################################################
+
+sub build_ExperimentDataQuery
+{
+    my $self = shift;
+    my $whereSQL;
+    my $curr_proj = $self->{_WorkingProject};
+    if (defined($curr_proj) && $curr_proj ne '') {
+        $curr_proj = $self->{_dbh}->quote($curr_proj);
+        $whereSQL = <<"END_whereSQL";
+INNER JOIN ProjectStudy USING(stid)
+WHERE prid=$curr_proj AND rid=?
+END_whereSQL
+    } else {
+        $whereSQL = 'WHERE rid=?';
+    }
+    $self->{_ExperimentDataQuery} = <<"END_ExperimentDataQuery";
 SELECT
     experiment.eid, 
     microarray.ratio,
@@ -111,26 +142,10 @@ FROM microarray
 INNER JOIN experiment USING(eid)
 INNER JOIN StudyExperiment USING(eid)
 INNER JOIN study USING(stid)
-WHERE rid=?
+$whereSQL
 ORDER BY experiment.eid ASC
 END_ExperimentDataQuery
-
-        _ReporterList        => undef
-    };
-
-    # find out what the current project is set to
-    if (defined($self->{_UserSession})) {
-        $self->{_UserSession}->read_perm_cookie();
-        $self->{_WorkingProject} 
-            = $self->{_UserSession}->{perm_cookie_value}->{curr_proj};
-    }
-
-    #Reporter,Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}    
-    
-    bless $self, $class;
-    return $self;
 }
-#######################################################################################
 
 sub set_SearchItems
 {
@@ -450,6 +465,7 @@ sub loadExperimentData
     #while (my ($key, $splitPlatformID) = each %{$self->{_ProbeHash}})
     foreach my $key (keys %{$self->{_ProbeHash}})
     {
+        $self->build_ExperimentDataQuery();
         my $tempReportQuery = $self->{_ExperimentDataQuery};
         #$tempReportQuery                 =~ s/\{1\}/\Q$sql_trans\E/;
         #$tempReportQuery                 =~ s/\\//g;
@@ -861,30 +877,45 @@ sub getFullExperimentData
 {
     my $self = shift;
 
-    my @query_titles;
-    my @params;
-    foreach my $currentRecord (keys %{$self->{_ExperimentStudyListHash}})
+    my @eid_list;
+    my @stid_list;
+
+    foreach (keys %{$self->{_ExperimentStudyListHash}})
     {
-        push @params, split(/\|/,$currentRecord);
-    
-        push @query_titles, <<"END_query_titles_element";
+        my ($eid, $stid) = split /\|/;
+        push @eid_list, $eid;
+        push @stid_list, $stid;
+    }
+
+    my $eid_string = join(',', @eid_list);
+    my $stid_string = join(',', @stid_list);
+
+    my $whereSQL;
+    my $curr_proj = $self->{_WorkingProject};
+    if (defined($curr_proj) && $curr_proj ne '') {
+        $curr_proj = $self->{_dbh}->quote($curr_proj);
+        $whereSQL = <<"END_whereTitlesSQL";
+INNER JOIN ProjectStudy USING(stid)
+WHERE prid=$curr_proj AND eid IN ($eid_string) AND study.stid IN ($stid_string)
+END_whereTitlesSQL
+    } else {
+        $whereSQL = "WHERE eid IN ($eid_string) AND study.stid IN ($stid_string)";
+    }
+    my $query_titles = <<"END_query_titles_element";
 SELECT experiment.eid, 
     CONCAT(study.description, ': ', experiment.sample1, ' / ', experiment.sample2) AS title, 
     CONCAT(experiment.sample1, ' / ', experiment.sample2) AS experimentHeading,
     study.description,
     experiment.ExperimentDescription 
 FROM experiment 
-NATURAL JOIN StudyExperiment 
-NATURAL JOIN study 
-WHERE eid=? AND study.stid=?
+INNER JOIN StudyExperiment USING(eid)
+INNER JOIN study USING(stid)
+$whereSQL
 END_query_titles_element
-    }
-    
-    my $query_titles = join(' UNION ALL ', @query_titles);
-    
+
     $self->{_FullExperimentRec} = $self->{_dbh}->prepare($query_titles) 
         or croak $self->{_dbh}->errstr;
-    $self->{_FullExperimentCount} = $self->{_FullExperimentRec}->execute(@params)
+    $self->{_FullExperimentCount} = $self->{_FullExperimentRec}->execute()
         or croak $self->{_dbh}->errstr;    
     $self->{_FullExperimentData} = $self->{_FullExperimentRec}->fetchall_hashref('eid');
     
@@ -909,7 +940,6 @@ sub list_yui_deps
     );
     return;
 }
-#######################################################################################
 
 #===  FUNCTION  ================================================================
 #         NAME:  getform_findProbes
