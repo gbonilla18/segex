@@ -368,7 +368,8 @@ sub loadProbeReporterData
     
     if($DataCount < 1)
     {
-        print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+        print $self->{_cgi}->header(-type=>'text/html',
+            -cookie=>SGX::Cookie::cookie_array());
         print 'No records found! Please click back on your browser and search again!';
         exit;
     }
@@ -407,7 +408,8 @@ sub loadProbeData
     
     if(scalar(@{$self->{_Data}}) < 1)
     {
-        print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+        print $self->{_cgi}->header(-type=>'text/html',
+            -cookie=>SGX::Cookie::cookie_array());
         print 'No records found! Please click back on your browser and search again!';
         exit;
     }
@@ -721,7 +723,8 @@ sub printFindProbeCSV
     my $currentPID                = 0;
 
     #Clear our headers so all we get back is the CSV file.
-    print $self->{_cgi}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
+    print $self->{_cgi}->header(-type=>'text/csv',-attachment => 'results.csv',
+        -cookie=>SGX::Cookie::cookie_array());
 
     #Print a line to tell us what report this is.
     my $workingProjectText = 

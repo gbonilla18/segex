@@ -116,3 +116,10 @@ the "filter by list" section of Compare Experiments.
 25) On initializations/construction, modules should be passed named arguments instead
 of unnamed ones. For example: my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi =>
 $q, session => $s).
+
+26) When verifying email, after clicking on URL in the email message, a login page will
+appear. If the login is incorrect from the first try, the system will "forget" that it
+was supposed to verify email and proceeds to show the main SEGEX page. This is a bug.
+
+27) Old sessions are being "taken over" by different users on login. Figure out how to
+fix it. This is a bug.

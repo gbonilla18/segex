@@ -151,13 +151,16 @@ while (defined($action)) { switch ($action) {
         if ($s->is_authorized('user')) {
             my $project_set_to = $q->param('current_project');
             my $chooseProj = SGX::ChooseProject->new($dbh, $q, $project_set_to);
-            # store name in a session cookie
+
+            # store id in a permanent cookie (also gets copied to the session cookie
+            # automatically)
+            $s->perm_cookie_store(curr_proj => $project_set_to);
+
+            # store name in the session cookie only
             $s->session_cookie_store(
                 proj_name => $chooseProj->lookupProjectName()
             );
-            # store id in a permanent cookie (also gets copied
-            # to the session cookie automatically)
-            $s->add_perm_cookie(curr_proj => $project_set_to);
+
             $action = FORM.CHOOSEPROJECT;
         } else {
             $action = FORM.LOGIN;
@@ -319,7 +322,7 @@ function init() {
             my $table = $q->param('table');
             #show data as a tab-delimited text file
             $s->commit();
-            print $q->header(-type=>'text/plain', -cookie=>\@SGX::Cookie::cookies);
+            print $q->header(-type=>'text/plain', -cookie=>$s->cookie_array());
             dump_table($table);
             $action = QUIT;
         } else {
@@ -360,7 +363,7 @@ function init() {
         $s->commit();
         print $q->redirect(-uri        => $q->url(-base=>1).'./html/wiki/',
                    -status    => 302,     # 302 Found
-                   -cookie    => \@SGX::Cookie::cookies);
+                   -cookie    => $s->cookie_array());
         $action = QUIT;
     }
     case ABOUT {
@@ -410,12 +413,16 @@ function init() {
     case LOGIN            {
         $s->authenticate($q->param('username'), $q->param('password'), \$error_string);
         if ($s->is_authorized('unauth')) {
-            $s->read_perm_cookie();
+            #$s->read_perm_cookie(); # already read by authenticate()
             my $chooseProj = SGX::ChooseProject->new($dbh, $q, $s->{session_cookie}->{curr_proj});
+
+            # no need to store the working project name in permanent storage (only store
+            # the working project id there) -- store it only in the session cookie
+            # (which is read every time session is initialized).
+            
             $s->session_cookie_store(
                 proj_name => $chooseProj->lookupProjectName()
             );
-            #warn $s->{session_cookie}->{proj_name};
 
             my $destination = (defined($q->url_param('destination'))) 
                 ? uri_unescape($q->url_param('destination')) 
@@ -433,7 +440,7 @@ function init() {
                 # do not add nph=>1 parameter to redirect() because that will cause it to crash
                 print $q->redirect(-uri        => $q->url(-base=>1).$destination,
                            -status    => 302,     # 302 Found
-                           -cookie    => \@SGX::Cookie::cookies);
+                           -cookie    => $s->cookie_array());
                 # code will keep executing after redirect, so clean up and force the program to quit
                 $action = QUIT;
             } else {
@@ -513,11 +520,14 @@ function init() {
     }
     case CHANGEEMAIL       {
         if ($s->is_authorized('unauth')) {
-            if ($s->change_email($q->param('password'), 
-                         $q->param('email1'), $q->param('email2'),
-                         PROJECT_NAME,
-                         $q->url(-full=>1).'?a='.VERIFYEMAIL, 
-                         \$error_string)) {
+            if ($s->change_email(
+                    password => $q->param('password'), 
+                    email1 => $q->param('email1'),
+                    email2 => $q->param('email2'),
+                    project_name => PROJECT_NAME,
+                    login_uri => $q->url(-full=>1).'?a='.VERIFYEMAIL, 
+                    error => \$error_string)) 
+            {
                 $title = 'Change Email';
                 $content = \&changeEmail_success;
                 $action = undef;    # final state
@@ -542,15 +552,18 @@ function init() {
             $action = DEFAULT_ACTION;
         } else {
             if ($s->register_user(
-                          $q->param('username'),
-                          $q->param('password1'), $q->param('password2'),
-                          $q->param('email1'), $q->param('email2'),
-                          $q->param('full_name'),
-                          $q->param('address'),
-                          $q->param('phone'),
-                          PROJECT_NAME,
-                          $q->url(-full=>1).'?a='.VERIFYEMAIL,
-                          \$error_string)) {
+                username => $q->param('username'),
+                password1 => $q->param('password1'),
+                password2 => $q->param('password2'),
+                email1 => $q->param('email1'), 
+                email2 => $q->param('email2'),
+                full_name => $q->param('full_name'),
+                address => $q->param('address'),
+                phone => $q->param('phone'),
+                project_name => PROJECT_NAME,
+                login_uri => $q->url(-full=>1).'?a='.VERIFYEMAIL,
+                error => \$error_string)) 
+            {
                 $title = 'Registration';
                 $content = \&registration_success;
                 $action = undef;    # final state
@@ -670,7 +683,7 @@ push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.HELP,
 #   push @SGX::User::cookies, $cookie2;
 # ... and then send the \@SGX::User::cookies array reference to CGI::header() for example.
 
-print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+print $q->header(-type=>'text/html', -cookie=>$s->cookie_array());
 
 cgi_start_html();
 
@@ -682,13 +695,13 @@ print $q->ul({-id=>'menu'},$q->li(\@menu));
 #  Don't delete commented-out block below: it is meant to be used for 
 #  debugging user sessions.
 #---------------------------------------------------------------------------
-print $q->pre("
-cookies sent to user:
-".Dumper(\@SGX::Cookie::cookies)."
-object stored in the \"sessions\" table in the database:
-".Dumper($s->{session_stash})."
-session expires after:    ".$s->{ttl}." seconds of inactivity
-");
+#print $q->pre("
+#cookies sent to user:
+#".Dumper($s->cookie_array())."
+#object stored in the \"sessions\" table in the database:
+#".Dumper($s->{session_stash})."
+#session expires after:    ".$s->{ttl}." seconds of inactivity
+#");
 
 # Main part
 &$content();
@@ -723,6 +736,7 @@ sub cgi_start_html {
             -head=>[$q->Link({-type=>'image/x-icon',-href=>IMAGES_DIR.'/favicon.ico',-rel=>'icon'})]
         );
     print '<div id="content">';
+    return;
 }
 #######################################################################################
 sub cgi_end_html {
@@ -730,15 +744,18 @@ sub cgi_end_html {
     print footer();
     #print projectInfo();
     print $q->end_html;
+    return;
 }
 #######################################################################################
 sub main {
     print main_text();
+    return;
 }
 #######################################################################################
 sub about {
     print $q->h2('About');
     print about_text();
+    return;
 }
 #######################################################################################
 sub form_error {
@@ -780,6 +797,7 @@ sub form_login {
     )
     .
     $q->end_form;
+    return;
 }
 #######################################################################################
 sub form_resetPassword {
@@ -801,18 +819,21 @@ sub form_resetPassword {
         )
     ) .
     $q->end_form;
+    return;
 }
 #######################################################################################
 sub resetPassword_success {
     print $q->p($s->reset_password_text()) .
     $q->p($q->a({-href=>$q->url(-absolute=>1),
              -title=>'Back to login page'},'Back'));
+    return;
 }
 #######################################################################################
 sub registration_success {
     print $q->p($s->register_user_text()) .
     $q->p($q->a({-href=>$q->url(-absolute=>1),
              -title=>'Back to login page'},'Back'));
+    return;
 }
 #######################################################################################
 sub form_changePassword {
@@ -839,23 +860,27 @@ sub form_changePassword {
         )
     ) .
     $q->end_form;
+    return;
 }
 #######################################################################################
 sub changePassword_success {
     print $q->p('You have successfully changed your password.') .
     $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
              -title=>'Back to my profile'},'Back'));
+    return;
 }
 #######################################################################################
 sub verifyEmail_success {
     print $q->p('You email address has been verified.') .
     $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
              -title=>'Back to my profile'},'Back'));
+    return;
 }
 #######################################################################################
 sub form_changeEmail {
     # user has to be logged in
-    print $q->start_form(
+    print $q->h2('Change Email Address'),
+    $q->start_form(
         -method=>'POST',
         -action=>$q->url(-absolute=>1).'?a='.CHANGEEMAIL,
         -onsubmit=>'return validate_fields(this, [\'password\',\'email1\',\'email2\']);'
@@ -863,9 +888,9 @@ sub form_changeEmail {
     $q->dl(
         $q->dt('Password:'),
         $q->dd($q->password_field(-name=>'password',-id=>'password',-maxlength=>40)),
-        $q->dt('Email:'),
+        $q->dt('New Email Address:'),
         $q->dd($q->textfield(-name=>'email1',-id=>'email1')),
-        $q->dt('Confirm Email:'),
+        $q->dt('Confirm New Address:'),
         $q->dd($q->textfield(-name=>'email2',-id=>'email2')),
         $q->dt('&nbsp;'),
         $q->dd(
@@ -877,12 +902,14 @@ sub form_changeEmail {
         )
     ) .
     $q->end_form;
+    return;
 }
 #######################################################################################
 sub changeEmail_success {
     print $q->p($s->change_email_text()) .
     $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
          -title=>'Back to my profile'},'Back'));
+    return;
 }
 #######################################################################################
 sub form_updateProfile {
@@ -899,6 +926,7 @@ sub form_updateProfile {
             -title=>'Change Password'},'Change Password')),
         $q->p($q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.CHANGEEMAIL,
             -title=>'Change Email'},'Change Email'));
+    return;
 }
 #######################################################################################
 sub form_registerUser {
@@ -935,6 +963,7 @@ sub form_registerUser {
         )
     ) .
     $q->end_form;
+    return;
 }
 #######################################################################################
 sub footer {
@@ -1081,6 +1110,7 @@ sub updateCell {
 sub form_findProbes
 {
     print getform_findProbes($q, FINDPROBES);
+    return;
 }
 #######################################################################################
 
@@ -1090,6 +1120,7 @@ sub findProbes {
         '<div><a id="probetable_astext">View as plain text</a></div>',
         '<div id="probetable"></div>';
     print '<ul id="graphs"></ul>' if defined($q->param('graph'));
+    return;
 }
 #######################################################################################
 sub schema {
@@ -1110,6 +1141,7 @@ sub schema {
 </map>
 ',
     $q->img({src=>IMAGES_DIR.'/schema.png', width=>720, height=>720, usemap=>'#schema_Map', id=>'schema'});
+    return;
 }
 #######################################################################################
 sub form_compareExperiments_js {
@@ -1124,7 +1156,7 @@ sub form_compareExperiments_js {
     # get a list of platforms and cutoff values
     my $query_text;
     my @query_params;
-    if (!defined($curr_proj) or $curr_proj eq '') {
+    if (!defined($curr_proj) || $curr_proj eq '') {
         # current project not set or set to 'All Projets'
         $query_text = qq{SELECT pid, pname, def_p_cutoff, def_f_cutoff FROM platform};
     } else {
@@ -1165,7 +1197,7 @@ END_PLATFORM_QUERY
     $out .= 'var platform = ' . encode_json(\%json_platform) . ";\n";
 
     # get a list of studies
-    if (!defined($curr_proj) or $curr_proj eq '') {
+    if (!defined($curr_proj) || $curr_proj eq '') {
         # current project not set or set to 'All Projects'
         $sth = $dbh->prepare(qq{select stid, description, pid from study})
             or croak $dbh->errstr;
@@ -1195,7 +1227,7 @@ END_PLATFORM_QUERY
     $sth->finish;
 
     # get a list of all experiments
-    if (!defined($curr_proj) or $curr_proj eq '') {
+    if (!defined($curr_proj) || $curr_proj eq '') {
         $sth = $dbh->prepare(<<"END_EXP_QUERY")
 select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc 
 from study 
@@ -1352,11 +1384,12 @@ sub form_compareExperiments {
         )
     ),
     $q->endform;
+    return;
 }
 
 #######################################################################################
 sub compare_experiments_js {
-    #print $q->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+    #print $q->header(-type=>'text/html', -cookie=>$s->cookie_array());
     #This flag tells us whether or not to ignore the thresholds.
     my $allProbes         = '';
     $allProbes             = ($q->param('chkAllProbes')) if defined($q->param('chkAllProbes'));
@@ -1724,6 +1757,7 @@ sub compare_experiments {
         ),
         '<div id="tfs_table" class="table_cont"></div>',
         $q->endform;
+    return;
 }
 #######################################################################################
 sub dump_table {
@@ -1744,6 +1778,7 @@ sub dump_table {
         print join("\t", @$row), "\n";
     }
     $sth->finish;
+    return;
 }
 #######################################################################################
 
@@ -1767,6 +1802,7 @@ sub show_tfs_js {
         $TFSDisplay->loadTFSData();
         $TFSDisplay->displayTFSInfo();
     }
+    return;
 }
 #######################################################################################
 
@@ -1779,6 +1815,7 @@ sub show_tfs {
     print    '<h2 id="tfs_caption"></h2>';
     print    '<div><a id="tfs_astext">View as plain text</a></div>';
     print    '<div id="tfs_table" class="table_cont"></div>';
+    return;
 }
 #######################################################################################
 sub get_annot_fields {
@@ -1813,7 +1850,7 @@ sub get_annot_fields {
     $gene_fields->{"Gene Name"}         = "description";
     $gene_fields->{"Source"}             = "source";
     $gene_fields->{"Gene Note"}         = "gene_note";
-
+    return;
 }
 #######################################################################################
 sub form_uploadAnnot {
@@ -1883,6 +1920,7 @@ sub form_uploadAnnot {
             $q->hidden(-id=>'fields', -name=>'fields'))
     );
     print $q->end_form;
+    return;
 }
 
 
@@ -2174,6 +2212,7 @@ sub managePlatforms
 {
     my $managePlatform = SGX::ManageMicroarrayPlatforms->new($dbh,$q);
     $managePlatform->dispatch($q->url_param('ManageAction'));
+    return;
 }
 
 #===  FUNCTION  ================================================================
@@ -2190,6 +2229,7 @@ sub manageProjects
 {
     my $mp = SGX::ManageProjects->new($dbh,$q, JS_DIR);
     $mp->dispatch($q->url_param('ManageAction'));
+    return;
 }
 
 #===  FUNCTION  ================================================================
@@ -2206,6 +2246,7 @@ sub manageStudies
 {
     my $ms = SGX::ManageStudies->new($dbh,$q, JS_DIR);
     $ms->dispatch($q->url_param('ManageAction'));
+    return;
 }
 
 #===  FUNCTION  ================================================================
@@ -2222,6 +2263,7 @@ sub manageExperiments
 {
     my $me = SGX::ManageExperiments->new($dbh,$q, JS_DIR);
     $me->dispatch($q->url_param('ManageAction'));
+    return;
 }
 
 
@@ -2239,6 +2281,7 @@ sub outputData
 {
     my $od = SGX::OutputData->new($dbh,$q, JS_DIR);
     $od->dispatch($q->url_param('outputAction'));
+    return;
 }
 
 #===  FUNCTION  ================================================================
@@ -2258,5 +2301,6 @@ sub chooseProject
 
     my $cp = SGX::ChooseProject->new($dbh, $q, $curr_proj);
     $cp->dispatch($q->url_param('projectAction'));
+    return;
 }
 

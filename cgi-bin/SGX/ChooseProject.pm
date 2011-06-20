@@ -125,7 +125,8 @@ sub lookupProjectName
         or croak $self->{_dbh}->errstr;
     my $rc = $sth->execute($self->{_curr_proj})
         or croak $self->{_dbh}->errstr;
-    assert($rc == 1);
+    #assert($rc == 1);
+    return undef if $rc != 1;
     my $full_name = $sth->fetchrow_array;
     #warn Dumper(\@full_name);
     $sth->finish;

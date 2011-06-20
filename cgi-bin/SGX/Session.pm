@@ -94,13 +94,13 @@ sub new {
     # property.
 
     my $self = {
-        dbh          => $p{-handle},
-        ttl          => $p{-expire_in},
-        check_ip     => $p{-check_ip},
-        session_id   => $p{-id},
-        session_obj  => {},
+        dbh           => $p{-handle},
+        ttl           => $p{-expire_in},
+        check_ip      => $p{-check_ip},
+        session_id    => $p{-id},
+        session_obj   => {},
         session_stash => {},
-        active       => 0
+        active        => 0
     };
     bless $self, $class;
     return $self;
@@ -156,9 +156,10 @@ sub safe_tie {
 sub session_store {
     my ( $self, %p ) = @_;
     while ( my ( $key, $value ) = each(%p) ) {
-        $self->{session_obj}->{$key}  = $value;
+        $self->{session_obj}->{$key}   = $value;
         $self->{session_stash}->{$key} = $value;
     }
+    return;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -175,9 +176,13 @@ sub session_store {
 sub expire_session {
     my $self      = shift;
     my $curr_time = now();
+
+#if ($curr_time < $self->{session_stash}->{tla} + $self->{session_stash}->{ttl})
     if (
         $curr_time < $self->{session_obj}->{tla} + $self->{session_obj}->{ttl} )
     {
+
+       #$self->session_store(ttl => $curr_time - $self->{session_stash}->{tla});
         $self->{session_obj}->{ttl} = $curr_time - $self->{session_obj}->{tla};
         return 1;
     }
@@ -208,7 +213,7 @@ sub session_is_mint {
 
     my $solid =
       ( now() < $tla + $ttl
-          and ( !$self->{check_ip} or $ENV{REMOTE_ADDR} eq $ip ) );
+          && ( !$self->{check_ip} || $ENV{REMOTE_ADDR} eq $ip ) );
 
     return $solid;
 }
@@ -234,8 +239,8 @@ sub try_commence {
     assert( $self->{active} );
     if ( defined($id) ) {
 
-    # old session has been restored. At this point, %{session_stash} does not yet
-    # reflect %{session_obj}
+   # old session has been restored. At this point, %{session_stash} does not yet
+   # reflect %{session_obj}
         if ( $self->session_is_mint() ) {
 
             # update TLA (time last accessed)
@@ -351,7 +356,8 @@ sub commence {
 #        CLASS:  SGX::Session
 #       METHOD:  commit
 #   PARAMETERS:  ????
-#      RETURNS:  ????
+#      RETURNS:  1 on success (session data stored in remote database) or 0 on
+#                failure
 #  DESCRIPTION:  commits the active session object to object store
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -435,8 +441,8 @@ sub delete_object {
 #        CLASS:  SGX::Session
 #       METHOD:  fresh
 #   PARAMETERS:  ????
-#      RETURNS:  Returns 1 if a new session was commenced *within this subroutine*, 0
-#                otherwise
+#      RETURNS:  Returns 1 if a new session was commenced *within this subroutine*,
+#                0 otherwise
 #  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none

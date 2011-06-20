@@ -36,7 +36,7 @@ my $curr_proj = $s->{session_cookie}->{curr_proj};
 
 if (!$s->is_authorized('user')) {
 	#$s->commit;
-	#print $q->header(-type=>'text/plain', -cookie=>\@SGX::Cookie::cookies);
+	#print $q->header(-type=>'text/plain', -cookie=>$s->cookie_array());
 	#print "not logged in";
 	#exit(0);
 }
@@ -269,7 +269,7 @@ my $ytitley = $yl + $body_height / 2;
 #	my $xtitlex = $xl + $body_width / 2;
 #	my $xtitley = $total_height - $yl / 3;
 
-print $q->header(-type=>'image/svg+xml', -cookie=>\@SGX::Cookie::cookies);
+print $q->header(-type=>'image/svg+xml', -cookie=>$s->cookie_array());
 
 print qq{<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
 	"http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">

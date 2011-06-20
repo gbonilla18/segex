@@ -448,7 +448,8 @@ sub displayTFSInfoCSV
 	my $currentLine = "";
 		
 	#Clear our headers so all we get back is the CSV file.
-	print $self->{_cgi}->header(-type=>'text/csv',-attachment => 'results.csv', -cookie=>\@SGX::Cookie::cookies);
+	print $self->{_cgi}->header(-type=>'text/csv', -attachment => 'results.csv',
+        -cookie=>SGX::Cookie::cookie_array());
 	#print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
 
 	#Print a line to tell us what report this is.

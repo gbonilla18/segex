@@ -98,6 +98,10 @@ use base qw/SGX::Session/;
 use CGI::Cookie;
 use File::Basename;
 
+# some (constant) globals
+my $SESSION_NAME     = 'session';
+my $SESSION_ID_FIELD = 'sid';
+
 #use SGX::Debug;
 #use Data::Dumper;    # for debugging
 
@@ -130,99 +134,127 @@ sub new {
 
     my %cookies = fetch CGI::Cookie;
 
-    my $session_name = 'session';
-
     # in scalar context, the result of CGI::Cookie::value is a scalar
-    my %session_cookie = eval { $cookies{ $session_name }->value };
+    my %session_cookie = eval { $cookies{$SESSION_NAME}->value };
 
     my $self = {
         dbh             => $p{-handle},
         ttl             => $p{-expire_in},
         check_ip        => $p{-check_ip},
         fetched_cookies => \%cookies,
-        session_name    => $session_name, # name of the session cookie
-        session_obj     => {}, # actual session object
-        session_stash   => {}, # shallow copy of session object
+        session_obj     => {},                 # actual session object
+        session_stash   => {},                 # shallow copy of session object
         session_cookie  => \%session_cookie,
-        session_id      => $session_cookie{sid},
-        active          => 0
+        session_id => $session_cookie{$SESSION_ID_FIELD},
+        active     => 0
     };
 
     bless $self, $class;
     return $self;
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session
 #       METHOD:  session_cookie_store
-#   PARAMETERS:  ????
+#   PARAMETERS:  Variable-length list of arbitrary key-value pairs to be
+#                stored in the session cookie
 #      RETURNS:  ????
 #  DESCRIPTION:  Stores key-value combinations to session cookie
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  Setting fields in $self->{session_cookie} directly won't
+#                trigger the $self->{session_cookie_modified} state change so it
+#                important that only the interface implemented by this method
+#                is used for setting session cookie data.
 #     SEE ALSO:  n/a
 #===============================================================================
 sub session_cookie_store {
     my ( $self, %p ) = @_;
     while ( my ( $key, $value ) = each(%p) ) {
-        $self->{session_cookie}->{$key}  = $value;
+        $self->{session_cookie}->{$key} = $value;
     }
+    $self->{session_cookie_modified} = 1;
+    return 1;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Cookie
+#       METHOD:  cookie_array
+#   PARAMETERS:  n/a
+#      RETURNS:  reference to the @cookies array
+#  DESCRIPTION:  This is a getter method for the @cookies array.
+#                Because the @cookies array is shared among all instances, one
+#                can also call this funciton as SGX::Cookies::cookie_array()
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub cookie_array {
+    return \@cookies;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Cookie
+#       METHOD:  add_cookie
+#   PARAMETERS:  key-value pairs to initialize CGI::Cookie (at the moment)
+#      RETURNS:  n/a
+#  DESCRIPTION:  Pushes a cookie to the shared @cookies array
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub add_cookie {
+    my ( $self, %p ) = @_;
+
+    # set default values
+    $p{-path} = dirname( $ENV{SCRIPT_NAME} ) if not defined( $p{-path} );
+    $p{-httponly} = 1 if not defined( $p{-httponly} );
+
+    # prepare the cookie
+    push @cookies, CGI::Cookie->new(%p);
+    return;
+}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Cookie
 #       METHOD:  commit
 #   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  calls the parent method and bakes a cookie on success
+#      RETURNS:  1 on success (session data stored in remote database) or 0 on
+#                failure
+#  DESCRIPTION:  Overrides parent method: calls parent method first, then bakes
+#                a session cookie on success if needed
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  Note that, when subclassing, that overridden methods return
+#                the same values on same conditions
 #     SEE ALSO:  n/a
 #===============================================================================
 sub commit {
 
     my $self = shift;
 
-    $self->{session_cookie}->{sid} = $self->{session_stash}->{_session_id};
+    # one-way sync with session data: if cookie is missing or doesn't match
+    # what's stored in the session, update cookie with session data.
+    if (
+        defined( $self->{session_stash}->{_session_id} )
+        && ( !defined( $self->{session_cookie}->{$SESSION_ID_FIELD} )
+            || $self->{session_cookie}->{$SESSION_ID_FIELD} ne
+            $self->{session_stash}->{_session_id} )
+      )
+    {
+        $self->session_cookie_store(
+            $SESSION_ID_FIELD => $self->{session_stash}->{_session_id} );
+    }
 
     if ( $self->SUPER::commit() ) {
-        push @cookies,
-          CGI::Cookie->new(
-            -name     => $self->{session_name},
-            -value    => $self->{session_cookie},
-            -path     => dirname( $ENV{SCRIPT_NAME} ),
-            -httponly => 1
-          );
+        return 1 if not $self->{session_cookie_modified};
+        $self->add_cookie(
+            -name  => $SESSION_NAME,
+            -value => $self->{session_cookie}
+        );
 
         #   -domain    => $ENV{SERVER_NAME},
-        #warn Dumper(\@cookies);
+        return 1;
     }
-    return;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Cookie
-#       METHOD:  add_perm_cookie
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub add_perm_cookie {
-    my ( $self, $cookie_name, %p ) = @_;
-    # also copy everything stored permanently to session cookie
-    $self->session_cookie_store(%p);
-    # add permanent cookie
-    push @cookies,
-      CGI::Cookie->new(
-        -name     => $cookie_name,
-        -value    => \%p,
-        -path     => dirname( $ENV{SCRIPT_NAME} ),
-        -httponly => 1,
-        -expires  => '+3M'
-      );
+    return 0;
 }
 
 1;    # for require
