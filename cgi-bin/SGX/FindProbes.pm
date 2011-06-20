@@ -1338,7 +1338,7 @@ sub findProbes_js
 
                 case 3 
                 {
-                    $columnList = ',"4","5","6","7","8","9"';
+                    $columnList = ',"5","6","7","8","9"';
                     $tableOut = ",\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
                     $tableOut .= ",\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
                 }
@@ -1420,7 +1420,7 @@ sub findProbes_js
         var myDataSource = new YAHOO.util.DataSource(probelist.records);
         myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
         myDataSource.responseSchema = {
-            fields: ["0","1","2","3"'. $columnList . ']
+            fields: ["0","1","2","3","4"'. $columnList . ']
         };
         var myData_config = {
             paginator: new YAHOO.widget.Paginator({
