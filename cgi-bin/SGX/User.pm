@@ -185,7 +185,7 @@ sub authenticate {
 
     $password = sha1_hex($password);
     my $sth =
-      $self->{dbh}->prepare('select level from users where uname=? and pwd=?')
+      $self->{dbh}->prepare('select level, full_name from users where uname=? and pwd=?')
       or croak $self->{dbh}->errstr;
     my $rowcount = $sth->execute( $username, $password )
       or croak $self->{dbh}->errstr;
@@ -193,7 +193,7 @@ sub authenticate {
     if ( $rowcount == 1 ) {
 
         # user found in the database
-        my $level = $sth->fetchrow_array;
+        my ($level, $full_name) = $sth->fetchrow_array;
         $sth->finish;
 
         # get a new session handle
@@ -202,6 +202,10 @@ sub authenticate {
         $self->session_store(
             username   => $username,
             user_level => $level
+        );
+
+        $self->session_cookie_store(
+            full_name => $full_name
         );
 
         # flush the session and prepare the cookie
@@ -365,7 +369,7 @@ sub change_password {
     }
     $new_password1 = sha1_hex($new_password1);
     $old_password  = sha1_hex($old_password);
-    my $username = $self->{session_view}->{username};
+    my $username = $self->{session_stash}->{username};
     assert($username);
 
     my $rows_affected =
@@ -419,7 +423,7 @@ sub change_email {
         return 0;
     }
     $password = sha1_hex($password);
-    my $username = $self->{session_view}->{username};
+    my $username = $self->{session_stash}->{username};
     assert($username);
 
     my $rows_affected = $self->{dbh}->do(
@@ -591,7 +595,7 @@ sub send_verify_email {
         $msg->add( 'From', ('NOREPLY') );
         my $fh = $msg->open()
           or croak 'Failed to open default mailer';
-        my $session_id = $s->{session_view}->{_session_id};
+        my $session_id = $s->{session_stash}->{_session_id};
         print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $full_name,
 
@@ -621,7 +625,7 @@ END_CONFIRM_EMAIL_MSG
 #===============================================================================
 sub verify_email {
     my ( $self, $username ) = @_;
-    if ( $self->{session_view}->{username} ne $username ) {
+    if ( $self->{session_stash}->{username} ne $username ) {
         return 0;
     }
     my $rows_affected =
@@ -645,7 +649,7 @@ sub verify_email {
 #===============================================================================
 sub add_perm_cookie {
     my ( $self, %p ) = @_;
-    my $username = $self->{session_view}->{username};
+    my $username = $self->{session_stash}->{username};
     if ( defined($username) ) {
         my $cookie_name = sha1_hex($username);
         $self->SUPER::add_perm_cookie( $cookie_name, %p );
@@ -661,26 +665,30 @@ sub add_perm_cookie {
 #       METHOD:  read_perm_cookie
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Sets perm_cookie_value to value of cookie just read
+#  DESCRIPTION:  Looks up permanent cookie name from current user name (cookie
+#                name is an SHA1 digest of user name) and copies its values to
+#                the transient session cookie.
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  Should only be called after username has been established
 #     SEE ALSO:  n/a
 #===============================================================================
 sub read_perm_cookie {
     my $self        = shift;
-    my $cookie_name = sha1_hex( $self->{session_view}->{username} );
+    my $cookie_name = sha1_hex( $self->{session_stash}->{username} );
     my $cookies_ref = $self->{fetched_cookies};
 
     # in hash context, CGI::Cookie::value returns a hash
     my %val = eval { $cookies_ref->{$cookie_name}->value };
-    $self->{perm_cookie_value} = \%val;
-    if (%val) {
 
+    #$self->{perm_cookie_value} = \%val;
+    if (%val) {
+        while ( my ( $key, $value ) = each(%val) ) {
+            $self->{session_cookie}->{$key} = $value;
+        }
         # hash has members (is not empty)
         return 1;
     }
     else {
-
         # hash is empty
         return 0;
     }
@@ -701,10 +709,10 @@ sub read_perm_cookie {
 sub is_authorized {
 
     my ( $self, $req_user_level ) = @_;
-    if ( !defined( $self->{session_view} ) ) {
+    if ( !defined( $self->{session_stash} ) ) {
         return 0;
     }
-    my $current_level = $self->{session_view}->{user_level};
+    my $current_level = $self->{session_stash}->{user_level};
     if ( !defined($current_level) ) {
         return 0;
     }

@@ -31,6 +31,8 @@ use warnings;
 use Data::Dumper;
 use SGX::DropDownData;
 use Switch;
+use SGX::Debug qw/assert/;
+#use DBI;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ChooseProject
@@ -49,6 +51,7 @@ sub new {
         _cgi                  => $cgi,
         _curr_proj            => $curr_proj,
         _ProjectDropdownQuery => 'SELECT prid, prname FROM project ORDER BY prname ASC',
+        _LookupProjectQuery   => 'SELECT prname FROM project WHERE prid = ?',
         _projectList          => {}
     };
 
@@ -102,6 +105,32 @@ sub loadProjectData {
     return;
 }
 
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ChooseProject
+#       METHOD:  lookupProjectName
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub lookupProjectName
+{
+    my $self = shift;
+    return undef if not defined($self->{_curr_proj});
+    #DBI->trace( 1 );
+    my $sth = $self->{_dbh}->prepare($self->{_LookupProjectQuery})
+        or croak $self->{_dbh}->errstr;
+    my $rc = $sth->execute($self->{_curr_proj})
+        or croak $self->{_dbh}->errstr;
+    assert($rc == 1);
+    my $full_name = $sth->fetchrow_array;
+    #warn Dumper(\@full_name);
+    $sth->finish;
+    return $full_name;
+}
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ChooseProject
 #       METHOD:  drawProjectInfoHeader

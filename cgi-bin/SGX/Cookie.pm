@@ -130,25 +130,44 @@ sub new {
 
     my %cookies = fetch CGI::Cookie;
 
+    my $session_name = 'session';
+
+    # in scalar context, the result of CGI::Cookie::value is a scalar
+    my %session_cookie = eval { $cookies{ $session_name }->value };
+
     my $self = {
         dbh             => $p{-handle},
         ttl             => $p{-expire_in},
         check_ip        => $p{-check_ip},
         fetched_cookies => \%cookies,
-        session_name    => 'session',
-        session_obj     => {},
-        session_view    => {},
-        session_id      => undef,
+        session_name    => $session_name, # name of the session cookie
+        session_obj     => {}, # actual session object
+        session_stash   => {}, # shallow copy of session object
+        session_cookie  => \%session_cookie,
+        session_id      => $session_cookie{sid},
         active          => 0
     };
-
-    # in scalar context, the result of CGI::Cookie::value is a scalar
-    my $session_id = eval { $cookies{ $self->{session_name} }->value };
-    $self->{session_id} = $session_id;
 
     bless $self, $class;
     return $self;
 }
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session
+#       METHOD:  session_cookie_store
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Stores key-value combinations to session cookie
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub session_cookie_store {
+    my ( $self, %p ) = @_;
+    while ( my ( $key, $value ) = each(%p) ) {
+        $self->{session_cookie}->{$key}  = $value;
+    }
+}
+
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Cookie
@@ -163,11 +182,14 @@ sub new {
 sub commit {
 
     my $self = shift;
+
+    $self->{session_cookie}->{sid} = $self->{session_stash}->{_session_id};
+
     if ( $self->SUPER::commit() ) {
         push @cookies,
           CGI::Cookie->new(
             -name     => $self->{session_name},
-            -value    => $self->{session_view}->{_session_id},
+            -value    => $self->{session_cookie},
             -path     => dirname( $ENV{SCRIPT_NAME} ),
             -httponly => 1
           );
@@ -190,6 +212,9 @@ sub commit {
 #===============================================================================
 sub add_perm_cookie {
     my ( $self, $cookie_name, %p ) = @_;
+    # also copy everything stored permanently to session cookie
+    $self->session_cookie_store(%p);
+    # add permanent cookie
     push @cookies,
       CGI::Cookie->new(
         -name     => $cookie_name,

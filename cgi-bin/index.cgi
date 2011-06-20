@@ -150,12 +150,13 @@ while (defined($action)) { switch ($action) {
     case CHOOSEPROJECT {
         if ($s->is_authorized('user')) {
             my $project_set_to = $q->param('current_project');
-
-            # store project information in the session: note that
-            # this must be done before cookie is committed, which
-            # must be done before anything is written
-            #$s->{session_obj}->{curr_proj} = $project_set_to;
-
+            my $chooseProj = SGX::ChooseProject->new($dbh, $q, $project_set_to);
+            # store name in a session cookie
+            $s->session_cookie_store(
+                proj_name => $chooseProj->lookupProjectName()
+            );
+            # store id in a permanent cookie (also gets copied
+            # to the session cookie automatically)
             $s->add_perm_cookie(curr_proj => $project_set_to);
             $action = FORM.CHOOSEPROJECT;
         } else {
@@ -409,12 +410,21 @@ function init() {
     case LOGIN            {
         $s->authenticate($q->param('username'), $q->param('password'), \$error_string);
         if ($s->is_authorized('unauth')) {
+            $s->read_perm_cookie();
+            my $chooseProj = SGX::ChooseProject->new($dbh, $q, $s->{session_cookie}->{curr_proj});
+            $s->session_cookie_store(
+                proj_name => $chooseProj->lookupProjectName()
+            );
+            #warn $s->{session_cookie}->{proj_name};
+
             my $destination = (defined($q->url_param('destination'))) 
                 ? uri_unescape($q->url_param('destination')) 
                 : undef;
-            if (defined($destination) && $destination ne $q->url(-absolute=>1) &&
-                $destination !~ m/(?:&|\?|&amp;)a=$action(?:\z|&|#)/ && $destination !~
-                m/(?:&|\?|&amp;)a=form_$action(?:\z|&|#)/) {
+            if (defined($destination) && 
+                $destination ne $q->url(-absolute=>1) && 
+                $destination !~ m/(?:&|\?|&amp;)a=$action(?:\z|&|#)/ && 
+                $destination !~ m/(?:&|\?|&amp;)a=form_$action(?:\z|&|#)/) 
+            {
                 # will send a redirect header, so commit the session to data store now
                 $s->commit();
 
@@ -570,7 +580,7 @@ function init() {
                 -check_ip  => 0
             );
             if ($t->restore()) {
-                if ($s->verify_email($t->{session_view}->{username})) {
+                if ($s->verify_email($t->{session_stash}->{username})) {
                     $title = 'Email Verification';
                     $content = \&verifyEmail_success;
                     $action = undef;    # final state
@@ -613,7 +623,7 @@ if ($s->is_authorized('unauth')) {
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
                 -title=>'My user profile.'},'My Profile');
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.LOGOUT,
-                -title=>'You are signed in as '.$s->{session_view}->{username}.'. Click on this link to log out.'},'Log out');
+                -title=>'You are signed in as '.$s->{session_stash}->{username}.'. Click on this link to log out.'},'Log out');
 } else {
     # add top options for anonymous users
     push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.LOGIN,
@@ -672,13 +682,13 @@ print $q->ul({-id=>'menu'},$q->li(\@menu));
 #  Don't delete commented-out block below: it is meant to be used for 
 #  debugging user sessions.
 #---------------------------------------------------------------------------
-#print $q->pre("
-#cookies sent to user:
-#".Dumper(\@SGX::Cookie::cookies)."
-#object stored in the \"sessions\" table in the database:
-#".Dumper($s->{session_view})."
-#session expires after:    ".$s->{ttl}." seconds of inactivity
-#");
+print $q->pre("
+cookies sent to user:
+".Dumper(\@SGX::Cookie::cookies)."
+object stored in the \"sessions\" table in the database:
+".Dumper($s->{session_stash})."
+session expires after:    ".$s->{ttl}." seconds of inactivity
+");
 
 # Main part
 &$content();
@@ -1108,8 +1118,8 @@ sub form_compareExperiments_js {
     my $out = '';
 
     # find out what the current project is set to
-    $s->read_perm_cookie();
-    my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
+    #$s->read_perm_cookie();
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
 
     # get a list of platforms and cutoff values
     my $query_text;
@@ -1360,8 +1370,8 @@ sub compare_experiments_js {
     my $probeListQuery    = '';
     my $probeList        = '';
     
-    $s->read_perm_cookie();
-    my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
+    #$s->read_perm_cookie();
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
 
     if($filterType eq "file")
     {
@@ -2243,8 +2253,9 @@ sub outputData
 #===============================================================================
 sub chooseProject
 {
-    $s->read_perm_cookie();
-    my $curr_proj = $s->{perm_cookie_value}->{curr_proj};
+    #$s->read_perm_cookie();
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
+
     my $cp = SGX::ChooseProject->new($dbh, $q, $curr_proj);
     $cp->dispatch($q->url_param('projectAction'));
 }

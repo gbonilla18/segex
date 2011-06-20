@@ -99,7 +99,7 @@ sub new {
         check_ip     => $p{-check_ip},
         session_id   => $p{-id},
         session_obj  => {},
-        session_view => {},
+        session_stash => {},
         active       => 0
     };
     bless $self, $class;
@@ -157,7 +157,7 @@ sub session_store {
     my ( $self, %p ) = @_;
     while ( my ( $key, $value ) = each(%p) ) {
         $self->{session_obj}->{$key}  = $value;
-        $self->{session_view}->{$key} = $value;
+        $self->{session_stash}->{$key} = $value;
     }
 }
 
@@ -234,7 +234,7 @@ sub try_commence {
     assert( $self->{active} );
     if ( defined($id) ) {
 
-    # old session has been restored. At this point, %{session_view} does not yet
+    # old session has been restored. At this point, %{session_stash} does not yet
     # reflect %{session_obj}
         if ( $self->session_is_mint() ) {
 
@@ -243,7 +243,7 @@ sub try_commence {
 
             # sync all session data
             while ( my ( $key, $value ) = each( %{ $self->{session_obj} } ) ) {
-                $self->{session_view}->{$key} = $value;
+                $self->{session_stash}->{$key} = $value;
             }
         }
         else {
@@ -264,13 +264,13 @@ sub try_commence {
 
         # sync all session data
         while ( my ( $key, $value ) = each( %{ $self->{session_obj} } ) ) {
-            $self->{session_view}->{$key} = $value;
+            $self->{session_stash}->{$key} = $value;
         }
     }
 
     # checks that _session_id has been obtained and synced correctly
     #if ($self->{active}) {
-    #    assert($id eq $self->{session_view}->{_session_id});
+    #    assert($id eq $self->{session_stash}->{_session_id});
     #}
     return 1;
 }
@@ -387,10 +387,10 @@ sub destroy {
         $self->delete_object();
 
         # clear copied session data
-        undef %{ $self->{session_view} };
+        undef %{ $self->{session_stash} };
 
-        #while ( my ( $key, $value ) = each( %{ $self->{session_view} } ) ) {
-        #    $self->{session_view}->{$key} = undef;
+        #while ( my ( $key, $value ) = each( %{ $self->{session_stash} } ) ) {
+        #    $self->{session_stash}->{$key} = undef;
         #}
     }
 
