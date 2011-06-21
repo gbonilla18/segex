@@ -37,7 +37,7 @@ You can set another cookie by opening another session like this:
         -check_ip    => 0
     );
     
-    if (!$t->restore) $t->commence;
+    if (!$t->restore) $t->start;
     $t->commit;
 
 You can create several instances of this class at the same time. The 
@@ -99,8 +99,8 @@ use CGI::Cookie;
 use File::Basename;
 
 # some (constant) globals
-my $SESSION_NAME     = 'session';
-my $SESSION_ID_FIELD = 'sid';
+my $SESSION_NAME = 'session';
+my $SID_FIELD    = 'sid';
 
 #use SGX::Debug;
 #use Data::Dumper;    # for debugging
@@ -112,46 +112,6 @@ my $SESSION_ID_FIELD = 'sid';
 #   my $array_reference = \@PackageName::array;
 #
 our @cookies;
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Cookie
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor. Redefining the constructor from
-#                SGX::Session -- try to obtain an id from a cookie first.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-
-    my ( $class, %p ) = @_;
-
-    # :TODO:06/05/2011 22:48:28:es: figure out a more reliable way to
-    # tell whether a session is active than relying on the `active'
-    # property.
-
-    my %cookies = fetch CGI::Cookie;
-
-    # in scalar context, the result of CGI::Cookie::value is a scalar
-    my %session_cookie = eval { $cookies{$SESSION_NAME}->value };
-
-    my $self = {
-        dbh             => $p{-handle},
-        ttl             => $p{-expire_in},
-        check_ip        => $p{-check_ip},
-        fetched_cookies => \%cookies,
-        session_obj     => {},                 # actual session object
-        session_stash   => {},                 # shallow copy of session object
-        session_cookie  => \%session_cookie,
-        session_id => $session_cookie{$SESSION_ID_FIELD},
-        active     => 0
-    };
-
-    bless $self, $class;
-    return $self;
-}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session
@@ -168,12 +128,39 @@ sub new {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub session_cookie_store {
-    my ( $self, %p ) = @_;
-    while ( my ( $key, $value ) = each(%p) ) {
+    my ( $self, %param ) = @_;
+    while ( my ( $key, $value ) = each(%param) ) {
         $self->{session_cookie}->{$key} = $value;
     }
     $self->{session_cookie_modified} = 1;
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Cookie
+#       METHOD:  restore
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub restore {
+    my $self = shift;
+
+    my %cookies = fetch CGI::Cookie;
+    $self->{fetched_cookies} = \%cookies;
+
+    # in scalar context, the result of CGI::Cookie::value is a scalar
+    my %session_cookie = eval { $cookies{$SESSION_NAME}->value };
+
+    my $id = $session_cookie{$SID_FIELD};
+    if ( defined($id) && $self->recover($id) ) {
+        $self->{session_cookie} = \%session_cookie;
+        return 1;
+    }
+    return;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -203,14 +190,19 @@ sub cookie_array {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub add_cookie {
-    my ( $self, %p ) = @_;
+    my $self = shift;
 
-    # set default values
-    $p{-path} = dirname( $ENV{SCRIPT_NAME} ) if not defined( $p{-path} );
-    $p{-httponly} = 1 if not defined( $p{-httponly} );
+    # set defaults first
+    my %param = (
+
+        #-domain   => $ENV{SERVER_NAME},
+        -path     => dirname( $ENV{SCRIPT_NAME} ),
+        -httponly => 1,
+        @_
+    );
 
     # prepare the cookie
-    push @cookies, CGI::Cookie->new(%p);
+    push @cookies, CGI::Cookie->new(%param);
     return;
 }
 
@@ -218,8 +210,8 @@ sub add_cookie {
 #        CLASS:  SGX::Cookie
 #       METHOD:  commit
 #   PARAMETERS:  ????
-#      RETURNS:  1 on success (session data stored in remote database) or 0 on
-#                failure
+#      RETURNS:  session id on success (session data stored in remote database)
+#                or false value on failure
 #  DESCRIPTION:  Overrides parent method: calls parent method first, then bakes
 #                a session cookie on success if needed
 #       THROWS:  no exceptions
@@ -231,30 +223,30 @@ sub commit {
 
     my $self = shift;
 
-    # one-way sync with session data: if cookie is missing or doesn't match
-    # what's stored in the session, update cookie with session data.
-    if (
-        defined( $self->{session_stash}->{_session_id} )
-        && ( !defined( $self->{session_cookie}->{$SESSION_ID_FIELD} )
-            || $self->{session_cookie}->{$SESSION_ID_FIELD} ne
-            $self->{session_stash}->{_session_id} )
-      )
-    {
-        $self->session_cookie_store(
-            $SESSION_ID_FIELD => $self->{session_stash}->{_session_id} );
-    }
-
     if ( $self->SUPER::commit() ) {
-        return 1 if not $self->{session_cookie_modified};
-        $self->add_cookie(
-            -name  => $SESSION_NAME,
-            -value => $self->{session_cookie}
-        );
 
-        #   -domain    => $ENV{SERVER_NAME},
+        my $session_id = $self->get_session_id();
+
+        # one-way sync with session data: if cookie is missing or doesn't match
+        # what's stored in the session, update cookie with session data.
+        if ( !defined( $self->{session_cookie}->{$SID_FIELD} )
+            || $self->{session_cookie}->{$SID_FIELD} ne $session_id )
+        {
+            $self->session_cookie_store( $SID_FIELD => $session_id );
+        }
+        if ( $self->{session_cookie_modified} ) {
+
+            # cookie could be modified either because of different session id
+            # being set directly above this block or due to user calling
+            # session_cookie_store().
+            $self->add_cookie(
+                -name  => $SESSION_NAME,
+                -value => $self->{session_cookie}
+            );
+        }
         return 1;
     }
-    return 0;
+    return;
 }
 
 1;    # for require

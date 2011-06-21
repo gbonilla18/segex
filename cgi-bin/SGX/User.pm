@@ -22,8 +22,8 @@ To create an instance:
 To restore previous session if it exists
     $s->restore;
 
-To delete previous session, active session, or both if both exist -- useful when user
-logs out, for example:
+To delete previous session, active session, or both if both exist -- useful when
+user logs out, for example:
 
     $s->destroy;
 
@@ -36,10 +36,11 @@ Note: $login_uri must be in this form: /cgi-bin/my/path/index.cgi?a=login
 To make a cookie and flush session data:
     $s->commit;
 
-You can create several instances of this class at the same time. The 
-@SGX::Cookie::cookies array will contain the cookies created by all instances of 
-the SGX::User or SGX::Cookie classes. If the array reference is sent to CGI::header,
-for example, as many cookies will be created as there are members in the array.
+You can create several instances of this class at the same time. The
+@SGX::Cookie::cookies array will contain the cookies created by all instances of
+the SGX::User or SGX::Cookie classes. If the array reference is sent to
+CGI::header, for example, as many cookies will be created as there are members
+in the array.
 
 To send a cookie to the user:
 
@@ -49,7 +50,8 @@ To send a cookie to the user:
         -cookie=>\@SGX::Cookie::cookies
     );
 
-Note: is_authorized('admin') checks whether the session user has the credential 'admin'
+Note: is_authorized('admin') checks whether the session user has the credential
+'admin'.
 
     if ($s->is_authorized('admin')) {
         # do admin stuff...
@@ -59,34 +61,37 @@ Note: is_authorized('admin') checks whether the session user has the credential 
 
 =head1 DESCRIPTION
 
-This is mainly an interface to the Apache::Session module with focus on user management.
+This is mainly an interface to the Apache::Session module with focus on user
+management.
 
-For a user to be registered, he/she must be approved by an admin.  Valid email address 
-is not required, however when an email *is* entered, it must be verified, otherwise the 
-user will not be able to reset a password without admin help.
+For a user to be registered, he/she must be approved by an admin.  Valid email
+address is not required, however when an email *is* entered, it must be
+verified, otherwise the user will not be able to reset a password without admin
+help.
 
-If the user enters or changes an email address, a validation message is sent to this 
-address with a link and a special code that is valid only for 48 hours. When the user 
-clicks on this link, he/she is presented with a login page. After the user enters the 
-name and the password, the email validation is complete.
+If the user enters or changes an email address, a validation message is sent to
+this address with a link and a special code that is valid only for 48 hours.
+When the user clicks on this link, he/she is presented with a login page. After
+the user enters the name and the password, the email validation is complete.
 
-To accomplish this, the "secret code" is embedded in the URL being emailed to the user. 
-At the same time, a new session is opened (so that the "secret code" is actually the 
-session_id) with expiration time 48 * 3600. The url looks like:
+To accomplish this, the "secret code" is embedded in the URL being emailed to
+the user.  At the same time, a new session is opened (so that the "secret code"
+is actually the session_id) with expiration time 48 * 3600. The url looks like:
 
 http://mydomain/my/path/index.cgi?a=verifyEmail&code=343ytgsr468das
 
-On being sent a verifyEmail command, index.cgi checks the logged-in status of a user 
-(which is independent from is_authorized() because the user may not have yet obtained 
-authorization from the site admin). If a user is logged in, username is compared with 
-the username from the 48-hr session.  This is done via opening two session objects at once.
+On being sent a verifyEmail command, index.cgi checks the logged-in status of a
+user (which is independent from is_authorized() because the user may not have
+yet obtained authorization from the site admin). If a user is logged in,
+username is compared with the username from the 48-hr session.  This is done via
+opening two session objects at once.
 
 TODO: write a method is_logged_in()
 
-Passwords are not stored in the database directly; instead, an SHA1 hash is being used.
-SHA1 gives relatively decent level of security, but it is possible to crack it given 
-enough computing resources. The NSA does not recommend this hash since 2005 when it was 
-first cracked.
+Passwords are not stored in the database directly; instead, an SHA1 hash is
+being used.  SHA1 gives relatively decent level of security, but it is possible
+to crack it given enough computing resources. The NSA does not recommend this
+hash since 2005 when it was first cracked.
 
 The table `sessions' is created as follows:
 
@@ -149,13 +154,6 @@ use SGX::Debug;
 use SGX::Session;    # for email confirmation
 use Data::Dumper;
 
-# Variables declared as "our" within a class (package) scope will be shared between
-# all instances of the class *and* can be addressed from the outside like so:
-#
-#   my $var = $PackageName::var;
-#   my $array_reference = \@PackageName::array;
-#
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::User
 #       METHOD:  commit
@@ -174,7 +172,7 @@ sub commit {
     if ( $self->SUPER::commit() ) {
         return 1 if not $self->{perm_cookie_modified};
         my $username = $self->{session_stash}->{username};
-        return 0 if not defined($username);
+        return if not defined($username);
         $self->add_cookie(
             -name    => sha1_hex($username),
             -value   => $self->{perm_cookie},
@@ -182,7 +180,7 @@ sub commit {
         );
         return 1;
     }
-    return 0;
+    return;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -193,8 +191,8 @@ sub commit {
 #                $password - password string
 #                $error - reference to error string
 #      RETURNS:  1 on success, 0 on failure
-#  DESCRIPTION:  Queries the `users' table in the database for matching username and
-#                password hash
+#  DESCRIPTION:  Queries the `users' table in the database for matching username
+#                and password hash
 #       THROWS:  DBI::errstr
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -205,64 +203,64 @@ sub authenticate {
 
     if ( !defined($username) || $username eq '' ) {
         $$error = 'No username specified';
-        return 0;
+        return;
     }
     if ( !defined($password) || $password eq '' ) {
         $$error = 'No password specified';
-        return 0;
+        return;
     }
 
     $password = sha1_hex($password);
     my $sth =
       $self->{dbh}
-      ->prepare('select level, full_name from users where uname=? and pwd=?')
+      ->prepare( 'select level,full_name from users where uname=? and pwd=?' )
       or croak $self->{dbh}->errstr;
-    my $rowcount = $sth->execute( $username, $password )
+    my $row_count = $sth->execute( $username, $password )
       or croak $self->{dbh}->errstr;
 
-    if ( $rowcount == 1 ) {
+    if ( $row_count != 1 ) {
 
-        # user found in the database
-        my ( $level, $full_name ) = $sth->fetchrow_array;
+        # user not found in the database
         $sth->finish;
+        $$error = 'Login incorrect';
+        return;
+    }
 
-        # get a new session handle
-        $self->fresh;
+    # user found in the database
+    my ( $level, $full_name ) = $sth->fetchrow_array;
+    $sth->finish;
 
- # Login username and user level are sensitive data: store them remotely.
- # Although newer browser support HTTP-only cookies (not visible to Javascript),
- # we do not want the user to be able to "upgrade" his or her account by
- # modifying the user level in the session cookie for example.
-        $self->session_store(
-            username   => $username,
-            user_level => $level
-        );
+    # get a new session handle. This will also delete the old session cookie
+    $self->destroy();
+    $self->start();
+
+    # Login username and user level are sensitive data: store them remotely.
+    # Although newer browser support HTTP-only cookies (not visible to
+    # Javascript), we do not want the user to be able to "upgrade" his or her
+    # account by modifying the user level in the session cookie for example.
+
+    $self->session_store(
+        username   => $username,
+        user_level => $level
+    );
 
     # Have the username; can read the permanent cookie now. Note: read permanent
     # cookie before setting session cookie fields here: this helps preserve the
     # flow: database -> session -> (session_cookie, perm_cookie), since reading
     # permanent cookie synchronizes everything in it with the session cookie.
-        $self->read_perm_cookie( username => $username );
+    $self->read_perm_cookie( username => $username );
 
-# Full user name is not sensitive from database perspective and can be stored on
-# the cliend in a can be stored on the client in a session cookie. Note that
-# there is no need to store it in a permanent cookie on the client because the
-# authentication process will involve a database transaction anyway and a full
-# name can be looked up from there.
-        $self->session_cookie_store( full_name => $full_name );
+    # Full user name is not sensitive from database perspective and can be
+    # stored on the cliend in a can be stored on the client in a session cookie.
+    # Note that there is no need to store it in a permanent cookie on the client
+    # because the authentication process will involve a database transaction
+    # anyway and a full name can be looked up from there.
+    $self->session_cookie_store( full_name => $full_name );
 
-        # flush the session and prepare the cookie
-        #$self->restore;
+    # flush the session and prepare the cookie
+    #$self->restore;
 
-        return 1;
-    }
-    else {
-
-        # user not found in the database
-        $sth->finish;
-        $$error = 'Login incorrect';
-        return 0;
-    }
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -271,34 +269,37 @@ sub authenticate {
 #   PARAMETERS:  $self - reference to object instance
 #                $username
 #                $project_name
-#                $login_uri - the full URI of the login script plus the command to show
-#                the formi to change a password
+#                $login_uri - the full URI of the login script plus the command
+#                to show the form to change a password
 #                $error - reference to error string
 #      RETURNS:  1 on success, 0 on failure
-#  DESCRIPTION:  Issues a new password and emails it to the user's email address. The
-#                email address must be marked as "confirmed" in the "users" table in the
-#                dataase.
+#  DESCRIPTION:  Issues a new password and emails it to the user's email address.
+#                The email address must be marked as "confirmed" in the "users"
+#                table in the dataase.
 #       THROWS:  DBI::errstr, Mail::Send::close failure
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub reset_password {
 
-    my ( $self, $username, $project_name, $login_uri, $error ) = @_;
+    my ( $self, %param ) = @_;
+
+    my ( $username, $project_name, $login_uri, $error ) = 
+        @param{qw{username project_name login_uri error}};
 
     if ( !defined($username) || $username eq '' ) {
         $$error = 'No username specified';
-        return 0;
+        return;
     }
 
     my $sth =
       $self->{dbh}->prepare(
         'select full_name, email from users where uname=? and email_confirmed=1'
       ) or croak $self->{dbh}->errstr;
-    my $rowcount = $sth->execute($username)
+    my $row_count = $sth->execute($username)
       or croak $self->{dbh}->errstr;
 
-    if ( $rowcount == 1 ) {
+    if ( $row_count == 1 ) {
 
         # user found in the database
         my $u = $sth->fetchrow_hashref;
@@ -327,8 +328,8 @@ $project_name and to change this password to one of your preference:
 
 $login_uri
 
-If you do not think you have requested a new password to be emailed to you, please
-notify the $project_name administrator.
+If you do not think you have requested a new password to be emailed to you,
+please notify the $project_name administrator.
 
 - $project_name automatic mailer
 
@@ -356,8 +357,9 @@ END_RESET_PWD_MSG
 
         # user not found in the database
         $sth->finish;
-        $$error = 'The user does not exist in the database or user email address has not been verified';
-        return 0;
+        $$error =
+'The user does not exist in the database or user email address has not been verified';
+        return;
     }
 }
 
@@ -373,8 +375,9 @@ END_RESET_PWD_MSG
 #===============================================================================
 sub reset_password_text {
     return <<"END_reset_password_text";
-A new password has been emailed to you. Once you receive the email message, you will be
-able to change the password sent to you by following the link in the email text.
+A new password has been emailed to you. Once you receive the email message, you
+will be able to change the password sent to you by following the link in the
+email text.
 END_reset_password_text
 }
 
@@ -389,27 +392,30 @@ END_reset_password_text
 #     SEE ALSO:  n/a
 #===============================================================================
 sub change_password {
-    my ( $self, $old_password, $new_password1, $new_password2, $error ) = @_;
+    my ( $self, %param ) = @_;
+
+    my ( $old_password, $new_password1, $new_password2, $error ) =
+        @param{qw{old_password new_password1 new_password2 error}};
 
     if ( !defined($old_password) || $old_password eq '' ) {
         $$error = 'Old password not specified';
-        return 0;
+        return;
     }
     if ( !defined($new_password1) || $new_password1 eq '' ) {
         $$error = 'New password not specified';
-        return 0;
+        return;
     }
     if ( !defined($new_password2) || $new_password2 eq '' ) {
         $$error = 'New password not confirmed';
-        return 0;
+        return;
     }
     if ( $new_password1 ne $new_password2 ) {
         $$error = 'New password and its confirmation do not match';
-        return 0;
+        return;
     }
     if ( $new_password1 eq $old_password ) {
         $$error = 'The new and the old passwords you entered are the same.';
-        return 0;
+        return;
     }
     $new_password1 = sha1_hex($new_password1);
     $old_password  = sha1_hex($old_password);
@@ -432,7 +438,7 @@ sub change_password {
         else {
             assert(undef);    # should never happen
         }
-        return 0;
+        return;
     }
 }
 
@@ -455,19 +461,19 @@ sub change_email {
 
     if ( !defined($password) || $password eq '' ) {
         $$error = 'Password not specified';
-        return 0;
+        return;
     }
     if ( !defined($email1) || $email1 eq '' ) {
         $$error = 'Email not specified';
-        return 0;
+        return;
     }
     if ( !defined($email2) || $email2 eq '' ) {
         $$error = 'Email not confirmed';
-        return 0;
+        return;
     }
     if ( $email1 ne $email2 ) {
         $$error = 'Email and its confirmation do not match';
-        return 0;
+        return;
     }
     $password = sha1_hex($password);
     my $username = $self->{session_stash}->{username};
@@ -477,7 +483,11 @@ sub change_email {
 
     my $rows_affected = $self->{dbh}->do(
 'update users set email=?, email_confirmed=0 where uname=? and pwd=? and email != ?',
-        undef, $email1, $username, $password, $email1
+        undef,
+        $email1,
+        $username,
+        $password,
+        $email1
     ) or croak $self->{dbh}->errstr;
 
     if ( $rows_affected == 1 ) {
@@ -492,10 +502,10 @@ sub change_email {
     }
     elsif ( $rows_affected == 0 ) {
         $$error = <<"END_noEmailChangeMsg";
-The email was not changed. Please make sure you entered your password correctly and that
-your new email address is different from your old one.
+The email was not changed. Please make sure you entered your password correctly
+and that your new email address is different from your old one.
 END_noEmailChangeMsg
-        return 0;
+        return;
     }
     else {
 
@@ -516,9 +526,10 @@ END_noEmailChangeMsg
 #===============================================================================
 sub change_email_text {
     return <<"END_change_email_text";
-You have changed your email address. An email message has been sent to your new email
-address that will ask you to confirm your new address. You will need to confirm your 
-new email address, which you can do simply by clicking on a link provided in the message.
+You have changed your email address. An email message has been sent to your new
+email address that will ask you to confirm your new address. You will need to
+confirm your new email address, which you can do simply by clicking on a link
+provided in the message.
 END_change_email_text
 }
 
@@ -546,45 +557,45 @@ sub register_user {
 
     if ( !defined($username) || $username eq '' ) {
         $$error = 'Username not specified';
-        return 0;
+        return;
     }
     if ( !defined($password1) || $password1 eq '' ) {
         $$error = 'Password not specified';
-        return 0;
+        return;
     }
     if ( !defined($password2) || $password2 eq '' ) {
         $$error = 'Password not confirmed';
-        return 0;
+        return;
     }
     if ( $password1 ne $password2 ) {
         $$error = 'Password and its confirmation do not match';
-        return 0;
+        return;
     }
     if ( !defined($email1) || $email1 eq '' ) {
         $$error = 'Email not specified';
-        return 0;
+        return;
     }
     if ( !defined($email2) || $email2 eq '' ) {
         $$error = 'Email not confirmed';
-        return 0;
+        return;
     }
     if ( $email1 ne $email2 ) {
         $$error = 'Email and its confirmation do not match';
-        return 0;
+        return;
     }
     if ( !defined($full_name) || $full_name eq '' ) {
         $$error = 'Full name not specified';
-        return 0;
+        return;
     }
     my $sth = $self->{dbh}->prepare('select count(*) from users where uname=?')
       or croak $self->{dbh}->errstr;
-    my $rowcount = $sth->execute($username) or croak $self->{dbh}->errstr;
-    assert( $rowcount == 1 );
+    my $row_count = $sth->execute($username) or croak $self->{dbh}->errstr;
+    assert( $row_count == 1 );
     my $user_found = $sth->fetchrow_array();
     $sth->finish();
     if ($user_found) {
         $$error = "The user $username already exists in the database";
-        return 0;
+        return;
     }
 
     $password1 = sha1_hex($password1);
@@ -601,12 +612,12 @@ sub register_user {
     ) or croak $self->{dbh}->errstr;
 
     assert( $rows_affected == 1 );
-    $self->send_verify_email( 
-        project_name => $project_name, 
-        full_name => $full_name, 
-        username => $username, 
-        email => $email1,
-        login_uri => $login_uri
+    $self->send_verify_email(
+        project_name => $project_name,
+        full_name    => $full_name,
+        username     => $username,
+        email        => $email1,
+        login_uri    => $login_uri
     );
     return 1;
 }
@@ -624,10 +635,11 @@ sub register_user {
 sub register_user_text {
 
     return <<"END_register_user_text";
-An email message has been sent to the email address you have entered. You should confirm
-your email address by clicking on a link included in the email message. Another email
-message has been sent to the administrator(s) of this site. Once your request for access
-is approved, you can start browsing the content hosted on this site.
+An email message has been sent to the email address you have entered. You should
+confirm your email address by clicking on a link included in the email message.
+Another email message has been sent to the administrator(s) of this site. Once
+your request for access is approved, you can start browsing the content hosted
+on this site.
 END_register_user_text
 }
 
@@ -647,14 +659,15 @@ sub send_verify_email {
     my ( $project_name, $full_name, $username, $email, $login_uri ) =
       @param{qw{project_name full_name username email login_uri}};
 
+    my $hours_to_expire = 48;
+
     my $s = SGX::Session->new(
-        -handle    => $self->{dbh},
-        -expire_in => 3600 * 48,
-        -check_ip  => 0,
-        -id        => undef
+        dbh    => $self->{dbh},
+        expire_in => 3600 * $hours_to_expire,
+        check_ip  => 0
     );
 
-    $s->commence();
+    $s->start();
 
     # make the session object store the username
     $s->session_store( username => $username );
@@ -669,18 +682,20 @@ sub send_verify_email {
         $msg->add( 'From', ('NOREPLY') );
         my $fh = $msg->open()
           or croak 'Failed to open default mailer';
-        my $session_id = $s->{session_stash}->{_session_id};
+        my $session_id = $s->get_session_id();
         print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $full_name,
 
-You have recently applied for user access to $project_name. Please click on the link
-below to confirm your email address with $project_name. You may be asked to enter your
-username and password if you are not currently logged in.
+You have recently applied for user access to $project_name. Please click on the
+link below to confirm your email address with $project_name. You may be asked to
+enter your username and password if you are not currently logged in.
 
 $login_uri&sid=$session_id
 
-If you have never heard of $project_name, please ignore this message or notify the
-$project_name administrator if you keep receiving it.
+This link will expire in $hours_to_expire hours.
+
+If you have never heard of $project_name, please ignore this message or notify
+the $project_name administrator if you keep receiving it.
 
 - $project_name automatic mailer
 
@@ -703,7 +718,7 @@ END_CONFIRM_EMAIL_MSG
 sub verify_email {
     my ( $self, $username ) = @_;
     if ( $self->{session_stash}->{username} ne $username ) {
-        return 0;
+        return;
     }
     my $rows_affected =
       $self->{dbh}->do( 'update users set email_confirmed=1 WHERE uname=?',
@@ -726,9 +741,9 @@ sub verify_email {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub perm_cookie_store {
-    my ( $self, %p ) = @_;
-    if ( $self->session_cookie_store(%p) ) {
-        while ( my ( $key, $value ) = each(%p) ) {
+    my ( $self, %param ) = @_;
+    if ( $self->session_cookie_store(%param) ) {
+        while ( my ( $key, $value ) = each(%param) ) {
             $self->{perm_cookie}->{$key} = $value;
         }
         $self->{perm_cookie_modified} = 1;
@@ -739,7 +754,8 @@ sub perm_cookie_store {
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::User
 #       METHOD:  read_perm_cookie
-#   PARAMETERS:  ????
+#   PARAMETERS:  OPTIONAL:
+#                username => $username
 #      RETURNS:  ????
 #  DESCRIPTION:  Looks up permanent cookie name from current user name (cookie
 #                name is an SHA1 digest of user name) and copies its values to
@@ -749,11 +765,11 @@ sub perm_cookie_store {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub read_perm_cookie {
-    my ( $self, %p ) = @_;
+    my ( $self, %param ) = @_;
 
     # try to get the username from the parameter list first; if no username
     # given then turn to session data.
-    my $username = $p{username};
+    my $username = $param{username};
     $username = $self->{session_stash}->{username} if not defined($username);
 
     my $cookie_name = sha1_hex($username);
@@ -773,9 +789,8 @@ sub read_perm_cookie {
         return 1;
     }
     else {
-
         # hash is empty
-        return 0;
+        return;
     }
 }
 
@@ -795,11 +810,11 @@ sub is_authorized {
 
     my ( $self, $req_user_level ) = @_;
     if ( !defined( $self->{session_stash} ) ) {
-        return 0;
+        return;
     }
     my $current_level = $self->{session_stash}->{user_level};
     if ( !defined($current_level) ) {
-        return 0;
+        return;
     }
     if ( $req_user_level eq 'admin' ) {
         if ( $current_level eq 'admin' ) {
@@ -821,7 +836,7 @@ sub is_authorized {
             return 1;
         }
     }
-    return 0;
+    return;
 }
 
 1;    # for require

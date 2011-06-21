@@ -49,9 +49,11 @@ use SGX::ChooseProject;
 my $softwareVersion = '0.2.1';
 
 my $dbh = sgx_db_connect();
-my $s = SGX::User->new(-handle        => $dbh,
-               -expire_in    => 3600, # expire in 3600 seconds (1 hour)
-               -check_ip    => 1);
+my $s = SGX::User->new(
+   dbh        => $dbh,
+   expire_in  => 3600, # expire in 3600 seconds (1 hour)
+   check_ip   => 1
+);
 
 $s->restore();    # restore old session if it exists
 
@@ -469,7 +471,12 @@ function init() {
         if ($s->is_authorized('unauth')) {
             $action = FORM.CHANGEPASSWORD;
         } else {
-            if ($s->reset_password($q->param('username'), PROJECT_NAME, $q->url(-full=>1).'?a='.FORM.CHANGEPASSWORD, \$error_string)) {
+            if ($s->reset_password(
+                    username => $q->param('username'), 
+                    project_name => PROJECT_NAME, 
+                    login_uri => $q->url(-full=>1).'?a='.FORM.CHANGEPASSWORD, 
+                    error => \$error_string)) 
+            {
                 $title = 'Reset Password';
                 $content = \&resetPassword_success;
                 $action = undef;    # final state
@@ -489,7 +496,12 @@ function init() {
     }
     case CHANGEPASSWORD        {
         if ($s->is_authorized('unauth')) {
-            if ($s->change_password($q->param('old_password'), $q->param('new_password1'), $q->param('new_password2'), \$error_string)) {
+            if ($s->change_password(
+                    old_password => $q->param('old_password'), 
+                    new_password1 => $q->param('new_password1'), 
+                    new_password2 => $q->param('new_password2'), 
+                    error => \$error_string)) 
+            {
                 $title = 'Change Password';
                 $content = \&changePassword_success;
                 $action = undef;    # final state
@@ -587,12 +599,11 @@ function init() {
     case VERIFYEMAIL        {
         if ($s->is_authorized('unauth')) {
             my $t = SGX::Session->new(
-                -handle    => $dbh, 
-                -expire_in => 3600*48, 
-                -id        => $q->param('sid'), 
-                -check_ip  => 0
+                dbh    => $dbh, 
+                expire_in => 3600*48, 
+                check_ip  => 0
             );
-            if ($t->restore()) {
+            if ($t->recover($q->param('sid'))) {
                 if ($s->verify_email($t->{session_stash}->{username})) {
                     $title = 'Email Verification';
                     $content = \&verifyEmail_success;
