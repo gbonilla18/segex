@@ -3,25 +3,50 @@
 // Experiment Comparison Page
 // ========================================================================================================
 function getSelectStudies(stid) {
-        var option_string = '';
-	var study_is_first = 1;
-        for (var i in study) {
-		if (study[i][3] == current_platform) {
-			if (typeof first_study == 'undefined' && study_is_first) {
-				first_study = i;
-				study_is_first = 0;
-			}
-			var sel = (typeof stid != 'undefined' && stid == i) ? 'selected="selected"' : '' ;
-			option_string += '<option ' + sel + ' value="' + i + '">' + study[i][0] + '</option>';
+	// sort by study id
+	var tuples = [];
+	for (var i in study) {
+		if (study[i][3] === current_platform) {
+			tuples.push([i, study[i][0]]);
 		}
+	}
+	// generic tuple sort (sort hash by numeric key)
+	tuples.sort(function(a, b) {
+		a = parseInt(a[0]);
+		b = parseInt(b[0]);
+		return a < b ? -1 : (a > b ? 1 : 0); 
+	});
+	// build dropdown box
+        var option_string = '';
+	first_study = tuples[0][0];
+        for (var i = 0, len = tuples.length; i < len; i++) {
+		var key = tuples[i][0];
+		var value = tuples[i][1];
+		var sel = (typeof stid !== 'undefined' && stid === key) ? 'selected="selected"' : '' ;
+		option_string += '<option ' + sel + ' value="' + key + '">' + value + '</option>';
         }
         return option_string;
 }
 function getSelectExperiments(stid, eid) {
+	// sort by experiment id
+	var tuples = [];
+	for (var i in study[stid][1]) {
+		var value = study[stid][1][i] + ' / ' + study[stid][2][i];
+		tuples.push([i, value]);
+	}
+	// generic tuple sort (sort hash by numeric key)
+	tuples.sort(function(a, b) {
+		a = parseInt(a[0]);
+		b = parseInt(b[0]);
+		return a < b ? -1 : (a > b ? 1 : 0); 
+	});
+	// build dropdown box
         var option_string = '';   
-        for (var i in study[stid][1]) {
-		var sel = (typeof eid != 'undefined' && eid == stid + '|' + i) ? 'selected="selected"' : '' ;
-                option_string += '<option ' + sel + ' value="' + stid + '|' + i + '">' + study[stid][1][i] + ' / ' + study[stid][2][i] + '</option>';
+        for (var i = 0, len = tuples.length; i < len; i++) {
+		var key = tuples[i][0];
+		var value = tuples[i][1];
+		var sel = (typeof eid !== 'undefined' && eid === stid + '|' + key) ? 'selected="selected"' : '' ;
+                option_string += '<option ' + sel + ' value="' + stid + '|' + key + '">' + value + '</option>';
         }
         return option_string;
 }
@@ -30,14 +55,26 @@ function populateSelectExperiments(obj, stid) {
         while(obj.options[0]) {
                 obj.removeChild(obj.options[0]);
         }
-	// sort by experiment name
-	
-        // now add new ones
-        for (var i in study[stid][1]) {
+	// sort by experiment id
+	var tuples = [];
+	for (var i in study[stid][1]) {
+		var value = study[stid][1][i] + ' / ' + study[stid][2][i];
+		tuples.push([i, value]);
+	}
+	// generic tuple sort (sort hash by numeric key)
+	tuples.sort(function(a, b) {
+		a = parseInt(a[0]);
+		b = parseInt(b[0]);
+		return a < b ? -1 : (a > b ? 1 : 0); 
+	});
+	// build dropdown box
+        for (var i = 0, len = tuples.length; i < len; i++) {
+		var key = tuples[i][0];
+		var value = tuples[i][1];
                 var new_opt = document.createElement("option");
-                new_opt.setAttribute('value', stid + '|' + i);
-                //new_opt.text = study[stid][1][i] + ' / ' + study[stid][2][i]; // does not work in IE
-                new_opt.innerHTML = study[stid][1][i] + ' / ' + study[stid][2][i];
+                new_opt.setAttribute('value', stid + '|' + key);
+                //new_opt.text = value; // does not work in IE
+                new_opt.innerHTML = value;
                 obj.appendChild(new_opt);
         }
 }
@@ -115,9 +152,9 @@ function addExperiment() {
 		var selIndex_stid = sel_stid.selectedIndex;
 		var sel_eid = $("eid_" + experiment_count);
 		var opt_eid = sel_eid.options[sel_eid.selectedIndex + 1];
-		if (typeof opt_eid == 'undefined') {
+		if (typeof opt_eid === 'undefined') {
                         var opt_stid = opts_stid[selIndex_stid + 1];
-                        if (typeof opt_stid == 'undefined') {
+                        if (typeof opt_stid === 'undefined') {
                                 stid = opts_stid[0].value;
                         } else {
 				stid = opt_stid.value;
@@ -185,7 +222,7 @@ var experiment_count = 0; // how many experiments are displayed
 
 //Show the gene filter options.
 function toggleSearchOptions(){
-	if(document.getElementById("divSearchItemsDiv").style.display == '')
+	if(document.getElementById("divSearchItemsDiv").style.display === '')
 	{
 		document.getElementById("divSearchItemsDiv").style.display = 'none';
 	}
@@ -197,17 +234,17 @@ function toggleSearchOptions(){
 
 function toggleFilterOptions(selectedRadio)
 {
-	if(selectedRadio == 'none')
+	if(selectedRadio === 'none')
 	{
 		document.getElementById("divSearchItemsDiv").style.display = 'none';
 		document.getElementById("divSearchItemsDiv2").style.display = 'none';
 	}
-	else if(selectedRadio == 'file')
+	else if(selectedRadio === 'file')
 	{
 		document.getElementById("divSearchItemsDiv").style.display = '';
 		document.getElementById("divSearchItemsDiv2").style.display = 'none';		
 	}
-	else if(selectedRadio == 'list')
+	else if(selectedRadio === 'list')
 	{
 		document.getElementById("divSearchItemsDiv").style.display = 'none';
 		document.getElementById("divSearchItemsDiv2").style.display = '';		

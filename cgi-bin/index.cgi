@@ -1244,6 +1244,7 @@ select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc
 from study 
 inner join StudyExperiment USING(stid)
 inner join experiment using(eid)
+GROUP BY eid
 
 END_EXP_QUERY
             or croak $dbh->errstr;
