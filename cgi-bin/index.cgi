@@ -1796,11 +1796,10 @@ sub dump_table {
 #######################################################################################
 sub show_tfs_js {
 
-    my $TFSDisplay;
     if(defined($q->param('CSV')))
     {
         $s->commit();
-        $TFSDisplay = SGX::TFSDisplay->new($dbh,$q);
+        my $TFSDisplay = SGX::TFSDisplay->new($dbh, cgi=>$q, user_session=>$s);
         $TFSDisplay->loadDataFromSubmission();
         $TFSDisplay->getPlatformData();
         $TFSDisplay->loadAllData();
@@ -1808,7 +1807,7 @@ sub show_tfs_js {
     }
     else
     {
-        $TFSDisplay = SGX::TFSDisplay->new($dbh,$q);
+        my $TFSDisplay = SGX::TFSDisplay->new($dbh, cgi=>$q, user_session=>$s);
         $TFSDisplay->loadDataFromSubmission();
         $TFSDisplay->loadTFSData();
         return $TFSDisplay->displayTFSInfo();
