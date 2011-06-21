@@ -1804,16 +1804,15 @@ sub show_tfs_js {
         $TFSDisplay->loadDataFromSubmission();
         $TFSDisplay->getPlatformData();
         $TFSDisplay->loadAllData();
-        $TFSDisplay->displayTFSInfoCSV();
+        return $TFSDisplay->displayTFSInfoCSV();
     }
     else
     {
         $TFSDisplay = SGX::TFSDisplay->new($dbh,$q);
         $TFSDisplay->loadDataFromSubmission();
         $TFSDisplay->loadTFSData();
-        $TFSDisplay->displayTFSInfo();
+        return $TFSDisplay->displayTFSInfo();
     }
-    return;
 }
 #######################################################################################
 
