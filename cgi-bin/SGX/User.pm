@@ -145,7 +145,7 @@ use CGI::Carp qw/croak/;
 
 use vars qw($VERSION);
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use base qw/SGX::Cookie/;
 use Digest::SHA1 qw/sha1_hex/;

@@ -68,7 +68,7 @@ use warnings;
 
 use vars qw($VERSION);
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use Apache::Session::MySQL;
 use Scalar::Util qw/looks_like_number/;
