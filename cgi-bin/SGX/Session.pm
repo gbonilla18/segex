@@ -39,8 +39,6 @@ The table `sessions' is created as follows:
         a_session TEXT NOT NULL
     );
 
- # :TODO:06/20/2011 22:46:11:es:  add key to sessions table
- 
 =head1 AUTHORS
 
 Written by Eugene Scherba <escherba@gmail.com>

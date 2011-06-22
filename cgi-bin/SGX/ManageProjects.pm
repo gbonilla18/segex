@@ -318,8 +318,7 @@ sub loadSingleProject {
     assert( $rc == 1 );
 
     #
-    # :TODO:05/31/2011 17:19:18:es:
-    # Find out an optimal way to fetch single row
+    # :TODO:05/31/2011 17:19:18:es: find out an optimal way to fetch single row
     #
     $self->{_Data} = $sth->fetchall_arrayref;
 

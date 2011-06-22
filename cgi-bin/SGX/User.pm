@@ -86,8 +86,6 @@ yet obtained authorization from the site admin). If a user is logged in,
 username is compared with the username from the 48-hr session.  This is done via
 opening two session objects at once.
 
-TODO: write a method is_logged_in()
-
 Passwords are not stored in the database directly; instead, an SHA1 hash is
 being used.  SHA1 gives relatively decent level of security, but it is possible
 to crack it given enough computing resources. The NSA does not recommend this

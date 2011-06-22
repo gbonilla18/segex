@@ -44,8 +44,6 @@ use SGX::ChooseProject;
 #---------------------------------------------------------------------------
 #  User Authentication
 #---------------------------------------------------------------------------
-# :NOTE:06/17/2011 12:57:58:es: bump up version from 0.1.12 to 0.2.0
-# :NOTE:06/17/2011 16:59:33:es: bump up version to 0.2.1
 my $softwareVersion = '0.2.1';
 
 my $dbh = sgx_db_connect();
@@ -637,54 +635,68 @@ function init() {
 }}
 $s->commit();    # flush the session data and prepare the cookie
 
-# ==== write menu list ==========================================================
-my @menu;
-    # add top options for everyone
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.DEFAULT_ACTION,
-                -title=>'Main page'},'Home');
-if ($s->is_authorized('unauth')) {
-    # add unauth options
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPDATEPROFILE,
-                -title=>'My user profile.'},'My Profile');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.LOGOUT,
-                -title=>'You are signed in as '.$s->{session_stash}->{username}.'. Click on this link to log out.'},'Log out');
-} else {
-    # add top options for anonymous users
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.LOGIN,
-                -title=>'Log in'},'Log in');
-}
-if ($s->is_authorized('user')) {
-    # add user options
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.SHOWSCHEMA,
-                -title=>'Show database schema'},'Schema');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.COMPAREEXPERIMENTS,
-                -title=>'Select samples to compare'},'Compare Experiments');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.FINDPROBES,
-                -title=>'Search for probes'},'Find Probes');
-    # TODO: only admins should be allowed to see the menu part below:
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.UPLOADANNOT,
-                -title=>'Upload or Update Probe Annotations'}, 'Upload/Update Annotations');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGEPLATFORMS,
-                -title=>'Manage Platforms'}, 'Manage Platforms');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGEPROJECTS,
-                -title=>'Manage Projects'}, 'Manage Projects');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGESTUDIES,
-                -title=>'Manage Studies'}, 'Manage Studies');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.MANAGEEXPERIMENTS,
-                -title=>'Manage Experiments'}, 'Manage Experiments');
-    push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.OUTPUTDATA,
-                -title=>'Output Data'}, 'Output Data');
-}
-if ($s->is_authorized('admin')) {
-    # add admin options
-}
-# add bottom options for everyone
-push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.ABOUT,
-            -title=>'About this site'},'About');
-push @menu, $q->a({-href=>$q->url(-absolute=>1).'?a='.HELP,
-            -title=>'Help pages',
-            -target=>'_new'},'Help');
 
+#===  FUNCTION  ================================================================
+#         NAME:  build_menu
+#      PURPOSE:  
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub build_menu
+{
+    my @menu;
+    my $url_prefix = $q->url(-absolute=>1);
+    # add top options for everyone
+    push @menu, $q->a({-href=>$url_prefix.'?a='.DEFAULT_ACTION,
+                -title=>'Main page'},'Home');
+    if ($s->is_authorized('unauth')) {
+        # add unauth options
+        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.UPDATEPROFILE,
+                    -title=>'My user profile.'},'My Profile');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.LOGOUT,
+                    -title=>'You are signed in as '.$s->{session_stash}->{username}.'. Click on this link to log out.'},'Log out');
+    } else {
+        # add top options for anonymous users
+        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.LOGIN,
+                    -title=>'Log in'},'Log in');
+    }
+    if ($s->is_authorized('user')) {
+        # add user options
+        push @menu, $q->a({-href=>$url_prefix.'?a='.SHOWSCHEMA,
+                    -title=>'Show database schema'},'Schema');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.COMPAREEXPERIMENTS,
+                    -title=>'Select samples to compare'},'Compare Experiments');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.FINDPROBES,
+                    -title=>'Search for probes'},'Find Probes');
+        # TODO: only admins should be allowed to see the menu part below:
+        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADANNOT,
+                    -title=>'Upload or Update Probe Annotations'}, 'Upload/Update Annotations');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.MANAGEPLATFORMS,
+                    -title=>'Manage Platforms'}, 'Manage Platforms');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.MANAGEPROJECTS,
+                    -title=>'Manage Projects'}, 'Manage Projects');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.MANAGESTUDIES,
+                    -title=>'Manage Studies'}, 'Manage Studies');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.MANAGEEXPERIMENTS,
+                    -title=>'Manage Experiments'}, 'Manage Experiments');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.OUTPUTDATA,
+                    -title=>'Output Data'}, 'Output Data');
+    }
+    if ($s->is_authorized('admin')) {
+        # add admin options
+    }
+    # add bottom options for everyone
+    push @menu, $q->a({-href=>$url_prefix.'?a='.ABOUT,
+                -title=>'About this site'},'About');
+    push @menu, $q->a({-href=>$url_prefix.'?a='.HELP,
+                -title=>'Help pages',
+                -target=>'_new'},'Help');
+    return \@menu;
+}
 
 # ===== HTML =============================================================
 
@@ -700,7 +712,7 @@ cgi_start_html();
 
 print $q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
 
-print $q->ul({-id=>'menu'},$q->li(\@menu));
+print $q->ul({-id=>'menu'},$q->li(build_menu()));
 
 #---------------------------------------------------------------------------
 #  Don't delete commented-out block below: it is meant to be used for 
@@ -1156,8 +1168,6 @@ sub schema {
 }
 #######################################################################################
 sub form_compareExperiments_js {
- # :TODO:06/14/2011 17:19:36:es: Only one query should be enough to select a list of
- # platforms and studies
     my $out = '';
 
     # find out what the current project is set to
