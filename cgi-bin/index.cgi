@@ -315,6 +315,7 @@ function init() {
             $findProbes->list_yui_deps(\@js_src_yui);
             # push data + JS code to @js_src_code array
             push @js_src_code, {-code=>$findProbes->findProbes_js($s)};
+            push @js_src_code, {-src=>'FindProbes.js'};
             $content = \&findProbes;
             $action = undef;    # final state
         } else {

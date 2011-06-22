@@ -1012,7 +1012,9 @@ sub findProbes_js
     my $trans = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
 
     if ($opts == 3) {
-        # Full annotation with experiment data (CSV)
+#---------------------------------------------------------------------------
+#  CSV output
+#---------------------------------------------------------------------------
         $self->{_UserSession}->commit();
         #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
         $self->{_SearchType} = $type;
@@ -1026,7 +1028,9 @@ sub findProbes_js
         exit;
     }
     else {
-        # HTML output
+#---------------------------------------------------------------------------
+#  HTML output
+#---------------------------------------------------------------------------
         my $sth = $self->{_dbh}->prepare($self->{_ProbeQuery})
             or croak $self->{_dbh}->errstr;
         my $rowcount = $sth->execute($qtext) 
@@ -1065,245 +1069,17 @@ var probelist = %s;
 var url_prefix = "%s";
 var response_transform = "%s";
 var show_graphs = %s;
+var extra_fields = %s;
 END_JSON_DATA
             encode_json(\@names),
             encode_json(\%json_probelist),
             $self->{_cgi}->url(-absolute=>1),
             $trans,
-            (defined($self->{_cgi}->param('graph'))) ? 'true' : 'false'
+            (defined($self->{_cgi}->param('graph'))) ? 'true' : 'false',
+            ($opts > 1) ? 'true' : 'false'
         );
 
-        my $tableOut = '';
-        my $columnList = '';
-
-        # Note: the following NCBI search shows only genes specific to a given species:
-        # http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
-        warn $opts;
-        switch ($opts) 
-            {
-                case 1 
-                {
-                    $tableOut = '';
-                }
-
-                case 2 
-                { 
-                    $columnList = ',"5","6","7","8"';
-                    $tableOut = ',{key:"4", sortable:true, resizeable:true,
-                            label:table_labels[4],
-                    editor:new YAHOO.widget.TextareaCellEditor({
-                    disableBtns: false,
-                    asyncSubmitter: function(callback, newValue) { 
-                        var record = this.getRecord();
-                        //var column = this.getColumn();
-                        //var datatable = this.getDataTable(); 
-                        if (this.value == newValue) { callback(); } 
-
-                        YAHOO.util.Connect.asyncRequest("POST", url_prefix + "?a=updateCell", { 
-                            success:function(o) { 
-                                if(o.status === 200) {
-                                    // HTTP 200 OK
-                                    callback(true, newValue); 
-                                } else { 
-                                    alert(o.statusText);
-                                    //callback();
-                                } 
-                            }, 
-                            failure:function(o) { 
-                                alert(o.statusText); 
-                                callback(); 
-                            },
-                            scope:this 
-                        }, "type=probe&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&reporter=" + encodeURI(record.getData("0"))
-                        );
-                    }})},
-                            {key:"5", sortable:true, resizeable:true,
-                            label:table_labels[5], formatter:"formatSequence"},
-                            {key:"6", sortable:true, resizeable:true,
-                            label:table_labels[6]},
-                            {key:"7", sortable:true, resizeable:true,
-                            label:table_labels[7],
-
-                    editor:new YAHOO.widget.TextareaCellEditor({
-                    disableBtns: false,
-                    asyncSubmitter: function(callback, newValue) {
-                        var record = this.getRecord();
-                        //var column = this.getColumn();
-                        //var datatable = this.getDataTable();
-                        if (this.value == newValue) { callback(); }
-                        YAHOO.util.Connect.asyncRequest("POST", url_prefix + "?a=updateCell", {
-                            success:function(o) {
-                                if(o.status === 200) {
-                                    // HTTP 200 OK
-                                    callback(true, newValue);
-                                } else {
-                                    alert(o.statusText);
-                                    //callback();
-                                }
-                            },
-                            failure:function(o) {
-                                alert(o.statusText);
-                                callback();
-                            },
-                            scope:this
-                        }, "type=gene&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&seqname=" + encodeURI(record.getData("3")) + "&accnum=" + encodeURI(record.getData("2"))
-                        );
-                    }})}';
-                }
-
-                case 3 
-                {
-                    $columnList = ',"5","6","7","8","9"';
-                    $tableOut = ',{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
-                    $tableOut .= ',{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
-                }
-            }
-
-
-        $out .= '
-    var graph_ul;
-    var graph_content;
-    function export_table(e) {
-        var r = this.records;
-        var bl = this.headers.length;
-        var w = window.open("");
-        var d = w.document.open("text/html");
-        d.title = "Tab-Delimited Text";
-        d.write("<pre>");
-        for (var i=0, al = r.length; i < al; i++) {
-            for (var j=0; j < bl; j++) {
-                d.write(r[i][j] + "\t");
-            }
-            d.write("\n");
-        }
-        d.write("</pre>");
-        d.close();
-        w.focus();
-    }
-
-    YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
-    YAHOO.util.Event.addListener(window, "load", function() {
-        if (show_graphs) {
-            graph_ul = YAHOO.util.Dom.get("graphs");
-        }
-        YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
-
-        YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
-            var i = oRecord.getCount();
-            if (show_graphs) {
-                graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\" width=\"555\" height=\"880\" /></object></li>";
-                elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
-            } else {
-                elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
-            }
-        }
-        YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
-            var a = oData.split(/ *, */);
-            var out = "";
-            for (var i=0, al=a.length; i < al; i++) {
-                var b = a[i];
-                if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
-                    out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
-                } else {
-                    out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
-                }
-            }
-            elCell.innerHTML = out.replace(/,\s*$/, "");
-        }
-        YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
-            if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
-                elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
-            } else {
-                elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("4") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
-            }
-        }
-        YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
-            elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
-        }
-        YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
-            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("4") + "\" title=\"UCSC BLAT on " + oRecord.getData("4") + " DNA\" target=\"_blank\">" + oData + "</a>";
-        }
-        var myColumnDefs = [
-            {key:"0", sortable:true, resizeable:true, label:table_labels[0], formatter:"formatProbe"},
-            {key:"1", sortable:true, resizeable:true, label:table_labels[1]},
-            {key:"2", sortable:true, resizeable:true, label:table_labels[2], formatter:"formatTranscript"}, 
-            {key:"3", sortable:true, resizeable:true, label:table_labels[3], formatter:"formatGene"}'. $tableOut.'];
-
-        var myDataSource = new YAHOO.util.DataSource(probelist.records);
-        myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-        myDataSource.responseSchema = {
-            fields: ["0","1","2","3","4"'. $columnList . ']
-        };
-        var myData_config = {
-            paginator: new YAHOO.widget.Paginator({
-                rowsPerPage: 50 
-            })
-        };
-
-        var myDataTable = new YAHOO.widget.DataTable("probetable", myColumnDefs, myDataSource, myData_config);
-
-        // Set up editing flow 
-        var highlightEditableCell = function(oArgs) { 
-            var elCell = oArgs.target; 
-            if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
-            this.highlightCell(elCell); 
-            } 
-        }; 
-        myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
-        myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
-        myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
-
-        var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
-        var nl = nodes.length;
-
-        // Ideally, would want to use a "pre-formatter" event to clear graph_content
-        // TODO: fix the fact that when cells are updated via cell editor, the graphs are rebuilt unnecessarily.
-        myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
-            graph_content = "";
-            return true;
-        };
-        myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
-            graph_content = "";
-            return true;
-        };
-        myDataTable.subscribe("renderEvent", function () {
-            if (show_graphs) {
-                graph_ul.innerHTML = graph_content;
-            } else {
-                // if the line below is moved to window.load closure,
-                // panels will no longer show up after sorting
-                var manager = new YAHOO.widget.OverlayManager();
-                var myEvent = YAHOO.util.Event;
-                var i;
-                var imgFile;
-                for (i = 0; i < nl; i++) {
-                    myEvent.addListener("show" + i, "click", function () {
-                        var index = this.getAttribute("id").substring(4);
-                        var panel_old = manager.find("panel" + index);
-
-                        if (panel_old === null) {
-                            imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
-                            var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
-                            panel.setHeader(imgFile);
-                            panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans=" + response_transform + "\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans=" + response_transform + "\" width=\"555\" height=\"880\" /></object>");
-                            manager.register(panel);
-                            panel.render("container" + index);
-                            // panel.show is unnecessary here because visible:true is set
-                        } else {
-                            panel_old.show();
-                        }
-                    }, nodes[i], true);
-                }
-            };
-        });
-
-        return {
-            oDS: myDataSource,
-            oDT: myDataTable
-        };
-    });
-    ';
-        $out;
+        return $out;
     }
 }
 
