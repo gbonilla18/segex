@@ -292,12 +292,7 @@ while (defined($action)) { switch ($action) {
     case FORM.FINDPROBES            {
         if ($s->is_authorized('user')) {
             $title = 'Find Probes';
-            push @js_src_code, {-code =>'
-YAHOO.util.Event.addListener(window, "load", init);
-function init() {
-    sgx_toggle($("graph").checked, ["graph_option_names", "graph_option_values"]);
-}'
-};
+            push @js_src_code, {-src =>'FormFindProbes.js'};
             push @js_src_yui, (
                 'yahoo-dom-event/yahoo-dom-event.js'
             );

@@ -829,12 +829,13 @@ sub getform_findProbes {
         $q->dd($q->popup_menu(
                 -tabindex=>3, 
                 -name=>'opts',
+                -id=>'opts',
                 -values=>[keys %opts_dropdown], 
                 -default=>'1',
                 -labels=>\%opts_dropdown
         )),
-        $q->dt('Graph(s) :'),
-        $q->dd($q->checkbox(-tabindex=>4, id=>'graph', -onclick=>'sgx_toggle(this.checked, [\'graph_option_names\', \'graph_option_values\']);', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
+        $q->dt({id=>'graph_names'},'Graph(s) :'),
+        $q->dd({id=>'graph_values'},$q->checkbox(-tabindex=>4, id=>'graph', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
         $q->dt({id=>'graph_option_names'}, "Response variable:"),
         $q->dd({id=>'graph_option_values'}, $q->radio_group(
                 -tabindex=>5, 

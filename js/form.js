@@ -116,16 +116,3 @@ Requires Prototype JavaScript framework
 		//return false;
 	}
 }
-function sgx_toggle(of,targets) {
-        // test if DOM is available
-        if(!document.getElementById || !document.createTextNode || !document.appendChild){return;}
-
-	var style_display = (of) ? 'block' : 'none';
-
-	 for (var i=0; i<targets.length; i++) {
-	          var f=$(targets[i]);
-	          if (f) {
-	          	f.style.display = style_display;
-		}
-         }
-}
