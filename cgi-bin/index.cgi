@@ -71,7 +71,8 @@ my $css = [
 ];
 
 my @js_src_yui;
-my @js_src_code = ({-src=>'prototype.js'}, {-src=>'form.js'});
+#my @js_src_code = ({-src=>'prototype.js'}, {-src=>'form.js'});
+my @js_src_code = ({-src=>'form.js'});
 
 my $content;    # this will be a reference to a subroutine that displays the main content
 
@@ -292,11 +293,14 @@ while (defined($action)) { switch ($action) {
         if ($s->is_authorized('user')) {
             $title = 'Find Probes';
             push @js_src_code, {-code =>'
-Event.observe(window, "load", init);
+YAHOO.util.Event.addListener(window, "load", init);
 function init() {
     sgx_toggle($("graph").checked, ["graph_option_names", "graph_option_values"]);
 }'
 };
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js'
+            );
             $content = \&form_findProbes;
             $action = undef;    # final state
         } else {
@@ -376,6 +380,9 @@ function init() {
             $title = 'Compare Experiments';
             push @js_src_code, {-code=>form_compareExperiments_js()};
             push @js_src_code, {-src=>'experiment.js'};
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js'
+            );
             $content = \&form_compareExperiments;
             $action = undef;    # final state
         } else {
@@ -1199,7 +1206,7 @@ END_PLATFORM_QUERY
     assert($rowcount);
 
     ### populate a Javascript hash with the content of the platform recordset
-    $out .= "Event.observe(window, 'load', init);\n";
+    $out .= "YAHOO.util.Event.addListener(window, 'load', init);\n";
     $out .= 'var form = "' . FORM.COMPAREEXPERIMENTS . "\";\n";
 
     my %json_platform;

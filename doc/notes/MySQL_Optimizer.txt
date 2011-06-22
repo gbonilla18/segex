@@ -1,15 +1,16 @@
-A typical "Find Probes" (listed below) is something like: "list all probes related to
-genes whose names match '^cyp.b'". When limited to project 13, the query takes 3.04
-seconds. Here we will make lookups more efficient with the use of EXPLAIN statement.
-When placed in front of a query, MySQL EXPLAIN statement returns a table with list of
-lookups performed by the MySQL daemon. We will look at columns "possyble_keys" and
-"key". The "keys" column lists what key (index) is actually used to perform lookups, and
-the "possible_keys" column lists what keys *could* be used to speed up searches. In this
-case, we notice that in the penultimate row in the table returned, EXPLAIN suggests that
-a key on two columns (accnum, seqname) could potentially be used. We add this key using
-CREATE INDEX statement (see below). Running the query once more, once the index has been
-created, takes only 2.39 seconds. The runnning time improvement is expected to be
-super-linear as the size of the database grows.
+A typical "Find Probes" (listed below) is something like: "list all probes
+related to genes whose names match '^cyp.b'". When limited to project 13, the
+query takes 3.04 seconds. Here we will make lookups more efficient with the use
+of EXPLAIN statement.  When placed in front of a query, MySQL EXPLAIN statement
+returns a table with list of lookups performed by the MySQL daemon. We will look
+at columns "possyble_keys" and "key". The "keys" column lists what key (index)
+is actually used to perform lookups, and the "possible_keys" column lists what
+keys *could* be used to speed up searches. In this case, we notice that in the
+penultimate row in the table returned, EXPLAIN suggests that a key on two
+columns (accnum, seqname) could potentially be used. We add this key using
+CREATE INDEX statement (see below). Running the query once more, once the index
+has been created, takes only 2.39 seconds. The runnning time improvement is
+expected to be super-linear as the size of the database grows.
 
 > EXPLAIN SELECT
     probe.reporter AS Probe,

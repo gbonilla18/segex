@@ -1097,14 +1097,13 @@ sub getJavaScriptRecordsForExistingDropDowns {
     my $out = join( "\n", @out );
 
     return <<"END_JavaScriptRecordsForExistingDropDowns"
-Event.observe(window, "load", init);
+YAHOO.util.Event.addListener(window, 'load', init);
 var project = {};
-$out;
+$out
 function init() {
     populateExisting("project_exist", project);
     populateSelectExisting(document.getElementById("study_exist"),document.getElementById("project_exist"), project);
 }
-
 END_JavaScriptRecordsForExistingDropDowns
 }
 

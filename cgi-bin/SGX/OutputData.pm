@@ -272,8 +272,8 @@ sub printJavaScriptRecordsForExistingDropDowns
     my $tempRecords     = $self->{_dbh}->prepare($studyQuery) or croak $self->{_dbh}->errstr;
     my $tempRecordCount    = $tempRecords->execute or croak $self->{_dbh}->errstr;
 
-    print    'Event.observe(window, "load", init);';
-    print     "var study = {};";
+    print "YAHOO.util.Event.addListener(window, 'load', init);\n";
+    print "var study = {};";
 
     my $out = "";
 

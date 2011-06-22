@@ -1,4 +1,15 @@
-<!--
+function $() {
+	var elements = new Array();
+	for (var i = 0; i < arguments.length; i++) {
+		var element = arguments[i];
+		if (typeof element == 'string')
+			element = document.getElementById(element);
+		if (arguments.length == 1)
+			return element;
+		elements.push(element);
+	}
+	return elements;
+}
 function validate_fields(of,reqfields) {
 /* 04/18/2009 - changed from using a hidden field to store ids
 		of required fields to passing an array of ids directly
@@ -117,11 +128,4 @@ function sgx_toggle(of,targets) {
 	          	f.style.display = style_display;
 		}
          }
-}
-
-function validate_Number(of,checkFields)
-{
-	
-
-
 }

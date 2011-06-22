@@ -717,7 +717,7 @@ sub editStudy {
 '<br /><h3 name = "Add_Caption1" id = "Add_Caption1">Experiments already in a study.</h3>'
       . "\n";
     print "<script>\n";
-    printJavaScriptRecordsForExistingDropDowns($self);
+    print getJavaScriptRecordsForExistingDropDowns($self);
     print "</script>\n";
 
     print $self->{_cgi}->start_form(
@@ -903,7 +903,7 @@ sub buildUnassignedExperimentDropDown {
     return;
 }
 
-sub printJavaScriptRecordsForExistingDropDowns {
+sub getJavaScriptRecordsForExistingDropDowns {
     my $self = shift;
 
     my $studyQuery = $self->{_ExistingStudyQuery};
@@ -946,15 +946,15 @@ sub printJavaScriptRecordsForExistingDropDowns {
     }
     $tempRecords->finish;
 
-    print 'Event.observe(window, "load", init);';
-    print "var study = {};";
-    print $out;
-    print 'function init() {';
-    print 'populateExisting("study_exist", study);';
-    print
-'populateSelectExisting(document.getElementById("experiment_exist"),document.getElementById("study_exist"), study);';
-    print '}';
-    return;
+    return <<"END_JavaScriptRecordsForExistingDropDowns";
+YAHOO.util.Event.addListener(window, 'load', init);
+var study = {};
+$out
+function init() {
+    populateExisting("study_exist", study);
+    populateSelectExisting(document.getElementById("experiment_exist"),document.getElementById("study_exist"), study);
+}
+END_JavaScriptRecordsForExistingDropDowns
 }
 
 sub editSubmitStudy {
