@@ -16,9 +16,11 @@ use SGX::User 0.07;	# user authentication, sessions and cookies
 # dbi and sql statement to get the fold changes for all experiments based on the accnum annotation for this reporter
 
 my $dbh = sgx_db_connect();
-my $s = SGX::User->new(-handle		=> $dbh,
-			-expire_in	=> 3600, # expire in 3600 seconds (1 hour)
-			-check_ip	=> 1);
+my $s = SGX::User->new(
+            dbh		=> $dbh,
+			expire_in	=> 3600, # expire in 3600 seconds (1 hour)
+			check_ip	=> 1
+);
 
 $s->restore;	# restore old session if it exists
 

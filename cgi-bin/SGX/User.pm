@@ -13,10 +13,9 @@ To create an instance:
 
     use SGX::User;
     my $s = SGX::User -> new (
-        -handle      => $dbh, 
-        -expire_in   => 3600,
-        -check_ip    => 1,
-        -cookie_name => 'chocolate_chip'
+        dbh      => $dbh, 
+        expire_in   => 3600,
+        check_ip    => 1,
     );
 
 To restore previous session if it exists

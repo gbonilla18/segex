@@ -13,10 +13,9 @@ Create an instance:
 
     use SGX::Cookie;
     my $s = SGX::Cookie->new(
-        -handle     => $dbh, 
-        -expire_in   => 3600,
-        -check_ip    => 1,
-        -cookie_name => 'chocolate_chip'
+        dbh     => $dbh, 
+        expire_in   => 3600,
+        check_ip    => 1
     );
 
 Restore previous session if it exists
@@ -31,10 +30,9 @@ To make a cookie and flush session data:
 You can set another cookie by opening another session like this:
 
     my $t = SGX::Cookie->new(
-        -cookie_name => 'girlscout_mint', 
-        -handle      => $dbh, 
-        -expire_in   => 3600*48, 
-        -check_ip    => 0
+        dbh      => $dbh, 
+        expire_in   => 3600*48, 
+        check_ip    => 0
     );
     
     if (!$t->restore) $t->start;
