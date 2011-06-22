@@ -9,6 +9,7 @@ SGX::ChooseProject
 
 =head1 AUTHORS
 Michael McDuffie
+Eugene Scherba
 
 =head1 SEE ALSO
 

@@ -191,8 +191,18 @@ sub commit {
 #                $password - password string
 #                $error - reference to error string
 #      RETURNS:  1 on success, 0 on failure
+#
 #  DESCRIPTION:  Queries the `users' table in the database for matching username
-#                and password hash
+#  and password hash. Stores full user name in session cookie on login.  Full user
+#  name is an example of information that is not critical from security
+#  standpoint, which means that (a) it can be stored on the client, and that (b)
+#  it should be stored on the client (to save space in the database.  In
+#  addition to full user name, data such as name of the working project could
+#  also be stored in the session cookie. Note that project names are more likely
+#  to change than project ids; so it makes more sense to store only the project
+#  id in the permanent cookie storage and keep project name in the session
+#  cookie.
+#
 #       THROWS:  DBI::errstr
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -257,7 +267,6 @@ sub authenticate {
     # anyway and a full name can be looked up from there.
     $self->session_cookie_store( full_name => $full_name );
 
-    # flush the session and prepare the cookie
     #$self->restore;
 
     return 1;
