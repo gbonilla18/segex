@@ -946,7 +946,6 @@ GROUP_CONCAT(
 ) AS 'Transcript', 
 IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
 platform.species AS 'Species', 
-probe.note AS 'Probe Specificity - Comment',
 probe.probe_sequence AS 'Probe Sequence',
 GROUP_CONCAT(
     DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; '
@@ -1061,7 +1060,18 @@ sub findProbes_js
             push @json_records, \%row;
         }
 
-        my $out = 'var probelist = ' . encode_json(\%json_probelist) . ";\n";
+        my $out = sprintf(<<"END_JSON_DATA",
+var table_labels = %s;
+var probelist = %s;
+var url_prefix = "%s";
+var response_transform = "%s";
+END_JSON_DATA
+            encode_json(\@names),
+            encode_json(\%json_probelist),
+            $self->{_cgi}->url(-absolute=>1),
+            $trans
+        );
+
         my $tableOut = '';
         my $columnList = '';
 
@@ -1076,9 +1086,10 @@ sub findProbes_js
 
                 case 2 
                 { 
-                    $columnList = ',"4","5","6","7","8"';
+                    $columnList = ',"5","6","7","8"';
                     $tableOut = ',
-                            {key:"4", sortable:true, resizeable:true, label:"'.$names[4].'",
+                            {key:"4", sortable:true, resizeable:true,
+                            label:table_labels[4],
                     editor:new YAHOO.widget.TextareaCellEditor({
                     disableBtns: false,
                     asyncSubmitter: function(callback, newValue) { 
@@ -1087,7 +1098,7 @@ sub findProbes_js
                         //var datatable = this.getDataTable(); 
                         if (this.value == newValue) { callback(); } 
 
-                        YAHOO.util.Connect.asyncRequest("POST", "'.$self->{_cgi}->url(-absolute=>1).'?a=updateCell", { 
+                        YAHOO.util.Connect.asyncRequest("POST", url_prefix + "?a=updateCell", { 
                             success:function(o) { 
                                 if(o.status === 200) {
                                     // HTTP 200 OK
@@ -1105,9 +1116,12 @@ sub findProbes_js
                         }, "type=probe&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&reporter=" + encodeURI(record.getData("0"))
                         );
                     }})},
-                            {key:"5", sortable:true, resizeable:true, label:"'.$names[5].'", formatter:"formatSequence"},
-                            {key:"6", sortable:true, resizeable:true, label:"'.$names[6].'"},
-                            {key:"7", sortable:true, resizeable:true, label:"'.$names[7].'",
+                            {key:"5", sortable:true, resizeable:true,
+                            label:table_labels[5], formatter:"formatSequence"},
+                            {key:"6", sortable:true, resizeable:true,
+                            label:table_labels[6]},
+                            {key:"7", sortable:true, resizeable:true,
+                            label:table_labels[7],
 
                     editor:new YAHOO.widget.TextareaCellEditor({
                     disableBtns: false,
@@ -1116,7 +1130,7 @@ sub findProbes_js
                         //var column = this.getColumn();
                         //var datatable = this.getDataTable();
                         if (this.value == newValue) { callback(); }
-                        YAHOO.util.Connect.asyncRequest("POST", "'.$self->{_cgi}->url(-absolute=>1).'?a=updateCell", {
+                        YAHOO.util.Connect.asyncRequest("POST", url_prefix + "?a=updateCell", {
                             success:function(o) {
                                 if(o.status === 200) {
                                     // HTTP 200 OK
@@ -1139,8 +1153,8 @@ sub findProbes_js
                 case 3 
                 {
                     $columnList = ',"5","6","7","8","9"';
-                    $tableOut = ",\n" . '{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
-                    $tableOut .= ",\n" . '{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
+                    $tableOut = ',{key:"5", sortable:true, resizeable:true, label:"Experiment",formatter:"formatExperiment"}';
+                    $tableOut .= ',{key:"7", sortable:true, resizeable:true, label:"Probe Sequence"}';
                 }
             }
 
@@ -1178,7 +1192,7 @@ sub findProbes_js
             var i = oRecord.getCount();
             ';
             if (defined($self->{_cgi}->param('graph'))) {
-                $out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object></li>";
+                $out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\" width=\"555\" height=\"880\" /></object></li>";
             elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
             } else {
                 $out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
@@ -1212,10 +1226,10 @@ sub findProbes_js
             elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("4") + "\" title=\"UCSC BLAT on " + oRecord.getData("4") + " DNA\" target=\"_blank\">" + oData + "</a>";
         }
         var myColumnDefs = [
-            {key:"0", sortable:true, resizeable:true, label:"'.$names[0].'", formatter:"formatProbe"},
-            {key:"1", sortable:true, resizeable:true, label:"'.$names[1].'"},
-            {key:"2", sortable:true, resizeable:true, label:"'.$names[2].'", formatter:"formatTranscript"}, 
-            {key:"3", sortable:true, resizeable:true, label:"'.$names[3].'", formatter:"formatGene"}'. $tableOut.'];
+            {key:"0", sortable:true, resizeable:true, label:table_labels[0], formatter:"formatProbe"},
+            {key:"1", sortable:true, resizeable:true, label:table_labels[1]},
+            {key:"2", sortable:true, resizeable:true, label:table_labels[2], formatter:"formatTranscript"}, 
+            {key:"3", sortable:true, resizeable:true, label:table_labels[3], formatter:"formatGene"}'. $tableOut.'];
 
         var myDataSource = new YAHOO.util.DataSource(probelist.records);
         myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
