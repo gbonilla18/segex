@@ -627,7 +627,7 @@ sub printFindProbeCSV
         
         # Print the probe info: 
         # Reporter ID,Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology
-        my $outRow = "$row->[1],$row->[3],$geneName,$row->[7],$geneDescription,$geneOntology,,";
+        my $outRow = "$row->[1],$row->[3],$geneName,$row->[6],$geneDescription,$geneOntology,,";
                 
         #For this reporter we print out a column for all the experiments that we have data for.
         foreach my $EIDvalue (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
@@ -1047,9 +1047,6 @@ sub findProbes_js
         my $data = $sth->fetchall_arrayref;
         $sth->finish;
 
-        # :TODO:06/17/2011 15:23:31:es: decouple Javasript code from this Perl module
-        # (move Javascript to a separate .js file)
-        #
         # data are sent as a JSON object plus Javascript code
         #foreach (sort {$a->[3] cmp $b->[3]} @$data) {
         foreach my $array_ref (@$data) {
@@ -1065,11 +1062,13 @@ var table_labels = %s;
 var probelist = %s;
 var url_prefix = "%s";
 var response_transform = "%s";
+var show_graphs = %s;
 END_JSON_DATA
             encode_json(\@names),
             encode_json(\%json_probelist),
             $self->{_cgi}->url(-absolute=>1),
-            $trans
+            $trans,
+            (defined($self->{_cgi}->param('graph'))) ? 'true' : 'false'
         );
 
         my $tableOut = '';
@@ -1077,6 +1076,7 @@ END_JSON_DATA
 
         # Note: the following NCBI search shows only genes specific to a given species:
         # http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
+        warn $opts;
         switch ($opts) 
             {
                 case 1 
@@ -1087,8 +1087,7 @@ END_JSON_DATA
                 case 2 
                 { 
                     $columnList = ',"5","6","7","8"';
-                    $tableOut = ',
-                            {key:"4", sortable:true, resizeable:true,
+                    $tableOut = ',{key:"4", sortable:true, resizeable:true,
                             label:table_labels[4],
                     editor:new YAHOO.widget.TextareaCellEditor({
                     disableBtns: false,
@@ -1160,6 +1159,8 @@ END_JSON_DATA
 
 
         $out .= '
+    var graph_ul;
+    var graph_content;
     function export_table(e) {
         var r = this.records;
         var bl = this.headers.length;
@@ -1180,24 +1181,19 @@ END_JSON_DATA
 
     YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
     YAHOO.util.Event.addListener(window, "load", function() {
-        ';
-        if (defined($self->{_cgi}->param('graph'))) {
-            $out .= 'var graph_content = "";
-        var graph_ul = YAHOO.util.Dom.get("graphs");';
+        if (show_graphs) {
+            graph_ul = YAHOO.util.Dom.get("graphs");
         }
-        $out .= '
         YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
 
         YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
             var i = oRecord.getCount();
-            ';
-            if (defined($self->{_cgi}->param('graph'))) {
-                $out .= 'graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\" width=\"555\" height=\"880\" /></object></li>";
-            elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";';
+            if (show_graphs) {
+                graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\" width=\"555\" height=\"880\" /></object></li>";
+                elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
             } else {
-                $out .= 'elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";';
+                elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
             }
-        $out .= '
         }
         YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
             var a = oData.split(/ *, */);
@@ -1269,43 +1265,34 @@ END_JSON_DATA
             return true;
         };
         myDataTable.subscribe("renderEvent", function () {
-        ';
+            if (show_graphs) {
+                graph_ul.innerHTML = graph_content;
+            } else {
+                // if the line below is moved to window.load closure,
+                // panels will no longer show up after sorting
+                var manager = new YAHOO.widget.OverlayManager();
+                var myEvent = YAHOO.util.Event;
+                var i;
+                var imgFile;
+                for (i = 0; i < nl; i++) {
+                    myEvent.addListener("show" + i, "click", function () {
+                        var index = this.getAttribute("id").substring(4);
+                        var panel_old = manager.find("panel" + index);
 
-        if (defined($self->{_cgi}->param('graph'))) 
-        {
-            $out .= '
-            graph_ul.innerHTML = graph_content;
-            ';
-
-        } else {
-            $out .=
-        '
-            // if the line below is moved to window.load closure,
-            // panels will no longer show up after sorting
-            var manager = new YAHOO.widget.OverlayManager();
-            var myEvent = YAHOO.util.Event;
-            var i;
-            var imgFile;
-            for (i = 0; i < nl; i++) {
-                myEvent.addListener("show" + i, "click", function () {
-                    var index = this.getAttribute("id").substring(4);
-                    var panel_old = manager.find("panel" + index);
-
-                    if (panel_old === null) {
-                        imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
-                        var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
-                        panel.setHeader(imgFile);
-                        panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans='.$trans.'\" width=\"555\" height=\"880\" /></object>");
-                        manager.register(panel);
-                        panel.render("container" + index);
-                        // panel.show is unnecessary here because visible:true is set
-                    } else {
-                        panel_old.show();
-                    }
-                }, nodes[i], true);
-            }
-        '};
-        $out .= '
+                        if (panel_old === null) {
+                            imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
+                            var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
+                            panel.setHeader(imgFile);
+                            panel.setBody("<object type=\"image/svg+xml\" width=\"555\" height=\"880\" data=\"./graph.cgi?reporter=" + imgFile + "&trans=" + response_transform + "\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans=" + response_transform + "\" width=\"555\" height=\"880\" /></object>");
+                            manager.register(panel);
+                            panel.render("container" + index);
+                            // panel.show is unnecessary here because visible:true is set
+                        } else {
+                            panel_old.show();
+                        }
+                    }, nodes[i], true);
+                }
+            };
         });
 
         return {
