@@ -620,14 +620,16 @@ sub printFindProbeCSV
         #Trim any commas out of the Gene Name, Gene Description, and Gene Ontology
         my $geneName        = (defined($row->[4])) ? $row->[4] : '';
         $geneName           =~ s/\,//g;
-        my $geneDescription = (defined($row->[8])) ? $row->[8] : '';
+        my $probeSequence   = (defined($row->[6])) ? $row->[6] : '';
+        $probeSequence      =~ s/\,//g;
+        my $geneDescription = (defined($row->[7])) ? $row->[7] : '';
         $geneDescription    =~ s/\,//g;
-        my $geneOntology    = (defined($row->[9])) ? $row->[9] : '';
+        my $geneOntology    = (defined($row->[8])) ? $row->[8] : '';
         $geneOntology        =~ s/\,//g;
         
         # Print the probe info: 
         # Reporter ID,Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology
-        my $outRow = "$row->[1],$row->[3],$geneName,$row->[6],$geneDescription,$geneOntology,,";
+        my $outRow = "$row->[1],$row->[3],$geneName,$probeSequence,$geneDescription,$geneOntology,,";
                 
         #For this reporter we print out a column for all the experiments that we have data for.
         foreach my $EIDvalue (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
