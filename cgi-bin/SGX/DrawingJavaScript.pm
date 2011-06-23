@@ -44,7 +44,7 @@ sub printTextCellEditorCode
 {
 	my $self		= shift;
 
-	my $textCellEditorTemplate = "
+	my $textCellEditorTemplate = <<"END_textCellEditorTemplate";
 	new YAHOO.widget.TextareaCellEditor
 	(
 		{
@@ -57,7 +57,7 @@ sub printTextCellEditorCode
 					callback(); 
 				} 
 
-				YAHOO.util.Connect.asyncRequest('POST',{0},
+				YAHOO.util.Connect.asyncRequest('POST',%s,
 															{ 
 																success:function(o) 
 																{ 
@@ -78,15 +78,17 @@ sub printTextCellEditorCode
 																	callback(); 
 																},
 																scope:this 
-															},{1});
+															}, %s);
 			}
 		}
 	)
-	";
-	
-	$textCellEditorTemplate 	=~ s/\{0\}/$self->{_postBackString}/;
-	$textCellEditorTemplate 	=~ s/\{1\}/$self->{_queryParameters}/;
+END_textCellEditorTemplate
 
+    $textCellEditorTemplate = sprintf(
+        $textCellEditorTemplate,
+        $self->{_postBackString},
+        $self->{_queryParameters}
+    );
 
 	return $textCellEditorTemplate;
 }

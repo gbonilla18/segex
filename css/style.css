@@ -11,7 +11,7 @@ em {
 .hidden {
 	visibility:hidden;
 }
-address, ul, p { margin-bottom:1.4167em; }
+address, ul, p, pre { margin-bottom:1.4167em; }
 h1, h2, h3, h4, h5, h6, caption {
         font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
         font-weight:bold;

@@ -36,7 +36,6 @@ use SGX::ManageProjects;
 use SGX::ManageStudies;
 use SGX::ManageExperiments;
 use SGX::OutputData;
-use SGX::JavaScriptDeleteConfirm;
 use SGX::TFSDisplay;
 use SGX::FindProbes qw/getform_findProbes/;
 use SGX::ChooseProject;
@@ -106,6 +105,8 @@ use constant COMPAREEXPERIMENTS        => 'Compare Selected';    # submit button
 use constant FINDPROBES            => 'Search';        # submit button text
 use constant UPDATEPROBE        => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
+
+my $loadModule;
 
 my $action = (defined($q->url_param('a'))) ? $q->url_param('a') : DEFAULT_ACTION;
 
@@ -218,6 +219,8 @@ while (defined($action)) { switch ($action) {
                 'selector/selector-min.js'
             );
 
+            $loadModule = SGX::ManageProjects->new($dbh,$q);
+            $loadModule->dispatch_js(\@js_src_code);
             $content = \&manageProjects;
             $title = 'Projects';
             $action = undef;    # final state
@@ -376,9 +379,7 @@ while (defined($action)) { switch ($action) {
             $title = 'Compare Experiments';
             push @js_src_code, {-code=>form_compareExperiments_js()};
             push @js_src_code, {-src=>'experiment.js'};
-            push @js_src_yui, (
-                'yahoo-dom-event/yahoo-dom-event.js'
-            );
+            push @js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
             $content = \&form_compareExperiments;
             $action = undef;    # final state
         } else {
@@ -713,9 +714,9 @@ print $q->header(-type=>'text/html', -cookie=>$s->cookie_array());
 
 cgi_start_html();
 
-print $q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108, alt=>PROJECT_NAME, title=>PROJECT_NAME});
-
-print $q->ul({-id=>'menu'},$q->li(build_menu()));
+print $q->h1($q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108,
+           alt=>PROJECT_NAME, title=>PROJECT_NAME})),
+      $q->ul({-id=>'menu'},$q->li(build_menu()));
 
 #---------------------------------------------------------------------------
 #  Don't delete commented-out block below: it is meant to be used for 
@@ -759,7 +760,11 @@ sub cgi_start_html {
             -style=>$css,
             -script=>\@js,
             -class=>'yui-skin-sam',
-            -head=>[$q->Link({-type=>'image/x-icon',-href=>IMAGES_DIR.'/favicon.ico',-rel=>'icon'})]
+            -head=>[
+                $q->Link({-type=>'image/x-icon', -href=>IMAGES_DIR.'/favicon.ico', -rel=>'icon'}),
+                $q->meta({-http_equiv=>'Content-Script-Type', -content=>'text/javascript'}),
+                $q->meta({-http_equiv=>'Content-Style-Type', -content=>'text/css'})
+            ]
         );
     print '<div id="content">';
     return;
@@ -805,9 +810,9 @@ sub form_login {
         -onsubmit=>'return validate_fields(this, [\'username\',\'password\']);'
     ) .
     $q->dl( 
-        $q->dt('Username:'),
+        $q->dt($q->label({-for=>'username'}, 'Username:')),
         $q->dd($q->textfield(-name=>'username',-id=>'username')),
-        $q->dt('Password:'),
+        $q->dt($q->label({-for=>'password'}, 'Password:')),
         $q->dd($q->password_field(-name=>'password',-id=>'password',-maxlength=>40)),
         $q->dt('&nbsp;'),
         $q->dd(
@@ -2247,8 +2252,7 @@ sub managePlatforms
 #===============================================================================
 sub manageProjects
 {
-    my $mp = SGX::ManageProjects->new($dbh,$q, JS_DIR);
-    $mp->dispatch($q->url_param('ManageAction'));
+    $loadModule->dispatch($q->url_param('ManageAction'));
     return;
 }
 

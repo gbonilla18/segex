@@ -30,7 +30,6 @@ use warnings;
 
 use Switch;
 use SGX::DrawingJavaScript;
-use SGX::JavaScriptDeleteConfirm;
 
 sub new {
 	# This is the constructor
@@ -134,9 +133,6 @@ sub dispatch
             # default action: just display the Manage Platforms form
             $self->loadAllPlatforms();
             $self->showPlatforms();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
         }
     }
 }
@@ -323,7 +319,7 @@ sub printTableInformation
 	print	'
 		YAHOO.widget.DataTable.Formatter.formatPlatformDeleteLink = function(elCell, oRecord, oColumn, oData) 
 		{
-			elCell.innerHTML = "<a title=\"Delete Platform\" onClick = \"alert(\'This feature has been disabled till password protection can be implemented.\');return false;\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
+			elCell.innerHTML = "<a title=\"Delete Platform\" onclick=\"alert(\'This feature has been disabled till password protection can be implemented.\');return false;\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "\">Delete</a>";
 		}
 
 		YAHOO.util.Dom.get("caption").innerHTML = JSPlatformList.caption;

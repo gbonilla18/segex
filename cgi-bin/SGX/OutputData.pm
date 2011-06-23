@@ -322,7 +322,7 @@ var OutputReport =
 END_JSOuputList
 
     print    '<h3 name = "caption" id="caption"></h3>' . "\n";
-    print    '<div><a id="OutPut_astext" onClick = "export_table(OutputReport)">View as plain text</a></div>' . "\n";
+    print    '<div><a id="OutPut_astext" onclick="export_table(OutputReport)">View as plain text</a></div>' . "\n";
     print    '<div id="OutputTable"></div>' . "\n";
     print    "<script type=\"text/javascript\">\n";
     print $JSOuputList;

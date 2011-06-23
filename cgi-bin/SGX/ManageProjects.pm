@@ -10,6 +10,7 @@ Grouping of functions for managing projects.
 
 =head1 AUTHORS
 Eugene Scherba
+Michael McDuffie
 
 =head1 SEE ALSO
 
@@ -34,9 +35,10 @@ use CGI::Carp qw/croak/;
 use SGX::Debug;
 use SGX::DropDownData;
 use SGX::DrawingJavaScript;
-use SGX::JavaScriptDeleteConfirm;
+use SGX::Exceptions;
 use Switch;
 use Data::Dumper;
+use JSON::XS;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
@@ -49,12 +51,11 @@ use Data::Dumper;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my $class = shift;
+    my ($class, $dbh, $cgi) = @_;
 
     my $self = {
-        _dbh    => shift,
-        _cgi    => shift,
-        _js_dir => shift,
+        _dbh    => $dbh,
+        _cgi    => $cgi,
 
         # _UserQuery: load all users
         _UserQuery =>
@@ -80,8 +81,9 @@ sub new {
         # _DeleteQuery: delete from both ProjectStudy and project
         _DeleteQuery => 'DELETE FROM project WHERE prid=?',
 
-# _StudiesQuery:
-# select (and describe by platform) all studies that are a part of the given project
+        # _StudiesQuery: select (and describe by platform) all studies that are
+        # a part of the given project
+
         _StudiesQuery => 'SELECT study.stid AS stid, '
           . '       study.description AS study_desc, '
           . '       study.pubmed AS pubmed, '
@@ -96,9 +98,8 @@ sub new {
         _StudyData        => '',
 
        # _ExistingProjectQuery: select all projects that are not current project
-        _ExistingProjectQuery => 'SELECT prid, prname, users.uid '
+        _ExistingProjectQuery => 'SELECT prid, prname '
           . 'FROM project '
-          . 'LEFT JOIN users ON project.manager = users.uid '
           . 'WHERE prid <> ? ',
 
         # _ExistingUnassignedProjectQuery:
@@ -115,7 +116,7 @@ sub new {
         # and which have been assigned to other projects
         _ExistingStudyQuery => 'SELECT prid, stid, description '
           . 'FROM study '
-          . 'RIGHT JOIN ProjectStudy USING (stid) '
+          . 'INNER JOIN ProjectStudy USING (stid) '
           . 'WHERE ProjectStudy.prid<>? '
           . 'GROUP BY stid ',
 
@@ -152,61 +153,60 @@ sub new {
 sub dispatch {
     my ( $self, $action ) = @_;
 
+    my $q = $self->{_cgi};
     $action = '' if not defined($action);
     switch ($action) {
         case 'add' {
             $self->loadFromForm();
             $self->insertNewProject();
-            print "<br />Record added - Redirecting...<br />";
+            print 'Record added. Redirecting...';
         }
         case 'addExisting' {
             $self->loadFromForm();
-            $self->addExistingStudy();
-            print "<br />Record added - Redirecting...<br />";
+            my $record_count = eval { $self->addExistingStudy() } || 0;
+            my $msg = $q->p(
+                ($record_count) ? 'Record added. ' : 'No records added. '
+            );
+            if ($@) {
+                my $exception = SGX::Exception::Insert->caught();
+                if ($exception) {
+                    # only catching insertion errors
+                    $msg .= $q->pre($exception->errstr);
+                } else {
+                    # rethrow
+                    croak $@;
+                }
+            }
+            print $msg . $q->p('Redirecting...');
         }
         case 'delete' {
             $self->loadFromForm();
             $self->deleteProject();
-            print "<br />Record deleted - Redirecting...<br />";
+            print 'Record deleted. Redirecting...';
         }
         case 'deleteStudy' {
             $self->loadFromForm();
             $self->removeStudy();
-            print "<br />Record removed - Redirecting...<br />";
+            print 'Record removed. Redirecting...';
         }
         case 'edit' {
-            $self->loadSingleProject();
-            $self->loadUserData();
-            $self->loadAllStudiesFromProject();
-            $self->buildUnassignedStudyDropDown();
             $self->editProject();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
         }
         case 'editSubmit' {
-            my @names = $self->{_cgi}->param;
             $self->loadFromForm();
             $self->editSubmitProject();
-            print "<br />Record updated - Redirecting...<br />";
+            print "Record updated. Redirecting...";
         }
         case 'load' {
-
-            #$self = SGX::ManageProjects->new($dbh,$q);
             $self->loadFromForm();
-            $self->loadAllProjects();
             $self->showProjects();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
+        }
+        case '' {
+            # default action: show Manage Projects main form
+            $self->showProjects();
         }
         else {
-            # default action: show Manage Projects main form
-            $self->loadAllProjects();
-            $self->showProjects();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
+            croak "Unknown action $action";
         }
     }
     if ( $action eq 'delete' || $action eq 'editSubmit' ) {
@@ -221,9 +221,7 @@ sub dispatch {
         || $action eq 'deleteStudy' )
     {
         my $redirectURI =
-            $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageProjects&ManageAction=edit&id='
-          . $self->{_prid};
+            $self->{_cgi}->url( -absolute => 1 ) . '?a=manageProjects&ManageAction=edit&id=' . $self->{_prid};
         my $redirectString =
 "<script type=\"text/javascript\">window.location = \"$redirectURI\"</script>";
         print "$redirectString";
@@ -231,6 +229,87 @@ sub dispatch {
     return;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::ManageProjects
+#       METHOD:  dispatch_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch_js
+{
+    # No printing to browser window done here
+    my ( $self, $js_ref ) = @_;
+
+    my $action = $self->{_cgi}->param('ManageAction');
+    $action = '' if not defined($action);
+
+    switch ($action) {
+        case 'edit' {
+            # method calls below moved here from dispatch()
+            $self->loadSingleProject();
+            $self->loadUserData();
+            $self->loadAllStudiesFromProject();
+            $self->buildUnassignedStudyDropDown();
+
+            push @$js_ref,
+                {-src=>'AddExisting.js'};
+            push @$js_ref,
+                {-code=>$self->editProject_js()};
+        }
+        case 'load' {
+            $self->loadAllProjects();
+            my $code = $self->showProjects_js();
+            push @$js_ref, {-code=>$self->showProjects_js()};
+        }
+        case '' {
+            $self->loadAllProjects();
+            my $code = $self->showProjects_js();
+            push @$js_ref, {-code=>$self->showProjects_js()};
+        }
+    }
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::ManageProjects
+#       METHOD:  editProject_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub editProject_js
+{
+    my $self = shift;
+    my $JSRecordsForExistingDropDowns =
+        $self->getJavaScriptRecordsForExistingDropDowns();
+    my $JSStudyList = encode_json({
+        headers => $self->getJSStudyHeaders(),
+        records => $self->getJSStudyRecords()
+    });
+    my $StudyTableInfo = getStudyTableInfo( $self->{_StudyFieldNames},
+        $self->{_cgi}, $self->{_prid} );
+    my $DrawStudyResultsTableJS = getDrawStudyResultsTableJS();
+
+    return <<"END_JSStudyList";
+var project = $JSRecordsForExistingDropDowns;
+YAHOO.util.Event.addListener(window, 'load', function() {
+    var JSStudyList = $JSStudyList;
+    $StudyTableInfo
+    $DrawStudyResultsTableJS
+    populateExisting(document.getElementById("project_exist"), project);
+    populateSelectExisting(document.getElementById("study_exist"),document.getElementById("project_exist"), project);
+});
+YAHOO.util.Event.addListener(["project_exist"], 'change', function() {
+    populateSelectExisting(document.getElementById("study_exist"),document.getElementById("project_exist"), project);
+});
+END_JSStudyList
+}
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
 #       METHOD:  loadAllProjects
@@ -255,6 +334,39 @@ sub loadAllProjects {
     return;
 }
 
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::ManageProjects
+#       METHOD:  showProjects_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub showProjects_js {
+    my $self = shift;
+    my $JSProjectList = encode_json({
+        caption => 'Showing all Projects',
+        records => $self->getJSRecords(),
+        headers => $self->getJSHeaders()
+    });
+
+    my $JSTableInfo = $self->getTableInfo();
+    my $JSExportTable = getExportTable();
+    my $JSResultsTable = getDrawResultsTableJS();
+
+    return <<"END_ShowProjectsJS";
+var JSProjectList = $JSProjectList;
+$JSExportTable
+YAHOO.util.Event.addListener(window, "load", function() {
+    $JSTableInfo
+    $JSResultsTable
+});
+END_ShowProjectsJS
+}
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
 #       METHOD:  loadUserData
@@ -268,9 +380,6 @@ sub loadAllProjects {
 sub loadUserData {
     my $self = shift;
 
-    #Temp variables used to create the hash and array for the dropdown.
-    my %userList;
-
     my $sth = $self->{_dbh}->prepare( $self->{_UserQuery} )
       or croak $self->{_dbh}->errstr;
     my $rc = $sth->execute
@@ -279,11 +388,8 @@ sub loadUserData {
     #Grab all users and build the hash and array for drop down.
     my @tempUsers = @{ $sth->fetchall_arrayref };
 
-    foreach (@tempUsers) {
-
-        # id -> name
-        $userList{ $_->[0] } = $_->[1];
-    }
+    # id -> name
+    my %userList = map { $_->[0] => $_->[1] } @tempUsers;
 
     #Assign members variables reference to the hash and array.
     $self->{_userList} = \%userList;
@@ -315,20 +421,26 @@ sub loadSingleProject {
     my $rc = $sth->execute( $self->{_prid} )
       or croak $self->{_dbh}->errstr;
 
-    assert( $rc == 1 );
+    if ( $rc < 1 ) {
+        croak "No project found with id = $self->{_prid}";
+    } elsif ( $rc > 1) {
+        croak "Internal error: Cannot have $rc projects sharing the same id.";
+    }
 
     #
     # :TODO:05/31/2011 17:19:18:es: find out an optimal way to fetch single row
     #
     $self->{_Data} = $sth->fetchall_arrayref;
 
-    foreach ( @{ $self->{_Data} } ) {
+    ($self->{_prid}, $self->{_prname}, $self->{_prdesc}) = 
+        @{ $self->{_Data}->[0] };
 
-        # should only execute once
-        $self->{_prid}   = $_->[0];
-        $self->{_prname} = $_->[1];
-        $self->{_prdesc} = $_->[2];
-    }
+    #foreach ( @{ $self->{_Data} } ) {
+    #    # should only execute once
+    #    $self->{_prid}   = $_->[0];
+    #    $self->{_prname} = $_->[1];
+    #    $self->{_prdesc} = $_->[2];
+    #}
 
     $sth->finish;
     return;
@@ -414,33 +526,14 @@ sub loadFromForm {
 #===============================================================================
 sub showProjects {
     my $self         = shift;
-    my $error_string = "";
 
-    my $JSProjectList =
-        "var JSProjectList =\n" . "{\n"
-      . "    caption: \"Showing all Projects\",\n"
-      . "    records: ["
-      . getJSRecords($self) . "],\n"
-      . "    headers: ["
-      . getJSHeaders($self) . "]\n" . "};\n";
-
-    print '<h2>Manage Projects</h2><br /><br />' . "\n";
-
-    print '<h3 name = "caption" id="caption"></h3>' . "\n";
-    print
-'<div><a id="ProjectTable_astext" onClick = "export_table(JSProjectList)">View as plain text</a></div>'
-      . "\n";
+    print '<h2>Manage Projects</h2>' . "\n";
+    print '<h3 id="caption"></h3>' . "\n";
+    print '<div><a id="ProjectTable_astext" onclick="export_table(JSProjectList)">View as
+plain text</a></div>' . "\n";
     print '<div id="ProjectTable"></div>' . "\n";
-    print "<script type=\"text/javascript\">\n";
-    print $JSProjectList;
 
-    print getTableInfo( $self->{_FieldNames}, $self->{_cgi} );
-    print getExportTable();
-    print getDrawResultsTableJS();
-
-    print "</script>\n";
-    print '<br /><h3 name = "Add_Caption" id = "Add_Caption">Add Project</h3>'
-      . "\n";
+    print '<h3 id = "Add_Caption">Add Project</h3>' . "\n";
 
     print $self->{_cgi}->start_form(
         -method => 'POST',
@@ -449,19 +542,18 @@ sub showProjects {
         -onsubmit => 'return validate_fields(this, [\'name\']);'
       )
       . $self->{_cgi}->dl(
-        $self->{_cgi}->dt('name'),
+        $self->{_cgi}->dt($self->{_cgi}->label({-for=>'name'},'Name:')),
         $self->{_cgi}->dd(
             $self->{_cgi}
               ->textfield( -name => 'name', -id => 'name', -maxlength => 255 )
         ),
-        $self->{_cgi}->dt('description:'),
+        $self->{_cgi}->dt($self->{_cgi}->label({-for=>'description'},'Description:')),
         $self->{_cgi}->dd(
             $self->{_cgi}->textarea(
                 -name      => 'description',
                 -id        => 'description',
                 -rows      => 8,
-                -columns   => 50,
-                -maxlength => 1023
+                -columns   => 50
             )
         ),
         $self->{_cgi}->dt('&nbsp;'),
@@ -557,29 +649,34 @@ END_DrawResultsTableJS
 #===============================================================================
 sub getJSRecords {
     my $self           = shift;
-    my $tempRecordList = '';
 
     #Loop through data and load into JavaScript array.
     #foreach (sort {$a->[3] cmp $b->[3]} @{$self->{_Data}})
+
+    #my $tempRecordList = '';
+    
+    my @tmp;
     foreach ( @{ $self->{_Data} } ) {
-        foreach (@$_) {
-            $_ = '' if !defined $_;
-            $_ =~ s/"//gx
-              ; # strip all double quotes (JSON data are bracketed with double quotes)
-        }
+        push @tmp, {
+            0 => $_->[1],
+            1 => $_->[2],
+            2 => $_->[0],
+            3 => $_->[0]
+        };
 
-        # prid, name, description
-        # 0     1     2
-        #       ^     ^
-        $tempRecordList .= '{0:"'
-          . $_->[1] . '",1:"'
-          . $_->[2] . '",2:"'
-          . $_->[0] . '",3:"'
-          . $_->[0] . '"},';
+        #foreach (@$_) {
+        #    $_ = '' if !defined $_;
+        #    $_ =~ s/"//gx
+        #      ; # strip all double quotes (JSON data are bracketed with double quotes)
+        #}
+        ## prid, name, description
+        ## 0     1     2
+        ##       ^     ^
+        #$tempRecordList .= '{0:"' . $_->[1] . '",1:"' . $_->[2] . '",2:"' . $_->[0] . '",3:"' . $_->[0] . '"},';
     }
-    $tempRecordList =~ s/,\s*$//;    # strip trailing comma
-
-    return $tempRecordList;
+    #$tempRecordList =~ s/,\s*$//;    # strip trailing comma
+    #return $tempRecordList;
+    return \@tmp;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -594,15 +691,16 @@ sub getJSRecords {
 #===============================================================================
 sub getJSHeaders {
     my $self           = shift;
-    my $tempHeaderList = '';
+    #my $tempHeaderList = '';
 
     #Loop through data and load into JavaScript array.
-    foreach ( @{ $self->{_FieldNames} } ) {
-        $tempHeaderList .= '"' . $_ . '",';
-    }
-    $tempHeaderList =~ s/,\s*$//;    # strip trailing comma
+    #foreach ( @{ $self->{_FieldNames} } ) {
+    #    $tempHeaderList .= '"' . $_ . '",';
+    #}
+    #$tempHeaderList =~ s/,\s*$//;    # strip trailing comma
 
-    return $tempHeaderList;
+    #return $tempHeaderList;
+    return $self->{_FieldNames};
 }
 
 #===  CLASS METHOD  ============================================================
@@ -616,16 +714,14 @@ sub getJSHeaders {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getTableInfo {
-    my $arrayRef  = shift;
-    my @names     = @$arrayRef;
-    my $CGIRef    = shift;
-    my $deleteURL = $CGIRef->url( absolute => 1 )
-      . '?a=manageProjects&ManageAction=delete&id=';
-    my $editURL =
-      $CGIRef->url( absolute => 1 ) . '?a=manageProjects&ManageAction=edit&id=';
+    my $self = shift;
+
+    my $uri_prefix = $self->{_cgi}->url( absolute => 1 );
+    my $deleteURL = "$uri_prefix?a=manageProjects&ManageAction=delete&id=";
+    my $editURL = "$uri_prefix?a=manageProjects&ManageAction=edit&id=";
 
     #This is the code to use the AJAXy update box for description..
-    my $postBackURL = '"' . $CGIRef->url( -absolute => 1 ) . '?a=updateCell"';
+    my $postBackURL = "'$uri_prefix?a=updateCell'";
     my $postBackQueryParametersDesc =
 '"type=project&name=" + escape(record.getData("0")) + "&desc=" + escape(newValue) + "&old_name=" + encodeURI(record.getData("0"))';
     my $postBackQueryParametersName =
@@ -640,7 +736,7 @@ sub getTableInfo {
     return <<"END_TableInfo";
 YAHOO.widget.DataTable.Formatter.formatProjectDeleteLink = function(elCell, oRecord, oColumn, oData)
 {
-    elCell.innerHTML = '<a title="Delete Project" target="_self" onClick="return deleteConfirmation();" href="$deleteURL' + oData + '">Delete</a>';
+    elCell.innerHTML = '<a title="Delete Project" target="_self" onclick="return deleteConfirmation();" href="$deleteURL' + oData + '">Delete</a>';
 }
 YAHOO.widget.DataTable.Formatter.formatProjectEditLink = function(elCell, oRecord, oColumn, oData)
 {
@@ -672,9 +768,13 @@ END_TableInfo
 sub insertNewProject {
     my $self = shift;
 
-    $self->{_dbh}
-      ->do( $self->{_InsertQuery}, undef, $self->{_prname}, $self->{_prdesc},
-        $self->{_manager} )
+    $self->{_dbh}->do( 
+        $self->{_InsertQuery}, 
+        undef, 
+        $self->{_prname}, 
+        $self->{_prdesc},
+        $self->{_manager} 
+    )
       or croak $self->{_dbh}->errstr;
 
     $self->{_prid} = $self->{_dbh}->{'mysql_insertid'};
@@ -731,43 +831,40 @@ sub removeStudy {
 sub editProject {
     my $self = shift;
 
-    print '<script src="'
-      . $self->{_js_dir}
-      . '/AddExisting.js" type="text/javascript"></script>';
+    my $q = $self->{_cgi};
 
     print
-      $self->{_cgi}->h2('Editing Project'), 
-      $self->{_cgi}->start_form(
+      $q->h2('Editing Project'), 
+      $q->start_form(
         -method => 'POST',
-        -action => $self->{_cgi}->url( -absolute => 1 )
+        -action => $q->url( -absolute => 1 )
           . '?a=manageProjects&ManageAction=editSubmit&id='
           . $self->{_prid},
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       )
-      . $self->{_cgi}->dl(
-        $self->{_cgi}->dt('name:'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->textfield(
+      . $q->dl(
+        $q->dt($q->label({-for=>'name'},'Name:')),
+        $q->dd(
+            $q->textfield(
                 -name      => 'name',
                 -id        => 'name',
                 -maxlength => 255,
                 -value     => $self->{_prname}
             )
         ),
-        $self->{_cgi}->dt('description:'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->textarea(
+        $q->dt($q->label({-for=>'description'},'Description:')),
+        $q->dd(
+            $q->textarea(
                 -name      => 'description',
                 -id        => 'description',
-                -maxlength => 1023,
                 -rows      => 8,
                 -columns   => 50,
                 -value     => $self->{_prdesc}
             )
         ),
-        $self->{_cgi}->dt('project manager:'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->popup_menu(
+        $q->dt($q->label({-for=>'manager'},'Managing User:')),
+        $q->dd(
+            $q->popup_menu(
                 -name => 'manager',
                 -id   => 'manager',
                 -values => [ keys %{ $self->{_userList} }],
@@ -775,117 +872,94 @@ sub editProject {
                 -default => $self->{_mgr}
             )
         ),
-        $self->{_cgi}->dt('&nbsp;'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->submit(
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->submit(
                 -name  => 'editSaveProject',
                 -id    => 'editSaveProject',
                 -class => 'css3button',
                 -value => 'Save Edits'
-            ),
-            $self->{_cgi}->span( { -class => 'separator' } )
+            )
         )
       ),
-      $self->{_cgi}->div({-style=>'clear:both;',-id=>'StudyTable', -class=>'clearfix'});
+      $q->div({-style=>'clear:both;',-id=>'StudyTable',
+              -class=>'clearfix'},'');
 
-    my $JSStudyList_records = getJSStudyRecords($self);
-    my $JSStudyList_headers = getJSStudyHeaders($self);
-    my $StudyTableInfo      = getStudyTableInfo( $self->{_StudyFieldNames},
-        $self->{_cgi}, $self->{_prid} );
-    my $DrawStudyResultsTableJS = getDrawStudyResultsTableJS();
+    print $q->end_form;
+    print $q->br(), $q->br();
 
-    print <<"END_JSStudyList";
-<script type="text/javascript">
-var JSStudyList = {
-    records: [$JSStudyList_records],
-    headers: [$JSStudyList_headers]
-};
-$StudyTableInfo
-$DrawStudyResultsTableJS
-</script>
-END_JSStudyList
+    print $q->h2('Add Existing Study to this Project'),
+          $q->h3('Studies in other projects');
 
-    print $self->{_cgi}->end_form;
-    print $self->{_cgi}->br(), $self->{_cgi}->br();
-
-    print $self->{_cgi}->h2('Add Existing Study to this Project'),
-          $self->{_cgi}->h3('Studies in other projects');
-
-    print $self->{_cgi}->script(getJavaScriptRecordsForExistingDropDowns($self));
-
-    print $self->{_cgi}->start_form(
+    print $q->start_form(
         -method => 'POST',
         -name   => 'AddExistingForm',
-        -action => $self->{_cgi}->url( -absolute => 1 )
+        -action => $q->url( -absolute => 1 )
           . '?a=manageProjects&ManageAction=addExisting&id='
           . $self->{_prid},
         -onsubmit => "return validate_fields(this,'');"
       )
-      . $self->{_cgi}->dl(
-        $self->{_cgi}->dt('Project : '),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->popup_menu(
+      . $q->dl(
+        $q->dt($q->label({-for=>'project_exist'},'Project:')),
+        $q->dd(
+            $q->popup_menu(
                 -name    => 'project_exist',
                 -id      => 'project_exist',
                 -values  => [],
-                -labels  => {},
-                -default => $self->{_SelectedProject},
-                -onChange =>
-"populateSelectExisting(document.getElementById(\"study_exist\"),document.getElementById(\"project_exist\"),project);"
+                -labels  => {}
             )
         ),
-        $self->{_cgi}->dt('Study : '),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->popup_menu(
+        $q->dt($q->label({-for=>'study_exist'},'Study:')),
+        $q->dd(
+            $q->popup_menu(
                 -name    => 'study_exist',
                 -id      => 'study_exist',
                 -values  => [],
-                -labels  => {},
-                -default => $self->{_SelectedStudy}
+                -labels  => {}
             )
         ),
-        $self->{_cgi}->dt('&nbsp;'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->submit(
-                -name  => 'AddStudy',
-                -id    => 'AddStudy',
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->submit(
+                -name  => 'AddExistingStudy',
+                -id    => 'AddExistingStudy',
                 -value => 'Add Study',
                 -class => 'css3button'
             )
         )
-      ) . $self->{_cgi}->end_form;
+      ) . $q->end_form;
 
-    print $self->{_cgi}->h3('Studies not in a project');
+    print $q->h3('Studies not in a project');
 
     my %unassignedList = %{ $self->{_unassignedList} };
-    print $self->{_cgi}->start_form(
+    print $q->start_form(
         -method => 'POST',
         -name   => 'AddExistingUnassignedForm',
-        -action => $self->{_cgi}->url( -absolute => 1 )
+        -action => $q->url( -absolute => 1 )
           . '?a=manageProjects&ManageAction=addExisting&id='
           . $self->{_prid},
         -onsubmit => "return validate_fields(this,'');"
       )
-      . $self->{_cgi}->dl(
-        $self->{_cgi}->dt('Study : '),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->popup_menu(
+      . $q->dl(
+        $q->dt($q->label({-for=>'study_exist_unassigned'},'Study:')),
+        $q->dd(
+            $q->popup_menu(
                 -name   => 'study_exist_unassigned',
                 -id     => 'study_exist_unassigned',
                 -values => [keys %{$self->{_unassignedList}} ],
                 -labels => $self->{_unassignedList}
             )
         ),
-        $self->{_cgi}->dt('&nbsp;'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->submit(
-                -name  => 'AddStudy',
-                -id    => 'AddStudy',
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->submit(
+                -name  => 'AddUnassignedStudy',
+                -id    => 'AddUnassignedStudy',
                 -class => 'css3button',
                 -value => 'Add Study'
             )
         )
-      ) . $self->{_cgi}->end_form;
+      ) . $q->end_form;
     return;
 }
 
@@ -916,18 +990,24 @@ END_DrawStudyResultsTableJS
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Add existing study
-#       THROWS:  no exceptions
+#       THROWS:  
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub addExistingStudy {
     my $self = shift;
 
-    my $sth = $self->{_dbh}->prepare( $self->{_AddExistingStudy} )
-      or croak $self->{_dbh}->errstr;
+    my $dbh = $self->{_dbh};
+    my $sth = $dbh->prepare( $self->{_AddExistingStudy} )
+        or SGX::Exception::Prepare->throw( errstr => $dbh->errstr );
     my $rc = $sth->execute( $self->{_prid}, $self->{_SelectedStudy} )
-      or croak $self->{_dbh}->errstr;
+        or SGX::Exception::Insert->throw( errstr => $dbh->errstr );
     $sth->finish();
+    if ($rc != 1) {
+        SGX::Exception::Internal->throw( 
+            errstr => "$rc records were modified though one was expected"
+        );
+    }
     return $rc;
 }
 
@@ -952,7 +1032,7 @@ sub getStudyTableInfo {
     return <<"END_StudyTableInfo"
 YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData)
 {
-    elCell.innerHTML = '<a title="Remove" onClick="return removeStudyConfirmation();" target="_self" href="$deleteURL' + oData + '">Remove</a>';
+    elCell.innerHTML = '<a title="Remove" target="_self" href="$deleteURL' + oData + '">Remove</a>';
 }
 
 var myStudyColumnDefs = [
@@ -979,25 +1059,27 @@ sub getJSStudyRecords {
 
     my @records;
     foreach ( @{ $self->{_StudyData} } ) {
-        foreach (@$_) {
-            $_ = '' if not defined;
+        #foreach (@$_) {
+        #    $_ = '' if not defined;
 
-            # Because JSON data are bracketed with double quotes, we strip all
-            # double quotes we can find.
-            $_ =~ s/"//gx;
-        }
+        #    # Because JSON data are bracketed with double quotes, we strip all
+        #    # double quotes we can find.
+        #    $_ =~ s/"//gx;
+        #}
 
         # stid, desc, pubmed, platform
         #       ^     ^       ^
         #       1     2       3
-        push @records,
-            '{0:"'
-          . $_->[0] . '",1:"'
-          . $_->[1] . '",2:"'
-          . $_->[2] . '",3:"'
-          . $_->[3] . '"}';
+        #push @records, '{0:"' . $_->[0] . '",1:"' . $_->[1] . '",2:"' . $_->[2] . '",3:"' . $_->[3] . '"}';
+        push @records, {
+            0 => $_->[0],
+            1 => $_->[1],
+            2 => $_->[2],
+            3 => $_->[3],
+        };
     }
-    return join( ',', @records );
+    #return join( ',', @records );
+    return \@records;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1013,11 +1095,12 @@ sub getJSStudyRecords {
 sub getJSStudyHeaders {
     my $self = shift;
 
-    my @headers;
-    foreach ( @{ $self->{_StudyFieldNames} } ) {
-        push @headers, "\"$_\"";
-    }
-    return join( ',', @headers );
+    #my @headers;
+    #foreach ( @{ $self->{_StudyFieldNames} } ) {
+    #    push @headers, "\"$_\"";
+    #}
+    #return join( ',', @headers );
+    return $self->{_StudyFieldNames};
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1060,23 +1143,19 @@ sub getJavaScriptRecordsForExistingDropDowns {
     my $rc = $sth->execute( $self->{_prid} )
       or croak $self->{_dbh}->errstr;
 
-    my @out;
+    #my @out;
 
+    my %out;
     while ( my @row = $sth->fetchrow_array ) {
-        foreach (@row) {
-            $_ = '' if not defined;
-        }
-        push @out, 'project[' . $row[0] . "] = {};";
-        push @out,
-            'project['
-          . $row[0]
-          . '][0] = \''
-          . $row[1]
-          . "';";    # project description
-        push @out, 'project[' . $row[0] . "][1] = {};";    # sample 1 name
-        push @out, 'project[' . $row[0] . "][2] = {};";    # sample 2 name
-        push @out,
-          'project[' . $row[0] . '][3] = \'' . $row[2] . "';";    # user id
+        #foreach (@row) {
+        #    $_ = '' if not defined;
+        #}
+        $out{$row[0]} = [$row[1], {}];
+        #push @out, "project[ $row[0] ] = {};";
+        #push @out, "project[ $row[0] ][0] = '$row[1]';";    # project description
+        #push @out, "project[ $row[0] ][1] = {};";    # sample 1 name
+        #push @out, "project[ $row[0] ][2] = {};";    # sample 2 name
+        #push @out, "project[ $row[0] ][3] = '$row[2]';";    # user id
     }
     $sth->finish;
 
@@ -1089,22 +1168,13 @@ sub getJavaScriptRecordsForExistingDropDowns {
     ### populate the Javascript hash with the content of the study recordset
     while ( my @row = $sth->fetchrow_array ) {
         #warn Dumper(\@row);
-        push @out,
-          'project[' . $row[0] . '][1][' . $row[1] . '] = \'' . $row[2] . "';";
+        #push @out, "project[ $row[0] ][1][ $row[1] ] = '$row[2]';";
+        $out{$row[0]}->[1]->{$row[1]} = $row[2];
     }
     $sth->finish;
 
-    my $out = join( "\n", @out );
-
-    return <<"END_JavaScriptRecordsForExistingDropDowns"
-YAHOO.util.Event.addListener(window, 'load', init);
-var project = {};
-$out
-function init() {
-    populateExisting("project_exist", project);
-    populateSelectExisting(document.getElementById("study_exist"),document.getElementById("project_exist"), project);
-}
-END_JavaScriptRecordsForExistingDropDowns
+    #my $out = join( "\n", @out );
+    return encode_json(\%out);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1121,9 +1191,14 @@ sub editSubmitProject {
     my $self = shift;
 
     my $rc =
-      $self->{_dbh}
-      ->do( $self->{_UpdateQuery}, undef, $self->{_prname}, $self->{_prdesc},
-        $self->{_manager}, $self->{_prid} )
+      $self->{_dbh} ->do( 
+          $self->{_UpdateQuery}, 
+          undef, 
+          $self->{_prname}, 
+          $self->{_prdesc},
+          $self->{_manager}, 
+          $self->{_prid}
+      )
       or croak $self->{_dbh}->errstr;
     return $rc;
 }

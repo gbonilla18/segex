@@ -31,7 +31,6 @@ use warnings;
 
 use SGX::AddExperiment;
 use SGX::DrawingJavaScript;
-use SGX::JavaScriptDeleteConfirm;
 use Switch;
 
 sub new {
@@ -165,9 +164,6 @@ sub dispatch {
             $self->loadAllExperimentsFromStudy();
             $self->buildUnassignedExperimentDropDown();
             $self->editStudy();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
         }
         case 'editSubmit' {
             $self->loadFromForm();
@@ -179,18 +175,12 @@ sub dispatch {
             $self->loadAllStudies();
             $self->loadPlatformData();
             $self->showStudies();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
         }
         else {
             # default action: show Manage Studies main form
             $self->loadAllStudies();
             $self->loadPlatformData();
             $self->showStudies();
-
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
         }
     }
     if ( $action eq 'delete' || $action eq 'editSubmit' ) {
@@ -391,7 +381,7 @@ sub showStudies {
 
     print '<h3 name = "caption" id="caption"></h3>' . "\n";
     print
-'<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>'
+'<div><a id="StudyTable_astext" onclick="export_table(JSStudyList)">View as plain text</a></div>'
       . "\n";
     print '<div id="StudyTable"></div>' . "\n";
     print "<script type=\"text/javascript\">\n";
@@ -571,7 +561,7 @@ sub printTableInformation {
     print '
         YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData) 
         {
-            elCell.innerHTML = "<a title=\"Delete Study\" target=\"_self\" onClick = \"return deleteConfirmation();\" href=\"'
+            elCell.innerHTML = "<a title=\"Delete Study\" target=\"_self\" onclick=\"return deleteConfirmation();\" href=\"'
       . $deleteURL . '" + oData + "\">Delete</a>";
         }
         YAHOO.widget.DataTable.Formatter.formatStudyEditLink = function(elCell, oRecord, oColumn, oData) 
@@ -835,7 +825,7 @@ sub printExperimentTableInformation {
     print '
         YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 
         {
-            elCell.innerHTML = "<a title=\"Remove\" onClick = \"return removeExperimentConfirmation();\" target=\"_self\" href=\"'
+            elCell.innerHTML = "<a title=\"Remove\" onclick=\"return deleteConfirmation({itemName: \'experiment\'});\" target=\"_self\" href=\"'
       . $deleteURL . '" + oData + "\">Remove</a>";
         }
 

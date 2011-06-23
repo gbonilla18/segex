@@ -30,7 +30,6 @@ use warnings;
 
 use SGX::DropDownData;
 use SGX::DrawingJavaScript;
-use SGX::JavaScriptDeleteConfirm;
 use Data::Dumper;
 use Switch;
 
@@ -206,9 +205,6 @@ sub dispatch
             print "<br />Record removed - Redirecting...<br />";
         }
         case 'load' {
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
-
             $self->loadFromForm();
             $self->loadAllExperimentsFromStudy();
             $self->loadStudyData();
@@ -217,9 +213,6 @@ sub dispatch
         }
         else {
             # default action: show experiments form
-            my $javaScriptDeleteConfirm = SGX::JavaScriptDeleteConfirm->new();
-            $javaScriptDeleteConfirm->drawJavaScriptCode();
-
             $self->loadStudyData();
             $self->loadPlatformData();
             $self->showExperiments();
@@ -396,7 +389,7 @@ sub showExperiments
         };" . "\n";
 
         print    '<h3 name = "caption" id="caption"></h3>' . "\n";
-        print    '<div><a id="StudyTable_astext" onClick = "export_table(JSStudyList)">View as plain text</a></div>' . "\n";
+        print    '<div><a id="StudyTable_astext" onclick="export_table(JSStudyList)">View as plain text</a></div>' . "\n";
         print    '<div id="StudyTable"></div>' . "\n";
 
         print    "<script type=\"text/javascript\">\n";
@@ -546,11 +539,11 @@ sub printTableInformation
         {
             if(oRecord.getData("9") == 0)
             {
-                elCell.innerHTML = "<a title=\"Delete\" onClick = \"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "&selectedpid=" + document.forms[0].platform_load[document.forms[0].platform_load.selectedIndex].value + "&selectedstid=" + document.forms[0].stid[document.forms[0].stid.selectedIndex].value + "\">Delete</a>";
+                elCell.innerHTML = "<a title=\"Delete\" onclick=\"return deleteConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "&selectedpid=" + document.forms[0].platform_load[document.forms[0].platform_load.selectedIndex].value + "&selectedstid=" + document.forms[0].stid[document.forms[0].stid.selectedIndex].value + "\">Delete</a>";
             }
             else
             {
-                elCell.innerHTML = "<a title=\"Remove\" onClick = \"return removeExperimentConfirmation();\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "&selectedpid=" + document.forms[0].platform_load[document.forms[0].platform_load.selectedIndex].value + "&selectedstid=" + document.forms[0].stid[document.forms[0].stid.selectedIndex].value + "\">Remove</a>";
+                elCell.innerHTML = "<a title=\"Remove\" onclick=\"return deleteConfirmation({ itemName: \'experiment\' });\" target=\"_self\" href=\"' . $deleteURL . '" + oData + "&stid=" + encodeURI(oRecord.getData("9")) + "&selectedpid=" + document.forms[0].platform_load[document.forms[0].platform_load.selectedIndex].value + "&selectedstid=" + document.forms[0].stid[document.forms[0].stid.selectedIndex].value + "\">Remove</a>";
             }
         }
 

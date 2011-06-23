@@ -38,7 +38,7 @@ function populateSelectExisting(el, id_el, obj)
 		for (var i in obj[stid][1]) {
 		        var new_opt = document.createElement('option');
 		        new_opt.setAttribute('value', i);
-			if (obj[stid][2][i] === undefined) {
+			if (obj[stid][2] === undefined || obj[stid][2][i] === undefined) {
 				// "study" for 
 				// Projects -> Studies
 				new_opt.innerHTML = obj[stid][1][i];

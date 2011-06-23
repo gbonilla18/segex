@@ -10,6 +10,15 @@ function $() {
 	}
 	return elements;
 }
+function deleteConfirmation(oArg)
+{
+    var itemName = (oArg && oArg.itemName) ? oArg.itemName : "item";
+    var msg = "Are you sure you want to delete this " + itemName  + "?";
+    if (oArg && oArg.childName) {
+        msg += " Deleting it will also remove any " + childName + "(s) it contains."; 
+    }
+    return confirm(msg);
+}
 function validate_fields(of,reqfields) {
 /* 04/18/2009 - changed from using a hidden field to store ids
 		of required fields to passing an array of ids directly
