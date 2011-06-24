@@ -3,11 +3,29 @@
 #
 #         FILE:  Exceptions.pm
 #
-#  DESCRIPTION:
+#  DESCRIPTION:  
+#
+#  Here we declare our exception hierarchy.
+#
+#  For now, the top two branches in the hierarchy are SGX::Exception::User and
+#  SGX::Exception::Internal. They are meant to describe two general classes of
+#  errors: user errors and internal errors. User errors are caused by bad user
+#  input or improper interaction and they are excepted to happen during normal
+#  use (albeit not very often). Internal errors are caused by unexpected
+#  internal state and should never happen; in case they do happen, we throw
+#  SGX::Exception::Internal.
 #
 #        FILES:  ---
 #         BUGS:  ---
-#        NOTES:  ---
+#        NOTES:  
+#
+#  About stringification: "The default implementation of the as_string() method
+#  does not take into account any fields that might exist for a given exception
+#  class. If you want to include these when an object is stringified or when
+#  as_string() is called, the correct way to do this is to override
+#  full_message() instead of overriding as_string()."
+#  http://drdobbs.com/web-development/184416129
+#
 #       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
 #      COMPANY:  Boston University
 #      VERSION:  1.0
@@ -21,33 +39,8 @@ use warnings;
 package SGX::Exceptions;
 
 use Exception::Class (
-    'SGX::Exception::Internal' => {
-        fields      => 'errstr',
-        description => 'internal error'
-    },
-
-    'SGX::Exception::DBI' => {
-        fields      => 'errstr',
-        description => 'DBI error'
-    },
-
-    'SGX::Exception::Prepare' => {
-        isa         => 'SGX::Exception::DBI',
-        fields      => 'errstr',
-        description => 'could not prepare SQL statement'
-    },
-
-    'SGX::Exception::Execute' => {
-        isa         => 'SGX::Exception::DBI',
-        fields      => 'errstr',
-        description => 'could not execute SQL statement'
-    },
-
-    'SGX::Exception::Insert' => {
-        isa         => 'SGX::Exception::Execute',
-        fields      => 'errstr',
-        description => 'could not add record(s)'
-    }
+    'SGX::Exception::User',
+    'SGX::Exception::Internal'
 );
 
 1;

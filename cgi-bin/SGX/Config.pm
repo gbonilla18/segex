@@ -6,6 +6,8 @@ use base qw/Exporter/;
 
 use Carp;
 use File::Basename;
+use Exception::Class::DBI;
+
 use SGX::Util qw/replace/;
 
 our @EXPORT =
@@ -50,9 +52,11 @@ use constant CSS_DIR    => DOCUMENTS_ROOT . '/css';
 #===============================================================================
 sub sgx_db_connect {
 
-    my $dbh =
-         DBI->connect( DATABASE_STRING, DATABASE_USER, DATABASE_PWD )
-      or croak $DBI::errstr;
+    my $dbh = DBI->connect( DATABASE_STRING, DATABASE_USER, DATABASE_PWD, {
+        PrintError  => 0,
+        RaiseError  => 0,
+        HandleError => Exception::Class::DBI->handler
+    });
     return $dbh;
 }
 

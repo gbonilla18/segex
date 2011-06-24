@@ -36,6 +36,7 @@ use SGX::Debug;
 use SGX::DropDownData;
 use SGX::DrawingJavaScript;
 use SGX::Exceptions;
+
 use Switch;
 use Data::Dumper;
 use JSON::XS;
@@ -163,18 +164,20 @@ sub dispatch {
         }
         case 'addExisting' {
             $self->loadFromForm();
+
+            # TRY:
             my $record_count = eval { $self->addExistingStudy() } || 0;
-            my $msg = $q->p(
-                ($record_count) ? 'Record added. ' : 'No records added. '
-            );
-            if ($@) {
-                my $exception = SGX::Exception::Insert->caught();
-                if ($exception) {
-                    # only catching insertion errors
-                    $msg .= $q->pre($exception->errstr);
+            my $msg = $q->p("$record_count record(s) added. ");
+
+            # CATCH:
+            if (my $exception = $@) {
+                if ($exception->isa('Exception::Class::DBI::STH')) {
+                    # only catching statement errors. Typical error: duplicate
+                    # record is being inserted.
+                    $msg .= $q->pre($exception->error);
                 } else {
-                    # rethrow
-                    croak $@;
+                    # unexpected error: rethrow
+                    $exception->throw();
                 }
             }
             print $msg . $q->p('Redirecting...');
@@ -998,14 +1001,16 @@ sub addExistingStudy {
     my $self = shift;
 
     my $dbh = $self->{_dbh};
-    my $sth = $dbh->prepare( $self->{_AddExistingStudy} )
-        or SGX::Exception::Prepare->throw( errstr => $dbh->errstr );
-    my $rc = $sth->execute( $self->{_prid}, $self->{_SelectedStudy} )
-        or SGX::Exception::Insert->throw( errstr => $dbh->errstr );
+    my $sth = $dbh->prepare( $self->{_AddExistingStudy} );
+    my $rc = $sth->execute( $self->{_prid}, $self->{_SelectedStudy} );
     $sth->finish();
     if ($rc != 1) {
+        # Failure to insert a row (when $rc == 0) will be caught by
+        # Exception::Class::DBI::STH handler. In case that fails, or in the
+        # crazy case where no primary key was defined in the database, we throw
+        # an exception here signaling an internal error:
         SGX::Exception::Internal->throw( 
-            errstr => "$rc records were modified though one was expected"
+            error => "$rc records were modified though one was expected\n"
         );
     }
     return $rc;
