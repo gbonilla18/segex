@@ -30,8 +30,6 @@ package SGX::ManageProjects;
 use strict;
 use warnings;
 
-use CGI::Carp qw/croak/;
-
 use SGX::Debug;
 use SGX::DropDownData;
 use SGX::DrawingJavaScript;
@@ -209,7 +207,7 @@ sub dispatch {
             $self->showProjects();
         }
         else {
-            croak "Unknown action $action";
+            SGX::Exception::User->throw(error=>"Unknown action $action\n");
         }
     }
     if ( $action eq 'delete' || $action eq 'editSubmit' ) {
@@ -326,10 +324,8 @@ END_JSStudyList
 sub loadAllProjects {
     my $self = shift;
 
-    my $sth = $self->{_dbh}->prepare( $self->{_LoadQuery} )
-      or croak $self->{_dbh}->errstr;
-    my $rc = $sth->execute()
-      or croak $self->{_dbh}->errstr;
+    my $sth = $self->{_dbh}->prepare( $self->{_LoadQuery} );
+    my $rc = $sth->execute();
 
     $self->{_FieldNames} = $sth->{NAME};
     $self->{_Data}       = $sth->fetchall_arrayref;
@@ -383,10 +379,8 @@ END_ShowProjectsJS
 sub loadUserData {
     my $self = shift;
 
-    my $sth = $self->{_dbh}->prepare( $self->{_UserQuery} )
-      or croak $self->{_dbh}->errstr;
-    my $rc = $sth->execute
-      or croak $self->{_dbh}->errstr;
+    my $sth = $self->{_dbh}->prepare( $self->{_UserQuery} );
+    my $rc = $sth->execute;
 
     #Grab all users and build the hash and array for drop down.
     my @tempUsers = @{ $sth->fetchall_arrayref };
@@ -419,15 +413,17 @@ sub loadSingleProject {
     $self->{_prid} = $self->{_cgi}->url_param('id');
 
     #Run the SQL and get the data into the object.
-    my $sth = $self->{_dbh}->prepare( $self->{_LoadSingleQuery} )
-      or croak $self->{_dbh}->errstr;
-    my $rc = $sth->execute( $self->{_prid} )
-      or croak $self->{_dbh}->errstr;
+    my $sth = $self->{_dbh}->prepare( $self->{_LoadSingleQuery} );
+    my $rc = $sth->execute( $self->{_prid} );
 
     if ( $rc < 1 ) {
-        croak "No project found with id = $self->{_prid}";
+        SGX::Exception::User->throw(
+            error=>"No project found with id = $self->{_prid}\n"
+        );
     } elsif ( $rc > 1) {
-        croak "Internal error: Cannot have $rc projects sharing the same id.";
+        SGX::Exception::Internal->throw(
+            error=>"Cannot have $rc projects sharing the same id.\n"
+        );
     }
 
     #
@@ -462,12 +458,10 @@ sub loadSingleProject {
 sub loadAllStudiesFromProject {
     my $self = shift;
 
-    $self->{_StudyRecords} = $self->{_dbh}->prepare( $self->{_StudiesQuery} )
-      or croak $self->{_dbh}->errstr;
-
-    $self->{_StudyRecordCount} =
-      $self->{_StudyRecords}->execute( $self->{_prid} )
-      or croak $self->{_dbh}->errstr;
+    $self->{_StudyRecords} 
+        = $self->{_dbh}->prepare( $self->{_StudiesQuery} );
+    $self->{_StudyRecordCount} 
+        = $self->{_StudyRecords}->execute( $self->{_prid} );
     $self->{_StudyFieldNames} = $self->{_StudyRecords}->{NAME};
     $self->{_StudyData}       = $self->{_StudyRecords}->fetchall_arrayref;
     $self->{_StudyRecords}->finish;
@@ -777,8 +771,7 @@ sub insertNewProject {
         $self->{_prname}, 
         $self->{_prdesc},
         $self->{_manager} 
-    )
-      or croak $self->{_dbh}->errstr;
+    );
 
     $self->{_prid} = $self->{_dbh}->{'mysql_insertid'};
     return $self->{_prid};
@@ -797,9 +790,12 @@ sub insertNewProject {
 sub deleteProject {
     my $self = shift;
 
-    $self->{_dbh}->do( $self->{_DeleteQuery}, undef, $self->{_prid} )
-      or croak $self->{_dbh}->errstr;
-    return;
+    return 
+    $self->{_dbh}->do(
+        $self->{_DeleteQuery}, 
+        undef, 
+        $self->{_prid}
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -815,10 +811,13 @@ sub deleteProject {
 sub removeStudy {
     my $self = shift;
 
-    $self->{_dbh}->do( $self->{_RemoveStudy}, undef, $self->{_prid},
-        $self->{_delete_stid} )
-      or croak $self->{_dbh}->errstr;
-    return;
+    return
+    $self->{_dbh}->do( 
+        $self->{_RemoveStudy}, 
+        undef, 
+        $self->{_prid},
+        $self->{_delete_stid} 
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1143,10 +1142,8 @@ sub buildUnassignedStudyDropDown {
 sub getJavaScriptRecordsForExistingDropDowns {
     my $self = shift;
 
-    my $sth = $self->{_dbh}->prepare( $self->{_ExistingProjectQuery} )
-      or croak $self->{_dbh}->errstr;
-    my $rc = $sth->execute( $self->{_prid} )
-      or croak $self->{_dbh}->errstr;
+    my $sth = $self->{_dbh}->prepare( $self->{_ExistingProjectQuery} );
+    my $rc = $sth->execute( $self->{_prid} );
 
     #my @out;
 
@@ -1165,10 +1162,8 @@ sub getJavaScriptRecordsForExistingDropDowns {
     $sth->finish;
 
     # resetting $sth
-    $sth = $self->{_dbh}->prepare( $self->{_ExistingStudyQuery} )
-      or croak $self->{_dbh}->errstr;
-    $rc = $sth->execute( $self->{_prid} )
-      or croak $self->{_dbh}->errstr;
+    $sth = $self->{_dbh}->prepare( $self->{_ExistingStudyQuery} );
+    $rc = $sth->execute( $self->{_prid} );
 
     ### populate the Javascript hash with the content of the study recordset
     while ( my @row = $sth->fetchrow_array ) {
@@ -1195,17 +1190,15 @@ sub getJavaScriptRecordsForExistingDropDowns {
 sub editSubmitProject {
     my $self = shift;
 
-    my $rc =
-      $self->{_dbh} ->do( 
-          $self->{_UpdateQuery}, 
-          undef, 
-          $self->{_prname}, 
-          $self->{_prdesc},
-          $self->{_manager}, 
-          $self->{_prid}
-      )
-      or croak $self->{_dbh}->errstr;
-    return $rc;
+    return 
+    $self->{_dbh}->do( 
+        $self->{_UpdateQuery}, 
+        undef, 
+        $self->{_prname}, 
+        $self->{_prdesc},
+        $self->{_manager}, 
+        $self->{_prid}
+    );
 }
 
 1;
