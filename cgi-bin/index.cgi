@@ -658,19 +658,28 @@ sub build_sidemenu
     if ($s->is_authorized('unauth')) {
 
         my $proj_name = $s->{session_cookie}->{proj_name};
-        $proj_name = 'All Projects' if not defined($proj_name) or $proj_name eq '';
-
+        my $curr_proj = $s->{session_cookie}->{curr_proj};
+        if (defined($curr_proj) and $curr_proj ne '') {
+            $proj_name = $q->a(
+                {-href=>"$url_prefix?a=manageProjects&ManageAction=edit&id=$curr_proj"}, 
+                $proj_name
+            );
+        } else {
+            $proj_name = 'All Projects';
+        }
         # add unauth options
         push @menu, $q->span({-style=>'color:#999'},'Logged in as ' .
             $s->{session_cookie}->{full_name});
         push @menu, $q->span({-style=>'color:#999'}, 
             "Current Project: $proj_name (" .
-            $q->a({-href=>$url_prefix.'?a=chooseProject'},'change') . ')');
+            $q->a({-href=>$url_prefix.'?a=form_chooseProject'},'change') . ')');
         push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.UPDATEPROFILE,
                     -title=>'My user profile.'},'My Profile') .
                     $q->span({-class=>'separator'},' / ') .
                     $q->a({-href=>$url_prefix.'?a='.LOGOUT,
-                    -title=>'You are signed in as '.$s->{session_stash}->{username}.'. Click on this link to log out.'},'Log out');
+                    -title=>'You are signed in as ' .
+                        $s->{session_stash}->{username} .
+                        '. Click on this link to log out.'},'Log out');
     } else {
         # add top options for anonymous users
         push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.LOGIN,
