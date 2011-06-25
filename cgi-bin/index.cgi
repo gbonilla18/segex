@@ -12,6 +12,7 @@ use warnings;
 # object-oriented style.
 #
 use CGI 2.47 qw/-nosticky/;
+#use CGI::Pretty 2.47 qw/-nosticky/;
 use Switch;
 use URI::Escape;
 use Carp;
@@ -711,12 +712,11 @@ sub build_menu
 # ... and then send the \@SGX::User::cookies array reference to CGI::header() for example.
 
 print $q->header(-type=>'text/html', -cookie=>$s->cookie_array());
-
-cgi_start_html();
-
+print cgi_start_html();
 print $q->h1($q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108,
            alt=>PROJECT_NAME, title=>PROJECT_NAME})),
       $q->ul({-id=>'menu'},$q->li(build_menu()));
+print '<div id="content">';
 
 #---------------------------------------------------------------------------
 #  Don't delete commented-out block below: it is meant to be used for 
@@ -737,7 +737,9 @@ print $q->h1($q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108,
 ### but for the purpose of fast integration, putting this statement here.
 $dbh->disconnect;
 
-cgi_end_html();
+print '</div>';
+print footer();
+print cgi_end_html();
 
 #######################################################################################
 sub cgi_start_html {
@@ -755,7 +757,7 @@ sub cgi_start_html {
         push @js, $_;
     }
 
-    print $q->start_html(
+    return $q->start_html(
             -title=>PROJECT_NAME." : $title",
             -style=>$css,
             -script=>\@js,
@@ -766,16 +768,11 @@ sub cgi_start_html {
                 $q->meta({-http_equiv=>'Content-Style-Type', -content=>'text/css'})
             ]
         );
-    print '<div id="content">';
-    return;
 }
 #######################################################################################
 sub cgi_end_html {
-    print '</div>';
-    print footer();
     #print projectInfo();
-    print $q->end_html;
-    return;
+    return $q->end_html;
 }
 #######################################################################################
 sub main {

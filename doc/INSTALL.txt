@@ -1,7 +1,7 @@
 ============ DATABASE SETUP ===============
 
-1. Create empty database and add a dedicated user account. Note: in default MySQL
-instllation, the root password is empty (simply press enter to proceed).
+1. Create empty database and add a dedicated user account. Note: in default
+MySQL instllation, the root password is empty (simply press enter to proceed).
 
   mysql -u root -p
   > create database segex_dev;
@@ -13,22 +13,23 @@ instllation, the root password is empty (simply press enter to proceed).
 
   gunzip -c segex.sql.gz | mysql segex_dev -u root -p
 
-3. Update SGX/Config.pm module with correct database, user, and password information.
+3. Update SGX/Config.pm module with correct database, user, and password
+information.
 
-TODO: create an interactive-prompt type interface for automating database creation and
-updating the Config.pm file.
+TODO: create an interactive-prompt type interface for automating database
+creation and updating the Config.pm file.
 
 
 ============ SOFTWARE INSTALL ===============
 
 ==== A. Linux ====
 
-1. Change log file path in "Debug.pm" to a path actually present and writeable on the
-given system. On Linux, the path is "/var/www/error_log/error_log". Then one has to make
-sure that a CGI process has write access to said file. On Linux, Apache server process
-is owned by user under username "nobody". However, I recommend creating a separate log
-file so that more than one software/database instance could be set up on the same
-machine.
+1. Change log file path in "Debug.pm" to a path actually present and writeable
+on the given system. On Linux, the path is "/var/www/error_log/error_log". Then
+one has to make sure that a CGI process has write access to said file. On Linux,
+Apache server process is owned by user under username "nobody". However, I
+recommend creating a separate log file so that more than one software/database
+instance could be set up on the same machine.
 
   mkdir -p ~/log/apache2
   cd  ~/log/apache2
@@ -37,20 +38,21 @@ machine.
 
 TODO: create an interactive-prompt type interface for entering log path.
 
-2. Check Perl dependencies. Tie::IxHash and JSON are not included in the default Perl
-installation on Linux Cent OS. The commands below upgrade and reload the cpan executable
-before installing the packages on which SEGEX depends:
+2. Check Perl dependencies. Tie::IxHash and JSON are not included in the default
+Perl installation on Linux Cent OS. The commands below upgrade and reload the
+cpan executable before installing the packages on which SEGEX depends:
 
   sudo /usr/bin/perl -MCPAN -e shell
   > install CPAN
   > reload cpan
   > install Tie::IxHash
   > install JSON
+  > install Exception::Class::DBI
 
  
-3. Copy files. Note: symlinks can be created instead of copying, however that would
-require FollowSymLinks directive to be set in the Apache configuration file for both
-CGI_ROOT and DOCUMENTS_ROOT directories.
+3. Copy files. Note: symlinks can be created instead of copying, however that
+would require FollowSymLinks directive to be set in the Apache configuration
+file for both CGI_ROOT and DOCUMENTS_ROOT directories.
 
    # /cgi-bin/segex_dev
    cd /var/www/cgi-bin
@@ -73,19 +75,21 @@ CGI_ROOT and DOCUMENTS_ROOT directories.
    # /segex_dev/images
    sudo cp -R ~/segex/images .
 
-TODO: automate file copying: have user provide only two directories: CGI_ROOT and
-DOCUMENTS_ROOT. Create the subtree containing css/, images/, and js/ directories under
-DOCUMENTS_ROOT and the subtree corresponding to cgi-bin under CGI_ROOT.
+TODO: automate file copying: have user provide only two directories: CGI_ROOT
+and DOCUMENTS_ROOT. Create the subtree containing css/, images/, and js/
+directories under DOCUMENTS_ROOT and the subtree corresponding to cgi-bin under
+CGI_ROOT.
 
 
 ==== B. Mac OS X ====
 
-1. Change log file path in "Debug.pm" to a path actually present and writeable on the
-given system. On Mac OS X, the path is "/private/var/log/apache2/error_log". Then one
-has to make sure that a CGI process has write access to said file. On Mac OS X, Apache
-server process is owned by user under username "www". However, I recommend creating a
-separate log file so that more than one software/database instance could be set up on
-the same machine.
+1. Change log file path in "Debug.pm" to a path actually present and writeable
+on the given system. On Mac OS X, the path is
+"/private/var/log/apache2/error_log". Then one has to make sure that a CGI
+process has write access to said file. On Mac OS X, Apache server process is
+owned by user under username "www". However, I recommend creating a separate log
+file so that more than one software/database instance could be set up on the
+same machine.
 
   mkdir -p ~/log/apache2
   cd  ~/log/apache2
@@ -94,10 +98,10 @@ the same machine.
 
 TODO: create an interactive-prompt type interface for entering log path.
 
-2. Check Perl dependencies. Apache::Session, DBD::mysql, Tie::IxHash, and JSON are not
-included in the default Perl installation on Mac OS X Snow Leopard. The commands below
-upgrade and reload the cpan executable before installing packages on which SEGEX
-depends:
+2. Check Perl dependencies. Apache::Session, DBD::mysql, Tie::IxHash, and JSON
+are not included in the default Perl installation on Mac OS X Snow Leopard. The
+commands below upgrade and reload the cpan executable before installing packages
+on which SEGEX depends:
 
   sudo /usr/bin/perl -MCPAN -e shell
   > install CPAN
@@ -107,29 +111,36 @@ depends:
   > install Mail::Send
   > install Tie::IxHash
   > install JSON
+  > install Exception::Class::DBI
 
-Note 1: If you are running Mac OS X 10.6 and have Xcode 4 installed, you no longer have
-PPC assembler required to build CPAN packages. To work around this, you can either (a)
-go to the corresponding subdirectory in ~/.cpan/build, remove all references to PPC
-architecture (e.g. "-arch ppc") and reinstall package with "sudo make" and "sudo make
-install". To ensure CPAN can see your module, type "install My::Module" in CPAN shell
-and press <Enter>. You should see a message, "My::Module is up to date (vx.xx)".
-Alternatively (b), create the following symlinks:
+Note 1: If you are running Mac OS X 10.6 and have Xcode 4 installed, you no
+longer have PPC assembler required to build CPAN packages. To work around this,
+you can either (a) go to the corresponding subdirectory in ~/.cpan/build, remove
+all references to PPC architecture (e.g. "-arch ppc") and reinstall package with
+"sudo make" and "sudo make install". To ensure CPAN can see your module, type
+"install My::Module" in CPAN shell and press <Enter>. You should see a message,
+"My::Module is up to date (vx.xx)".  Alternatively (b), create the following
+symlinks:
 
-sudo ln -s /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc \
-        /Developer/usr/libexec/gcc/darwin
-sudo ln -s /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc \
-        /usr/libexec/gcc/darwin
+sudo ln -s \
+/Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc \
+/Developer/usr/libexec/gcc/darwin
 
-3. Set up mailer. The Mail::Send module can use either Sendmail or Postfix. The current
-version of SEGEX relies on a default mailer, which can be either Sendmail or Postfix
-depending on the system. On my Mac OS X Snow Leopard, the default mailer is Postfix.
+sudo ln -s \
+/Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc \
+/usr/libexec/gcc/darwin
+
+3. Set up mailer. The Mail::Send module can use either Sendmail or Postfix. The
+current version of SEGEX relies on a default mailer, which can be either
+Sendmail or Postfix depending on the system. On my Mac OS X Snow Leopard, the
+default mailer is Postfix.
 
    GMAIL EMAIL RELAY USING POSTFIX ON MAC OS X 
         (Adapted with some changes after: 
-	http://www.riverturn.com/blog/?p=239)
+        http://www.riverturn.com/blog/?p=239)
 
-   3.1. Create the Simple Authentication and Security Layer (SASL) password file.
+   3.1. Create the Simple Authentication and Security Layer (SASL) password
+file.
 
         sudo vi /etc/postfix/sasl_passwd
 
@@ -141,23 +152,24 @@ depending on the system. On my Mac OS X Snow Leopard, the default mailer is Post
 
         sudo postmap /etc/postfix/sasl_passwd
 
-	This creates a binary file called "/etc/postfix/sasl_passwd.db". When done, you 
-	can delete the "/etc/postfix/sasl_passwd" created in the previous step, to 
-	prevent the plain-text password from being discovered by an attacker (Postfix 
-	will use the .db file from now on):
+   This creates a binary file called "/etc/postfix/sasl_passwd.db". When
+done, you can delete the "/etc/postfix/sasl_passwd" created in the previous
+step, to prevent the plain-text password from being discovered by an attacker
+(Postfix will use the .db file from now on):
 
-	sudo rm /etc/postfix/sasl_passwd
+        sudo rm /etc/postfix/sasl_passwd
 
-	Also, there is no need for anyone but root to have read access to the database:
+   Also, there is no need for anyone but root to have read access to the
+database:
 
-	sudo chmod 600 /etc/postfix/sasl_passwd.db
+        sudo chmod 600 /etc/postfix/sasl_passwd.db
 
    3.3. Configure Postfix:
 
         sudo vi /etc/postfix/main.cf
 
-        By default, everything is commented out. You can just append the following to
-        the end of file and then save it:
+   By default, everything is commented out. You can just append the following to
+the end of file and then save it:
 
         # Minimum Postfix-specific configurations.
         mydomain_fallback = localhost
@@ -175,14 +187,14 @@ depending on the system. On my Mac OS X Snow Leopard, the default mailer is Post
         smtp_tls_security_level=encrypt
         tls_random_source=dev:/dev/urandom
 
-   3.4. Test that everything is OK with "sudo postfix start" or, if the process is
-        already running, with "sudo postfix reload". If you need to view mail queue, 
-        type "mailq" in the terminal. To clear the mail queue, run "sudo postsuper -d 
-        ALL".
+   3.4. Test that everything is OK with "sudo postfix start" or, if the process
+is already running, with "sudo postfix reload". If you need to view mail queue,
+type "mailq" in the terminal. To clear the mail queue, run "sudo postsuper -d
+ALL".
 
-4. Copy files. Note: symlinks can be created instead of copying, however that would
-require FollowSymLinks directive to be set in the Apache configuration file for both
-CGI_ROOT and DOCUMENTS_ROOT directories.
+4. Copy files. Note: symlinks can be created instead of copying, however that
+would require FollowSymLinks directive to be set in the Apache configuration
+file for both CGI_ROOT and DOCUMENTS_ROOT directories.
 
    # /cgi-bin/segex_dev
    cd /Library/WebServer/CGI-Executables
