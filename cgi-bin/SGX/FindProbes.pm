@@ -800,24 +800,24 @@ sub getform_findProbes {
     $q->h2('Find Probes') .
     $q->p('You can enter here a list of probes, transcript accession numbers, or gene names. The results will contain probes that are related to the search terms.') .
     $q->dl(
-        $q->dt('Search term(s):'),
+        $q->dt($q->label({-for=>'text'},'Search term(s):')),
         $q->dd(
-            $q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1,
-                -name=>'text'),
+            $q->textarea(-name=>'text',-id=>'text',-rows=>10,-columns=>50,-tabindex=>1),
             $q->p({-style=>'color:#777'},'Multiple entries have to be separated by commas or be on separate lines')
         ),
-        $q->dt('Search type :'),
+        $q->dt($q->label({-for=>'type'},'Search type:')),
         $q->dd($q->popup_menu(
                 -name=>'type',
+                -id=>'type',
                 -default=>'gene',
                 -values=>[keys %type_dropdown],
                 -labels=>\%type_dropdown
         )),
-        $q->dt('Pattern to match :'),
+        $q->dt('Pattern to match:'),
         $q->dd(
             $q->radio_group(
                 -tabindex=>2, 
-                -name=>'match', 
+                -name=>'match',
                 -linebreak=>'true', 
                 -default=>'full', 
                 -values=>[keys %match_dropdown], 
@@ -825,7 +825,7 @@ sub getform_findProbes {
             ), 
             $q->p({-style=>'color:#777'},'* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with cyp.b where the period represents any one character (2, 3, 4, "a", etc.). See <a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more examples.')
         ),
-        $q->dt('Display options :'),
+        $q->dt($q->label({-for=>'opts'},'Display options:')),
         $q->dd($q->popup_menu(
                 -tabindex=>3, 
                 -name=>'opts',
@@ -846,7 +846,8 @@ sub getform_findProbes {
                 -labels=>\%trans_dropdown
         )),
         $q->dt('&nbsp;'),
-        $q->dd($q->submit(-tabindex=>6, -class=>'css3button', -name=>'a', -value=>$a, -override=>1)),
+        #$q->dd($q->submit(-tabindex=>6, -class=>'css3button', -name=>'a', -value=>$a, -override=>1)),
+        $q->dd($q->submit(-tabindex=>6, -class=>'css3button', -name=>'a', -value=>$a)),
     ) 
     .
     $q->endform;

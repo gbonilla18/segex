@@ -642,6 +642,46 @@ $s->commit();    # flush the session data and prepare the cookie
 
 
 #===  FUNCTION  ================================================================
+#         NAME:  build_side_menu
+#      PURPOSE:  
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub build_sidemenu
+{
+    my @menu;
+    my $url_prefix = $q->url(-absolute=>1);
+    if ($s->is_authorized('unauth')) {
+
+        my $proj_name = $s->{session_cookie}->{proj_name};
+        $proj_name = 'All Projects' if not defined($proj_name) or $proj_name eq '';
+
+        # add unauth options
+        push @menu, $q->span({-style=>'color:#999'},'Logged in as ' .
+            $s->{session_cookie}->{full_name});
+        push @menu, $q->span({-style=>'color:#999'}, 
+            "Current Project: $proj_name (" .
+            $q->a({-href=>$url_prefix.'?a=chooseProject'},'change') . ')');
+        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.UPDATEPROFILE,
+                    -title=>'My user profile.'},'My Profile') .
+                    $q->span({-class=>'separator'},' / ') .
+                    $q->a({-href=>$url_prefix.'?a='.LOGOUT,
+                    -title=>'You are signed in as '.$s->{session_stash}->{username}.'. Click on this link to log out.'},'Log out');
+    } else {
+        # add top options for anonymous users
+        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.LOGIN,
+                    -title=>'Log in'},'Log in') . 
+                    $q->span({-class=>'separator'},' / ') .
+                    $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.REGISTERUSER,
+                        -title=>'Set up a new account'}, 'Sign up');
+    }
+    return \@menu;
+}
+#===  FUNCTION  ================================================================
 #         NAME:  build_menu
 #      PURPOSE:  
 #   PARAMETERS:  ????
@@ -655,20 +695,6 @@ sub build_menu
 {
     my @menu;
     my $url_prefix = $q->url(-absolute=>1);
-    # add top options for everyone
-    push @menu, $q->a({-href=>$url_prefix.'?a='.DEFAULT_ACTION,
-                -title=>'Main page'},'Home');
-    if ($s->is_authorized('unauth')) {
-        # add unauth options
-        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.UPDATEPROFILE,
-                    -title=>'My user profile.'},'My Profile');
-        push @menu, $q->a({-href=>$url_prefix.'?a='.LOGOUT,
-                    -title=>'You are signed in as '.$s->{session_stash}->{username}.'. Click on this link to log out.'},'Log out');
-    } else {
-        # add top options for anonymous users
-        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.LOGIN,
-                    -title=>'Log in'},'Log in');
-    }
     if ($s->is_authorized('user')) {
         # add user options
         push @menu, $q->a({-href=>$url_prefix.'?a='.SHOWSCHEMA,
@@ -713,9 +739,24 @@ sub build_menu
 
 print $q->header(-type=>'text/html', -cookie=>$s->cookie_array());
 print cgi_start_html();
-print $q->h1($q->img({src=>IMAGES_DIR . '/logo.png', width=>448, height=>108,
-           alt=>PROJECT_NAME, title=>PROJECT_NAME})),
-      $q->ul({-id=>'menu'},$q->li(build_menu()));
+print $q->div({-id=>'header'},
+    $q->h1(
+        $q->a({-href => $q->url(-absolute=>1).'?a='.DEFAULT_ACTION, 
+               -title => 'Segex home'},
+            $q->img({src=>IMAGES_DIR . '/logo.png', 
+                     width=>448, 
+                     height=>108,
+                     alt=>PROJECT_NAME, 
+                     title=>PROJECT_NAME}
+                )
+        )
+    ),
+     $q->ul(
+         {-id=>'sidemenu'},
+         $q->li(build_sidemenu())
+     )
+),
+$q->ul({-id=>'menu'}, $q->li(build_menu()));
 print '<div id="content">';
 
 #---------------------------------------------------------------------------
@@ -817,10 +858,7 @@ sub form_login {
             $q->submit(-name=>'login',-id=>'login',-class=>'css3button',-value=>'Login'),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.RESETPASSWORD,
-                -title=>'Email me a new password'},'I Forgot My Password'),
-            $q->span({-class=>'separator'},' / '),
-            $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.REGISTERUSER,
-                -title=>'Set up a new account'}, 'Sign up')
+                -title=>'Email me a new password'},'I Forgot My Password')
         )
     )
     .
@@ -1000,15 +1038,11 @@ sub footer {
         $q->ul(
             $q->li($q->a({-href=>'http://www.bu.edu/',
                 -title=>'Boston University'},'Boston University')),
-            $q->li(
-                $q->ul(
-                $q->li($q->a({-href=>'http://validator.w3.org/check?uri=referer',
-                    -title=>'Validate XHTML'},'XHTML')),
-                $q->li($q->a({-href=>'http://jigsaw.w3.org/css-validator/check/referer',
-                    -title=>'Validate CSS'},'CSS')),
-                $q->li('SEGEX version : ' . $softwareVersion )
-                )
-            )
+#            $q->li($q->a({-href=>'http://validator.w3.org/check?uri=referer',
+#                -title=>'Validate XHTML'},'XHTML')),
+#            $q->li($q->a({-href=>'http://jigsaw.w3.org/css-validator/check/referer',
+#                -title=>'Validate CSS'},'CSS')),
+            $q->li('SEGEX version : ' . $softwareVersion )
         ));
 }
 #######################################################################################

@@ -1,7 +1,7 @@
 body {
 	/* color:#999; */
 	background:#fff;
-	margin:4% 4% 0 6%;
+	margin:4% 5% 0 5%;
 	font-family:Verdana,Geneva,'Lucida Grande',sans-serif;
 	font-size:75%; /* default 'medium' text in modern browsers is 16px */
 }
@@ -21,25 +21,47 @@ h1, h2, h3, h4, h5, h6, caption {
         /*color:#26e;*/
         /*color:#d22;*/
 }
+#header h1 {
+	display:block;
+	width:448px;
+	float:left;
+	margin:0;
+	padding:0;
+	clear:none;
+}
+#sidemenu {
+	display:block;
+	float:right;
+	text-align:right;
+	clear:none;
+	margin-top:1em;
+}
+#sidemenu li {
+	margin-bottom:0.25em;
+}
 h2 {
 	font-size:180%;
 }
 h3 {
 	font-size:150%;
 }
-/*** Containers ***/
-ul#menu, div#content, .clearfix, form  {
+
+/*** Cleared Containers ***/
+#header, ul#menu, div#content, .clearfix, form  {
 	clear:none; /* IE Mac 5.x doesn't like clear:both */
 	/*overflow:auto;*/	/* force div to expand to its own content -- obsoleted by class "clearfix" (below) */
 	width:100%;
 	display:inline-block;	/* required for clearing */
+}
+#header {
+	margin-bottom:1em;
 }
 ul#menu, div#content, .clearfix {
 	margin-bottom:2em;
 }
 /* Clearing method below taken from
 http://www.positioniseverything.net/easyclearing.html */
-ul#menu:after, div#content:after, .clearfix:after, form:after  {
+#header:after, ul#menu:after, div#content:after, .clearfix:after, form:after  {
 	content:".";
 	display:block;
 	height:0;
@@ -47,9 +69,9 @@ ul#menu:after, div#content:after, .clearfix:after, form:after  {
 	visibility:hidden;
 }
 /* Hide from IE Mac \*/
-* html ul#menu, div#content, .clearfix, form { display:block; }
+* html #header, ul#menu, div#content, .clearfix, form { display:block; }
 /* End hide from IE Mac */
-/*** End Containers ***/
+/*** End of Cleared Containers ***/
 form {
 	clear:both;
 }
