@@ -57,83 +57,110 @@ sub new {
         _cgi => $cgi,
 
         # _UserQuery: load all users
-        _UserQuery =>
-'SELECT uid, CONCAT(uname ,\' \\\\ \', full_name) FROM users WHERE email_confirmed',
+        _UserQuery => <<"END_UserQuery",
+SELECT uid, CONCAT(uname, ' \\\\ ', full_name) 
+FROM users 
+WHERE email_confirmed
+END_UserQuery
 
         # _LoadQuery: show all projects
-        _LoadQuery => 'SELECT prid, prname, prdesc, users.uname as mgr_name  '
-          . 'FROM project '
-          . 'LEFT JOIN users ON project.manager = users.uid',
+        _LoadQuery => <<"END_LoadQuery",
+SELECT prid, prname, prdesc, users.uname as mgr_name
+FROM project
+LEFT JOIN users ON project.manager = users.uid
+END_LoadQuery
 
         # _LoadSingleQuery: show single project
-        _LoadSingleQuery =>
-          'SELECT prid, prname, prdesc FROM project WHERE prid=?',
+        _LoadSingleQuery => <<"END_LoadSingleQuery",
+SELECT prid, prname, prdesc 
+FROM project 
+WHERE prid=?
+END_LoadSingleQuery
 
         # _UpdateQuery: update project description
-        _UpdateQuery =>
-          'UPDATE project SET prname=?, prdesc=?, manager=? WHERE prid=?',
+        _UpdateQuery => <<"END_UpdateQuery",
+UPDATE project 
+SET prname=?, prdesc=?, manager=? 
+WHERE prid=?
+END_UpdateQuery
 
         # _InsertQuery: insert into project (what about ProjectStudy?)
-        _InsertQuery =>
-          'INSERT INTO project (prname, prdesc, manager) VALUES (?, ?, ?)',
+        _InsertQuery => <<"END_InsertQuery",
+INSERT INTO project 
+(prname, prdesc, manager) 
+VALUES (?, ?, ?)
+END_InsertQuery
 
         # _DeleteQuery: delete from both ProjectStudy and project
-        _DeleteQuery => 'DELETE FROM project WHERE prid=?',
+        _DeleteQuery => <<"END_DeleteQuery",
+DELETE FROM project 
+WHERE prid=?
+END_DeleteQuery
 
         # _StudiesQuery: select (and describe by platform) all studies that are
         # a part of the given project
+        _StudiesQuery => <<"END_StudiesQuery",
+SELECT study.stid AS stid,
+       study.description AS study_desc,
+       study.pubmed AS pubmed,
+       platform.pname
+FROM study
+RIGHT JOIN ProjectStudy USING (stid)
+LEFT JOIN platform USING (pid)
+WHERE ProjectStudy.prid = ?
+END_StudiesQuery
 
-        _StudiesQuery => 'SELECT study.stid AS stid, '
-          . '       study.description AS study_desc, '
-          . '       study.pubmed AS pubmed, '
-          . '       platform.pname '
-          . 'FROM study '
-          . 'RIGHT JOIN ProjectStudy USING (stid) '
-          . 'LEFT JOIN platform USING (pid) '
-          . 'WHERE ProjectStudy.prid = ?',
-        _StudyRecordCount => 0,
-        _StudyRecords     => '',
-        _StudyFieldNames  => '',
-        _StudyData        => '',
+        # _ExistingProjectQuery: select all projects that are not current project
+        _ExistingProjectQuery => <<"END_ExistingProjectQuery",
+SELECT prid, prname
+FROM project
+WHERE prid <> ?
+END_ExistingProjectQuery
 
-       # _ExistingProjectQuery: select all projects that are not current project
-        _ExistingProjectQuery => 'SELECT prid, prname '
-          . 'FROM project '
-          . 'WHERE prid <> ? ',
+        # _UnassignedProjectQuery: select all studies that are not in current
+        # project and which have not been assigned to any project
+        _UnassignedProjectQuery => <<"END_UnassignedProjectQuery",
+SELECT stid, description
+FROM study
+LEFT JOIN ProjectStudy USING (stid)
+WHERE ProjectStudy.prid IS NULL
+GROUP BY stid
+END_UnassignedProjectQuery
 
-        # _ExistingUnassignedProjectQuery:
-        # select all studies that are not in current project
-        # and which have not been assigned to any project
-        _ExistingUnassignedProjectQuery => 'SELECT stid, description '
-          . 'FROM study '
-          . 'LEFT JOIN ProjectStudy USING (stid) '
-          . 'WHERE ProjectStudy.prid IS NULL '
-          . 'GROUP BY stid ',
-
-        # _ExistingStudyQuery:
-        # select all studies that are not in current project
-        # and which have been assigned to other projects
-        _ExistingStudyQuery => 'SELECT prid, stid, description '
-          . 'FROM study '
-          . 'INNER JOIN ProjectStudy USING (stid) '
-          . 'WHERE ProjectStudy.prid<>? '
-          . 'GROUP BY stid ',
+        # _ExistingStudyQuery: select all studies that are not in current
+        # project and which have been assigned to other projects
+        _ExistingStudyQuery => <<"END_ExistingStudyQuery",
+SELECT prid, stid, description
+FROM study
+INNER JOIN ProjectStudy USING (stid)
+WHERE ProjectStudy.prid <> ?
+GROUP BY stid
+END_ExistingStudyQuery
 
         # _AddExistingStudy: add study to project
-        _AddExistingStudy =>
-          'INSERT INTO ProjectStudy (prid,stid) VALUES (?, ?);',
+        _AddExistingStudy => <<"END_AddExistingStudy",
+INSERT INTO ProjectStudy
+(prid,stid)
+VALUES (?, ?)
+END_AddExistingStudy
 
         # _RemoveStudy: remove study from project
-        _RemoveStudy    => 'DELETE FROM ProjectStudy WHERE prid=? AND stid=?',
-        _delete_stid    => '',
-        _FieldNames     => '',
-        _Data           => '',
-        _prid           => undef,
-        _prname         => undef,
-        _prdesc         => undef,
-        _mgr            => undef,
-        _userList       => {},
-        _unassignedList => {}
+        _RemoveStudy => <<"END_RemoveStudy",
+DELETE FROM ProjectStudy 
+WHERE prid=? AND stid=?
+END_RemoveStudy
+
+        _StudyFieldNames => undef,
+        _StudyData       => undef,
+        _delete_stid     => undef,
+        _FieldNames      => undef,
+        _Data            => undef,
+        _prid            => undef,
+        _prname          => undef,
+        _prdesc          => undef,
+        _mgr             => undef,
+        _userList        => undef,
+        _unassignedList  => undef
     };
     bless $self, $class;
     return $self;
@@ -458,12 +485,11 @@ sub loadSingleProject {
 sub loadAllStudiesFromProject {
     my $self = shift;
 
-    $self->{_StudyRecords} = $self->{_dbh}->prepare( $self->{_StudiesQuery} );
-    $self->{_StudyRecordCount} =
-      $self->{_StudyRecords}->execute( $self->{_prid} );
-    $self->{_StudyFieldNames} = $self->{_StudyRecords}->{NAME};
-    $self->{_StudyData}       = $self->{_StudyRecords}->fetchall_arrayref;
-    $self->{_StudyRecords}->finish;
+    my $sth = $self->{_dbh}->prepare( $self->{_StudiesQuery} );
+    my $rc  = $sth->execute( $self->{_prid} );
+    $self->{_StudyFieldNames} = $sth->{NAME};
+    $self->{_StudyData}       = $sth->fetchall_arrayref;
+    $sth->finish;
     return;
 }
 
@@ -1076,8 +1102,7 @@ sub buildUnassignedStudyDropDown {
     my $self = shift;
 
     my $unassignedDropDown =
-      SGX::DropDownData->new( $self->{_dbh},
-        $self->{_ExistingUnassignedProjectQuery} );
+      SGX::DropDownData->new( $self->{_dbh}, $self->{_UnassignedProjectQuery} );
 
     $self->{_unassignedList} = $unassignedDropDown->loadDropDownValues();
     return;

@@ -41,9 +41,6 @@ use File::Temp qw/tempfile/;
 use SGX::Util qw/trim/;
 use SGX::Debug qw/assert/;
 
-our @EXPORT_OK =
-  qw/getform_findProbes/;
-
 sub new {
     # This is the constructor
     my ($class, $dbh, %param) = @_;
@@ -757,17 +754,42 @@ sub list_yui_deps
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  getform_findProbes
-#      PURPOSE:  display Find Probes form
-#   PARAMETERS:  $q - CGI object
-#                $a - name of the top-level action
+#         NAME:  getResultTableHTML
+#      PURPOSE:  display results table for Find Probes
+#   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  ????
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getform_findProbes {
+sub getResultTableHTML
+{
+    my $q = shift;
+    my @ret = (
+        $q->h2({-id=>'caption'},''),
+        $q->div(
+            $q->a({-id=>'probetable_astext'}, 'View as plain text')
+        ),
+        $q->div({-id=>'probetable'}, '')
+    );
+    push @ret, $q->ul({-id=>'graphs'}, '') if defined($q->param('graph'));
+    return @ret;
+}
+#===  FUNCTION  ================================================================
+#         NAME:  getFormHTML
+#      PURPOSE:  display Find Probes form
+#   PARAMETERS:  $q - CGI object
+#                $a - name of the top-level action
+#      RETURNS:  List of strings representing HTML entities. The list can be
+#      printed directly by calling `print @list'.
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getFormHTML
+{
     my ($q, $a) = @_;
 
     my %type_dropdown;
@@ -796,9 +818,9 @@ sub getform_findProbes {
 
     return $q->start_form(-method=>'GET',
         -action=>$q->url(absolute=>1),
-        -enctype=>'application/x-www-form-urlencoded') .
-    $q->h2('Find Probes') .
-    $q->p('You can enter here a list of probes, transcript accession numbers, or gene names. The results will contain probes that are related to the search terms.') .
+        -enctype=>'application/x-www-form-urlencoded'),
+    $q->h2('Find Probes'),
+    $q->p('You can enter here a list of probes, transcript accession numbers, or gene names. The results will contain probes that are related to the search terms.'),
     $q->dl(
         $q->dt($q->label({-for=>'text'},'Search term(s):')),
         $q->dd(
@@ -846,10 +868,8 @@ sub getform_findProbes {
                 -labels=>\%trans_dropdown
         )),
         $q->dt('&nbsp;'),
-        #$q->dd($q->submit(-tabindex=>6, -class=>'css3button', -name=>'a', -value=>$a, -override=>1)),
         $q->dd($q->submit(-tabindex=>6, -class=>'css3button', -name=>'a', -value=>$a)),
-    ) 
-    .
+    ), 
     $q->endform;
 }
 #######################################################################################
@@ -1040,23 +1060,16 @@ sub findProbes_js
 
         my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
 
-        my @json_records;
-        my %json_probelist = (
-            caption => $caption,
-            records => \@json_records
-        );
-
-        # cache the field name array; 
-        # skip first two columns (probe.rid, platform.pid)
+        # cache the field name array; skip first two columns (probe.rid,
+        # platform.pid)
         my $all_names = $sth->{NAME};
         my $last_index = scalar(@$all_names) - 1;
         my @names = @$all_names[2..$last_index];
 
+        # data are sent as a JSON object plus Javascript code
+        my @json_records;
         my $data = $sth->fetchall_arrayref;
         $sth->finish;
-
-        # data are sent as a JSON object plus Javascript code
-        #foreach (sort {$a->[3] cmp $b->[3]} @$data) {
         foreach my $array_ref (@$data) {
             # the below "trick" converts an array into a hash such that array elements
             # become hash values and array indexes become hash keys
@@ -1065,15 +1078,19 @@ sub findProbes_js
             push @json_records, \%row;
         }
 
+        my %json_probelist = (
+            caption => $caption,
+            records => \@json_records,
+            headers => \@names
+        );
+
         my $out = sprintf(<<"END_JSON_DATA",
-var table_labels = %s;
 var probelist = %s;
 var url_prefix = "%s";
 var response_transform = "%s";
 var show_graphs = %s;
 var extra_fields = %s;
 END_JSON_DATA
-            encode_json(\@names),
             encode_json(\%json_probelist),
             $self->{_cgi}->url(-absolute=>1),
             $trans,

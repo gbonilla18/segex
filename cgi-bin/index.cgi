@@ -38,7 +38,7 @@ use SGX::ManageStudies;
 use SGX::ManageExperiments;
 use SGX::OutputData;
 use SGX::TFSDisplay;
-use SGX::FindProbes qw/getform_findProbes/;
+use SGX::FindProbes;
 use SGX::ChooseProject;
 
 #---------------------------------------------------------------------------
@@ -1180,16 +1180,14 @@ sub updateCell {
 #######################################################################################
 sub form_findProbes
 {
-    print getform_findProbes($q, FINDPROBES);
+    print SGX::FindProbes::getFormHTML($q, FINDPROBES);
     return;
 }
 
 #######################################################################################
-sub findProbes {
-    print    '<h2 id="caption"></h2>',
-        '<div><a id="probetable_astext">View as plain text</a></div>',
-        '<div id="probetable"></div>';
-    print '<ul id="graphs"></ul>' if defined($q->param('graph'));
+sub findProbes
+{
+    print SGX::FindProbes::getResultTableHTML($q);
     return;
 }
 #######################################################################################
