@@ -83,6 +83,7 @@ div#footer {
 	/*padding:1.375em 0 2.8333em 0;*/ /* unlike margin property, this works both in Mozilla and in Konqueror */
 	font-family:Verdana,'Helvetica Neue',Helvetica,Arial,sans-serif;
 	text-transform:uppercase;
+	margin-bottom:5em;
 }
 div#footer ul {
 	display:table;
@@ -267,6 +268,18 @@ dl, table, div.table_cont {
 	padding-top:0.5em;
 	border-top:1px solid #000;
 	clear:both;
+}
+td.yui-dt-col-5 .yui-dt-liner {
+	width:100px;
+}
+
+/* word-wrap: break-word -- breaks long words such as DNA sequences */
+td.yui-dt-col-5 .yui-dt-liner {
+	white-space: pre-wrap; /* css-3 */
+	white-space: -moz-pre-wrap; /* Mozilla, since 1999 */
+	white-space: -pre-wrap; /* Opera 4-6 */
+	white-space: -o-pre-wrap; /* Opera 7 */
+	word-wrap: break-word; /* Internet Explorer 5.5+ */
 }
 
 /*

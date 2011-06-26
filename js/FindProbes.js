@@ -45,7 +45,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
     };
     YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("4") + "\" title=\"UCSC BLAT on " + oRecord.getData("4") + " DNA\" target=\"_blank\">" + oData + "</a>";
+        elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("4") + "\" title=\"Search for this sequence using BLAT in " + oRecord.getData("4") + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
     };
 
     var myDataSource = new YAHOO.util.DataSource(probelist.records);
