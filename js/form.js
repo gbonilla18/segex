@@ -13,9 +13,7 @@ function $() {
 
 function export_table(e) {
     var records = this.records;
-    var headers = this.headers;
     var row_count = records.length;
-    var col_count = headers.length;
 
     var win = window.open("");
     var doc = win.document.open("text/html");
@@ -23,15 +21,27 @@ function export_table(e) {
     doc.write("<pre>\n");
 
     // table head
-    doc.write(headers.join("\t"));
-    doc.write("\n");
+    var col_count;
+    if (this.headers) {
+        col_count = this.headers.length;
+        doc.write(this.headers.join("\t"));
+        doc.write("\n");
+    }
 
     // table body
     for (var i = 0; i < row_count; i++) {
         var row_hash = records[i];
         var row_array = [];
-        for (var j = 0; j < col_count; j++) {
-            row_array.push(row_hash[j]);
+        if (col_count) {
+            // fill up until col_count
+            for (var j = 0; j < col_count; j++) {
+                row_array.push(row_hash[j]);
+            }
+        } else {
+            // fill up until the first empty element
+            for (var j = 0; row_hash[j]; j++) {
+                row_array.push(row_hash[j]);
+            }
         }
         doc.write(row_array.join("\t"));
         doc.write("\n");

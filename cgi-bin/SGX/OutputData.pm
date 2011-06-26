@@ -153,42 +153,13 @@ sub showExperiments
     ) .
     $self->{_cgi}->dl(
         $self->{_cgi}->dt('Study : '),
-        $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'study_exist', -id=>'study_exist',-onChange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
+        $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'study_exist', -id=>'study_exist',-onchange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
         $self->{_cgi}->dt('Experiment : '),
         $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'experiment_exist',-multiple=>'true', -id=>'experiment_exist')),
         $self->{_cgi}->dt('&nbsp;'),
         $self->{_cgi}->dd($self->{_cgi}->submit(-name=>'RunReport',-id=>'RunReport',-class=>'css3button', -value=>'Run Report'))
     ) .
     $self->{_cgi}->end_form;
-    return;
-}
-
-##########################################################
-#This prints the results table to a printable text screen.
-sub printExportTable
-{
-    print <<"END_ExportTable";
-function export_table(e) {
-    var r = e.records;
-    var bl = e.headers.length;
-    var w = window.open("");
-    var d = w.document.open("text/html");
-    d.title = "Tab-Delimited Text";
-    d.write("<pre>");
-    for (var i=0, al = r.length; i < al; i++) 
-    {
-        for (var j=0; j < bl; j++) 
-        {
-            d.write(r[i][j] + "\\t");
-        }
-        d.write("\\n");
-    }
-    d.write("</pre>");
-    d.close();
-    w.focus();
-}
-
-END_ExportTable
     return;
 }
 
@@ -327,8 +298,9 @@ END_JSOuputList
     print    "<script type=\"text/javascript\">\n";
     print $JSOuputList;
 
+    print "YAHOO.util.Event.addListener(\"OutPut_astext\", \"click\", export_table, OutputReport, true);\n";
+
     printTableInformation();
-    printExportTable();    
     printDrawResultsTableJS();
 
     print     "</script>\n";

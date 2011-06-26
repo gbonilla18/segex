@@ -767,24 +767,6 @@ records: [
 	$out .= '
 ]};
 
-
-function export_table(e) {
-	var r = this.records;
-	var bl = this.headers.length;
-	var w = window.open("");
-	var d = w.document.open("text/html");
-	d.title = "Tab-Delimited Text";
-	d.write("<pre>");
-	for (var i=0, al = r.length; i < al; i++) {
-		for (var j=0; j < bl; j++) {
-			d.write(r[i][j] + "\t");
-		}
-		d.write("\n");
-	}
-	d.write("</pre>");
-	d.close();
-	w.focus();
-}
 YAHOO.util.Event.addListener("summ_astext", "click", export_table, summary, true);
 YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
 YAHOO.util.Event.addListener(window, "load", function() {

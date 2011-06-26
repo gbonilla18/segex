@@ -381,14 +381,14 @@ sub showStudies {
 
     print '<h3 name = "caption" id="caption"></h3>' . "\n";
     print
-'<div><a id="StudyTable_astext" onclick="export_table(JSStudyList)">View as plain text</a></div>'
+'<div><a id="StudyTable_astext">View as plain text</a></div>'
       . "\n";
     print '<div id="StudyTable"></div>' . "\n";
     print "<script type=\"text/javascript\">\n";
     print $JSStudyList;
+    print "YAHOO.util.Event.addListener(\"StudyTable_astext\", \"click\", export_table, JSStudyList, true);\n";
 
     printTableInformation( $self->{_FieldNames}, $self->{_cgi} );
-    printExportTable();
     printDrawResultsTableJS();
 
     print "</script>\n";
@@ -438,34 +438,6 @@ sub showStudies {
         )
       ) . $self->{_cgi}->end_form;
       return;
-}
-
-#This prints the results table to a printable text screen.
-sub printExportTable {
-
-    print '
-function export_table(e) {
-    var r = e.records;
-    var bl = e.headers.length;
-    var w = window.open("");
-    var d = w.document.open("text/html");
-    d.title = "Tab-Delimited Text";
-    d.write("<pre>");
-    for (var i=0, al = r.length; i < al; i++) 
-    {
-        for (var j=0; j < bl; j++) 
-        {
-            d.write(r[i][j] + "\t");
-        }
-        d.write("\n");
-    }
-    d.write("</pre>");
-    d.close();
-    w.focus();
-}
-
-';
-    return;
 }
 
 sub printDrawResultsTableJS {
@@ -727,7 +699,7 @@ sub editStudy {
                 -values  => [keys %{$self->{_ExistingStudyList}}],
                 -labels  => $self->{_ExistingStudyList},
                 -default => $self->{_SelectedStudy},
-                -onChange =>
+                -onchange =>
 "populateSelectExisting(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"),
                 study);"
             )

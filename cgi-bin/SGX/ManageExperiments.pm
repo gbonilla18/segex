@@ -357,7 +357,7 @@ sub showExperiments
                 -values=>[keys %{$self->{_platformList}}],
                 -labels=>$self->{_platformList},
                 -default=>$self->{_pid},
-                onChange=>"populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));"
+                -onchange=>"populateSelectFilterStudy(document.getElementById(\"stid\"),document.getElementById(\"platform_load\"));"
         )),
         $self->{_cgi}->dt('Study:'),
         $self->{_cgi}->dd($self->{_cgi}->popup_menu(
@@ -386,7 +386,8 @@ sub showExperiments
             caption: \"Showing all Experiments\",
             records: [". printJSRecords($self) ."],
             headers: [". printJSHeaders($self) . "]
-        };" . "\n";
+        };
+        YAHOO.util.Event.addListener(\"StudyTable_astext\", \"click\", export_table, JSStudyList, true);" . "\n";
 
         print    '<h3 name = "caption" id="caption"></h3>' . "\n";
         print    '<div><a id="StudyTable_astext" onclick="export_table(JSStudyList)">View as plain text</a></div>' . "\n";
@@ -396,7 +397,7 @@ sub showExperiments
         print $JSStudyList;
 
         printTableInformation($self->{_FieldNames},$self->{_cgi});
-        printExportTable();    
+        #printExportTable();    
         printDrawResultsTableJS();
         
         #Run this once when we first load to make sure dropdown is loaded correctly.
@@ -415,35 +416,6 @@ sub showExperiments
         $addExperimentInfo->loadPlatformData();
         $addExperimentInfo->drawAddExperimentMenu();
     }
-}
-
-#This prints the results table to a printable text screen.
-sub printExportTable
-{
-
-print '
-function export_table(e) {
-    var r = e.records;
-    var bl = e.headers.length;
-    var w = window.open("");
-    var d = w.document.open("text/html");
-    d.title = "Tab-Delimited Text";
-    d.write("<pre>");
-    for (var i=0, al = r.length; i < al; i++) 
-    {
-        for (var j=0; j < bl; j++) 
-        {
-            d.write(r[i][j] + "\t");
-        }
-        d.write("\n");
-    }
-    d.write("</pre>");
-    d.close();
-    w.focus();
-}
-
-';
-
 }
 
 sub printDrawResultsTableJS

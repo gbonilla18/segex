@@ -216,8 +216,8 @@ sub showPlatforms
 	print	"<script type=\"text/javascript\">\n";
 	print $JSPlatformList;
 
+    print "YAHOO.util.Event.addListener(\"PlatformTable_astext\", \"click\", export_table, JSPlatformList, true);\n";
 	printTableInformation($self->{_FieldNames},$self->{_cgi});
-	printExportTable();	
 	printDrawResultsTableJS();
 
 	print 	"</script>\n";
@@ -243,31 +243,6 @@ sub showPlatforms
 		$self->{_cgi}->dd($self->{_cgi}->submit(-name=>'AddPlatform',-id=>'AddPlatform',-class=>'css3button',-value=>'Add Platform'))
 	) .
 	$self->{_cgi}->end_form;	
-}
-
-#This prints the results table to a printable text screen.
-sub printExportTable
-{
-
-print '
-function export_table(e) {
-	var r = this.records;
-	var bl = this.headers.length;
-	var w = window.open("");
-	var d = w.document.open("text/html");
-	d.title = "Tab-Delimited Text";
-	d.write("<pre>");
-	for (var i=0, al = r.length; i < al; i++) {
-		for (var j=0; j < bl; j++) {
-			d.write(r[i][j] + "\t");
-		}
-		d.write("\n");
-	}
-	d.write("</pre>");
-	d.close();
-	w.focus();
-}';
-
 }
 
 sub printDrawResultsTableJS

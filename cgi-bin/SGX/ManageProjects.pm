@@ -361,7 +361,9 @@ sub loadAllProjects {
     my $sth = $self->{_dbh}->prepare( $self->{_LoadQuery} );
     my $rc  = $sth->execute();
 
-    $self->{_FieldNames} = $sth->{NAME};
+    #$self->{_FieldNames} = $sth->{NAME};
+    # only first two columns will be used for plain-text export
+    $self->{_FieldNames} = ['Name', 'Description'];
     $self->{_Data}       = $sth->fetchall_arrayref;
     $sth->finish;
     return;
@@ -388,12 +390,11 @@ sub showProjects_js {
     );
 
     my $JSTableInfo    = $self->getTableInfo();
-    my $JSExportTable  = getExportTable();
     my $JSResultsTable = getDrawResultsTableJS();
 
     return <<"END_ShowProjectsJS";
 var JSProjectList = $JSProjectList;
-$JSExportTable
+YAHOO.util.Event.addListener("ProjectTable_astext", "click", export_table, JSProjectList, true);
 YAHOO.util.Event.addListener(window, "load", function() {
     $JSTableInfo
     $JSResultsTable
@@ -552,15 +553,7 @@ sub showProjects {
     my $url_prefix = $q->url( -absolute => 1 );
 
     return $q->h2('Manage Projects'), $q->h3( { -id => 'caption' }, '' ),
-      $q->div(
-        $q->a(
-            {
-                -id      => 'ProjectTable_astext',
-                -onclick => 'export_table(JSProjectList);'
-            },
-            'View as plain text'
-        )
-      ),
+      $q->div( $q->a( { -id => 'ProjectTable_astext' }, 'View as plain text')),
       $q->div( { -id => 'ProjectTable' }, '' ),
       $q->h3( { -id => 'Add_Caption' }, 'Add Project' ),
       $q->start_form(
@@ -593,41 +586,6 @@ sub showProjects {
         )
       ),
       $q->end_form;
-}
-
-#
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  getExportTable
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  prints the results table to a printable text screen
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getExportTable {
-    return <<"END_EXPORT_TABLE";
-function export_table(e) {
-    var r = e.records;
-    var bl = e.headers.length;
-    var w = window.open("");
-    var d = w.document.open("text/html");
-    d.title = "Tab-Delimited Text";
-    d.write("<pre>");
-    for (var i=0, al = r.length; i < al; i++)
-    {
-        for (var j=0; j < bl; j++)
-        {
-            d.write(r[i][j] + "\\t");
-        }
-        d.write("\\n");
-    }
-    d.write("</pre>");
-    d.close();
-    w.focus();
-}
-END_EXPORT_TABLE
 }
 
 #===  CLASS METHOD  ============================================================
@@ -748,9 +706,8 @@ YAHOO.widget.DataTable.Formatter.formatProjectEditLink = function(elCell, oRecor
 
 YAHOO.util.Dom.get("caption").innerHTML = JSProjectList.caption;
 var myColumnDefs = [
-    {key:"0", sortable:true, resizeable:true, label:"Name", editor:$name_editor},
-    {key:"1", sortable:true, resizeable:true,
-    label:"Description",editor:$desc_editor},
+    {key:"0", sortable:true, resizeable:true, label:JSProjectList.headers[0], editor:$name_editor},
+    {key:"1", sortable:true, resizeable:true, label:JSProjectList.headers[1], editor:$desc_editor},
     {key:"2", sortable:false, resizeable:true, label:"Delete Project",formatter:"formatProjectDeleteLink"},
     {key:"3", sortable:false, resizeable:true, label:"Edit Project",formatter:"formatProjectEditLink"}
 ];
