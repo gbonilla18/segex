@@ -7,10 +7,9 @@ use warnings;
 # Bundled modules 
 #---------------------------------------------------------------------------
 
-# CGI options: -nosticky option prevents CGI.pm from printing hidden 
-# .cgifields inside a # form. We do not add qw/:standard/ because we use 
-# object-oriented style.
-#
+# CGI options: -nosticky option prevents CGI.pm from printing hidden .cgifields
+# inside a form. We do not add qw/:standard/ because we use object-oriented
+# style.
 use CGI 2.47 qw/-nosticky/;
 #use CGI::Pretty 2.47 qw/-nosticky/;
 use Switch;
@@ -65,6 +64,7 @@ my $title;
 my $css = [
     {-src=>YUI_BUILD_ROOT . '/reset-fonts/reset-fonts.css'},
     {-src=>YUI_BUILD_ROOT . '/container/assets/skins/sam/container.css'},
+    {-src=>YUI_BUILD_ROOT . '/button/assets/skins/sam/button.css'},
     {-src=>YUI_BUILD_ROOT . '/paginator/assets/skins/sam/paginator.css'},
     {-src=>YUI_BUILD_ROOT . '/datatable/assets/skins/sam/datatable.css'},
     {-src=>CSS_DIR . '/style.css'}
@@ -102,7 +102,7 @@ use constant DOWNLOADTFS        => 'getTFS';
 use constant SHOWSCHEMA            => 'showSchema';
 use constant HELP            => 'help';
 use constant ABOUT            => 'about';
-use constant COMPAREEXPERIMENTS        => 'Compare Selected';    # submit button text
+use constant COMPAREEXPERIMENTS        => 'Compare';    # submit button text
 use constant FINDPROBES            => 'Search';        # submit button text
 use constant UPDATEPROBE        => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
@@ -378,9 +378,11 @@ while (defined($action)) { switch ($action) {
     case FORM.COMPAREEXPERIMENTS        {
         if ($s->is_authorized('user')) {
             $title = 'Compare Experiments';
-            push @js_src_code, {-code=>form_compareExperiments_js()};
-            push @js_src_code, {-src=>'experiment.js'};
             push @js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
+            push @js_src_yui, 'element/element-min.js';
+            push @js_src_yui, 'button/button-min.js';
+            push @js_src_code, {-code=>form_compareExperiments_js()};
+            push @js_src_code, {-src=>'CompareExperiments.js'};
             $content = \&form_compareExperiments;
             $action = undef;    # final state
         } else {
@@ -418,7 +420,6 @@ while (defined($action)) { switch ($action) {
     case LOGIN            {
         $s->authenticate($q->param('username'), $q->param('password'), \$error_string);
         if ($s->is_authorized('unauth')) {
-            #$s->read_perm_cookie(); # already read by authenticate()
             my $chooseProj = SGX::ChooseProject->new($dbh, $q, $s->{session_cookie}->{curr_proj});
 
             # no need to store the working project name in permanent storage (only store
@@ -1213,10 +1214,8 @@ sub schema {
 }
 #######################################################################################
 sub form_compareExperiments_js {
-    my $out = '';
 
     # find out what the current project is set to
-    #$s->read_perm_cookie();
     my $curr_proj = $s->{session_cookie}->{curr_proj};
 
     # get a list of platforms and cutoff values
@@ -1245,9 +1244,6 @@ END_PLATFORM_QUERY
     assert($rowcount);
 
     ### populate a Javascript hash with the content of the platform recordset
-    $out .= "YAHOO.util.Event.addListener(window, 'load', init);\n";
-    $out .= 'var form = "' . FORM.COMPAREEXPERIMENTS . "\";\n";
-
     my %json_platform;
     while (my @row = $sth->fetchrow_array) {
         # format:
@@ -1259,8 +1255,6 @@ END_PLATFORM_QUERY
         $json_platform{$row[0]} = [ $row[1], $row[2], $row[3] ];
     }
     $sth->finish;
-
-    $out .= 'var platform = ' . encode_json(\%json_platform) . ";\n";
 
     # get a list of studies
     if (!defined($curr_proj) || $curr_proj eq '') {
@@ -1329,25 +1323,19 @@ END_EXP_QUERY
     }
     $sth->finish;
 
-    $out .= 'var study = ' . encode_json(\%json_study) . ";\n";
-
-    $out .= '
-function init() {
-    populatePlatforms("platform");
-    addExperiment();
-}
-';
-    $out;
+    return sprintf(<<"END_form_compareExperiments_js",
+var form = "%s";
+var platform = %s;
+var study = %s;
+END_form_compareExperiments_js
+        FORM.COMPAREEXPERIMENTS,
+        encode_json(\%json_platform),
+        encode_json(\%json_study)
+    );
 }
 #######################################################################################
 sub form_compareExperiments {
 
-    my %geneFilter_dropdown;
-    my $geneFilter_dropdown_t = tie(%geneFilter_dropdown, 'Tie::IxHash',
-        'none'=>'No Filtering',
-        'list'=>'List of Terms',
-        'file'=>'Uploaded File'
-    );
     my %gene_dropdown;
     my $gene_dropdown_t = tie(%gene_dropdown, 'Tie::IxHash',
         'gene'=>'Gene Symbols',
@@ -1365,7 +1353,7 @@ sub form_compareExperiments {
     print 
     $q->dl(
         $q->dt('Add experiment from platform:'),
-        $q->dd(    $q->popup_menu(-name=>'platform', -id=>'platform', -onChange=>"updatePlatform(this);"),
+        $q->dd($q->popup_menu(-name=>'platform', -id=>'platform'),
             $q->span({-class=>'separator'},' : '),
             $q->button(
                 -value=>'Add experiment',
@@ -1374,6 +1362,7 @@ sub form_compareExperiments {
             )
         )
     );
+
     print
     $q->start_form(
             -method=>'POST',
@@ -1381,28 +1370,22 @@ sub form_compareExperiments {
             -action=>$q->url(absolute=>1).'?a='.COMPAREEXPERIMENTS
     ),
     $q->dl(
-        $q->dt('Include all probes in output:'),
-        $q->dd($q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>''),
+        $q->dt($q->label({-for=>'chkAllProbes'},'Include all probes in output:')),
+        $q->dd(
+            $q->checkbox(-name=>'chkAllProbes',-id=>'chkAllProbes',-value=>'1',-label=>''),
             $q->p({-style=>'color:#777;'}, 'Probes without a TFS will be labeled \'TFS 0\'')
         ),
         $q->dt('Filter on:'),
-        $q->dd($q->radio_group(
-                -tabindex=>2,
-                -onChange=>'toggleFilterOptions(this.value);', 
-                -name=>'geneFilter', 
-                -values=>[keys %geneFilter_dropdown], 
-                -default=>'none', 
-                -labels=>\%geneFilter_dropdown
-        ))
+        $q->dd({-id=>'geneFilter'}, '')
     ),
-    $q->div({-id=>'divSearchItemsDiv',-name=>'divSearchItemsDiv',-style=>'display:none;'},
+    $q->div({-id=>'divSearchItemsDiv',-style=>'display:none;'},
         $q->h3('Filter on input file'),
         $q->dl(
-            $q->dt('Upload File:'),
+            $q->dt($q->label({-for=>'upload_file'},'Upload File:')),
             $q->dd(
-                $q->filefield(-name=>'gene_file'),
-                $q->p({-style=>'color:#777;'}, 'The file must be in plain-text format
-                    with one search term per line')
+                $q->filefield(-name=>'upload_file',-id=>'upload_file'),
+                $q->p({-style=>'color:#777;'},
+                    'File must be in plain-text format with one search term per line')
             ),
             $q->dt('Terms are:'),
             $q->dd($q->popup_menu(
@@ -1416,12 +1399,11 @@ sub form_compareExperiments {
             $q->dd({-style=>'color:#777;'},'Full Word')
         )
     ),
-    $q->div({-id=>'divSearchItemsDiv2',-name=>'divSearchItemsDiv2',-style=>'display:none;'},
+    $q->div({-id=>'divSearchItemsDiv2', -style=>'display:none;'},
         $q->h3('Filter on input list'),
         $q->dl(
-            $q->dt('Search term(s):'),
-            $q->dd($q->textarea(-name=>'address',-id=>'address',-rows=>10,-columns=>50,-tabindex=>1,
-                -name=>'text')),
+            $q->dt($q->label({-for=>'search_terms'}, 'Search term(s):')),
+            $q->dd($q->textarea(-rows=>10, -columns=>50, -tabindex=>1, -name=>'search_terms', -id=>'search_terms')),
 
             $q->dt('Terms are:'),
             $q->dd($q->popup_menu(
@@ -1446,7 +1428,7 @@ sub form_compareExperiments {
     $q->dl(
         $q->dt('&nbsp;'),
         $q->dd(
-            $q->submit(-name=>'submit',-class=>'css3button',-value=>'Compare', -override=>1),
+            $q->submit(-name=>'submit',-class=>'css3button',-value=>'Compare'),
             $q->hidden(-name=>'a',-value=>COMPAREEXPERIMENTS, -override=>1)
         )
     ),
@@ -1456,7 +1438,6 @@ sub form_compareExperiments {
 
 #######################################################################################
 sub compare_experiments_js {
-    #print $q->header(-type=>'text/html', -cookie=>$s->cookie_array());
     #This flag tells us whether or not to ignore the thresholds.
     my $allProbes         = '';
     $allProbes             = ($q->param('chkAllProbes')) if defined($q->param('chkAllProbes'));
@@ -1470,33 +1451,43 @@ sub compare_experiments_js {
     my $probeListQuery    = '';
     my $probeList        = '';
     
-    #$s->read_perm_cookie();
     my $curr_proj = $s->{session_cookie}->{curr_proj};
 
-    if($filterType eq "file")
+    if($q->param('upload_file'))
     {
+        # if $q->param('upload_file') is not set, all other fields in Upload File
+        # subsection don't matter
+        assert(!$q->param('search_terms'));
         my $findProbes = SGX::FindProbes->new($dbh, cgi => $q);
         $findProbes->{_WorkingProject} = $curr_proj;
-        $findProbes->createInsideTableQueryFromFile();
+
+        # parse uploaded file (highly likely to fail!)
+        my $fh = $q->upload('upload_file');
+        eval { $findProbes->createInsideTableQueryFromFile($fh); } 
+        or close($fh) and croak $@;
+
         $findProbes->loadProbeReporterData($findProbes->getQueryTerms);
+
+        # get list of probe record ids (rid)
         $probeList     = $findProbes->getProbeList();
-        #$probeListQuery    = " WHERE rid IN (SELECT rid FROM probe WHERE reporter in ($probeList)) ";
         $probeListQuery    = " WHERE rid IN ($probeList) ";
     }
-    elsif($filterType eq "list")
+    elsif($q->param('search_terms'))
     {
+        # if $q->param('search_terms') is not set, all other fields in Filter List
+        # subsection don't matter
+        assert(!$q->param('upload_file'));
         my $findProbes = SGX::FindProbes->new($dbh, cgi => $q);
         $findProbes->{_WorkingProject} = $curr_proj;
+
         $findProbes->createInsideTableQuery();
-
-        # find out what the current project is set to 
         $findProbes->build_ProbeQuery(extra_fields => 0);
-
         $findProbes->loadProbeData($findProbes->getQueryTerms);
         $findProbes->setProbeList();
+
+        # get list of probe record ids (rid)
         $probeList     = $findProbes->getProbeList();
         $probeListQuery    = " WHERE rid IN ($probeList) ";
-        #warn $probeListQuery;
     }
 
     #If we are filtering, generate the SQL statement for the rid's.    
@@ -2358,7 +2349,6 @@ sub outputData
 #===============================================================================
 sub chooseProject
 {
-    #$s->read_perm_cookie();
     my $curr_proj = $s->{session_cookie}->{curr_proj};
 
     my $cp = SGX::ChooseProject->new($dbh, $q, $curr_proj);

@@ -95,7 +95,6 @@ END_ProbeReporterQuery
 
     # find out what the current project is set to
     if (defined($self->{_UserSession})) {
-        #$self->{_UserSession}->read_perm_cookie();
         $self->{_WorkingProject} = 
             $self->{_UserSession}->{session_cookie}->{curr_proj};
         $self->{_WorkingProjectName} = 
@@ -153,8 +152,7 @@ sub set_SearchItems
     my ($self, $mode) = @_;
 
     # 'text' must always be set
-    my $text = $self->{_cgi}->param('text') 
-        or croak 'No search terms specified';
+    my $text = $self->{_cgi}->param('search_terms');
 
     #This will be the array that holds all the splitted items.
     my @textSplit;    
@@ -181,13 +179,9 @@ sub set_SearchItems
             else           { croak "Invalid match value $match" }
         }
     } else {
-        if ($mode == 0) {
-            $qtext = join('|',
-                map { '^' . trim($_) . '$' } @textSplit);
-        } else {
-            $qtext = '^' . join('|',
-                map { trim($_) } @textSplit) . '$';
-        }
+        $qtext = ($mode == 0)
+               ? join('|', map { '^' . trim($_) . '$' } @textSplit)
+               : '^' . join('|', map { trim($_) } @textSplit) . '$';
     }
     $self->{_SearchItems} = $qtext;
     return;
@@ -201,31 +195,32 @@ sub createInsideTableQuery
     $self->set_SearchItems(0);
 
     # 'type' must always be set
-    my $type = $self->{_cgi}->param('type') 
-        or croak "You did not specify where to search";
+    my $type = $self->{_cgi}->param('type');
 
     $self->build_InsideTableQuery($type);
     return;
 }
 
-#######################################################################################
-#This is the code that generates part of the SQL statement (From a file instead of a list of genes).
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  createInsideTableQueryFromFile
+#   PARAMETERS:  $self - current instance
+#                $fh - file handle (usually to uploaded file)
+#      RETURNS:  ????
+#  DESCRIPTION:  generates part of the SQL statement (From a file instead of a
+#  list of genes).
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub createInsideTableQueryFromFile
 {
     #Get the probe object.
-    my $self = shift;
+    my ($self, $fh) = @_;
 
-    #This is the type of search.
-    # 'type' must always be set
-    my $type = $self->{_cgi}->param('type') 
-        or croak "You did not specify where to search";
-    
-    #This is the file that was uploaded.
-    my $uploadedFile = $self->{_cgi}->upload('gene_file')
-        or croak "No file to upload";
+    # We need to get the list from the user into SQL, We need to do some temp
+    # table/file trickery for this.
 
-    #We need to get the list from the user into SQL, We need to do some temp table/file trickery for this.
     #Get time to make our unique ID.
     my $time          = time();
     #Make idea with the time and ID of the running application.
@@ -243,8 +238,9 @@ sub createInsideTableQueryFromFile
     #Open file we are writing to server.
     open my $outputToServer, '>', $outputFileName
         or croak "Could not open $outputFileName for writing: $!";
+
     #Each line is an item to search on.
-    while ( <$uploadedFile> )
+    while ( <$fh> )
     {
         #Grab the current line (Or Whole file if file is using Mac line endings).
         #Replace all carriage returns, or carriage returns and line feed with just a line feed.
@@ -271,20 +267,21 @@ END_inputStatement
     #When using the file from the user we join on the temp table we create.
     #---------------------------------------------
     #Run the command to create the temp table.
-    $self->{_dbh}->do($createTableStatement)
-        or croak $self->{_dbh}->errstr;
+    $self->{_dbh}->do($createTableStatement);
 
     #Run the command to suck in the data.
-    $self->{_dbh}->do($inputStatement, undef, $outputFileName)
-        or croak $self->{_dbh}->errstr;
+    $self->{_dbh}->do($inputStatement, undef, $outputFileName);
 
     # Delete the temporary file we created:
     #unlink($outputFileName);
     #--------------------------------------------
 
+    #This is the type of search. 'type' must always be set
+    my $type = $self->{_cgi}->param('type');
+    
     $self->build_InsideTableQuery($type, tmp_table => $processID);
     $self->{_SearchItems} = undef;
-    return;
+    return 1;
 }
 
 #######################################################################################
@@ -313,10 +310,8 @@ sub fillPlatformHash
     my $self = shift;
 
     my $tempPlatformQuery = $self->{_PlatformInfoQuery};
-    my $platformRecords = $self->{_dbh}->prepare($tempPlatformQuery)
-        or croak $self->{_dbh}->errstr;
-    my $platformCount = $platformRecords->execute()
-        or croak $self->{_dbh}->errstr;
+    my $platformRecords = $self->{_dbh}->prepare($tempPlatformQuery);
+    my $platformCount = $platformRecords->execute();
     my $platformData = $platformRecords->fetchall_arrayref;
     $platformRecords->finish;
 
@@ -342,10 +337,8 @@ sub loadProbeReporterData
     $probeQuery                 =~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
     $probeQuery                 =~ s/\\//g;
 
-    $self->{_ProbeRecords}    = $self->{_dbh}->prepare($probeQuery)
-        or croak $self->{_dbh}->errstr;
-    $self->{_ProbeCount}    = $self->{_ProbeRecords}->execute()
-        or croak $self->{_dbh}->errstr;    
+    $self->{_ProbeRecords}    = $self->{_dbh}->prepare($probeQuery);
+    $self->{_ProbeCount}    = $self->{_ProbeRecords}->execute();
     $self->{_ProbeColNames} = @{$self->{_ProbeRecords}->{NAME}};
     $self->{_Data}            = $self->{_ProbeRecords}->fetchall_arrayref;
     
@@ -360,8 +353,7 @@ sub loadProbeReporterData
     my $dropStatement = 'DROP TABLE ' . $self->{_TempTableID} . ';';    
     
     #Run the command to drop the temp table.
-    $self->{_dbh}->do($dropStatement) 
-        or croak $self->{_dbh}->errstr;
+    $self->{_dbh}->do($dropStatement);
     
     if($DataCount < 1)
     {
@@ -371,16 +363,6 @@ sub loadProbeReporterData
         exit;
     }
     
-    #foreach (@{$self->{_Data}}) {
-    #    foreach (@$_) {
-    #        $_ = '' if !defined $_;
-    #        $_ =~ s/"//g;
-    #    }
-    #    $self->{_ReporterList} .= "'$_->[0]',";
-    #}    
-    ##Trim trailing comma off.
-    #$self->{_ReporterList} =~ s/\,$//;    
-
     my $dbh = $self->{_dbh};
     $self->{_ReporterList} = join(',',
         map { $_->[0] } @{$self->{_Data}});
@@ -395,10 +377,8 @@ sub loadProbeData
 {
     my ($self, $qtext) = @_;
     
-    $self->{_ProbeRecords} = $self->{_dbh}->prepare($self->{_ProbeQuery})
-        or croak $self->{_dbh}->errstr;
-    $self->{_ProbeCount} = $self->{_ProbeRecords}->execute($qtext)
-        or croak $self->{_dbh}->errstr;    
+    $self->{_ProbeRecords} = $self->{_dbh}->prepare($self->{_ProbeQuery});
+    $self->{_ProbeCount} = $self->{_ProbeRecords}->execute($qtext);
     $self->{_ProbeColNames} = @{$self->{_ProbeRecords}->{NAME}};
     $self->{_Data} = $self->{_ProbeRecords}->fetchall_arrayref;
     $self->{_ProbeRecords}->finish;
@@ -420,18 +400,6 @@ sub loadProbeData
     my %trans_hash = map { $_->[0] => [@$_[1..$last_index]] } @{$self->{_Data}};
     $self->{_ProbeHash} = \%trans_hash; 
 
-    #$self->{_ProbeHash}     = {};
-    #foreach (@{$self->{_Data}}) 
-    #{
-    #    #foreach (@$_)
-    #    #{
-    #    #    $_ = '' if !defined $_;
-    #    #    $_ =~ s/"//g;
-    #    #}
-    #    $self->{_ProbeHash}->{$_->[0]} = [@$_[1..$last_index]];
-    #    #[$_->[1], $_->[2], $_->[3], $_->[4], $_->[5], $_->[6]];
-    #    #"$_->[1]|$_->[2]|$_->[3]|$_->[4]|$_->[5]|$GOField|";
-    #}
     return;
 }
 
@@ -465,18 +433,13 @@ sub loadExperimentData
     #    }
     #}    
 
-    #while (my ($key, $splitPlatformID) = each %{$self->{_ProbeHash}})
     foreach my $key (keys %{$self->{_ProbeHash}})
     {
         $self->build_ExperimentDataQuery();
         my $tempReportQuery = $self->{_ExperimentDataQuery};
-        #$tempReportQuery                 =~ s/\{1\}/\Q$sql_trans\E/;
-        #$tempReportQuery                 =~ s/\\//g;
 
-        $self->{_ExperimentRec} = $self->{_dbh}->prepare($tempReportQuery)     
-            or croak $self->{_dbh}->errstr;
-        $self->{_ExperimentCount} = $self->{_ExperimentRec}->execute($key)
-            or croak $self->{_dbh}->errstr;    
+        $self->{_ExperimentRec} = $self->{_dbh}->prepare($tempReportQuery);
+        $self->{_ExperimentCount} = $self->{_ExperimentRec}->execute($key);
         $self->{_ExperimentData} = $self->{_ExperimentRec}->fetchall_arrayref;
         $self->{_ExperimentRec}->finish;
         
@@ -487,7 +450,6 @@ sub loadExperimentData
         foreach(@{$self->{_ExperimentData}})
         {
             #This is a | seperated string with all the experiment info.
-            #$experimentDataString = $_->[1] . '|' . $_->[2] . '|' . $_->[3] . '|' . $_->[4] . '|' . $_->[5];
 
             #Add this experiment to the hash which will have all the experiments and their data for a given reporter.
             #$tempHash{$_->[0]} = $experimentDataString;
@@ -575,8 +537,6 @@ sub printFindProbeCSV
             #Loop through the list of experiments and print out the ones for this platform.
             foreach my $value (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
             {
-                #warn 'val '  .$self->{_ExperimentListHash}->{$value};
-                #warn 'currentPID: ' . $currentPID;
                 if($self->{_ExperimentListHash}->{$value} == $currentPID)
                 {
                     my $currentLine = "";
@@ -634,16 +594,6 @@ sub printFindProbeCSV
             #Only try to see the EID's for platform $currentPID.
             if($self->{_ExperimentListHash}->{$EIDvalue} == $currentPID)
             {
-                #my %currentProbeExperimentHash;
-                #%currentProbeExperimentHash = %{$self->{_ProbeExperimentHash}->{$key}};
-                #Split the output string.
-                #my @outputColumns = split(/\|/,$currentProbeExperimentHash{$EIDvalue});
-                #foreach(@outputColumns)
-                #{
-                #    $outRow .= "$_,";
-                #}
-                #$outRow .= ",";
-               
                 # Add all the experiment data to the output string.
                 my $outputColumns = $self->{_ProbeExperimentHash}->{$key}->{$EIDvalue};
                 $outRow .= join(',', @$outputColumns) . ',,'; 
@@ -660,13 +610,7 @@ sub printFindProbeCSV
 #######################################################################################
 sub setProbeList
 {
-    my $self                     = shift;
-    #$self->{_ReporterList}        = '';
-    #foreach(keys %{$self->{_ProbeHash}}) {
-    #    $self->{_ReporterList} .= "'$_',";
-    #}
-    ##Trim trailing comma off.
-    #$self->{_ReporterList} =~ s/\,$//;    
+    my $self = shift;
 
     my $dbh = $self->{_dbh};    
     $self->{_ReporterList} = join(',', keys %{$self->{_ProbeHash}});
@@ -725,10 +669,8 @@ INNER JOIN study USING(stid)
 $whereSQL
 END_query_titles_element
 
-    $self->{_FullExperimentRec} = $self->{_dbh}->prepare($query_titles) 
-        or croak $self->{_dbh}->errstr;
-    $self->{_FullExperimentCount} = $self->{_FullExperimentRec}->execute()
-        or croak $self->{_dbh}->errstr;    
+    $self->{_FullExperimentRec} = $self->{_dbh}->prepare($query_titles);
+    $self->{_FullExperimentCount} = $self->{_FullExperimentRec}->execute();
     $self->{_FullExperimentData} = $self->{_FullExperimentRec}->fetchall_hashref('eid');
     
     $self->{_FullExperimentRec}->finish;
@@ -1023,8 +965,7 @@ sub findProbes_js
     my $qtext = $self->{_SearchItems};
 
     # 'type' must always be set
-    my $type = $self->{_cgi}->param('type') 
-        or croak "You did not specify where to search";
+    my $type = $self->{_cgi}->param('type');
 
     $self->build_InsideTableQuery($type);
 
@@ -1053,10 +994,8 @@ sub findProbes_js
 #---------------------------------------------------------------------------
 #  HTML output
 #---------------------------------------------------------------------------
-        my $sth = $self->{_dbh}->prepare($self->{_ProbeQuery})
-            or croak $self->{_dbh}->errstr;
-        my $rowcount = $sth->execute($qtext) 
-            or croak $self->{_dbh}->errstr;
+        my $sth = $self->{_dbh}->prepare($self->{_ProbeQuery});
+        my $rowcount = $sth->execute($qtext);
 
         my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
 

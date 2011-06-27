@@ -2,6 +2,7 @@ body {
 	/* color:#999; */
 	background:#fff;
 	margin:4% 5% 0 5%;
+	padding:0;
 	font-family:Verdana,Geneva,'Lucida Grande',sans-serif;
 	font-size:75%; /* default 'medium' text in modern browsers is 16px */
 }

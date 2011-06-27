@@ -1,6 +1,14 @@
 // ========================================================================================================
 // Experiment Comparison Page
 // ========================================================================================================
+
+
+// Globals
+var current_platform;
+var first_study;
+var experiment_count = 0; // how many experiments are displayed
+
+// Functions
 function $() {
         var elements = new Array();
         for (var i = 0; i < arguments.length; i++) {
@@ -129,7 +137,7 @@ function setSampleOrder(obj) {
         var exp_index = obj.getAttribute("id").replace(/^reverse_/,'');
 
         // get the currently selected study id
-        opt = $("stid_" + exp_index).options;
+        var opt = $("stid_" + exp_index).options;
 		
         var stid;
 		
@@ -191,9 +199,8 @@ function addExperiment() {
 	// updates default fold change and P cutoff values
 	setDefaultCutoffs(experiment_count, stid);
 }
-
 function populatePlatforms(id) {
-	obj = $(id);
+	var obj = $(id);
 	// sort by platform name
 	var tuples = [];
 	for (var i in platform) {
@@ -217,7 +224,8 @@ function populatePlatforms(id) {
 	}
 	current_platform = obj.options[obj.selectedIndex].value;
 }
-function updatePlatform(obj) {
+function updatePlatform(e) {
+    var obj = $('platform');
 	var form_obj = $(form);
 	for (var i = 1; i <= experiment_count; i++) {
 		form_obj.removeChild($("exp_" + i));
@@ -225,14 +233,11 @@ function updatePlatform(obj) {
 	experiment_count = 0;
 	current_platform = obj.options[obj.selectedIndex].value;
 	addExperiment();
-	updateExperiments($("stid_1"));	// DOM needs to be updated (addExperiment doesn't really do it)
+    // update DOM (addExperiment doesn't really do it)
+	updateExperiments($("stid_1"));
 }
-var current_platform;
-var first_study;
-var experiment_count = 0; // how many experiments are displayed
-
-//Show the gene filter options.
 function toggleSearchOptions(){
+    //Show the gene filter options.
 	if(document.getElementById("divSearchItemsDiv").style.display === '')
 	{
 		document.getElementById("divSearchItemsDiv").style.display = 'none';
@@ -245,20 +250,51 @@ function toggleSearchOptions(){
 
 function toggleFilterOptions(selectedRadio)
 {
+    var pane1 = document.getElementById("divSearchItemsDiv");
+    var pane2 = document.getElementById("divSearchItemsDiv2");
+    //var search_terms = document.getElementById("search_terms");
+    //var upload_file = document.getElementById("upload_file");
 	if(selectedRadio === 'none')
 	{
-		document.getElementById("divSearchItemsDiv").style.display = 'none';
-		document.getElementById("divSearchItemsDiv2").style.display = 'none';
-	}
-	else if(selectedRadio === 'file')
-	{
-		document.getElementById("divSearchItemsDiv").style.display = '';
-		document.getElementById("divSearchItemsDiv2").style.display = 'none';		
+		pane1.style.display = 'none';
+		pane2.style.display = 'none';
 	}
 	else if(selectedRadio === 'list')
 	{
-		document.getElementById("divSearchItemsDiv").style.display = 'none';
-		document.getElementById("divSearchItemsDiv2").style.display = '';		
+		pane1.style.display = 'none';
+		pane2.style.display = 'block';
 	}	
-	
+	else if(selectedRadio === 'file')
+	{
+		pane1.style.display = 'block';
+		pane2.style.display = 'none';
+	}
+    else
+    {
+        throw "Invalid button selected: " + selectedRadio;
+    }
 }
+//================================================================
+YAHOO.util.Event.addListener('platform', 'change', updatePlatform);
+var oButtonGroupFilter = new YAHOO.widget.ButtonGroup({
+    id: 'buttongroupFilter', 
+    name: 'radiofieldFilter', 
+    container:  'geneFilter', 
+    usearia: true
+});
+oButtonGroupFilter.addButtons([
+    { id: 'none', value: 'none', label: 'No Filter', checked: true },
+    { id: 'list', value: 'list', label: 'List of Terms' }, 
+    { id: 'file', value: 'file', label: 'Upload File' }
+]);
+var onCheckedButtonChange = function (p_oEvent) {
+    // drop "-button" suffix from button id
+    var btnValue = p_oEvent.newValue._button.id.replace(/-button$/i, '');
+    toggleFilterOptions(btnValue);
+};
+oButtonGroupFilter.on('checkedButtonChange', onCheckedButtonChange);
+
+YAHOO.util.Event.addListener(window, 'load', function() {
+    populatePlatforms("platform");
+    addExperiment();
+});
