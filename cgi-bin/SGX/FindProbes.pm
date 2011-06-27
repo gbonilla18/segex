@@ -764,9 +764,9 @@ sub getFormHTML
     $q->h2('Find Probes'),
     $q->p('You can enter here a list of probes, transcript accession numbers, or gene names. The results will contain probes that are related to the search terms.'),
     $q->dl(
-        $q->dt($q->label({-for=>'text'},'Search term(s):')),
+        $q->dt($q->label({-for=>'search_terms'},'Search term(s):')),
         $q->dd(
-            $q->textarea(-name=>'text',-id=>'text',-rows=>10,-columns=>50,-tabindex=>1),
+            $q->textarea(-name=>'search_terms',-id=>'search_terms',-rows=>10,-columns=>50,-tabindex=>1),
             $q->p({-style=>'color:#777'},'Multiple entries have to be separated by commas or be on separate lines')
         ),
         $q->dt($q->label({-for=>'type'},'Search type:')),
