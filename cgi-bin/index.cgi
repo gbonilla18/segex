@@ -850,8 +850,11 @@ sub form_error {
 #######################################################################################
 sub form_login {
     my $uri = $q->url(-absolute=>1,-query=>1);
-    $uri = $q->url(-absolute=>1) if $uri =~ m/(?:&|\?|&amp;)a=${\LOGOUT}(?:\z|&|#)/;    # do not want to logout immediately after login
-    my $destination = (defined($q->url_param('destination'))) ? $q->url_param('destination') : uri_escape($uri);
+    # do not want to logout immediately after login
+    $uri = $q->url(-absolute=>1) if $uri =~ m/(?:&|\?|&amp;)a=${\LOGOUT}(?:\z|&|#)/;
+    my $destination = (defined($q->url_param('destination'))) ? 
+                    $q->url_param('destination') 
+                    : uri_escape($uri);
     print $q->start_form(
         -method=>'POST',
         -action=>$q->url(-absolute=>1).'?a='.LOGIN.'&amp;destination='.$destination,
@@ -888,7 +891,12 @@ sub form_resetPassword {
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
-            $q->submit(-name=>'resetPassword',-id=>'resetPassword',-class=>'css3button',-value=>'Email new password'),
+            $q->submit(
+                -name=>'resetPassword',
+                -id=>'resetPassword',
+                -class=>'css3button',
+                -value=>'Email new password'
+            ),
             $q->span({-class=>'separator'},' / '),
             $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.LOGIN,
                 -title=>'Back to login page'},'Back')
@@ -1358,7 +1366,7 @@ sub form_compareExperiments {
             $q->button(
                 -value=>'Add experiment',
                 -class=>'plaintext',
-                -onclick=>'addExperiment();'
+                -id=>'add_experiment'
             )
         )
     );

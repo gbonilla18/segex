@@ -1,7 +1,6 @@
-// ========================================================================================================
+// =============================================================================
 // Experiment Comparison Page
-// ========================================================================================================
-
+// =============================================================================
 
 // Globals
 var current_platform;
@@ -252,22 +251,26 @@ function toggleFilterOptions(selectedRadio)
 {
     var pane1 = document.getElementById("divSearchItemsDiv");
     var pane2 = document.getElementById("divSearchItemsDiv2");
-    //var search_terms = document.getElementById("search_terms");
-    //var upload_file = document.getElementById("upload_file");
+    var search_terms = document.getElementById("search_terms");
+    var upload_file = document.getElementById("upload_file");
 	if(selectedRadio === 'none')
 	{
 		pane1.style.display = 'none';
 		pane2.style.display = 'none';
+        search_terms.value = '';
+        upload_file.value = '';
 	}
 	else if(selectedRadio === 'list')
 	{
 		pane1.style.display = 'none';
 		pane2.style.display = 'block';
+        search_terms.value = '';
 	}	
 	else if(selectedRadio === 'file')
 	{
 		pane1.style.display = 'block';
 		pane2.style.display = 'none';
+        upload_file.value = '';
 	}
     else
     {
@@ -276,6 +279,7 @@ function toggleFilterOptions(selectedRadio)
 }
 //================================================================
 YAHOO.util.Event.addListener('platform', 'change', updatePlatform);
+YAHOO.util.Event.addListener('add_experiment', 'click', addExperiment);
 var oButtonGroupFilter = new YAHOO.widget.ButtonGroup({
     id: 'buttongroupFilter', 
     name: 'radiofieldFilter', 
