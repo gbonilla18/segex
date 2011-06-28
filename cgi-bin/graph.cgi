@@ -93,7 +93,7 @@ $sql_cutoff AS cutoff,
 def_p_cutoff AS cutoff_p 
 FROM probe 
 INNER JOIN platform USING(pid) $sql_join_clause
-LEFT JOIN (annotates NATURAL JOIN GENE) USING(rid)
+LEFT JOIN (annotates NATURAL JOIN gene) USING(rid)
 WHERE reporter=? $sql_where_clause
 GROUP BY probe.rid
 }
