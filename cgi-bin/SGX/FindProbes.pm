@@ -1,3 +1,4 @@
+
 =head1 NAME
 
 SGX::FindProbes
@@ -40,38 +41,40 @@ use SGX::Util qw/trim/;
 use SGX::Debug qw/assert/;
 
 sub new {
+
     # This is the constructor
-    my ($class, %param) = @_;
+    my ( $class, %param ) = @_;
 
+    my ( $dbh, $q, $s ) = @param{qw{dbh cgi user_session}};
     my $self = {
-        _dbh            => $param{dbh},
-        _cgi        => $param{cgi},
-        _UserSession    => $param{user_session},
-        _SearchType        => undef,
-        _SearchText        => undef,
+        _dbh                 => $dbh,
+        _cgi                 => $q,
+        _UserSession         => $s,
+        _SearchType          => undef,
+        _SearchText          => undef,
         _ProbeRecords        => '',
-        _ProbeCount        => 0,
-        _ProbeColNames        => '',        
-        _ProbeData        => '',
-        _RecordsPlatform    => '',
-        _ProbeHash        => '',
-        _RowCountAll        => 0,
-        _ProbeExperimentHash=> '',
-        _Data            => '',        
-        _eids            => '',
-        _ExperimentRec        => '',
-        _ExperimentCount    => 0,
-        _ExperimentData        => '',
-        _FullExperimentRec        => '',
-        _FullExperimentCount    => 0,
-        _FullExperimentData        => '',        
-        _InsideTableQuery     => '',
-        _SearchItems        => '',
-        _PlatformInfoQuery    => "SELECT pid, pname FROM platform",
+        _ProbeCount          => 0,
+        _ProbeColNames       => '',
+        _ProbeData           => '',
+        _RecordsPlatform     => '',
+        _ProbeHash           => '',
+        _RowCountAll         => 0,
+        _ProbeExperimentHash => '',
+        _Data                => '',
+        _eids                => '',
+        _ExperimentRec       => '',
+        _ExperimentCount     => 0,
+        _ExperimentData      => '',
+        _FullExperimentRec   => '',
+        _FullExperimentCount => 0,
+        _FullExperimentData  => '',
+        _InsideTableQuery    => '',
+        _SearchItems         => '',
+        _PlatformInfoQuery   => "SELECT pid, pname FROM platform",
         _PlatformInfoHash    => '',
-        _ProbeQuery         => '',
+        _ProbeQuery          => '',
 
-        _ProbeReporterQuery        => <<"END_ProbeReporterQuery",
+        _ProbeReporterQuery => <<"END_ProbeReporterQuery",
 SELECT DISTINCT rid
 FROM (
     SELECT gid
@@ -83,43 +86,78 @@ INNER JOIN annotates USING(gid)
 INNER JOIN probe USING(rid)
 END_ProbeReporterQuery
 
-        _ExperimentListHash     => '',
-        _ExperimentStudyListHash    => '',        
-        _TempTableID            => '',
-        _ExperimentNameListHash     => '',
+        _ExperimentListHash      => '',
+        _ExperimentStudyListHash => '',
+        _TempTableID             => '',
+        _ExperimentNameListHash  => '',
         _ExperimentDataQuery     => undef,
-        _ReporterList        => undef
+        _ReporterList            => undef
     };
 
     # find out what the current project is set to
-    if (defined($self->{_UserSession})) {
-        $self->{_WorkingProject} = 
-            $self->{_UserSession}->{session_cookie}->{curr_proj};
-        $self->{_WorkingProjectName} = 
-            $self->{_UserSession}->{session_cookie}->{proj_name};
-        $self->{_UserFullName} =
-            $self->{_UserSession}->{session_cookie}->{full_name};
+    if ( defined($s) ) {
+        $self->{_UserFullName} = $s->{session_cookie}->{full_name};
     }
 
-    #Reporter,Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}    
-    
+  # :TRICKY:06/28/2011 13:47:09:es: We implement the following behavior: if, in
+  # the URI option string, "proj" is set to some value (e.g. "proj=32") or to an
+  # empty string (e.g. "proj="), we set the data field _WorkingProject to that
+  # value; if the "proj" option is missing from the URI, we use the value of
+  # "curr_proj" from session data. This allows us to have all portions of the
+  # data accessible via a REST-style interface regardless of current user
+  # preferences.
+    my $cgi_proj = $q->param('proj');
+    if ( defined($cgi_proj) ) {
+        $self->{_WorkingProject} = $cgi_proj;
+        if ( $cgi_proj ne '' ) {
+
+            # now need to obtain project name from the database
+            my $sth =
+              $dbh->prepare(qq{SELECT prname FROM project WHERE prid=?});
+            my $rc = $sth->execute($cgi_proj);
+            if ( $rc != 0 ) {
+
+                # name exists
+                my $result = $sth->fetchrow_arrayref;
+                $self->{_WorkingProject} = $cgi_proj;
+                ( $self->{_WorkingProjectName} ) = @$result;
+            }
+            else {
+
+                # name doesn't exist
+                $self->{_WorkingProject}     = '';
+                $self->{_WorkingProjectName} = undef;
+            }
+            $sth->finish;
+        }
+        else {
+            $self->{_WorkingProjectName} = undef;
+        }
+    }
+    elsif ( defined($s) ) {
+        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
+        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
+    }
+
+#Reporter,Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}
+
     bless $self, $class;
     return $self;
 }
 #######################################################################################
 
-sub build_ExperimentDataQuery
-{
+sub build_ExperimentDataQuery {
     my $self = shift;
     my $whereSQL;
     my $curr_proj = $self->{_WorkingProject};
-    if (defined($curr_proj) && $curr_proj ne '') {
+    if ( defined($curr_proj) && $curr_proj ne '' ) {
         $curr_proj = $self->{_dbh}->quote($curr_proj);
-        $whereSQL = <<"END_whereSQL";
+        $whereSQL  = <<"END_whereSQL";
 INNER JOIN ProjectStudy USING(stid)
 WHERE prid=$curr_proj AND rid=?
 END_whereSQL
-    } else {
+    }
+    else {
         $whereSQL = 'WHERE rid=?';
     }
     $self->{_ExperimentDataQuery} = <<"END_ExperimentDataQuery";
@@ -145,41 +183,47 @@ ORDER BY experiment.eid ASC
 END_ExperimentDataQuery
 }
 
-sub set_SearchItems
-{
-    my ($self, $mode) = @_;
+sub set_SearchItems {
+    my ( $self, $mode ) = @_;
 
     # 'text' must always be set
     my $text = $self->{_cgi}->param('search_terms');
 
     #This will be the array that holds all the splitted items.
-    my @textSplit;    
+    my @textSplit;
+
     #If we find a comma, split on that, otherwise we split on new lines.
-    if ($text =~ m/,/) {
-        #Split the input on commas.    
-        @textSplit = split(/\,/,trim($text));
-    } else {
-        #Split the input on the new line.    
-        @textSplit = split(/\r\n/,$text);
+    if ( $text =~ m/,/ ) {
+
+        #Split the input on commas.
+        @textSplit = split( /\,/, trim($text) );
     }
-    
+    else {
+
+        #Split the input on the new line.
+        @textSplit = split( /\r\n/, $text );
+    }
+
     #Get the count of how many search terms were found.
     my $searchesFound = @textSplit;
     my $qtext;
-    if($searchesFound < 2) {
-        my $match = (defined($self->{_cgi}->param('match'))) 
-                    ? $self->{_cgi}->param('match') 
-                    : 'full';
+    if ( $searchesFound < 2 ) {
+        my $match =
+          ( defined( $self->{_cgi}->param('match') ) )
+          ? $self->{_cgi}->param('match')
+          : 'full';
         switch ($match) {
-            case 'full'    { $qtext = '^'.$textSplit[0].'$' }
-            case 'prefix'  { $qtext = '^'.$textSplit[0] }
-            case 'part'    { $qtext = $textSplit[0] } 
-            else           { croak "Invalid match value $match" }
+            case 'full'   { $qtext = '^' . $textSplit[0] . '$' }
+            case 'prefix' { $qtext = '^' . $textSplit[0] }
+            case 'part'   { $qtext = $textSplit[0] }
+            else { croak "Invalid match value $match" }
         }
-    } else {
-        $qtext = ($mode == 0)
-               ? join('|', map { '^' . trim($_) . '$' } @textSplit)
-               : '^' . join('|', map { trim($_) } @textSplit) . '$';
+    }
+    else {
+        $qtext =
+          ( $mode == 0 )
+          ? join( '|', map { '^' . trim($_) . '$' } @textSplit )
+          : '^' . join( '|', map { trim($_) } @textSplit ) . '$';
     }
     $self->{_SearchItems} = $qtext;
     return;
@@ -187,8 +231,7 @@ sub set_SearchItems
 #######################################################################################
 #This is the code that generates part of the SQL statement.
 #######################################################################################
-sub createInsideTableQuery
-{
+sub createInsideTableQuery {
     my $self = shift;
     $self->set_SearchItems(0);
 
@@ -211,37 +254,41 @@ sub createInsideTableQuery
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub createInsideTableQueryFromFile
-{
+sub createInsideTableQueryFromFile {
+
     #Get the probe object.
-    my ($self, $fh) = @_;
+    my ( $self, $fh ) = @_;
 
     # We need to get the list from the user into SQL, We need to do some temp
     # table/file trickery for this.
 
     #Get time to make our unique ID.
-    my $time          = time();
+    my $time = time();
+
     #Make idea with the time and ID of the running application.
-    my $processID     = $time. '_' . getppid();
+    my $processID = $time . '_' . getppid();
+
     #Regex to strip quotes.
     my $regex_strip_quotes = qr/^("?)(.*)\1$/;
-    
+
     #Store the temp Table id so we can drop the table later.
     $self->{_TempTableID} = $processID;
-    
+
     #We need to create this output directory.
     my $tmp = File::Temp->new();
+
     #This is where we put the temp file we will import.
     my $outputFileName = $tmp->filename();
+
     #Open file we are writing to server.
     open my $outputToServer, '>', $outputFileName
-        or croak "Could not open $outputFileName for writing: $!";
+      or croak "Could not open $outputFileName for writing: $!";
 
     #Each line is an item to search on.
-    while ( <$fh> )
-    {
-        #Grab the current line (Or Whole file if file is using Mac line endings).
-        #Replace all carriage returns, or carriage returns and line feed with just a line feed.
+    while (<$fh>) {
+
+#Grab the current line (Or Whole file if file is using Mac line endings).
+#Replace all carriage returns, or carriage returns and line feed with just a line feed.
         $_ =~ s/(\r\n|\r)/\n/g;
         print {$outputToServer} $_;
     }
@@ -251,7 +298,8 @@ sub createInsideTableQueryFromFile
     #Now get the temp file into a temp MYSQL table.
 
     #Command to create temp table.
-    my $createTableStatement = "CREATE TABLE $processID (searchField VARCHAR(200))";
+    my $createTableStatement =
+      "CREATE TABLE $processID (searchField VARCHAR(200))";
 
     #This is the mysql command to suck in the file.
     my $inputStatement = <<"END_inputStatement";
@@ -260,6 +308,7 @@ INTO TABLE $processID
 LINES TERMINATED BY '\n'
 (searchField);
 END_inputStatement
+
     #--------------------------------------------
 
     #When using the file from the user we join on the temp table we create.
@@ -268,7 +317,7 @@ END_inputStatement
     $self->{_dbh}->do($createTableStatement);
 
     #Run the command to suck in the data.
-    $self->{_dbh}->do($inputStatement, undef, $outputFileName);
+    $self->{_dbh}->do( $inputStatement, undef, $outputFileName );
 
     # Delete the temporary file we created:
     #unlink($outputFileName);
@@ -276,8 +325,8 @@ END_inputStatement
 
     #This is the type of search. 'type' must always be set
     my $type = $self->{_cgi}->param('type');
-    
-    $self->build_InsideTableQuery($type, tmp_table => $processID);
+
+    $self->build_InsideTableQuery( $type, tmp_table => $processID );
     $self->{_SearchItems} = undef;
     return 1;
 }
@@ -285,8 +334,7 @@ END_inputStatement
 #######################################################################################
 #Return the inside table query.
 #######################################################################################
-sub getInsideTableQuery
-{
+sub getInsideTableQuery {
     my $self = shift;
     return $self->{_InsideTableQuery};
 }
@@ -294,8 +342,7 @@ sub getInsideTableQuery
 #######################################################################################
 #Return the search terms used in the query.
 #######################################################################################
-sub getQueryTerms
-{
+sub getQueryTerms {
     my $self = shift;
     return $self->{_SearchItems};
 }
@@ -303,22 +350,21 @@ sub getQueryTerms
 #######################################################################################
 #Fill a hash with platform name and ID so we print it for the seperators.
 #######################################################################################
-sub fillPlatformHash
-{
+sub fillPlatformHash {
     my $self = shift;
 
     my $tempPlatformQuery = $self->{_PlatformInfoQuery};
-    my $platformRecords = $self->{_dbh}->prepare($tempPlatformQuery);
-    my $platformCount = $platformRecords->execute();
-    my $platformData = $platformRecords->fetchall_arrayref;
+    my $platformRecords   = $self->{_dbh}->prepare($tempPlatformQuery);
+    my $platformCount     = $platformRecords->execute();
+    my $platformData      = $platformRecords->fetchall_arrayref;
     $platformRecords->finish;
 
     #Initialize our hash.
     $self->{_PlatformInfoHash} = {};
 
-    #For each probe we get add an item to the hash. 
-    my %PlatformInfoHash = 
-        map { $_->[0] => $_->[1] } @{$platformData};
+    #For each probe we get add an item to the hash.
+    my %PlatformInfoHash =
+      map { $_->[0] => $_->[1] } @{$platformData};
     $self->{_PlatformInfoHash} = \%PlatformInfoHash;
     return;
 }
@@ -326,44 +372,44 @@ sub fillPlatformHash
 #######################################################################################
 #Get a list of the probes (Only the reporter field).
 #######################################################################################
-sub loadProbeReporterData
-{
-    my ($self, $qtext) = @_;
-    
-    my $probeQuery                = $self->{_ProbeReporterQuery};
-    
-    $probeQuery                 =~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
-    $probeQuery                 =~ s/\\//g;
+sub loadProbeReporterData {
+    my ( $self, $qtext ) = @_;
 
-    $self->{_ProbeRecords}    = $self->{_dbh}->prepare($probeQuery);
+    my $probeQuery = $self->{_ProbeReporterQuery};
+
+    $probeQuery =~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
+    $probeQuery =~ s/\\//g;
+
+    $self->{_ProbeRecords}  = $self->{_dbh}->prepare($probeQuery);
     $self->{_ProbeCount}    = $self->{_ProbeRecords}->execute();
-    $self->{_ProbeColNames} = @{$self->{_ProbeRecords}->{NAME}};
-    $self->{_Data}            = $self->{_ProbeRecords}->fetchall_arrayref;
-    
+    $self->{_ProbeColNames} = @{ $self->{_ProbeRecords}->{NAME} };
+    $self->{_Data}          = $self->{_ProbeRecords}->fetchall_arrayref;
+
     $self->{_ProbeRecords}->finish;
-    
-    $self->{_ProbeHash}     = {};
-    
-    my $DataCount            = @{$self->{_Data}};
-    
-    # For the situation where we created a temp table for the user input, 
-    # we need to drop that temp table. This is the command to drop the temp table.
-    my $dropStatement = 'DROP TABLE ' . $self->{_TempTableID} . ';';    
-    
+
+    $self->{_ProbeHash} = {};
+
+    my $DataCount = @{ $self->{_Data} };
+
+  # For the situation where we created a temp table for the user input,
+  # we need to drop that temp table. This is the command to drop the temp table.
+    my $dropStatement = 'DROP TABLE ' . $self->{_TempTableID} . ';';
+
     #Run the command to drop the temp table.
     $self->{_dbh}->do($dropStatement);
-    
-    if($DataCount < 1)
-    {
-        print $self->{_cgi}->header(-type=>'text/html',
-            -cookie=>SGX::Cookie::cookie_array());
-        print 'No records found! Please click back on your browser and search again!';
+
+    if ( $DataCount < 1 ) {
+        print $self->{_cgi}->header(
+            -type   => 'text/html',
+            -cookie => SGX::Cookie::cookie_array()
+        );
+        print
+'No records found! Please click back on your browser and search again!';
         exit;
     }
-    
+
     my $dbh = $self->{_dbh};
-    $self->{_ReporterList} = join(',',
-        map { $_->[0] } @{$self->{_Data}});
+    $self->{_ReporterList} = join( ',', map { $_->[0] } @{ $self->{_Data} } );
 
     return;
 }
@@ -371,32 +417,34 @@ sub loadProbeReporterData
 #######################################################################################
 #Get a list of the probes here so that we can get all experiment data for each probe in another query.
 #######################################################################################
-sub loadProbeData
-{
-    my ($self, $qtext) = @_;
-    
-    $self->{_ProbeRecords} = $self->{_dbh}->prepare($self->{_ProbeQuery});
-    $self->{_ProbeCount} = $self->{_ProbeRecords}->execute($qtext);
-    $self->{_ProbeColNames} = @{$self->{_ProbeRecords}->{NAME}};
-    $self->{_Data} = $self->{_ProbeRecords}->fetchall_arrayref;
+sub loadProbeData {
+    my ( $self, $qtext ) = @_;
+
+    $self->{_ProbeRecords}  = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
+    $self->{_ProbeCount}    = $self->{_ProbeRecords}->execute($qtext);
+    $self->{_ProbeColNames} = @{ $self->{_ProbeRecords}->{NAME} };
+    $self->{_Data}          = $self->{_ProbeRecords}->fetchall_arrayref;
     $self->{_ProbeRecords}->finish;
-    
-    if(scalar(@{$self->{_Data}}) < 1)
-    {
-        print $self->{_cgi}->header(-type=>'text/html',
-            -cookie=>SGX::Cookie::cookie_array());
-        print 'No records found! Please click back on your browser and search again!';
+
+    if ( scalar( @{ $self->{_Data} } ) < 1 ) {
+        print $self->{_cgi}->header(
+            -type   => 'text/html',
+            -cookie => SGX::Cookie::cookie_array()
+        );
+        print
+'No records found! Please click back on your browser and search again!';
         exit;
     }
 
-    # Find the number of columns and subtract one to get the index of the last column
-    # This index value is needed for slicing of rows...
-    my $last_index = scalar(@{$self->{_ProbeRecords}->{NAME}}) - 1;
+# Find the number of columns and subtract one to get the index of the last column
+# This index value is needed for slicing of rows...
+    my $last_index = scalar( @{ $self->{_ProbeRecords}->{NAME} } ) - 1;
 
-    # From each row in _Data, create a key-value pair such that the first column
-    # becomes the key and the rest of the columns are sliced off into an anonymous array
-    my %trans_hash = map { $_->[0] => [@$_[1..$last_index]] } @{$self->{_Data}};
-    $self->{_ProbeHash} = \%trans_hash; 
+# From each row in _Data, create a key-value pair such that the first column
+# becomes the key and the rest of the columns are sliced off into an anonymous array
+    my %trans_hash =
+      map { $_->[0] => [ @$_[ 1 .. $last_index ] ] } @{ $self->{_Data} };
+    $self->{_ProbeHash} = \%trans_hash;
 
     return;
 }
@@ -404,200 +452,221 @@ sub loadProbeData
 #######################################################################################
 #For each probe in the list get all the experiment data.
 #######################################################################################
-sub loadExperimentData
-{
-    my $self                         = shift;
-    my $experimentDataString        = '';
-    
-    $self->{_ProbeExperimentHash}        = {};
-    $self->{_ExperimentListHash}        = {};
-    $self->{_ExperimentStudyListHash}    = {};
-    $self->{_ExperimentNameListHash}    = {};
-    
-    #Grab the format for the output from the form.
-    #$transform = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : '';
-    #Build SQL statement based on desired output type.
-    #my $sql_trans                    = '';
-    #switch ($transform) 
-    #{
-    #    case 'fold' {
-    #        $sql_trans = 'if(foldchange>0,foldchange-1,foldchange+1)';
-    #    }
-    #    case 'ln' {
-    #        $sql_trans = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
-    #    }
-    #    else  {
-    #        $sql_trans = '';
-    #    }
-    #}    
+sub loadExperimentData {
+    my $self                 = shift;
+    my $experimentDataString = '';
 
-    foreach my $key (keys %{$self->{_ProbeHash}})
-    {
+    $self->{_ProbeExperimentHash}     = {};
+    $self->{_ExperimentListHash}      = {};
+    $self->{_ExperimentStudyListHash} = {};
+    $self->{_ExperimentNameListHash}  = {};
+
+#Grab the format for the output from the form.
+#$transform = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : '';
+#Build SQL statement based on desired output type.
+#my $sql_trans                    = '';
+#switch ($transform)
+#{
+#    case 'fold' {
+#        $sql_trans = 'if(foldchange>0,foldchange-1,foldchange+1)';
+#    }
+#    case 'ln' {
+#        $sql_trans = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
+#    }
+#    else  {
+#        $sql_trans = '';
+#    }
+#}
+
+    foreach my $key ( keys %{ $self->{_ProbeHash} } ) {
         $self->build_ExperimentDataQuery();
         my $tempReportQuery = $self->{_ExperimentDataQuery};
 
-        $self->{_ExperimentRec} = $self->{_dbh}->prepare($tempReportQuery);
+        $self->{_ExperimentRec}   = $self->{_dbh}->prepare($tempReportQuery);
         $self->{_ExperimentCount} = $self->{_ExperimentRec}->execute($key);
-        $self->{_ExperimentData} = $self->{_ExperimentRec}->fetchall_arrayref;
+        $self->{_ExperimentData}  = $self->{_ExperimentRec}->fetchall_arrayref;
         $self->{_ExperimentRec}->finish;
-        
+
         #We use a temp hash that gets added to the _ProbeExperimentHash.
         my %tempHash;
-        
-        #For each experiment we get, stash the results in a string 
-        foreach(@{$self->{_ExperimentData}})
-        {
+
+        #For each experiment we get, stash the results in a string
+        foreach ( @{ $self->{_ExperimentData} } ) {
+
             #This is a | seperated string with all the experiment info.
 
-            #Add this experiment to the hash which will have all the experiments and their data for a given reporter.
-            #$tempHash{$_->[0]} = $experimentDataString;
-            $tempHash{$_->[0]} = [@$_[1..5]];
+#Add this experiment to the hash which will have all the experiments and their data for a given reporter.
+#$tempHash{$_->[0]} = $experimentDataString;
+            $tempHash{ $_->[0] } = [ @$_[ 1 .. 5 ] ];
 
             #Keep a hash of EID and PID.
-            $self->{_ExperimentListHash}->{$_->[0]} = $_->[8];
+            $self->{_ExperimentListHash}->{ $_->[0] } = $_->[8];
 
             #Keep a hash of EID and STID.
-            $self->{_ExperimentStudyListHash}->{$_->[0] . '|' . $_->[7]} = 1;
-            
-            #Keep a hash of experiment names and EID.            
-            $self->{_ExperimentNameListHash}->{$_->[0]} = $_->[6];
-            
+            $self->{_ExperimentStudyListHash}->{ $_->[0] . '|' . $_->[7] } = 1;
+
+            #Keep a hash of experiment names and EID.
+            $self->{_ExperimentNameListHash}->{ $_->[0] } = $_->[6];
+
         }
 
         #Add the hash of experiment data to the hash of reporters.
         $self->{_ProbeExperimentHash}->{$key} = \%tempHash;
 
     }
-    return;    
+    return;
 }
 
 #######################################################################################
 #Print the data from the hashes into a CSV file.
 #######################################################################################
-sub printFindProbeCSV
-{
-    my $self                     = shift;
-    my $currentPID                = 0;
+sub printFindProbeCSV {
+    my $self       = shift;
+    my $currentPID = 0;
 
     #Clear our headers so all we get back is the CSV file.
-    print $self->{_cgi}->header(-type=>'text/csv',-attachment => 'results.csv',
-        -cookie=>SGX::Cookie::cookie_array());
+    print $self->{_cgi}->header(
+        -type       => 'text/csv',
+        -attachment => 'results.csv',
+        -cookie     => SGX::Cookie::cookie_array()
+    );
 
     #Print a line to tell us what report this is.
-    my $workingProjectText = 
-        (defined($self->{_WorkingProjectName}))
-        ? $self->{_WorkingProjectName}
-        : 'N/A';
+    my $workingProjectText =
+      ( defined( $self->{_WorkingProjectName} ) )
+      ? $self->{_WorkingProjectName}
+      : 'N/A';
 
-    my $generatedByText = 
-        (defined($self->{_UserFullName}))
-        ? $self->{_UserFullName}
-        : '';
+    my $generatedByText =
+      ( defined( $self->{_UserFullName} ) )
+      ? $self->{_UserFullName}
+      : '';
 
     print 'Find Probes Report,' . localtime() . "\n";
     print "Generated by,$generatedByText\n";
     print "Working Project,$workingProjectText\n\n";
-    
+
     #Sort the hash so the PID's are together.
     foreach my $key (
-        sort { $self->{_ProbeHash}->{$a}->[0] cmp $self->{_ProbeHash}->{$b}->[0] } 
-        keys %{$self->{_ProbeHash}})
+        sort {
+            $self->{_ProbeHash}->{$a}->[0] cmp $self->{_ProbeHash}->{$b}->[0]
+        }
+        keys %{ $self->{_ProbeHash} }
+      )
     {
+
         # This lets us know if we should print the headers.
-        my $printHeaders            = 0;    
-    
+        my $printHeaders = 0;
+
         # Extract the PID from the string in the hash.
         my $row = $self->{_ProbeHash}->{$key};
-    
-        if ($currentPID == 0) {
-            # grab first PID from the hash 
-            $currentPID = $row->[0];
-            $printHeaders = 1;
-        } elsif($row->[0] != $currentPID) {
-            # if different from the current one, print a seperator
-            print "\n\n";
-            $currentPID = $row->[0];
+
+        if ( $currentPID == 0 ) {
+
+            # grab first PID from the hash
+            $currentPID   = $row->[0];
             $printHeaders = 1;
         }
-        
-        if($printHeaders==1)
-        {
+        elsif ( $row->[0] != $currentPID ) {
+
+            # if different from the current one, print a seperator
+            print "\n\n";
+            $currentPID   = $row->[0];
+            $printHeaders = 1;
+        }
+
+        if ( $printHeaders == 1 ) {
+
             #Print the name of the current platform.
             print "\"$self->{_PlatformInfoHash}->{$currentPID}\"\n";
-            print "Experiment Number,Study Description, Experiment Heading,Experiment Description\n";
-            
+            print
+"Experiment Number,Study Description, Experiment Heading,Experiment Description\n";
+
             #String representing the list of experiment names.
             my $experimentList = ",,,,,,,";
-            
-            #Temporarily hold the string we are to output so we can trim the trailing ",".
+
+  #Temporarily hold the string we are to output so we can trim the trailing ",".
             my $outLine = "";
 
-            #Loop through the list of experiments and print out the ones for this platform.
-            foreach my $value (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
+ #Loop through the list of experiments and print out the ones for this platform.
+            foreach my $value ( sort { $a <=> $b }
+                keys %{ $self->{_ExperimentListHash} } )
             {
-                if($self->{_ExperimentListHash}->{$value} == $currentPID)
-                {
+                if ( $self->{_ExperimentListHash}->{$value} == $currentPID ) {
                     my $currentLine = "";
-                
+
                     $currentLine .= $value . ",";
-                    $currentLine .= $self->{_FullExperimentData}->{$value}->{description} . ",";
-                    $currentLine .= $self->{_FullExperimentData}->{$value}->{experimentHeading} . ",";
-                    $currentLine .= $self->{_FullExperimentData}->{$value}->{ExperimentDescription};
-                    
+                    $currentLine .=
+                      $self->{_FullExperimentData}->{$value}->{description}
+                      . ",";
+                    $currentLine .=
+                      $self->{_FullExperimentData}->{$value}
+                      ->{experimentHeading} . ",";
+                    $currentLine .=
+                      $self->{_FullExperimentData}->{$value}
+                      ->{ExperimentDescription};
+
                     #Current experiment name.
-                    my $currentExperimentName = $self->{_ExperimentNameListHash}->{$value};
+                    my $currentExperimentName =
+                      $self->{_ExperimentNameListHash}->{$value};
                     $currentExperimentName =~ s/\,//g;
-                    
-                    #Experiment Number,Study Description, Experiment Heading,Experiment Description
+
+ #Experiment Number,Study Description, Experiment Heading,Experiment Description
                     print "$currentLine\n";
-                    
-                    #The list of experiments goes with the Ratio line for each block of 5 columns.
-                    $experimentList .= "$value : $currentExperimentName,,,,,,";                    
-                    
-                    #Form the line that goes above the data. Each experiment gets a set of 5 columns.
-                    $outLine .= ",$value:Ratio,$value:FC,$value:P-Val,$value:Intensity1,$value:Intensity2,";                    
+
+  #The list of experiments goes with the Ratio line for each block of 5 columns.
+                    $experimentList .= "$value : $currentExperimentName,,,,,,";
+
+#Form the line that goes above the data. Each experiment gets a set of 5 columns.
+                    $outLine .=
+",$value:Ratio,$value:FC,$value:P-Val,$value:Intensity1,$value:Intensity2,";
                 }
             }
-            
+
             #Trim trailing comma off experiment list.
             $experimentList =~ s/\,$//;
-            
+
             #Trim trailing comma off data row header.
             $outLine =~ s/\,$//;
-            
+
             #Print list of experiments.
             print "$experimentList\n";
 
             #Print header line for probe rows.
-            print "Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description,Gene Ontology,$outLine\n";
+            print
+"Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description,Gene Ontology,$outLine\n";
         }
 
-        #Trim any commas out of the Gene Name, Gene Description, and Gene Ontology
-        my $geneName        = (defined($row->[4])) ? $row->[4] : '';
-        $geneName           =~ s/\,//g;
-        my $probeSequence   = (defined($row->[6])) ? $row->[6] : '';
-        $probeSequence      =~ s/\,//g;
-        my $geneDescription = (defined($row->[7])) ? $row->[7] : '';
-        $geneDescription    =~ s/\,//g;
-        my $geneOntology    = (defined($row->[8])) ? $row->[8] : '';
-        $geneOntology        =~ s/\,//g;
-        
-        # Print the probe info: 
-        # Reporter ID,Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology
-        my $outRow = "$row->[1],$row->[3],$geneName,$probeSequence,$geneDescription,$geneOntology,,";
-                
-        #For this reporter we print out a column for all the experiments that we have data for.
-        foreach my $EIDvalue (sort{$a <=> $b} keys %{$self->{_ExperimentListHash}})
+      #Trim any commas out of the Gene Name, Gene Description, and Gene Ontology
+        my $geneName = ( defined( $row->[4] ) ) ? $row->[4] : '';
+        $geneName =~ s/\,//g;
+        my $probeSequence = ( defined( $row->[6] ) ) ? $row->[6] : '';
+        $probeSequence =~ s/\,//g;
+        my $geneDescription = ( defined( $row->[7] ) ) ? $row->[7] : '';
+        $geneDescription =~ s/\,//g;
+        my $geneOntology = ( defined( $row->[8] ) ) ? $row->[8] : '';
+        $geneOntology =~ s/\,//g;
+
+# Print the probe info:
+# Reporter ID,Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology
+        my $outRow =
+"$row->[1],$row->[3],$geneName,$probeSequence,$geneDescription,$geneOntology,,";
+
+#For this reporter we print out a column for all the experiments that we have data for.
+        foreach my $EIDvalue ( sort { $a <=> $b }
+            keys %{ $self->{_ExperimentListHash} } )
         {
+
             #Only try to see the EID's for platform $currentPID.
-            if($self->{_ExperimentListHash}->{$EIDvalue} == $currentPID)
-            {
+            if ( $self->{_ExperimentListHash}->{$EIDvalue} == $currentPID ) {
+
                 # Add all the experiment data to the output string.
-                my $outputColumns = $self->{_ProbeExperimentHash}->{$key}->{$EIDvalue};
-                $outRow .= join(',', @$outputColumns) . ',,'; 
+                my $outputColumns =
+                  $self->{_ProbeExperimentHash}->{$key}->{$EIDvalue};
+                $outRow .= join( ',', @$outputColumns ) . ',,';
             }
         }
-        
+
         print "$outRow\n";
     }
     return;
@@ -606,54 +675,52 @@ sub printFindProbeCSV
 #######################################################################################
 #Loop through the list of Reporters we are filtering on and create a list.
 #######################################################################################
-sub setProbeList
-{
+sub setProbeList {
     my $self = shift;
 
-    my $dbh = $self->{_dbh};    
-    $self->{_ReporterList} = join(',', keys %{$self->{_ProbeHash}});
+    my $dbh = $self->{_dbh};
+    $self->{_ReporterList} = join( ',', keys %{ $self->{_ProbeHash} } );
     return;
 }
 
 #######################################################################################
 #Loop through the list of Reporters we are filtering on and create a list.
 #######################################################################################
-sub getProbeList
-{
+sub getProbeList {
     my $self = shift;
     return $self->{_ReporterList};
 }
 #######################################################################################
-#Loop through the list of experiments we are displaying and get the information on each. 
+#Loop through the list of experiments we are displaying and get the information on each.
 # We need eid and stid for each.
 #######################################################################################
-sub getFullExperimentData
-{
+sub getFullExperimentData {
     my $self = shift;
 
     my @eid_list;
     my @stid_list;
 
-    foreach (keys %{$self->{_ExperimentStudyListHash}})
-    {
-        my ($eid, $stid) = split /\|/;
-        push @eid_list, $eid;
+    foreach ( keys %{ $self->{_ExperimentStudyListHash} } ) {
+        my ( $eid, $stid ) = split /\|/;
+        push @eid_list,  $eid;
         push @stid_list, $stid;
     }
 
-    my $eid_string = join(',', @eid_list);
-    my $stid_string = join(',', @stid_list);
+    my $eid_string  = join( ',', @eid_list );
+    my $stid_string = join( ',', @stid_list );
 
     my $whereSQL;
     my $curr_proj = $self->{_WorkingProject};
-    if (defined($curr_proj) && $curr_proj ne '') {
+    if ( defined($curr_proj) && $curr_proj ne '' ) {
         $curr_proj = $self->{_dbh}->quote($curr_proj);
-        $whereSQL = <<"END_whereTitlesSQL";
+        $whereSQL  = <<"END_whereTitlesSQL";
 INNER JOIN ProjectStudy USING(stid)
 WHERE prid=$curr_proj AND eid IN ($eid_string) AND study.stid IN ($stid_string)
 END_whereTitlesSQL
-    } else {
-        $whereSQL = "WHERE eid IN ($eid_string) AND study.stid IN ($stid_string)";
+    }
+    else {
+        $whereSQL =
+          "WHERE eid IN ($eid_string) AND study.stid IN ($stid_string)";
     }
     my $query_titles = <<"END_query_titles_element";
 SELECT experiment.eid, 
@@ -667,29 +734,26 @@ INNER JOIN study USING(stid)
 $whereSQL
 END_query_titles_element
 
-    $self->{_FullExperimentRec} = $self->{_dbh}->prepare($query_titles);
+    $self->{_FullExperimentRec}   = $self->{_dbh}->prepare($query_titles);
     $self->{_FullExperimentCount} = $self->{_FullExperimentRec}->execute();
-    $self->{_FullExperimentData} = $self->{_FullExperimentRec}->fetchall_hashref('eid');
-    
+    $self->{_FullExperimentData} =
+      $self->{_FullExperimentRec}->fetchall_hashref('eid');
+
     $self->{_FullExperimentRec}->finish;
     return;
 }
 
 #######################################################################################
-sub list_yui_deps
-{
-    my ($self, $list) = @_;
-    push @$list, (
-        'yahoo-dom-event/yahoo-dom-event.js',
-        'connection/connection-min.js',
-        'dragdrop/dragdrop-min.js',
-        'container/container-min.js',
-        'element/element-min.js',
-        'datasource/datasource-min.js',
-        'paginator/paginator-min.js',
-        'datatable/datatable-min.js',
+sub list_yui_deps {
+    my ( $self, $list ) = @_;
+    push @$list,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js', 'connection/connection-min.js',
+        'dragdrop/dragdrop-min.js',           'container/container-min.js',
+        'element/element-min.js',             'datasource/datasource-min.js',
+        'paginator/paginator-min.js',         'datatable/datatable-min.js',
         'selector/selector-min.js'
-    );
+      );
     return;
 }
 
@@ -703,26 +767,27 @@ sub list_yui_deps
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getResultTableHTML
-{
-    my $q = shift;
+sub getResultTableHTML {
+    my $q   = shift;
     my @ret = (
-        $q->h2({-id=>'caption'},''),
+        $q->h2( { -id => 'caption' }, '' ),
         $q->div(
-            $q->a({-id=>'probetable_astext'}, 'View as plain text')
+            $q->a( { -id => 'probetable_astext' }, 'View as plain text' )
         ),
-        $q->div({-id=>'probetable'}, '')
+        $q->div( { -id => 'probetable' }, '' )
     );
-    if (defined($q->param('graph'))) {
-        push @ret, $q->ul({-id=>'graphs'}, '');
+    if ( defined( $q->param('graph') ) ) {
+        push @ret, $q->ul( { -id => 'graphs' }, '' );
     }
     return @ret;
 }
+
 #===  FUNCTION  ================================================================
 #         NAME:  getFormHTML
 #      PURPOSE:  display Find Probes form
 #   PARAMETERS:  $q - CGI object
-#                $a - name of the top-level action
+#                $action - name of the top-level action
+#                $curr_proj - current working project
 #      RETURNS:  List of strings representing HTML entities. The list can be
 #      printed directly by calling `print @list'.
 #  DESCRIPTION:  ????
@@ -730,102 +795,144 @@ sub getResultTableHTML
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getFormHTML
-{
-    my ($q, $a) = @_;
+sub getFormHTML {
+    my ( $q, $action, $curr_proj ) = @_;
 
     my %type_dropdown;
-    my $type_dropdown_t = tie(%type_dropdown, 'Tie::IxHash',
-        'gene'=>'Gene Symbols',
-        'transcript'=>'Transcripts',
-        'probe'=>'Probes'
+    my $type_dropdown_t = tie(
+        %type_dropdown, 'Tie::IxHash',
+        'gene'       => 'Gene Symbols',
+        'transcript' => 'Transcripts',
+        'probe'      => 'Probes'
     );
     my %match_dropdown;
-    my $match_dropdown_t = tie(%match_dropdown, 'Tie::IxHash',
-        'full'=>'Full Word',
-        'prefix'=>'Prefix',
-        'part'=>'Part of the Word / Regular Expression*'
+    my $match_dropdown_t = tie(
+        %match_dropdown, 'Tie::IxHash',
+        'full'   => 'Full Word',
+        'prefix' => 'Prefix',
+        'part'   => 'Part of the Word / Regular Expression*'
     );
     my %opts_dropdown;
-    my $opts_dropdown_t = tie(%opts_dropdown, 'Tie::IxHash',
-        '1'=>'Basic (names and ids only)',
-        '2'=>'Full annotation',
-        '3'=>'Full annotation with experiment data (CSV)'
+    my $opts_dropdown_t = tie(
+        %opts_dropdown, 'Tie::IxHash',
+        '1' => 'Basic (names and ids only)',
+        '2' => 'Full annotation',
+        '3' => 'Full annotation with experiment data (CSV)'
     );
     my %trans_dropdown;
-    my $trans_dropdown_t = tie(%trans_dropdown, 'Tie::IxHash',
-        'fold' => 'Fold Change +/- 1', 
-        'ln'=>'Log2 Ratio'
+    my $trans_dropdown_t = tie(
+        %trans_dropdown, 'Tie::IxHash',
+        'fold' => 'Fold Change +/- 1',
+        'ln'   => 'Log2 Ratio'
     );
 
-    return $q->start_form(-method=>'GET',
-        -action=>$q->url(absolute=>1),
-        -enctype=>'application/x-www-form-urlencoded'),
-    $q->h2('Find Probes'),
-    $q->p('You can enter here a list of probes, transcript accession numbers, or gene names. The results will contain probes that are related to the search terms.'),
-    $q->dl(
-        $q->dt($q->label({-for=>'search_terms'},'Search term(s):')),
+    return $q->start_form(
+        -method  => 'GET',
+        -action  => $q->url( absolute => 1 ),
+        -enctype => 'application/x-www-form-urlencoded'
+      ),
+      $q->h2('Find Probes'),
+      $q->p(
+'You can enter here a list of probes, transcript accession numbers, or gene names. The results will contain probes that are related to the search terms.'
+      ),
+      $q->dl(
+        $q->dt( $q->label( { -for => 'search_terms' }, 'Search term(s):' ) ),
         $q->dd(
-            $q->textarea(-name=>'search_terms',-id=>'search_terms',-rows=>10,-columns=>50,-tabindex=>1),
-            $q->p({-style=>'color:#777'},'Multiple entries have to be separated by commas or be on separate lines')
+            $q->textarea(
+                -name     => 'search_terms',
+                -id       => 'search_terms',
+                -rows     => 10,
+                -columns  => 50,
+                -tabindex => 1
+            ),
+            $q->p(
+                { -style => 'color:#777' },
+'Multiple entries have to be separated by commas or be on separate lines'
+            )
         ),
-        $q->dt($q->label({-for=>'type'},'Search type:')),
-        $q->dd($q->popup_menu(
-                -name=>'type',
-                -id=>'type',
-                -default=>'gene',
-                -values=>[keys %type_dropdown],
-                -labels=>\%type_dropdown
-        )),
+        $q->dt( $q->label( { -for => 'type' }, 'Search type:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name    => 'type',
+                -id      => 'type',
+                -default => 'gene',
+                -values  => [ keys %type_dropdown ],
+                -labels  => \%type_dropdown
+            )
+        ),
         $q->dt('Pattern to match:'),
         $q->dd(
             $q->radio_group(
-                -tabindex=>2, 
-                -name=>'match',
-                -linebreak=>'true', 
-                -default=>'full', 
-                -values=>[keys %match_dropdown], 
-                -labels=>\%match_dropdown
-            ), 
-            $q->p({-style=>'color:#777'},'* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with cyp.b where the period represents any one character (2, 3, 4, "a", etc.). See <a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more examples.')
+                -tabindex  => 2,
+                -name      => 'match',
+                -linebreak => 'true',
+                -default   => 'full',
+                -values    => [ keys %match_dropdown ],
+                -labels    => \%match_dropdown
+            ),
+            $q->p(
+                { -style => 'color:#777' },
+'* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with cyp.b where the period represents any one character (2, 3, 4, "a", etc.). See <a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more examples.'
+            )
         ),
-        $q->dt($q->label({-for=>'opts'},'Display options:')),
-        $q->dd($q->popup_menu(
-                -tabindex=>3, 
-                -name=>'opts',
-                -id=>'opts',
-                -values=>[keys %opts_dropdown], 
-                -default=>'1',
-                -labels=>\%opts_dropdown
-        )),
-        $q->dt({id=>'graph_names'},'Graph(s) :'),
-        $q->dd({id=>'graph_values'},$q->checkbox(-tabindex=>4, id=>'graph', -checked=>0, -name=>'graph',-label=>'Show Differential Expression Graph')),
-        $q->dt({id=>'graph_option_names'}, "Response variable:"),
-        $q->dd({id=>'graph_option_values'}, $q->radio_group(
-                -tabindex=>5, 
-                -name=>'trans', 
-                -linebreak=>'true', 
-                -default=>'fold', 
-                -values=>[keys %trans_dropdown], 
-                -labels=>\%trans_dropdown
-        )),
+        $q->dt( $q->label( { -for => 'opts' }, 'Display options:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -tabindex => 3,
+                -name     => 'opts',
+                -id       => 'opts',
+                -values   => [ keys %opts_dropdown ],
+                -default  => '1',
+                -labels   => \%opts_dropdown
+            )
+        ),
+        $q->dt( { id => 'graph_names' }, 'Graph(s) :' ),
+        $q->dd(
+            { id => 'graph_values' },
+            $q->checkbox(
+                -tabindex => 4,
+                id        => 'graph',
+                -checked  => 0,
+                -name     => 'graph',
+                -label    => 'Show Differential Expression Graph'
+            )
+        ),
+        $q->dt( { id => 'graph_option_names' }, "Response variable:" ),
+        $q->dd(
+            { id => 'graph_option_values' },
+            $q->radio_group(
+                -tabindex  => 5,
+                -name      => 'trans',
+                -linebreak => 'true',
+                -default   => 'fold',
+                -values    => [ keys %trans_dropdown ],
+                -labels    => \%trans_dropdown
+            )
+        ),
         $q->dt('&nbsp;'),
-        $q->dd($q->submit(-tabindex=>6, -class=>'css3button', -name=>'a', -value=>$a)),
-    ), 
-    $q->endform;
+        $q->dd(
+            $q->hidden( -name => 'proj', -value => $curr_proj ),
+            $q->submit(
+                -tabindex => 6,
+                -class    => 'css3button',
+                -name     => 'a',
+                -value    => $action
+            )
+        ),
+      ),
+      $q->endform;
 }
 #######################################################################################
-sub build_InsideTableQuery
-{
-    my ($self, $type, %optarg) = @_;
+sub build_InsideTableQuery {
+    my ( $self, $type, %optarg ) = @_;
 
     my $tmpTable = $optarg{tmp_table};
-    switch ($type) 
-    {
+    switch ($type) {
         case 'probe' {
-            my $clause = (defined $tmpTable)
-                ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=reporter"
-                : 'WHERE reporter REGEXP ?';
+            my $clause =
+              ( defined $tmpTable )
+              ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=reporter"
+              : 'WHERE reporter REGEXP ?';
             $self->{_InsideTableQuery} = <<"END_InsideTableQuery_probe";
 SELECT DISTINCT accnum, seqname
         FROM gene 
@@ -835,9 +942,10 @@ SELECT DISTINCT accnum, seqname
 END_InsideTableQuery_probe
         }
         case 'gene' {
-            my $clause = (defined $tmpTable)
-                ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=seqname"
-                : 'WHERE seqname REGEXP ?';
+            my $clause =
+              ( defined $tmpTable )
+              ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=seqname"
+              : 'WHERE seqname REGEXP ?';
             $self->{_InsideTableQuery} = <<"END_InsideTableQuery_gene"
 SELECT DISTINCT accnum, seqname
         FROM gene 
@@ -845,15 +953,16 @@ SELECT DISTINCT accnum, seqname
 END_InsideTableQuery_gene
         }
         case 'transcript' {
-            my $clause = (defined $tmpTable)
-                ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=accnum"
-                : 'WHERE accnum REGEXP ?';
+            my $clause =
+              ( defined $tmpTable )
+              ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=accnum"
+              : 'WHERE accnum REGEXP ?';
             $self->{_InsideTableQuery} = <<"END_InsideTableQuery_transcript";
 SELECT DISTINCT accnum, seqname
         FROM gene 
         $clause
 END_InsideTableQuery_transcript
-        } 
+        }
         else {
             croak "Unknown request parameter value type=$type";
         }
@@ -861,17 +970,17 @@ END_InsideTableQuery_transcript
     return;
 }
 #######################################################################################
-sub build_ProbeQuery
-{
-    my ($self, %p) = @_;
-    my $sql_select_fields = '';
+sub build_ProbeQuery {
+    my ( $self, %p ) = @_;
+    my $sql_select_fields     = '';
     my $sql_subset_by_project = '';
-    my $curr_proj = $self->{_WorkingProject};
+    my $curr_proj             = $self->{_WorkingProject};
 
-    assert(defined($p{extra_fields}));
+    assert( defined( $p{extra_fields} ) );
 
-    switch ($p{extra_fields}) {
+    switch ( $p{extra_fields} ) {
         case 0 {
+
             # only probe ids (rid)
             $sql_select_fields = <<"END_select_fields_rid";
 probe.rid,
@@ -885,6 +994,7 @@ GROUP_CONCAT(DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR '; ') AS 'Gene
 END_select_fields_rid
         }
         case 1 {
+
             # basic
             $sql_select_fields = <<"END_select_fields_basic";
 probe.rid AS ID,
@@ -900,6 +1010,7 @@ platform.species AS 'Species'
 END_select_fields_basic
         }
         else {
+
             # with extras
             $sql_select_fields = <<"END_select_fields_extras";
 probe.rid AS ID,
@@ -923,8 +1034,8 @@ END_select_fields_extras
         }
     }
 
-    if (defined($curr_proj) && $curr_proj ne '') {
-        $curr_proj = $self->{_dbh}->quote($curr_proj);
+    if ( defined($curr_proj) && $curr_proj ne '' ) {
+        $curr_proj             = $self->{_dbh}->quote($curr_proj);
         $sql_subset_by_project = <<"END_sql_subset_by_project"
 INNER JOIN study USING(pid) 
 INNER JOIN ProjectStudy USING(stid) 
@@ -957,8 +1068,7 @@ END_ProbeQuery
     return;
 }
 #######################################################################################
-sub findProbes_js 
-{
+sub findProbes_js {
     my $self = shift;
 
     $self->set_SearchItems(1);
@@ -969,51 +1079,65 @@ sub findProbes_js
 
     $self->build_InsideTableQuery($type);
 
-    my $opts = (defined($self->{_cgi}->param('opts'))) ? $self->{_cgi}->param('opts') : 1;
-    $self->build_ProbeQuery(extra_fields => $opts);
+    my $opts =
+      ( defined( $self->{_cgi}->param('opts') ) )
+      ? $self->{_cgi}->param('opts')
+      : 1;
+    $self->build_ProbeQuery( extra_fields => $opts );
 
-    my $trans = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : 'fold';
+    my $trans =
+      ( defined( $self->{_cgi}->param('trans') ) )
+      ? $self->{_cgi}->param('trans')
+      : 'fold';
 
-    if ($opts == 3) {
-#---------------------------------------------------------------------------
-#  CSV output
-#---------------------------------------------------------------------------
+    if ( $opts == 3 ) {
+
+    #---------------------------------------------------------------------------
+    #  CSV output
+    #---------------------------------------------------------------------------
         $self->{_UserSession}->commit();
-        #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+
+#print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
         $self->{_SearchType} = $type;
         $self->{_SearchText} = $qtext;
+
         #$self->setInsideTableQuery($g0_sql);
         $self->loadProbeData($qtext);
         $self->loadExperimentData();
         $self->fillPlatformHash();
-        $self->getFullExperimentData();        
+        $self->getFullExperimentData();
         $self->printFindProbeCSV();
         exit;
     }
     else {
-#---------------------------------------------------------------------------
-#  HTML output
-#---------------------------------------------------------------------------
-        my $sth = $self->{_dbh}->prepare($self->{_ProbeQuery});
+
+    #---------------------------------------------------------------------------
+    #  HTML output
+    #---------------------------------------------------------------------------
+        my $sth      = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
         my $rowcount = $sth->execute($qtext);
 
-        my $caption = sprintf("Found %d probe", $rowcount) .(($rowcount != 1) ? 's' : '')." annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
+        my $caption =
+            sprintf( "Found %d probe", $rowcount )
+          . ( ( $rowcount != 1 ) ? 's' : '' )
+          . " annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
 
         # cache the field name array; skip first two columns (probe.rid,
         # platform.pid)
-        my $all_names = $sth->{NAME};
+        my $all_names  = $sth->{NAME};
         my $last_index = scalar(@$all_names) - 1;
-        my @names = @$all_names[2..$last_index];
+        my @names      = @$all_names[ 2 .. $last_index ];
 
         # data are sent as a JSON object plus Javascript code
         my @json_records;
         my $data = $sth->fetchall_arrayref;
         $sth->finish;
         foreach my $array_ref (@$data) {
-            # the below "trick" converts an array into a hash such that array elements
-            # become hash values and array indexes become hash keys
+
+      # the below "trick" converts an array into a hash such that array elements
+      # become hash values and array indexes become hash keys
             my $i = 0;
-            my %row = map { $i++ => $_ } @$array_ref[2..$last_index];
+            my %row = map { $i++ => $_ } @$array_ref[ 2 .. $last_index ];
             push @json_records, \%row;
         }
 
@@ -1023,18 +1147,19 @@ sub findProbes_js
             headers => \@names
         );
 
-        my $out = sprintf(<<"END_JSON_DATA",
+        my $out = sprintf(
+            <<"END_JSON_DATA",
 var probelist = %s;
 var url_prefix = "%s";
 var response_transform = "%s";
 var show_graphs = %s;
 var extra_fields = %s;
 END_JSON_DATA
-            encode_json(\%json_probelist),
-            $self->{_cgi}->url(-absolute=>1),
+            encode_json( \%json_probelist ),
+            $self->{_cgi}->url( -absolute => 1 ),
             $trans,
-            (defined($self->{_cgi}->param('graph'))) ? 'true' : 'false',
-            ($opts > 1) ? 'true' : 'false'
+            ( defined( $self->{_cgi}->param('graph') ) ) ? 'true' : 'false',
+            ( $opts > 1 )                                ? 'true' : 'false'
         );
 
         return $out;

@@ -1216,7 +1216,11 @@ sub updateCell {
 #######################################################################################
 sub form_findProbes
 {
-    print SGX::FindProbes::getFormHTML($q, FINDPROBES);
+    print SGX::FindProbes::getFormHTML(
+        $q, 
+        FINDPROBES, 
+        $s->{session_cookie}->{curr_proj}
+    );
     return 1;
 }
 

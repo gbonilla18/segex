@@ -103,7 +103,6 @@ my $rowcount = $sth->execute(@exec_array_title);
 if ( $rowcount == 0 ) {
     warn "Probe $reporter does not exist in the database";
 }
-
 #elsif ($rowcount > 1) {
 #    warn "More than one record found with reporter ID $reporter";
 #}
