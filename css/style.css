@@ -318,3 +318,5 @@ td.yui-dt-col-5 .yui-dt-liner {
 		0px -1px 0px rgba(000,000,000,1),
 		0px 1px 0px rgba(255,255,255,0.2);
 }
+/* override overly tiny font size in YUI radio buttons */
+.yui-skin-sam .yui-button button,.yui-skin-sam .yui-button a,.yui-skin-sam .yui-button a:visited{font-size:1em;}

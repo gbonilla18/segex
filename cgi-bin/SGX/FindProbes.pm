@@ -28,8 +28,6 @@ package SGX::FindProbes;
 use strict;
 use warnings;
 
-use base qw/Exporter/;
-
 use Switch;
 use CGI::Carp;
 use Tie::IxHash;
@@ -43,10 +41,10 @@ use SGX::Debug qw/assert/;
 
 sub new {
     # This is the constructor
-    my ($class, $dbh, %param) = @_;
+    my ($class, %param) = @_;
 
     my $self = {
-        _dbh            => $dbh,
+        _dbh            => $param{dbh},
         _cgi        => $param{cgi},
         _UserSession    => $param{user_session},
         _SearchType        => undef,
