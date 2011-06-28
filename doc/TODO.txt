@@ -104,3 +104,7 @@ page will appear. If the login is incorrect from the first try, the system will
 SEGEX page. This is a bug.
 
 *)  :TODO:06/20/2011 22:46:11:es:  add key to sessions table
+
+*) Consider using Protovis Javascript framework for drawing graphs inside the
+client browser window from JSON data obtained from the server (as opposed to
+generating SVG files on the server as it is set up currently).
