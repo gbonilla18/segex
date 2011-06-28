@@ -713,7 +713,9 @@ sub getResultTableHTML
         ),
         $q->div({-id=>'probetable'}, '')
     );
-    push @ret, $q->ul({-id=>'graphs'}, '') if defined($q->param('graph'));
+    if (defined($q->param('graph'))) {
+        push @ret, $q->ul({-id=>'graphs'}, '');
+    }
     return @ret;
 }
 #===  FUNCTION  ================================================================

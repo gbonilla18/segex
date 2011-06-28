@@ -139,15 +139,18 @@ my $xl = 55;
 my $yl = 24;
 my $body_width = 500;
 my $body_height = 300;
+my $body_height_extended = 400;
 my $longest_xlabel = 550;
 my $text_breath = 6; # pixels
 my $text_fudge = 4; # fudge factor
 my $text_fudge_inv = 10; # inverse fudge factor
-my $total_width = $xl + $body_width;
-my $label_shift = $yl + $body_height + $text_breath;
-my $total_height = $label_shift + $longest_xlabel;
-my $p = 1.61803399;	# space between bars is wider than the bars by golden ratio
-my $w = $body_width/(@y*(1+$p)+$p);	# bar width
+#my $total_width = $xl + $body_width
+my $total_width = $xl + $body_width + $longest_xlabel;
+my $label_shift = $yl + $body_height + $text_breath + $text_fudge;
+#my $total_height = $label_shift + $longest_xlabel;
+my $total_height = $label_shift + 200;
+my $golden_ratio = 1.61803399;	# space between bars is wider than the bars by golden ratio
+my $bar_width = $body_width/(@y*(1+$golden_ratio)+$golden_ratio);	# bar width
 my ($min_data, $max_data) = bounds(\@y);
 $max_data = ($max_data > $cutoff) ? $max_data : $cutoff;
 $min_data = ($min_data < -$cutoff) ? $min_data : -$cutoff;
@@ -162,24 +165,34 @@ my $xaxisy = $yupper + $yl;
 my $left_pos = $xl - $text_breath;
 
 my $xlabels = '';
+my $legend = '';
 my $vguides = '';
 my $datapoints = '';
-my $pw = $p * $w;
-my $wpw = $w + $pw;
-my $left = $xl + $pw;
-my $vguides_shift = $left + $w/2;
+my $rw = $golden_ratio * $bar_width;
+my $wrw = $bar_width + $rw;
+my $left = $xl + $rw;
+my $vguides_shift = $left + $bar_width/2;
+
+# legend
+my $text_height = $text_fudge_inv;
+my $legend_left = $xl + $body_width + $text_fudge_inv;
+my $legend_top = $yl + $text_fudge_inv;
 for (my $i = 0; $i < @y; $i++) {
-	my ($yvalue, $lab_class);
+	my ($yvalue, $lab_class, $leg_class);
 	if (defined($y[$i])) {
 		$lab_class='xAxisLabel';
+        $leg_class='legendLabel';
 		$yvalue = $y[$i];
 	} else {
 		$lab_class='xAxisLabel xNALabel';
+        $leg_class='legendLabel xNALabel';
 		$yvalue = 0;
 	}
 	my $top = $xaxisy - $scale*$yvalue;
 	my $text_left = $left + $text_fudge_inv;
-	$xlabels .= "<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" transform=\"rotate(270 $text_left $label_shift)\">".$labels[$i]."</text>\n";
+    #$xlabels .= "<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" transform=\"rotate(270 $text_left $label_shift)\">".$labels[$i]."</text>\n";
+	$xlabels .= "<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" >".($i + 1)."</text>\n";
+	$legend .= "<text x=\"$legend_left\" y=\"$legend_top\" class=\"$leg_class\" >". ($i + 1) . '. ' . $labels[$i]."</text>\n";
 	$vguides .= "<path d=\"M$vguides_shift $yl v$body_height\" class=\"vGuideLine\" />\n";
 	my $fill_class;
 	if (defined($pvalues[$i])) {
@@ -187,9 +200,10 @@ for (my $i = 0; $i < @y; $i++) {
 	} else {
 		$fill_class = 'fill3';
 	}
-	$datapoints .= "<path d=\"M$left $xaxisy V$top h$w V$xaxisy Z\" class=\"$fill_class\"/>\n";
-	$left += $wpw;
-	$vguides_shift += $wpw; 
+	$datapoints .= "<path d=\"M$left $xaxisy V$top h$bar_width V$xaxisy Z\" class=\"$fill_class\"/>\n";
+	$left += $wrw;
+    $legend_top += $text_height;
+	$vguides_shift += $wrw; 
 }
 
 my $hguides = '';
@@ -256,7 +270,7 @@ if ($cutoff <= $ylower) {
 my $text_offset = $xaxisy + $text_fudge;
 $ylabels .= "<text x=\"$left_pos\" y=\"$text_offset\" class=\"yAxisLabel\">$middle_label</text>\n";
 
-my $titlex = $total_width / 2;
+my $titlex = $body_width / 2;
 my $titley = $yl / 2 + $text_fudge;
 my $ytitlex = $text_fudge_inv; # + $text_breath;
 my $ytitley = $yl + $body_height / 2;
@@ -312,12 +326,14 @@ print qq{<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
 	stroke: #0f0;
 	stroke-width: 1.5px;
 }
-.xAxisLabel, .yAxisLabel, .xNALabel {
-	text-anchor: end;
+.legendLabel, .xAxisLabel, .yAxisLabel, .xNALabel {
 	fill: #000;
 	font-size: 12px;
 	font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
 	font-weight: normal;
+}
+.xAxisLabel, .yAxisLabel, .xNALabel {
+	text-anchor: end;
 }
 .xNALabel {
 	fill: #00f;
@@ -344,6 +360,7 @@ print qq{<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
 
 $xlabels
 $ylabels
+$legend
  
 $vguides
 $hguides
