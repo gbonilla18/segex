@@ -178,7 +178,7 @@ my $total_width = $xl + $body_width + $longest_xlabel;
 my $label_shift = $yl + $body_height + $text_breath + $text_fudge;
 
 #my $total_height = $label_shift + $longest_xlabel;
-my $total_height = $label_shift + 220;
+my $total_height = $label_shift + 265;
 my $golden_ratio =
   1.61803399;    # space between bars is wider than the bars by golden ratio
 my $bar_width =
@@ -207,7 +207,7 @@ my $vguides_shift = $left + $bar_width / 2;
 my $text_left     = $vguides_shift + $text_fudge;
 
 # legend
-my $text_height = $text_fudge_inv;
+my $text_height = $text_fudge_inv + 2;
 my $legend_left = $xl + $body_width + $text_fudge_inv;
 my $legend_top  = $yl + $text_fudge_inv;
 for ( my $i = 0 ; $i < @y ; $i++ ) {
