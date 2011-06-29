@@ -127,7 +127,8 @@ if ( defined($curr_proj) and $curr_proj ne '' ) {
 $sth = $dbh->prepare(
     qq{
 SELECT 
-CONCAT(experiment.eid, ' - ' ,study.description, ': ', experiment.sample2, '/', experiment.sample1) AS label, 
+experiment.eid,
+CONCAT(GROUP_CONCAT(study.description SEPARATOR ', '), ': ', experiment.sample2, '/', experiment.sample1) AS label, 
 $sql_trans as y, 
 pvalue 
 FROM microarray 
@@ -138,6 +139,7 @@ NATURAL JOIN experiment
 NATURAL JOIN StudyExperiment 
 NATURAL JOIN study 
 $sql_project_clause
+GROUP BY experiment.eid
 ORDER BY experiment.eid ASC
 }
 );
@@ -145,14 +147,16 @@ ORDER BY experiment.eid ASC
 $rowcount = $sth->execute(@exec_array);
 exit() if $rowcount == 0;
 
+my @exp_ids;
 my @labels;
 my @y;
 my @pvalues;
 
 while ( my $row = $sth->fetchrow_arrayref ) {
-    push @labels,  $row->[0];
-    push @y,       $row->[1];
-    push @pvalues, $row->[2];
+    push @exp_ids, $row->[0];
+    push @labels,  $row->[1];
+    push @y,       $row->[2];
+    push @pvalues, $row->[3];
 }
 
 $sth->finish;
@@ -200,6 +204,7 @@ my $rw            = $golden_ratio * $bar_width;
 my $wrw           = $bar_width + $rw;
 my $left          = $xl + $rw;
 my $vguides_shift = $left + $bar_width / 2;
+my $text_left     = $vguides_shift + $text_fudge;
 
 # legend
 my $text_height = $text_fudge_inv;
@@ -218,16 +223,15 @@ for ( my $i = 0 ; $i < @y ; $i++ ) {
         $yvalue    = 0;
     }
     my $top       = $xaxisy - $scale * $yvalue;
-    my $text_left = $left + $text_fudge_inv;
 
 #$xlabels .= "<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" transform=\"rotate(270 $text_left $label_shift)\">".$labels[$i]."</text>\n";
     $xlabels .=
-        "<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" >"
-      . ( $i + 1 )
+        "<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" transform=\"rotate(270 $text_left $label_shift)\">"
+      . $exp_ids[$i]
       . "</text>\n";
     $legend .=
         "<text x=\"$legend_left\" y=\"$legend_top\" class=\"$leg_class\" >"
-      . ( $i + 1 ) . '. '
+      . $exp_ids[$i] . '. '
       . $labels[$i]
       . "</text>\n";
     $vguides .=
@@ -241,6 +245,7 @@ for ( my $i = 0 ; $i < @y ; $i++ ) {
     }
     $datapoints .=
 "<path d=\"M$left $xaxisy V$top h$bar_width V$xaxisy Z\" class=\"$fill_class\"/>\n";
+    $text_left     += $wrw;
     $left          += $wrw;
     $legend_top    += $text_height;
     $vguides_shift += $wrw;
