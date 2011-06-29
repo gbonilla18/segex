@@ -36,6 +36,7 @@ use Data::Dumper;
 use File::Basename;
 use JSON::XS;
 use File::Temp qw/tempfile/;
+use SGX::Exceptions;
 
 use SGX::Util qw/trim/;
 use SGX::Debug qw/assert/;
@@ -73,19 +74,6 @@ sub new {
         _PlatformInfoQuery   => "SELECT pid, pname FROM platform",
         _PlatformInfoHash    => '',
         _ProbeQuery          => '',
-
-        _ProbeReporterQuery => <<"END_ProbeReporterQuery",
-SELECT DISTINCT rid
-FROM (
-    SELECT gid
-    FROM ({0}) AS g1
-    INNER JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
-    GROUP BY gid
-) as g0
-INNER JOIN annotates USING(gid)
-INNER JOIN probe USING(rid)
-END_ProbeReporterQuery
-
         _ExperimentListHash      => '',
         _ExperimentStudyListHash => '',
         _TempTableID             => '',
@@ -230,6 +218,7 @@ sub set_SearchItems {
 }
 #######################################################################################
 #This is the code that generates part of the SQL statement.
+# Call to this function is always followed by a call to build_ProbeQuery()
 #######################################################################################
 sub createInsideTableQuery {
     my $self = shift;
@@ -375,10 +364,16 @@ sub fillPlatformHash {
 sub loadProbeReporterData {
     my ( $self, $qtext ) = @_;
 
-    my $probeQuery = $self->{_ProbeReporterQuery};
+    my $InsideTableQuery = $self->{_InsideTableQuery};
+    my $probeQuery = <<"END_ProbeReporterQuery";
+SELECT DISTINCT probe.rid
+FROM ( $InsideTableQuery ) as g0
+LEFT JOIN annotates USING(gid)
+INNER JOIN probe ON probe.rid=COALESCE(g0.rid, annotates.rid)
+END_ProbeReporterQuery
 
-    $probeQuery =~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
-    $probeQuery =~ s/\\//g;
+    #$probeQuery =~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
+    #$probeQuery =~ s/\\//g;
 
     $self->{_ProbeRecords}  = $self->{_dbh}->prepare($probeQuery);
     $self->{_ProbeCount}    = $self->{_ProbeRecords}->execute();
@@ -924,52 +919,101 @@ sub getFormHTML {
       ),
       $q->endform;
 }
-#######################################################################################
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  build_InsideTableQuery
+#   PARAMETERS:  $type - query type (probe|gene|accnum)
+#                tmp_table => $tmpTable - uploaded table to join on
+#      RETURNS:  true value
+#  DESCRIPTION:  Fills _InsideTableQuery field
+#       THROWS:  SGX::Exception::User
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub build_InsideTableQuery {
     my ( $self, $type, %optarg ) = @_;
 
     my $tmpTable = $optarg{tmp_table};
+    my $clause =
+      ( defined $tmpTable )
+      ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=%s"
+      : 'WHERE %s REGEXP ?';
+
     switch ($type) {
         case 'probe' {
-            my $clause =
-              ( defined $tmpTable )
-              ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=reporter"
-              : 'WHERE reporter REGEXP ?';
-            $self->{_InsideTableQuery} = <<"END_InsideTableQuery_probe";
-SELECT DISTINCT accnum, seqname
+            $self->{_InsideTableQuery} = sprintf(<<"END_InsideTableQuery_probe",
+SELECT
+    g1.rid, g1.reporter, g1.note, g1.probe_sequence, g1.pid, 
+    gid,
+    COALESCE(g1.accnum, gene.accnum) AS accnum, 
+    COALESCE(g1.seqname, gene.seqname) AS seqname, 
+    description, 
+    gene_note
+FROM ( SELECT probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, 
+       accnum, seqname
         FROM gene 
         RIGHT JOIN annotates USING(gid)
         RIGHT JOIN probe USING(rid)
         $clause
+        GROUP BY accnum, seqname
+) AS g1
+LEFT JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
+GROUP BY gid
+
 END_InsideTableQuery_probe
+                'reporter'
+            );
         }
         case 'gene' {
-            my $clause =
-              ( defined $tmpTable )
-              ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=seqname"
-              : 'WHERE seqname REGEXP ?';
-            $self->{_InsideTableQuery} = <<"END_InsideTableQuery_gene"
-SELECT DISTINCT accnum, seqname
+            $self->{_InsideTableQuery} = sprintf(<<"END_InsideTableQuery_gene",
+SELECT 
+    NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid, 
+    gid, 
+    COALESCE(g1.accnum, gene.accnum) AS accnum, 
+    COALESCE(g1.seqname, gene.seqname) AS seqname, 
+    description, 
+    gene_note
+FROM ( SELECT accnum, seqname
         FROM gene 
         $clause
+        GROUP BY accnum, seqname
+) AS g1
+LEFT JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
+GROUP BY gid
+
 END_InsideTableQuery_gene
+                'seqname'
+            );
         }
         case 'accnum' {
-            my $clause =
-              ( defined $tmpTable )
-              ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=accnum"
-              : 'WHERE accnum REGEXP ?';
-            $self->{_InsideTableQuery} = <<"END_InsideTableQuery_accnum";
-SELECT DISTINCT accnum, seqname
+            $self->{_InsideTableQuery} = sprintf(<<"END_InsideTableQuery_accnum",
+SELECT 
+    NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid, 
+    gid, 
+    COALESCE(g1.accnum, gene.accnum) AS accnum, 
+    COALESCE(g1.seqname, gene.seqname) AS seqname, 
+    description, 
+    gene_note
+FROM ( SELECT accnum, seqname
         FROM gene 
         $clause
+        GROUP BY accnum, seqname
+) AS g1
+LEFT JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
+GROUP BY gid
+
 END_InsideTableQuery_accnum
+                'accnum'
+            );
         }
         else {
-            croak "Unknown request parameter value type=$type";
+            SGX::Exception::User->throw( 
+                error => "Unknown request parameter value type=$type\n"
+            );
         }
     }
-    return;
+    return 1;
 }
 #######################################################################################
 sub build_ProbeQuery {
@@ -987,7 +1031,7 @@ sub build_ProbeQuery {
             $sql_select_fields = <<"END_select_fields_rid";
 probe.rid,
 platform.pid,
-probe.reporter,
+COALESCE(probe.reporter, g0.reporter) AS reporter,
 GROUP_CONCAT(DISTINCT IF(ISNULL(g0.accnum),'NONE',g0.accnum) ORDER BY g0.seqname ASC separator ' # ') AS 'Accession',
 IF(ISNULL(g0.seqname),'NONE',g0.seqname) AS 'Gene',
 probe.probe_sequence AS 'Probe Sequence',
@@ -1001,7 +1045,7 @@ END_select_fields_rid
             $sql_select_fields = <<"END_select_fields_basic";
 probe.rid AS ID,
 platform.pid AS PID,
-probe.reporter AS Probe, 
+COALESCE(probe.reporter, g0.reporter) AS Probe, 
 platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
@@ -1017,7 +1061,7 @@ END_select_fields_basic
             $sql_select_fields = <<"END_select_fields_extras";
 probe.rid AS ID,
 platform.pid AS PID,
-probe.reporter AS Probe, 
+COALESCE(probe.reporter, g0.reporter) AS Probe, 
 platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
@@ -1039,7 +1083,7 @@ END_select_fields_extras
     if ( defined($curr_proj) && $curr_proj ne '' ) {
         $curr_proj             = $self->{_dbh}->quote($curr_proj);
         $sql_subset_by_project = <<"END_sql_subset_by_project"
-INNER JOIN study USING(pid) 
+INNER JOIN study ON study.pid=platform.pid
 INNER JOIN ProjectStudy USING(stid) 
 WHERE prid=$curr_proj 
 END_sql_subset_by_project
@@ -1048,25 +1092,14 @@ END_sql_subset_by_project
     $self->{_ProbeQuery} = <<"END_ProbeQuery";
 SELECT
 $sql_select_fields
-FROM (
-    SELECT 
-        gid, 
-        COALESCE(g1.accnum, gene.accnum) AS accnum, 
-        COALESCE(g1.seqname, gene.seqname) AS seqname, 
-        description, 
-        gene_note
-    FROM (
-        $InsideTableQuery
-    ) AS g1
-    INNER JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
-    GROUP BY gid
-) AS g0
-INNER JOIN annotates USING(gid)
-INNER JOIN probe USING(rid)
-INNER JOIN platform USING(pid)
+FROM ( $InsideTableQuery ) AS g0
+LEFT JOIN annotates USING(gid)
+INNER JOIN probe ON probe.rid=COALESCE(g0.rid, annotates.rid)
+INNER JOIN platform ON platform.pid=COALESCE(probe.pid, g0.pid)
 $sql_subset_by_project
-GROUP BY probe.rid
+GROUP BY COALESCE(g0.rid, annotates.rid)
 END_ProbeQuery
+
     return;
 }
 #######################################################################################
@@ -1079,6 +1112,7 @@ sub findProbes_js {
     # 'type' must always be set
     my $type = $self->{_cgi}->param('type');
 
+    # call to build_InsideTableQuery() followed by one to build_ProbeQuery()
     $self->build_InsideTableQuery($type);
 
     my $opts =
@@ -1163,7 +1197,7 @@ var url_prefix = "%s";
 var response_transform = "%s";
 var show_graphs = %s;
 var extra_fields = %s;
-var project_id = %s;
+var project_id = "%s";
 END_JSON_DATA
             encode_json( \%json_probelist ),
             $self->{_cgi}->url( -absolute => 1 ),

@@ -343,10 +343,14 @@ sub getResultsJS
 
         # parse uploaded file (highly likely to fail!)
         my $fh = $q->upload('upload_file');
+
+        # call to createInsideTableQueryFromFile() is followed by
+        # loadProbeReporterData() which uses _ProbeReporterQuery (similar to
+        # query called by build_ProbeQuery()
         eval { $findProbes->createInsideTableQueryFromFile($fh); } 
         or close($fh) and croak $@;
 
-        $findProbes->loadProbeReporterData($findProbes->getQueryTerms);
+        $findProbes->loadProbeReporterData($findProbes->getQueryTerms());
 
         # get list of probe record ids (rid)
         $probeList     = $findProbes->getProbeList();
@@ -360,7 +364,7 @@ sub getResultsJS
         my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q);
         $findProbes->{_WorkingProject} = $curr_proj;
 
-        $findProbes->createInsideTableQuery();
+        $findProbes->createInsideTableQuery(); # followed by build_ProbeQuery
         $findProbes->build_ProbeQuery(extra_fields => 0);
         $findProbes->loadProbeData($findProbes->getQueryTerms);
         $findProbes->setProbeList();
