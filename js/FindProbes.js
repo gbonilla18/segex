@@ -15,7 +15,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
         var i = oRecord.getCount();
         if (show_graphs) {
-            graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"1200\" height=\"600\" data=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\"><embed src=\"./graph.cgi?reporter=" + oData + "&trans=" + response_transform + "\" width=\"1200\" height=\"600\" /></object></li>";
+            var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + oData + "&trans=" + response_transform;
+            graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"1200\" height=\"600\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"1200\" height=\"600\" /></object></li>";
             elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
         } else {
             elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
@@ -156,8 +157,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     if (panel_old === null) {
                         imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
                         var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
+                        var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + imgFile + "&trans=" + response_transform;
                         panel.setHeader(imgFile);
-                        panel.setBody("<object type=\"image/svg+xml\" width=\"1200\" height=\"600\" data=\"./graph.cgi?reporter=" + imgFile + "&trans=" + response_transform + "\"><embed src=\"./graph.cgi?reporter=" + imgFile + "&trans=" + response_transform + "\" width=\"1200\" height=\"600\" /></object>");
+                        panel.setBody("<object type=\"image/svg+xml\" width=\"1200\" height=\"600\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"1200\" height=\"600\" /></object>");
                         manager.register(panel);
                         panel.render("container" + index);
                         // panel.show is unnecessary here because visible:true is set

@@ -34,8 +34,8 @@ if ( $reporter eq '' ) {
     exit(0);
 }
 
-#$s->read_perm_cookie();
-my $curr_proj = $s->{session_cookie}->{curr_proj};
+#my $curr_proj = $s->{session_cookie}->{curr_proj};
+my $curr_proj = $q->param('proj');
 
 if ( !$s->is_authorized('user') ) {
 

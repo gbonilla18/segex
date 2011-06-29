@@ -776,7 +776,7 @@ sub getResultTableHTML {
         ),
         $q->div( { -id => 'probetable' }, '' )
     );
-    if ( defined( $q->param('graph') ) ) {
+    if ( $q->param('graph') ) {
         push @ret, $q->ul( { -id => 'graphs' }, '' );
     }
     return @ret;
@@ -1156,6 +1156,7 @@ END_caption
             headers => \@names
         );
 
+        my $print_graphs = $self->{_cgi}->param('graph');
         my $out = sprintf(
             <<"END_JSON_DATA",
 var probelist = %s;
@@ -1163,12 +1164,14 @@ var url_prefix = "%s";
 var response_transform = "%s";
 var show_graphs = %s;
 var extra_fields = %s;
+var project_id = %s;
 END_JSON_DATA
             encode_json( \%json_probelist ),
             $self->{_cgi}->url( -absolute => 1 ),
             $trans,
-            ( defined( $self->{_cgi}->param('graph') ) ) ? 'true' : 'false',
-            ( $opts > 1 )                                ? 'true' : 'false'
+            ( $print_graphs ) ? 'true' : 'false',
+            ( $opts > 1 )     ? 'true' : 'false',
+            $self->{_WorkingProject}
         );
 
         return $out;
