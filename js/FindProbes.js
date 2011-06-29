@@ -5,6 +5,13 @@
 var graph_ul;
 var graph_content;
 
+function buildSVGElement(project_id, reporter, transform) {
+    var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + reporter + "&trans=" + transform;
+    var width = 1200;
+    var height = 600;
+    return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
+}
+
 YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
 YAHOO.util.Event.addListener(window, "load", function() {
     if (show_graphs) {
@@ -15,8 +22,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
         var i = oRecord.getCount();
         if (show_graphs) {
-            var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + oData + "&trans=" + response_transform;
-            graph_content += "<li id=\"reporter_" + i + "\"><object type=\"image/svg+xml\" width=\"1200\" height=\"600\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"1200\" height=\"600\" /></object></li>";
+            graph_content += "<li id=\"reporter_" + i + "\">" + buildSVGElement(project_id, oData, response_transform) + "</li>";
             elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
         } else {
             elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
@@ -157,9 +163,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     if (panel_old === null) {
                         imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
                         var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
-                        var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + imgFile + "&trans=" + response_transform;
                         panel.setHeader(imgFile);
-                        panel.setBody("<object type=\"image/svg+xml\" width=\"1200\" height=\"600\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"1200\" height=\"600\" /></object>");
+                        panel.setBody(buildSVGElement(project_id, imgFile, response_transform));
                         manager.register(panel);
                         panel.render("container" + index);
                         // panel.show is unnecessary here because visible:true is set
