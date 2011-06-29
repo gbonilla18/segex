@@ -832,9 +832,9 @@ sub getFormHTML {
         -enctype => 'application/x-www-form-urlencoded'
       ),
       $q->h2('Find Probes'),
-      $q->p(
-'You can enter here a list of probes, transcript accession numbers, or gene names. The results will contain probes that are related to the search terms.'
-      ),
+      $q->p('You can enter here a list of probes, transcript accession numbers,
+              or gene names. The results will contain probes that are related to
+          the search terms.'),
       $q->dl(
         $q->dt( $q->label( { -for => 'search_terms' }, 'Search term(s):' ) ),
         $q->dd(
@@ -845,10 +845,8 @@ sub getFormHTML {
                 -columns  => 50,
                 -tabindex => 1
             ),
-            $q->p(
-                { -style => 'color:#777' },
-'Multiple entries have to be separated by commas or be on separate lines'
-            )
+            $q->p( { -style => 'color:#777' }, 'Multiple entries have to be
+                separated by commas or be on separate lines')
         ),
         $q->dt( $q->label( { -for => 'type' }, 'Search type:' ) ),
         $q->dd(
@@ -870,10 +868,12 @@ sub getFormHTML {
                 -values    => [ keys %match_dropdown ],
                 -labels    => \%match_dropdown
             ),
-            $q->p(
-                { -style => 'color:#777' },
-'* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with cyp.b where the period represents any one character (2, 3, 4, "a", etc.). See <a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more examples.'
-            )
+            $q->p( { -style => 'color:#777' }, '* Example: "^cyp.b" (no
+                quotation marks) would retrieve all genes starting with cyp.b
+            where the period represents any one character (2, 3, 4, "a", etc.).
+            See <a
+            href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this
+            page</a> for more examples.')
         ),
         $q->dt( $q->label( { -for => 'opts' }, 'Display options:' ) ),
         $q->dd(
@@ -886,20 +886,23 @@ sub getFormHTML {
                 -labels   => \%opts_dropdown
             )
         ),
-        $q->dt( { id => 'graph_names' }, 'Graph(s) :' ),
+        $q->dt( { -id => 'graph_names' }, 'Differential Expression Graphs:' ),
         $q->dd(
-            { id => 'graph_values' },
+            { -id => 'graph_values' },
             $q->checkbox(
                 -tabindex => 4,
-                id        => 'graph',
+                -id       => 'graph',
                 -checked  => 0,
                 -name     => 'graph',
-                -label    => 'Show Differential Expression Graph'
-            )
+                -label    => ''
+            ),
+            $q->span({-style=>'color:#777;'}, '(Works best with Firefox; SVG
+                support on Internet Explorer (IE) requires either IE 9 or Adobe
+                SVG plugin)')
         ),
-        $q->dt( { id => 'graph_option_names' }, "Response variable:" ),
+        $q->dt( { -id => 'graph_option_names' }, "Response variable:" ),
         $q->dd(
-            { id => 'graph_option_values' },
+            { -id => 'graph_option_values' },
             $q->radio_group(
                 -tabindex  => 5,
                 -name      => 'trans',
