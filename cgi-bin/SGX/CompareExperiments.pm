@@ -206,7 +206,7 @@ sub getFormHTML {
     my %gene_dropdown;
     my $gene_dropdown_t = tie(%gene_dropdown, 'Tie::IxHash',
         'gene'=>'Gene Symbols',
-        'transcript'=>'Transcripts',
+        'accnum'=>'Accession Numbers',
         'probe'=>'Probes'
     );
     my %match_dropdown;

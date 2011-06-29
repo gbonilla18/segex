@@ -1116,7 +1116,7 @@ sub updateCell {
         case 'gene' 
         {
             # tries to use gene symbol first as key field; if gene symbol is empty, switches to 
-            # transcript accession number.
+            # accession number.
             my $seqname = $q->param('seqname');
             my $pname = $q->param('pname');
             my $note = $q->param('note');
@@ -1378,7 +1378,7 @@ sub form_uploadAnnot {
 
     print
     $q->h2('Upload Annotation'),
-    $q->p('Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add transcript accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'),
+    $q->p('Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'),
     $q->p('The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.');
 
     print $q->div({-class=>'workarea'}, $q->h3('Available Fields:') .
@@ -1609,7 +1609,7 @@ sub uploadAnnot {
                 }
             }
             if ($have_reporter && !@accnum_array && $have_seqname) {
-                # have gene symbol but not transcript accession number
+                # have gene symbol but not accession number
                 push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
                 push @sql, qq{insert into gene (seqname $gene_titles) values ($seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
                 push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};

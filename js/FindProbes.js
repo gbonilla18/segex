@@ -28,7 +28,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
         }
     };
-    YAHOO.widget.DataTable.Formatter.formatTranscript = function(elCell, oRecord, oColumn, oData) {
+    YAHOO.widget.DataTable.Formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
         var a = oData.split(/ *, */);
         var out = "";
         for (var i=0, al=a.length; i < al; i++) {
@@ -65,7 +65,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         myColumnDefs = [
             {key:"0", sortable:true, resizeable:true, label:probelist.headers[0], formatter:"formatProbe"},
             {key:"1", sortable:true, resizeable:true, label:probelist.headers[1]},
-            {key:"2", sortable:true, resizeable:true, label:probelist.headers[2], formatter:"formatTranscript"}, 
+            {key:"2", sortable:true, resizeable:true, label:probelist.headers[2], formatter:"formatAccNum"}, 
             {key:"3", sortable:true, resizeable:true, label:probelist.headers[3], formatter:"formatGene"},
             {key:"4", sortable:true, resizeable:true, label:probelist.headers[4]},
             {key:"5", sortable:true, resizeable:true, label:probelist.headers[5], formatter:"formatSequence"},
@@ -105,7 +105,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         myColumnDefs = [
             {key:"0", sortable:true, resizeable:true, label:probelist.headers[0], formatter:"formatProbe"},
             {key:"1", sortable:true, resizeable:true, label:probelist.headers[1]},
-            {key:"2", sortable:true, resizeable:true, label:probelist.headers[2], formatter:"formatTranscript"}, 
+            {key:"2", sortable:true, resizeable:true, label:probelist.headers[2], formatter:"formatAccNum"}, 
             {key:"3", sortable:true, resizeable:true, label:probelist.headers[3], formatter:"formatGene"},
             {key:"4", sortable:true, resizeable:true, label:probelist.headers[4]}
         ];

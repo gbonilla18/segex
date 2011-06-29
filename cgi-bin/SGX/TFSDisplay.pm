@@ -66,7 +66,7 @@ sub new {
 								END AS \'Is Annotated\',
 								COUNT(probe.rid) AS \'ProbeCount\',
 								SUM(IF(IFNULL(probe.probe_sequence,\'\') <> \'\' ,1,0)) AS \'Sequences Loaded\',
-								SUM(IF(IFNULL(annotates.gid,\'\') <> \'\',1,0)) AS \'Transcript IDs\',
+								SUM(IF(IFNULL(annotates.gid,\'\') <> \'\',1,0)) AS \'Accession Number IDs\',
 								SUM(IF(IFNULL(gene.seqname,\'\') <> \'\',1,0)) AS \'Gene Names\',
 								SUM(IF(IFNULL(gene.description,\'\') <> \'\',1,0)) AS \'Gene Description\'	
 							FROM platform
@@ -142,7 +142,7 @@ sub loadTFSData
 	SELECT 	abs_fs, 
 	dir_fs, 
 	probe.reporter AS Probe, 
-	GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS Transcript, 
+	GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS \'Accession Number\', 
 	GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
 	%s 
 	FROM (SELECT	rid, 
@@ -350,7 +350,7 @@ sub loadAllData
 		SELECT 	abs_fs, 
 			dir_fs, 
 			probe.reporter AS Probe, 
-			GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS Transcript, 
+			GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS Accession Number, 
 			GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
 			%s 
 			FROM (SELECT	rid, 
@@ -480,7 +480,7 @@ sub displayTFSInfoCSV
     print "Working Project,$workingProjectText\n\n";
 	
 	#Print Platform header.
-	print "pname,def_f_cutoff,def_p_cutoff,species,Is Annotated, Probe Count, Sequences Loaded, Transcript IDs, Gene Names, Gene Description\n";
+	print "pname,def_f_cutoff,def_p_cutoff,species,Is Annotated, Probe Count, Sequences Loaded, Accession Number IDs, Gene Names, Gene Description\n";
 	
 	#Print Platform info.
 	foreach (@{$self->{_DataPlatform}}) 
@@ -712,11 +712,11 @@ $find_probes =~ s/"/\\"/g;	# prepend all double quotes with backslashes
 
 my @format_template;
 push @format_template, sprintf($find_probes, 'probe');
-push @format_template, sprintf($find_probes, 'transcript');
+push @format_template, sprintf($find_probes, 'accnum');
 push @format_template, sprintf($find_probes, 'gene');
 
 $table_format[0] = 'formatProbe';
-$table_format[1] = 'formatTranscript';
+$table_format[1] = 'formatAccNum';
 $table_format[2] = 'formatGene';
 
 if ($self->{_opts} > 1) {
@@ -787,14 +787,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
 	var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 
 	var template_probe = tfs.frm_tpl[1];
-	var template_transcript = tfs.frm_tpl[2];
+	var template_accnum = tfs.frm_tpl[2];
 	var template_gene = tfs.frm_tpl[3];
 	var template_probeseq = tfs.frm_tpl[4];
 	Formatter.formatProbe = function (elCell, oRecord, oColumn, oData) {
 		elCell.innerHTML = lang.substitute(template_probe, {"0":oData});
 	}
-	Formatter.formatTranscript = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_transcript, {"0":oData});
+	Formatter.formatAccNum = function (elCell, oRecord, oColumn, oData) {
+		elCell.innerHTML = lang.substitute(template_accnum, {"0":oData});
 	}
 	Formatter.formatGene = function (elCell, oRecord, oColumn, oData) {
 		elCell.innerHTML = lang.substitute(template_gene, {"0":oData});

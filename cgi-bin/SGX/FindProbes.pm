@@ -802,7 +802,7 @@ sub getFormHTML {
     my $type_dropdown_t = tie(
         %type_dropdown, 'Tie::IxHash',
         'gene'       => 'Gene Symbols',
-        'transcript' => 'Transcripts',
+        'accnum' => 'Accession Numbers',
         'probe'      => 'Probes'
     );
     my %match_dropdown;
@@ -832,9 +832,8 @@ sub getFormHTML {
         -enctype => 'application/x-www-form-urlencoded'
       ),
       $q->h2('Find Probes'),
-      $q->p('You can enter here a list of probes, transcript accession numbers,
-              or gene names. The results will contain probes that are related to
-          the search terms.'),
+      $q->p('You can enter here a list of probes, accession numbers, or gene names. 
+          The results will contain probes that are related to the search terms.'),
       $q->dl(
         $q->dt( $q->label( { -for => 'search_terms' }, 'Search term(s):' ) ),
         $q->dd(
@@ -955,16 +954,16 @@ SELECT DISTINCT accnum, seqname
         $clause
 END_InsideTableQuery_gene
         }
-        case 'transcript' {
+        case 'accnum' {
             my $clause =
               ( defined $tmpTable )
               ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=accnum"
               : 'WHERE accnum REGEXP ?';
-            $self->{_InsideTableQuery} = <<"END_InsideTableQuery_transcript";
+            $self->{_InsideTableQuery} = <<"END_InsideTableQuery_accnum";
 SELECT DISTINCT accnum, seqname
         FROM gene 
         $clause
-END_InsideTableQuery_transcript
+END_InsideTableQuery_accnum
         }
         else {
             croak "Unknown request parameter value type=$type";
@@ -1007,7 +1006,7 @@ platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
     ORDER BY g0.seqname ASC SEPARATOR ','
-) AS 'Transcript', 
+) AS 'Accession Number', 
 IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
 platform.species AS 'Species' 
 END_select_fields_basic
@@ -1023,7 +1022,7 @@ platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
     ORDER BY g0.seqname ASC SEPARATOR ','
-) AS 'Transcript', 
+) AS 'Accession Number', 
 IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
 platform.species AS 'Species', 
 probe.probe_sequence AS 'Probe Sequence',
@@ -1124,7 +1123,7 @@ sub findProbes_js {
         my $caption =
             sprintf( <<"END_caption",
 %sFound %d probe%s annotated with $type groups matching '$qtext' (${type}s grouped
-by gene symbol or transcript accession number)
+by gene symbol or accession number)
 END_caption
             (defined $proj_name) ? "${proj_name}: " : '',
             $rowcount,

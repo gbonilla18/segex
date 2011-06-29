@@ -38,7 +38,7 @@ sub new {
     my $ReportQuery = <<"END_ReportQuery";
 SELECT CONCAT(study.description, ' - ', experiment.sample2, ' / ', experiment.sample1) AS Identity,
     probe.reporter,
-    gene.accnum AS Transcript,
+    gene.accnum AS 'Accession Number',
     gene.seqname AS Gene,
     microarray.ratio,
     microarray.foldchange,
@@ -220,7 +220,7 @@ sub printTableInformation
         var myColumnDefs = [
         {key:"0", sortable:true, resizeable:true, label:"Study"},
         {key:"1", sortable:true, resizeable:true, label:"Reporter"},
-        {key:"2", sortable:true, resizeable:true, label:"Transcript"},
+        {key:"2", sortable:true, resizeable:true, label:"Accession Number"},
         {key:"3", sortable:false, resizeable:true, label:"Gene"},
         {key:"4", sortable:false, resizeable:true, label:"Ratio"},
         {key:"5", sortable:false, resizeable:true, label:"Fold Change"},
