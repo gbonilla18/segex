@@ -1120,10 +1120,16 @@ sub findProbes_js {
         my $sth      = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
         my $rowcount = $sth->execute($qtext);
 
+        my $proj_name = $self->{_WorkingProjectName};
         my $caption =
-            sprintf( "Found %d probe", $rowcount )
-          . ( ( $rowcount != 1 ) ? 's' : '' )
-          . " annotated with $type groups matching '$qtext' (${type}s grouped by gene symbol or transcript accession number)";
+            sprintf( <<"END_caption",
+%sFound %d probe%s annotated with $type groups matching '$qtext' (${type}s grouped
+by gene symbol or transcript accession number)
+END_caption
+            (defined $proj_name) ? "${proj_name}: " : '',
+            $rowcount,
+            ( $rowcount == 1 ) ? '' : 's'
+        );
 
         # cache the field name array; skip first two columns (probe.rid,
         # platform.pid)
