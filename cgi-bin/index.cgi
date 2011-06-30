@@ -702,6 +702,11 @@ sub build_sidemenu
                     $q->a({-href=>$q->url(-absolute=>1).'?a='.FORM.REGISTERUSER,
                         -title=>'Set up a new account'}, 'Sign up');
     }
+    push @menu, $q->a({-href=>$url_prefix.'?a='.ABOUT,
+                -title=>'About this site'},'About');
+    push @menu, $q->a({-href=>$url_prefix.'?a='.HELP,
+                -title=>'Help pages',
+                -target=>'_new'},'Help');
     return \@menu;
 }
 #===  FUNCTION  ================================================================
@@ -741,12 +746,6 @@ sub build_menu
     if ($s->is_authorized('admin')) {
         # add admin options
     }
-    # add bottom options for everyone
-    push @menu, $q->a({-href=>$url_prefix.'?a='.ABOUT,
-                -title=>'About this site'},'About');
-    push @menu, $q->a({-href=>$url_prefix.'?a='.HELP,
-                -title=>'Help pages',
-                -target=>'_new'},'Help');
     return \@menu;
 }
 
