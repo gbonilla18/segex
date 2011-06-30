@@ -10,6 +10,7 @@ Grouping of functions for adding experiments.
 
 =head1 AUTHORS
 Michael McDuffie
+Eugene Scherba
 
 =head1 SEE ALSO
 
@@ -315,7 +316,7 @@ sub addNewExperiment {
         my $createTableStatement = <<"END_createTableStatement";
 CREATE TABLE $processID (
     stid INT(1),
-    Reporter VARCHAR(150),
+    reporter VARCHAR(150),
     ratio DOUBLE,
     foldchange DOUBLE,
     pvalue DOUBLE,
