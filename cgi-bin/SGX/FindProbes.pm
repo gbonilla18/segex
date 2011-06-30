@@ -1062,7 +1062,7 @@ platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
     ORDER BY g0.seqname ASC SEPARATOR ','
-) AS 'Accession Number', 
+) AS 'Accession No.', 
 IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
 platform.species AS 'Species' 
 END_select_fields_basic
@@ -1078,7 +1078,7 @@ platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
     ORDER BY g0.seqname ASC SEPARATOR ','
-) AS 'Accession Number', 
+) AS 'Accession No.', 
 IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
 platform.species AS 'Species', 
 probe.probe_sequence AS 'Probe Sequence',

@@ -1354,9 +1354,9 @@ sub get_annot_fields {
     #}
     #$sth->finish;
 
-    $probe_fields->{"Reporter ID"}         = "reporter";
-    $probe_fields->{"Probe Sequence"}     = "probe_sequence";
-    $probe_fields->{"Note From Probe"}     = "note";
+    $probe_fields->{'Reporter ID'}         = 'reporter';
+    $probe_fields->{'Probe Sequence'}     = 'probe_sequence';
+    $probe_fields->{'Note From Probe'}     = 'note';
 
     # get fields from Gene table (except pid, gid)
     #$sth = $dbh->prepare(qq{show columns from gene where Field not regexp "^[a-z]id\$"});
@@ -1366,80 +1366,87 @@ sub get_annot_fields {
     #}
     #$sth->finish;
 
-    $gene_fields->{"Gene Symbol"}         = "seqname";
-    $gene_fields->{"Accession Number"}    = "accnum";
-    $gene_fields->{"Gene Name"}         = "description";
-    $gene_fields->{"Source"}             = "source";
-    $gene_fields->{"Gene Note"}         = "gene_note";
+    $gene_fields->{'Gene Symbol'}         = 'seqname';
+    $gene_fields->{'Accession Number'}    = 'accnum';
+    $gene_fields->{'Gene Name'}         = 'description';
+    $gene_fields->{'Source'}             = 'source';
+    $gene_fields->{'Gene Note'}         = 'gene_note';
     return;
 }
 #######################################################################################
 sub form_uploadAnnot {
 
     #If we have a newpid in the querystring, default the dropdown list.
-    my $newpid = '';
-    $newpid = ($q->url_param('newpid')) if defined($q->url_param('newpid'));
+    my $newpid = defined($q->url_param('newpid')) ? $q->url_param('newpid') : '';
 
-    my $fieldlist;
-    my %platforms;
-    my %core_fields = (
-        "Reporter ID"         => 1,
-        "Accession Number"     => 1,
-        "Gene Symbol"         => 1
+    my %core_fields;
+    my $core_fields_t = tie(
+        %core_fields, 'Tie::IxHash',
+        'Reporter ID'         => 1,
+        'Accession Number'     => 1,
+        'Gene Symbol'         => 1
     );
 
     # get a list of platforms and cutoff values
-    my $sth = $dbh->prepare(qq{select pid, pname from platform});
+    my $sth = $dbh->prepare(qq{SELECT pid, pname FROM platform ORDER BY pname ASC});
     my $rowcount = $sth->execute();
+    my %platforms;
+    my $platforms_t = tie(
+        %platforms, 'Tie::IxHash'
+    );
     while (my @row = $sth->fetchrow_array) {
         $platforms{$row[0]} = $row[1];
     }
     $sth->finish;
 
-    my (%probe_fields, %gene_fields);
+    my %probe_fields;
+    my $probe_fields_t = tie(
+        %probe_fields, 'Tie::IxHash'
+    );
+    my %gene_fields;
+    my $gene_fields_t = tie(
+        %gene_fields, 'Tie::IxHash'
+    );
 
     get_annot_fields(\%probe_fields, \%gene_fields);
 
-    foreach (keys %probe_fields) 
-    {
-        $fieldlist .= $q->li({-class=>($core_fields{$_}) ? 'core' : 'list1', -id=>$_}, $_);
-    }
-
-    foreach (keys %gene_fields) 
-    {
-        $fieldlist .= $q->li({-class=>($core_fields{$_}) ? 'core' : 'list1', -id=>$_}, $_);
-    }
+    my @fieldlist =
+        map { $q->li({-class=>($core_fields{$_}) ? 'core' : 'list1', -id=>$_}, $_) } 
+        (keys %probe_fields, keys %gene_fields);
 
     print
     $q->h2('Upload Annotation'),
     $q->p('Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'),
-    $q->p('The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.');
-
-    print $q->div({-class=>'workarea'}, $q->h3('Available Fields:') .
-        $q->ul({-id=>'ul1', -class=>'draglist'}, $fieldlist));
-    print $q->div({-class=>'workarea'}, $q->h3('Fields in the Uploaded File:') .
-        $q->ul({-id=>'ul2', -class=>'draglist'}));
-
-    print $q->startform(-method=>'POST',
+    $q->p('The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.'),
+    $q->div({-class=>'workarea'}, 
+        $q->h3('Available Fields:'),
+        $q->ul({-id=>'ul1', -class=>'draglist'}, @fieldlist)),
+    $q->div({-class=>'workarea'}, 
+        $q->h3('Fields in the Uploaded File:'),
+        $q->ul({-id=>'ul2', -class=>'draglist'})),
+    $q->startform(
+        -method=>'POST',
         -action=>$q->url(-absolute=>1).'?a='.UPLOADANNOT,
-        -enctype=>'multipart/form-data');
-
-    print $q->dl(
-        $q->dt("Platform:"),
+        -enctype=>'multipart/form-data'),
+    $q->dl(
+        $q->dt('Platform:'),
         $q->dd($q->popup_menu(
                 -name=>'platform', 
                 -values=>[keys %platforms], 
                 -labels=>\%platforms, 
                 -default=>$newpid
         )),
-        $q->dt("File to upload (tab-delimited):"),
+        $q->dt('File to upload (tab-delimited):'),
         $q->dd($q->filefield(-name=>'uploaded_file')),
-        $q->dt("&nbsp;"),
-        $q->dd($q->submit(-class=>'css3button',-value=>'Upload'),
-            $q->hidden(-id=>'fields', -name=>'fields'))
-    );
-    print $q->end_form;
-    return;
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->hidden(-id=>'fields', -name=>'fields'),
+            $q->submit(-class=>'css3button',-value=>'Upload')
+        )
+    ),
+    $q->end_form;
+
+    return 1;
 }
 
 
