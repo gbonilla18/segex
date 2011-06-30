@@ -27,6 +27,7 @@ package SGX::TFSDisplay;
 use strict;
 use warnings;
 
+use Math::BigInt;
 use Data::Dumper;
 
 sub new {
