@@ -12,7 +12,7 @@ use SGX::Util qw/replace/;
 
 our @EXPORT =
   qw/PROJECT_NAME CGI_ROOT YUI_BUILD_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR
-  sgx_db_connect about_text main_text/;
+  sgx_db_connect/;
 
 #---------------------------------------------------------------------------
 #  Database-specific
@@ -62,9 +62,10 @@ sub sgx_db_connect {
 
 #===  FUNCTION  ================================================================
 #         NAME:  about_text
-#      PURPOSE:  
-#   PARAMETERS:  ????
-#      RETURNS:  ????
+#      PURPOSE:  Show About page content
+#   PARAMETERS:  $q - CGI.pm object
+#                showSchema => $showSchema - action to display schema
+#      RETURNS:  array of strings formed using CGI object
 #  DESCRIPTION:  ????
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -72,20 +73,12 @@ sub sgx_db_connect {
 #===============================================================================
 sub about_text
 {
-    return <<"END_about_text";
-<p>
-The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to examine sexually dimorphic gene expression in mouse livers.
-</p>
-
-<p>
-This SEGEX database provides public access to previously released datasets from the Waxman laboratory, and provides data mining tools and data visualization to query gene expression across several studies and experimental conditions.
-</p>
-
-<p>
-Developed at Boston University as part of the BE768 Biologic Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.
-</p>
-
-END_about_text
+    my ($q, %param) = @_;
+    return $q->h2('About'),
+        $q->p('The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to examine sexually dimorphic gene expression in mouse livers.'),
+        $q->p('This SEGEX database provides public access to previously released datasets from the Waxman laboratory, and provides data mining tools and data visualization to query gene expression across several studies and experimental conditions.'),
+        $q->p('Developed at Boston University as part of the BE768 Biologic Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.'),
+        $q->p($q->a({-href=>$q->url(-absolute=>1) . '?a=' . $param{showSchema}}, 'View database schema'));
 }
 
 
@@ -101,16 +94,10 @@ END_about_text
 #===============================================================================
 sub main_text
 {
-    return <<"END_main_text";
-<p>
-The SEGEX database will provide public access to previously released datasets from the Waxman laboratory, and data mining and visualization modules to query gene expression across several studies and experimental conditions.
-</p>
-
-<p>
-This database was developed at Boston University as part of the BE768 Biological Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.
-</p>
-
-END_main_text
+    my ($q, %param) = @_;
+    return 
+        $q->p('The SEGEX database will provide public access to previously released datasets from the Waxman laboratory, and data mining and visualization modules to query gene expression across several studies and experimental conditions.'),
+        $q->p('This database was developed at Boston University as part of the BE768 Biological Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.');
 }
 
 1;

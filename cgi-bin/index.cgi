@@ -720,8 +720,6 @@ sub build_menu
     my $url_prefix = $q->url(-absolute=>1);
     if ($s->is_authorized('user')) {
         # add user options
-        push @menu, $q->a({-href=>$url_prefix.'?a='.SHOWSCHEMA,
-                    -title=>'Show database schema'},'Schema');
         push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.COMPAREEXPERIMENTS,
                     -title=>'Select samples to compare'},'Compare Experiments');
         push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.FINDPROBES,
@@ -854,14 +852,13 @@ sub cgi_end_html {
 }
 #######################################################################################
 sub main {
-    print main_text();
-    return;
+    print SGX::Config::main_text($q);
+    return 1;
 }
 #######################################################################################
 sub about {
-    print $q->h2('About');
-    print about_text();
-    return;
+    print SGX::Config::about_text($q, showSchema => SHOWSCHEMA);
+    return 1;
 }
 #######################################################################################
 sub form_error {
@@ -1232,23 +1229,23 @@ sub findProbes
 }
 #######################################################################################
 sub schema {
-    my $dump_url = $q->url(-absolute=>1).'?a='.DUMP;
-    print $q->h2('Schema'),
-    <<"END_schema_Map",
-<map name="schema_Map">
-<area shape="rect" title="Click to download Users table" alt="users" coords="544,497,719,718" href="$dump_url&amp;table=users" target="_blank">
-<area shape="rect" title="Click to download Sessions table" alt="sessions" coords="433,497,526,584" href="$dump_url&amp;table=sessions" target="_blank">
-<area shape="rect" title="Click to download Sample table" alt="sample" coords="0,593,140,720" href="$dump_url&amp;table=sample" target="_blank">
-<area shape="rect" title="Click to download Study table" alt="study" coords="197,376,337,502" href="$dump_url&amp;table=study" target="_blank">
-<area shape="rect" title="Click to download Experiment table" alt="experiment" coords="16,368,125,513" href="$dump_url&amp;table=experiment" target="_blank">
-<area shape="rect" title="Click to download Platform table" alt="platform" coords="209,202,326,327" href="$dump_url&amp;table=platform" target="_blank">
-<area shape="rect" title="Click to download Gene table" alt="gene" coords="587,18,719,162" href="$dump_url&amp;table=gene" target="_blank">
-<area shape="rect" title="Click to download Annotates table" alt="annotates" coords="420,46,520,133" href="$dump_url&amp;table=annotates" target="_blank">
-<area shape="rect" title="Click to download Probe table" alt="probe" coords="186,26,349,151" href="$dump_url&amp;table=probe" target="_blank">
-<area shape="rect" title="Click to download Microarray table" alt="microarray" coords="16,0,127,180" href="$dump_url&amp;table=microarray" target="_blank">
-</map>
-END_schema_Map
-    $q->img({src=>IMAGES_DIR.'/schema.png', width=>720, height=>720, usemap=>'#schema_Map', id=>'schema'});
+#    my $dump_url = $q->url(-absolute=>1).'?a='.DUMP;
+#    print $q->h2('Schema'),
+#    <<"END_schema_Map",
+#<map name="schema_Map">
+#<area shape="rect" title="Click to download Users table" alt="users" coords="544,497,719,718" href="$dump_url&amp;table=users" target="_blank">
+#<area shape="rect" title="Click to download Sessions table" alt="sessions" coords="433,497,526,584" href="$dump_url&amp;table=sessions" target="_blank">
+#<area shape="rect" title="Click to download Sample table" alt="sample" coords="0,593,140,720" href="$dump_url&amp;table=sample" target="_blank">
+#<area shape="rect" title="Click to download Study table" alt="study" coords="197,376,337,502" href="$dump_url&amp;table=study" target="_blank">
+#<area shape="rect" title="Click to download Experiment table" alt="experiment" coords="16,368,125,513" href="$dump_url&amp;table=experiment" target="_blank">
+#<area shape="rect" title="Click to download Platform table" alt="platform" coords="209,202,326,327" href="$dump_url&amp;table=platform" target="_blank">
+#<area shape="rect" title="Click to download Gene table" alt="gene" coords="587,18,719,162" href="$dump_url&amp;table=gene" target="_blank">
+#<area shape="rect" title="Click to download Annotates table" alt="annotates" coords="420,46,520,133" href="$dump_url&amp;table=annotates" target="_blank">
+#<area shape="rect" title="Click to download Probe table" alt="probe" coords="186,26,349,151" href="$dump_url&amp;table=probe" target="_blank">
+#<area shape="rect" title="Click to download Microarray table" alt="microarray" coords="16,0,127,180" href="$dump_url&amp;table=microarray" target="_blank">
+#</map>
+#END_schema_Map
+    print $q->img({src=>IMAGES_DIR.'/schema.png', width=>720, height=>720, usemap=>'#schema_Map', id=>'schema'});
     return 1;
 }
 
