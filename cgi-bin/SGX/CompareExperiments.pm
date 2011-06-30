@@ -243,20 +243,22 @@ sub getFormHTML {
         $q->dt('Filter on:'),
         $q->dd({-id=>'geneFilter'}, '')
     ),
-    $q->dl({-id=>'filterList', -style=>'display:none;'},
-        $q->dt($q->h3('Filter on the following terms:')),
-        $q->dd(''),
-        $q->dt($q->label({-for=>'search_terms'}, 'Search term(s):')),
-        $q->dd($q->textarea(-rows=>10, -columns=>50, -tabindex=>1, -name=>'search_terms', -id=>'search_terms')),
+    $q->div({-id=>'filterList', -style=>'display:none;'},
+        $q->h3('Filter on the following terms:'),
+        $q->dl(
+            $q->dt($q->label({-for=>'search_terms'}, 'Search term(s):')),
+            $q->dd($q->textarea(-rows=>10, -columns=>50, -tabindex=>1, -name=>'search_terms', -id=>'search_terms')),
+        )
     ),
-    $q->dl({-id=>'filterUpload',-style=>'display:none;'},
-        $q->dt($q->h3('Filter on uploaded file:')),
-        $q->dd(''),
-        $q->dt($q->label({-for=>'upload_file'},'Upload File:')),
-        $q->dd(
-            $q->filefield(-name=>'upload_file',-id=>'upload_file'),
-            $q->p({-style=>'color:#777;'},
-                'File must be in plain-text format with one search term per line')
+    $q->div({-id=>'filterUpload',-style=>'display:none;'},
+        $q->h3('Filter on uploaded file:'),
+        $q->dl(
+            $q->dt($q->label({-for=>'upload_file'},'Upload File:')),
+            $q->dd(
+                $q->filefield(-name=>'upload_file',-id=>'upload_file'),
+                $q->p({-style=>'color:#777;'},
+                    'File must be in plain-text format with one search term per line')
+            )
         )
     ),
     $q->dl({-id=>'filterAny',-style=>'display:none;'},

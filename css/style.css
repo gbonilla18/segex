@@ -265,7 +265,7 @@ div.table_cont {
 dl, table, div.table_cont {
 	clear:both;
 }
-#divSearchItemsDiv, #divSearchItemsDiv2 {
+#filterList, #filterUpload {
 	padding-top:0.5em;
 	border-top:1px solid #000;
 	clear:both;
