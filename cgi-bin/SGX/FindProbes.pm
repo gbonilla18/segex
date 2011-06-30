@@ -35,7 +35,7 @@ use Tie::IxHash;
 use Data::Dumper;
 use File::Basename;
 use JSON::XS;
-use File::Temp qw/tempfile/;
+use File::Temp;
 use SGX::Exceptions;
 
 use SGX::Util qw/trim/;

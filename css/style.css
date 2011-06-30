@@ -207,6 +207,9 @@ html>/**/body legend, html>/**/body fieldset {
 	margin:0 21px 0 0;
 	padding:0;
 }
+#menu div h3 {
+	color:#aaa;
+}
 /************* images *************************/
 img#schema {
 	margin:10px;
