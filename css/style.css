@@ -197,6 +197,7 @@ html>/**/body legend, html>/**/body fieldset {
 /*************** menu ***************************/
 #menu {
 	margin-bottom:15px;
+	border-bottom:1px solid #ccc;
 }
 #menu div {
 	width:153px;
