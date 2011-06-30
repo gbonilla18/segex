@@ -626,7 +626,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     }
     Dom.get("tfs_caption").innerHTML = tfs.caption;
     Dom.get("tfs_all_dt").innerHTML = "View probes significant in at least one experiment:";
-    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"'.$rep_count.' significant probes\" /> <span class=\"separator\">/</span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
+    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"'.$rep_count.' significant probes\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
     var tfs_table_defs = [
 '.$tfs_defs.'
     ];

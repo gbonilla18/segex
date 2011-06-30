@@ -455,7 +455,6 @@ sub loadAllData
 sub displayTFSInfoCSV
 {
 	my $self = shift;
-	my $currentLine = "";
 		
 	#Clear our headers so all we get back is the CSV file.
     $self->{_UserSession}->commit() if defined($self->{_UserSession});
@@ -488,20 +487,10 @@ sub displayTFSInfoCSV
 	print "pname,def_f_cutoff,def_p_cutoff,species,Is Annotated, Probe Count, Sequences Loaded, Accession Number IDs, Gene Names, Gene Description\n";
 	
 	#Print Platform info.
-	foreach (@{$self->{_DataPlatform}}) 
-	{
-		foreach (@$_) 
-		{
-			$currentLine .= $_ . ",";
-		}
-		
-		#Strip trailing comma.
-		$currentLine =~ s/,\s*$//;
-		
-		print "$currentLine\n";
-		
-		$currentLine = "";
-		
+	foreach my $row (@{$self->{_DataPlatform}}) {
+        print
+            join(',', map { if (defined) { s/,//g; $_ } else { '' } } @$row) ,
+            "\n";    
 	}
 	
 	#Print a blank line.
@@ -519,28 +508,25 @@ sub displayTFSInfoCSV
 
 		my @IDSplit = split(/\|/,${$self->{_eids}}[$i]);
 		my $currentEID = $IDSplit[1];
-		
-		$currentLine .= $currentEID . ",";
-		$currentLine .= $self->{_headerRecords}->{$currentEID}->{description} . ",";
-		$currentLine .= $self->{_headerRecords}->{$currentEID}->{experimentHeading} . ",";
-		$currentLine .= $self->{_headerRecords}->{$currentEID}->{ExperimentDescription} . ",";
-		$currentLine .= ${$self->{_fcs}}[$i] . ",";
-		$currentLine .= ${$self->{_pvals}}[$i] . ",";
+
+        my @currentLine = (
+		    $currentEID,
+		    $self->{_headerRecords}->{$currentEID}->{description},
+		    $self->{_headerRecords}->{$currentEID}->{experimentHeading},
+		    $self->{_headerRecords}->{$currentEID}->{ExperimentDescription},
+		    ${$self->{_fcs}}[$i],
+		    ${$self->{_pvals}}[$i]
+        );
 		
 		#Form the line that displays experiment names above data columns.
 		$experimentNameHeader .= $currentEID . ":" . $self->{_headerRecords}->{$currentEID}->{title} . ",,,,,";
 		
 		#Test for bit presence and print out 1 if present, 0 if absent
-		if (defined($self->{_fs})) 
-		{ 
-			$currentLine .=  (1 << $i & $self->{_fs}) ? "x," : ",";
+		if (defined($self->{_fs})) { 
+            push @currentLine, (1 << $i & $self->{_fs}) ? 'x' : '';
 		}
 		
-		#Strip trailing comma.		
-		$currentLine =~ s/,\s*$//;
-		
-		print "$currentLine\n";
-		$currentLine = "";
+		print join(',', @currentLine), "\n";
 	}
 	
 	#Print a blank line.
@@ -552,25 +538,18 @@ sub displayTFSInfoCSV
 	#Loop through data and create a hash entry for each TFS, increment the counter.
 	foreach my $row(@{$self->{_Data}}) 
 	{
-	
-		my $abs_fs = shift(@$row);
-		my $dir_fs = shift(@$row);
+        my $abs_fs = $row->[0];
+        my $dir_fs = $row->[1];
 
-		unshift @$row,$dir_fs;
-		unshift @$row,$abs_fs;
-		
 		# Math::BigInt->badd(x,y) is used to add two very large numbers x and y
 		# actually Math::BigInt library is supposed to overload Perl addition operator,
 		# but if fails to do so for some reason in this CGI program.
 		my $currentTFS = sprintf("$abs_fs.%0".@{$self->{_eids}}.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,@{$self->{_eids}}), substr(unpack('b32', pack('V', $dir_fs)),0,@{$self->{_eids}})));
 
 		#Increment our counter if it exists.
-		if(exists $TFSCounts{$currentTFS} && defined $TFSCounts{$currentTFS})
-		{
+		if(defined $TFSCounts{$currentTFS}) {
 			$TFSCounts{$currentTFS} = $TFSCounts{$currentTFS} + 1.0;
-		}
-		else
-		{
+		} else {
 			$TFSCounts{$currentTFS} = 1.0;
 		}
 	}
@@ -578,7 +557,8 @@ sub displayTFSInfoCSV
 	#Print a blank line.
 	print "TFS Summary\n";
 
-	foreach my $TFS(sort {$TFSCounts{$a} <=> $TFSCounts{$b} } keys %TFSCounts) 
+    # Sort on hash values
+	foreach my $TFS (sort {$TFSCounts{$a} <=> $TFSCounts{$b} } keys %TFSCounts) 
 	{
 		print "$TFS,$TFSCounts{$TFS}\n";
 	}
@@ -586,62 +566,53 @@ sub displayTFSInfoCSV
 	#Print a blank line.
 	print "\n";
 
-
 	#Print header line.
 	print "$experimentNameHeader\n";
 	
 	#Experiment Data header.
-	$currentLine = "TFS,Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description, Gene Ontology,Species,";
-	
-	my $experimentCounter = 0;
-	
+    my @currentLine = (
+        'TFS',
+        'Reporter ID',
+        'Accession Number',
+        'Gene Name',
+        'Probe Sequence',
+        'Gene Description',
+        'Gene Ontology',
+        'Species'
+    );
+
 	foreach my $eid (@{$self->{_eids}}) 
 	{
 		my @IDSplit = split(/\|/,$eid);
 		my $currentEID = $IDSplit[1];
 
-		$experimentCounter++;
-		$currentLine .= "$currentEID:Ratio,$currentEID:Fold Change,$currentEID:Intensity-1,$currentEID:Intensity-2,$currentEID:P,";
+        push @currentLine, (
+            "$currentEID:Ratio",
+            "$currentEID:Fold Change",
+            "$currentEID:Intensity-1",
+            "$currentEID:Intensity-2",
+            "$currentEID:P"
+        );
 	}
-	
-	#Strip trailing comma.		
-	$currentLine =~ s/,\s*$//;
-	
-	print "$currentLine\n";
-	$currentLine = "";
+	print join(',', @currentLine), "\n";
 	
 	#Print Experiment data.
 	foreach my $row(@{$self->{_Data}}) 
 	{
-	
-		my $abs_fs = shift(@$row);
-		my $dir_fs = shift(@$row);
+        # remove first two elements from @$row and place them into ($abs_fs,
+        # $dir_fs)    
+		my ($abs_fs, $dir_fs) = splice @$row, 0, 2;
 
 		# Math::BigInt->badd(x,y) is used to add two very large numbers x and y
 		# actually Math::BigInt library is supposed to overload Perl addition operator,
 		# but if fails to do so for some reason in this CGI program.
 		my $TFS = sprintf("$abs_fs.%0".@{$self->{_eids}}.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,@{$self->{_eids}}), substr(unpack('b32', pack('V', $dir_fs)),0,@{$self->{_eids}})));
+        print
+            "$TFS,",
+            join(',', map { if (defined) { s/,//g; $_ } else { '' } } @$row),
+            "\n";
+	}
 
-		$currentLine .= "$TFS,";
-	
-		foreach (@$row) 
-		{
-			my $currentItem = $_;
-			
-			#Remove commas from anything we put in the sheet.
-			$currentItem =~ s/,//g;
-		
-			$currentLine .= $currentItem . ",";
-		}
-
-		#Strip trailing comma.		
-		$currentLine =~ s/,\s*$//;		
-		
-		print "$currentLine\n";
-		$currentLine = "";		
-		
-	}	
-	
 	exit;
 }
 #######################################################################################
