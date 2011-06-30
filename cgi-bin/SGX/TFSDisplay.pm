@@ -350,7 +350,7 @@ sub loadAllData
 		SELECT 	abs_fs, 
 			dir_fs, 
 			probe.reporter AS Probe, 
-			GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS Accession Number, 
+			GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS \'Accession Number\', 
 			GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
 			%s 
 			FROM (SELECT	rid, 
@@ -435,7 +435,6 @@ sub loadAllData
 	ORDER BY abs_fs DESC
 	";
 
-
 	#Run the query for the experiment headers.
 	$self->{_headerTitles} 		= $self->{_dbh}->prepare(qq{$query_titles}) or die $self->{_dbh}->errstr;
 	$self->{_headerCount} 		= $self->{_headerTitles}->execute or die $self->{_dbh}->errstr;
@@ -459,9 +458,15 @@ sub displayTFSInfoCSV
 	my $currentLine = "";
 		
 	#Clear our headers so all we get back is the CSV file.
-	print $self->{_cgi}->header(-type=>'text/csv', -attachment => 'results.csv',
-        -cookie=>SGX::Cookie::cookie_array());
-	#print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
+    $self->{_UserSession}->commit() if defined($self->{_UserSession});
+    my $cookie_array = (defined $self->{_UserSession})
+        ? $self->{_UserSession}->cookie_array()
+        : [];
+	print $self->{_cgi}->header(
+        -type=>'text/csv', 
+        -attachment => 'results.csv',
+        -cookie=>$cookie_array
+    );
 
     #Print a line to tell us what report this is.
     my $workingProjectText =

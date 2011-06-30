@@ -394,9 +394,13 @@ END_ProbeReporterQuery
     $self->{_dbh}->do($dropStatement);
 
     if ( $DataCount < 1 ) {
+        $self->{_UserSession}->commit() if defined($self->{_UserSession});
+        my $cookie_array = (defined $self->{_UserSession})
+            ? $self->{_UserSession}->cookie_array()
+            : [];
         print $self->{_cgi}->header(
             -type   => 'text/html',
-            -cookie => SGX::Cookie::cookie_array()
+            -cookie => $cookie_array
         );
         print
 'No records found! Please click back on your browser and search again!';
@@ -422,9 +426,13 @@ sub loadProbeData {
     $self->{_ProbeRecords}->finish;
 
     if ( scalar( @{ $self->{_Data} } ) < 1 ) {
+        $self->{_UserSession}->commit() if defined($self->{_UserSession});
+        my $cookie_array = (defined $self->{_UserSession})
+            ? $self->{_UserSession}->cookie_array()
+            : [];
         print $self->{_cgi}->header(
             -type   => 'text/html',
-            -cookie => SGX::Cookie::cookie_array()
+            -cookie => $cookie_array
         );
         print
 'No records found! Please click back on your browser and search again!';
@@ -520,10 +528,14 @@ sub printFindProbeCSV {
     my $currentPID = 0;
 
     #Clear our headers so all we get back is the CSV file.
+    $self->{_UserSession}->commit() if defined($self->{_UserSession});
+    my $cookie_array = (defined $self->{_UserSession}) 
+        ?  $self->{_UserSession}->cookie_array() 
+        : [];
     print $self->{_cgi}->header(
         -type       => 'text/csv',
         -attachment => 'results.csv',
-        -cookie     => SGX::Cookie::cookie_array()
+        -cookie     => $cookie_array
     );
 
     #Print a line to tell us what report this is.

@@ -243,51 +243,40 @@ sub getFormHTML {
         $q->dt('Filter on:'),
         $q->dd({-id=>'geneFilter'}, '')
     ),
-    $q->div({-id=>'divSearchItemsDiv',-style=>'display:none;'},
-        $q->h3('Filter on input file'),
-        $q->dl(
-            $q->dt($q->label({-for=>'upload_file'},'Upload File:')),
-            $q->dd(
-                $q->filefield(-name=>'upload_file',-id=>'upload_file'),
-                $q->p({-style=>'color:#777;'},
-                    'File must be in plain-text format with one search term per line')
-            ),
-            $q->dt('Terms are:'),
-            $q->dd($q->popup_menu(
-                       -name=>'type',
-                       -values=>[keys %gene_dropdown],
-                       -default=>'gene',
-                       -labels=>\%gene_dropdown
-                   )
-            ),
-            $q->dt('Patterns to match:'),
-            $q->dd({-style=>'color:#777;'},'Full Word')
+    $q->dl({-id=>'filterList', -style=>'display:none;'},
+        $q->dt($q->h3('Filter on the following terms:')),
+        $q->dd(''),
+        $q->dt($q->label({-for=>'search_terms'}, 'Search term(s):')),
+        $q->dd($q->textarea(-rows=>10, -columns=>50, -tabindex=>1, -name=>'search_terms', -id=>'search_terms')),
+    ),
+    $q->dl({-id=>'filterUpload',-style=>'display:none;'},
+        $q->dt($q->h3('Filter on uploaded file:')),
+        $q->dd(''),
+        $q->dt($q->label({-for=>'upload_file'},'Upload File:')),
+        $q->dd(
+            $q->filefield(-name=>'upload_file',-id=>'upload_file'),
+            $q->p({-style=>'color:#777;'},
+                'File must be in plain-text format with one search term per line')
         )
     ),
-    $q->div({-id=>'divSearchItemsDiv2', -style=>'display:none;'},
-        $q->h3('Filter on input list'),
-        $q->dl(
-            $q->dt($q->label({-for=>'search_terms'}, 'Search term(s):')),
-            $q->dd($q->textarea(-rows=>10, -columns=>50, -tabindex=>1, -name=>'search_terms', -id=>'search_terms')),
-
-            $q->dt('Terms are:'),
-            $q->dd($q->popup_menu(
-                       -name=>'type',
-                       -values=>[keys %gene_dropdown],
-                       -default=>'gene',
-                       -labels=>\%gene_dropdown
-                   )
-            ),
-            $q->dt('Patterns to match:'),
-            $q->dd($q->radio_group(
-                          -tabindex=>2, 
-                          -name=>'match', 
-                          -values=>[keys %match_dropdown], 
-                          -default=>'full', 
-                          -linebreak=>'true', 
-                          -labels=>\%match_dropdown
-                  )
-            )
+    $q->dl({-id=>'filterAny',-style=>'display:none;'},
+        $q->dt('Terms are:'),
+        $q->dd($q->popup_menu(
+                   -name=>'type',
+                   -values=>[keys %gene_dropdown],
+                   -default=>'gene',
+                   -labels=>\%gene_dropdown
+               )
+        ),
+        $q->dt('Patterns to match:'),
+        $q->dd($q->radio_group(
+                      -tabindex=>2, 
+                      -name=>'match', 
+                      -values=>[keys %match_dropdown], 
+                      -default=>'full', 
+                      -linebreak=>'true', 
+                      -labels=>\%match_dropdown
+              )
         )
     ),
     $q->dl(

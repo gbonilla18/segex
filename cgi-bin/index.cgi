@@ -42,7 +42,7 @@ use SGX::CompareExperiments;
 #---------------------------------------------------------------------------
 #  User Authentication
 #---------------------------------------------------------------------------
-my $softwareVersion = '0.2.1';
+my $softwareVersion = '0.2.2';
 
 my $dbh = sgx_db_connect();
 my $s = SGX::User->new(
