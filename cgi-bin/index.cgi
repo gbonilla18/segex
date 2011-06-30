@@ -15,7 +15,7 @@ use CGI 2.47 qw/-nosticky/;
 use Switch;
 use URI::Escape;
 use Carp;
-use Math::BigInt;
+use Tie::IxHash;
 #use Time::HiRes qw/clock/;
 use Data::Dumper;
 
@@ -117,7 +117,7 @@ while (defined($action)) { switch ($action) {
     case FORM.UPLOADANNOT {
         # TODO: only admins should be allowed to perform this action
         if ($s->is_authorized('user')) {
-            $title = 'Upload/Update Annotations';
+            $title = 'Upload Annotations';
             push @js_src_yui, (
                 'yahoo-dom-event/yahoo-dom-event.js',
                 'animation/animation-min.js', 
@@ -709,44 +709,70 @@ sub build_sidemenu
                 -target=>'_new'},'Help');
     return \@menu;
 }
+
 #===  FUNCTION  ================================================================
 #         NAME:  build_menu
 #      PURPOSE:  
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  ????
+#  DESCRIPTION:  Builds the data structure containing main site links under
+#                three different categories.
+#
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_menu
 {
-    my @menu;
+    my ($view, $upload, $manage) = ('View', 'Upload', 'Manage');
+    my %menu;
+    my $menu_t = tie(
+        %menu, 'Tie::IxHash',
+        $view => [],
+        $manage => [],
+        $upload => []
+    );
     my $url_prefix = $q->url(-absolute=>1);
+
+    # add user options
     if ($s->is_authorized('user')) {
-        # add user options
-        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.COMPAREEXPERIMENTS,
-                    -title=>'Select samples to compare'},'Compare Experiments');
-        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.FINDPROBES,
-                    -title=>'Search for probes'},'Find Probes');
-        # TODO: only admins should be allowed to see the menu part below:
-        push @menu, $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADANNOT,
-                    -title=>'Upload or Update Probe Annotations'}, 'Upload/Update Annotations');
-        push @menu, $q->a({-href=>$url_prefix.'?a='.MANAGEPLATFORMS,
-                    -title=>'Manage Platforms'}, 'Manage Platforms');
-        push @menu, $q->a({-href=>$url_prefix.'?a='.MANAGEPROJECTS,
-                    -title=>'Manage Projects'}, 'Manage Projects');
-        push @menu, $q->a({-href=>$url_prefix.'?a='.MANAGESTUDIES,
-                    -title=>'Manage Studies'}, 'Manage Studies');
-        push @menu, $q->a({-href=>$url_prefix.'?a='.MANAGEEXPERIMENTS,
-                    -title=>'Manage Experiments'}, 'Manage Experiments');
-        push @menu, $q->a({-href=>$url_prefix.'?a='.OUTPUTDATA,
-                    -title=>'Output Data'}, 'Output Data');
+
+        # view
+        push @{$menu{$view}}, 
+            $q->a({-href=>$url_prefix.'?a='.FORM.COMPAREEXPERIMENTS,
+                -title=>'Select samples to compare'},'Compare Experiments');
+        push @{$menu{$view}}, 
+            $q->a({-href=>$url_prefix.'?a='.FORM.FINDPROBES,
+                -title=>'Search for probes'},'Find Probes');
+        push @{$menu{$view}},
+            $q->a({-href=>$url_prefix.'?a='.OUTPUTDATA,
+                -title=>'Output Data'}, 'Output Data');
+
+        # upload
+        push @{$menu{$upload}}, 
+            $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADANNOT,
+                -title=>'Upload Probe Annotations'}, 'Upload Annotations');
+
+        # manage
+        push @{$menu{$manage}}, 
+            $q->a({-href=>$url_prefix.'?a='.MANAGEPLATFORMS,
+                -title=>'Manage Platforms'}, 'Manage Platforms');
+        push @{$menu{$manage}}, 
+            $q->a({-href=>$url_prefix.'?a='.MANAGEPROJECTS,
+                -title=>'Manage Projects'}, 'Manage Projects');
+        push @{$menu{$manage}},
+            $q->a({-href=>$url_prefix.'?a='.MANAGESTUDIES,
+                -title=>'Manage Studies'}, 'Manage Studies');
+        push @{$menu{$manage}},
+            $q->a({-href=>$url_prefix.'?a='.MANAGEEXPERIMENTS,
+                -title=>'Manage Experiments'}, 'Manage Experiments');
     }
-    if ($s->is_authorized('admin')) {
-        # add admin options
-    }
-    return \@menu;
+
+    # add admin options
+    #if ($s->is_authorized('admin')) {
+    #}
+
+    return \%menu;
 }
 
 # ===== HTML =============================================================
@@ -756,6 +782,8 @@ sub build_menu
 # But because the session object takes over the array, have to do it this way:
 #   push @SGX::User::cookies, $cookie2;
 # ... and then send the \@SGX::User::cookies array reference to CGI::header() for example.
+
+my $menu_links = build_menu();
 
 print $q->header(-type=>'text/html', -cookie=>$s->cookie_array());
 print cgi_start_html();
@@ -771,12 +799,22 @@ print $q->div({-id=>'header'},
                 )
         )
     ),
-     $q->ul(
-         {-id=>'sidemenu'},
-         $q->li(build_sidemenu())
-     )
+    $q->ul({-id=>'sidemenu'},
+        $q->li(build_sidemenu())
+    )
 ),
-$q->ul({-id=>'menu'}, $q->li(build_menu()));
+$q->div({-id=>'menu'},
+    map {
+        my $links = $menu_links->{$_};
+        if (scalar(@$links)) {
+            $q->div(
+                $q->h3($_),
+                $q->ul($q->li($links))
+            )
+        } else { '' }
+    } keys %$menu_links
+);
+
 print '<div id="content">';
 
 #---------------------------------------------------------------------------

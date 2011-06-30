@@ -48,7 +48,7 @@ h3 {
 }
 
 /*** Cleared Containers ***/
-#header, ul#menu, div#content, .clearfix, form  {
+#header, #menu, div#content, .clearfix, form  {
 	clear:none; /* IE Mac 5.x doesn't like clear:both */
 	/*overflow:auto;*/	/* force div to expand to its own content -- obsoleted by class "clearfix" (below) */
 	width:100%;
@@ -57,12 +57,12 @@ h3 {
 #header {
 	margin-bottom:1em;
 }
-ul#menu, div#content, .clearfix {
+#menu, div#content, .clearfix {
 	margin-bottom:2em;
 }
 /* Clearing method below taken from
 http://www.positioniseverything.net/easyclearing.html */
-#header:after, ul#menu:after, div#content:after, .clearfix:after, form:after  {
+#header:after, #menu:after, div#content:after, .clearfix:after, form:after  {
 	content:".";
 	display:block;
 	height:0;
@@ -70,7 +70,7 @@ http://www.positioniseverything.net/easyclearing.html */
 	visibility:hidden;
 }
 /* Hide from IE Mac \*/
-* html #header, ul#menu, div#content, .clearfix, form { display:block; }
+* html #header, #menu, div#content, .clearfix, form { display:block; }
 /* End hide from IE Mac */
 /*** End of Cleared Containers ***/
 form {
@@ -195,10 +195,17 @@ html>/**/body legend, html>/**/body fieldset {
 	position:static;	/* Not IE/Win */
 }
 /*************** menu ***************************/
-ul#menu {
+#menu {
 	margin-bottom:15px;
 }
-
+#menu div {
+	width:153px;
+	display:block;
+	float:left;
+	clear:none;
+	margin:0 21px 0 0;
+	padding:0;
+}
 /************* images *************************/
 img#schema {
 	margin:10px;
