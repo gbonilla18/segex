@@ -120,3 +120,26 @@ expressly specified in the form of URL parameters in the GET request.
 
 Actions with names such as Load, Get, Show etc. are redundant (because HTTP
 request is already named GET).
+
+HTML
+
+Generated HTML should be valid. Since most pages being worked on are private, it
+is cumbersome to validate their source using the W3C service. This can be worked
+around by using Total Validator Firefox plugin and the accompanying Mac or
+Windows application.
+
+PERL
+
+Perl::Critic and Perl::Tidy are recommended. Vim plugin "perl-support" (see Vim
+site for download) lets one run Perl::Critic and Perl::Tidy on current source
+with onlyn a few keystrokes (\rc and \ry respectively). Additional nicety of
+perl-support is that it lets one quickly generate "framed" comments (\cfr),
+module method headers (\cm), function headers (\cfu) and so on. Equivalent
+plugin is available for C (called "c-support"), with most key mappings being the
+same.
+
+JAVASCRIPT
+
+Avoid using onclick and onchange properties of DOM elements. Instead, use the
+addListener function from the YUI library and place corresponding code in the
+<HEAD> element.
