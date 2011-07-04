@@ -108,6 +108,23 @@ CONTROLLER
 To be determined... Right now considering the use of CGI::Application to handle
 dispatching of requests.
 
+There should be a "tree" of user actions. Index.cgi should only take care of
+dispatching top-level actions in the tree. The modules (ManageProjects,
+ManageStudies, ManageExperiments, etc.) should dispatch actions at the remaining
+level(s). Top-level actions are called with "a=" parameter, second-level actions
+are called with "b=" parameter and so on. Since the parameter is one-letter
+only, action names should be descriptive by themselves. Object constructors are
+passed a reference to an array of Javascript includes, since only modules will
+know which Javascript files they need.  Constructors must not print anything to
+screen.  Constructors will almost always be passed the database handle and may
+also be passed session object handle. The array of Javascript includes simply
+contains relative paths of Javascript files to load; after top-level dispatch is
+complete, it is transformed to convert relative paths to absolute and is sent to
+CGI.pm.
+
+When passing arguments to module constructors, prefer named arguments. For
+example: my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q, session
+=> $s).
 
 REST ARCHITECTURE
 
@@ -143,3 +160,35 @@ JAVASCRIPT
 Avoid using onclick and onchange properties of DOM elements. Instead, use the
 addListener function from the YUI library and place corresponding code in the
 <HEAD> element.
+
+SQL
+
+With Perl code, performance should not be the main consideration, but it is the
+main consideration with SQL, trumping readability (and nearly everything else).
+Strategies for best database performance: (1) joins are the most expensive
+operations; try to reduce the number of joins if possible; (2) LEFT and RIGHT
+joins are usually more expensive than INNER joins (3) try to minimize the number
+of rows searched early on, using subqueries or INNER joins, (4) benchmark all
+queries, (5) try to rewrite a slow query in several alternative ways (for
+example, using RIGHT joins instead of LEFT etc.) and then benchmark all of them,
+(6) ensure that all commonly performed JOINS operate on indexed columns or
+combinations of columns; create necessary indexes otherwise, (7) use MySQL
+optimizer (EXPLAIN statement) to decide which columns should be indexed and to
+track the progress of the query and the number of rows it operates on. (8) avoid
+using NATURAL joins (this is more of a maintainability issue but may affect
+performance because it obscures what really happens in the query), (9) avoid
+using DISTINCT modifier (prefer GROUP BY clause instead, since it allows you to
+enter specific column names on which to perform grouping; preference should go
+to those columns that are indexed keys). (10) use DBI::Profile to monitor
+performance, (11) use DBI placeholders (more of a security issue but may affect
+performance when the same query is executed repeatedly with different input
+parameters). (12) consider using prepare_cached() DBI function instead of
+prepare(). (13) indexes on columns that may contain long text are suboptimal.
+
+VISUALIZATION
+
+Consider using g.Raphael Javascript framework for drawing graphs inside the
+client browser window from JSON data obtained from the server (as opposed to
+generating SVG files on the server as it is set up currently).
+https://github.com/mobz/g.raphael
+https://github.com/alexyoung/ico
