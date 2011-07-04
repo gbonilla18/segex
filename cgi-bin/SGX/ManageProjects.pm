@@ -177,10 +177,13 @@ END_RemoveStudy
 #     SEE ALSO:  n/a
 #===============================================================================
 sub dispatch {
-    my ( $self, $action ) = @_;
+    my ( $self ) = @_;
 
     my $q = $self->{_cgi};
-    $action = '' if not defined($action);
+    my $action = (defined $q->param('b'))
+               ? $q->param('b')
+               : '';
+
     switch ($action) {
         case 'add' {
             $self->loadFromForm();
@@ -254,7 +257,7 @@ sub dispatch {
     {
         my $redirectURI =
             $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageProjects&ManageAction=edit&id='
+          . '?a=manageProjects&b=edit&id='
           . $self->{_prid};
         my $redirectString =
 "<script type=\"text/javascript\">window.location = \"$redirectURI\"</script>";
@@ -276,10 +279,23 @@ sub dispatch {
 sub dispatch_js {
 
     # No printing to browser window done here
-    my ( $self, $js_ref ) = @_;
+    my ( $self, $yui_js_ref, $js_ref ) = @_;
 
-    my $action = $self->{_cgi}->param('ManageAction');
-    $action = '' if not defined($action);
+    my $action = (defined $self->{_cgi}->param('b'))
+               ? $self->{_cgi}->param('b')
+               : '';
+
+    push @$yui_js_ref, (
+        'yahoo-dom-event/yahoo-dom-event.js',
+        'connection/connection-min.js',
+        'dragdrop/dragdrop-min.js',
+        'container/container-min.js',
+        'element/element-min.js',
+        'datasource/datasource-min.js',
+        'paginator/paginator-min.js',
+        'datatable/datatable-min.js',
+        'selector/selector-min.js'
+    );
 
     switch ($action) {
         case 'edit' {
@@ -298,7 +314,7 @@ sub dispatch_js {
             my $code = $self->showProjects_js();
             push @$js_ref, { -code => $self->showProjects_js() };
         }
-        case '' {
+        else {
             $self->loadAllProjects();
             my $code = $self->showProjects_js();
             push @$js_ref, { -code => $self->showProjects_js() };
@@ -558,7 +574,7 @@ sub showProjects {
       $q->h3( { -id => 'Add_Caption' }, 'Add Project' ),
       $q->start_form(
         -method   => 'POST',
-        -action   => "$url_prefix?a=manageProjects&ManageAction=add",
+        -action   => "$url_prefix?a=manageProjects&b=add",
         -onsubmit => 'return validate_fields(this, ["name"]);'
       ),
       $q->dl(
@@ -678,8 +694,8 @@ sub getTableInfo {
     my $self = shift;
 
     my $uri_prefix = $self->{_cgi}->url( absolute => 1 );
-    my $deleteURL  = "$uri_prefix?a=manageProjects&ManageAction=delete&id=";
-    my $editURL    = "$uri_prefix?a=manageProjects&ManageAction=edit&id=";
+    my $deleteURL  = "$uri_prefix?a=manageProjects&b=delete&id=";
+    my $editURL    = "$uri_prefix?a=manageProjects&b=edit&id=";
 
     #This is the code to use the AJAXy update box for description..
     my $postBackURL = "'$uri_prefix?a=updateCell'";
@@ -786,12 +802,12 @@ sub editProject {
 
     my $editSubmit =
         $q->url( -absolute => 1 )
-      . '?a=manageProjects&ManageAction=editSubmit&id='
+      . '?a=manageProjects&b=editSubmit&id='
       . $self->{_prid};
 
     my $addExisting =
         $q->url( -absolute => 1 )
-      . '?a=manageProjects&ManageAction=addExisting&id='
+      . '?a=manageProjects&b=addExisting&id='
       . $self->{_prid};
 
     return $q->h2('Editing Project'),
@@ -985,7 +1001,7 @@ sub getStudyTableInfo {
     my $CGIRef    = shift;
     my $projectID = shift;
     my $deleteURL = $CGIRef->url( absolute => 1 )
-      . "?a=manageProjects&ManageAction=deleteStudy&id=$projectID&removstid=";
+      . "?a=manageProjects&b=deleteStudy&id=$projectID&removstid=";
 
     return <<"END_StudyTableInfo"
 YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData)

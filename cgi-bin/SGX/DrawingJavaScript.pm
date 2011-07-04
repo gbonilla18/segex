@@ -1,3 +1,4 @@
+
 =head1 NAME
 
 SGX::DrawingJavaScript
@@ -28,60 +29,46 @@ use strict;
 use warnings;
 
 sub new {
-	# This is the constructor
-	my $class = shift;
 
-	my $self = {
-		_postBackString	=> shift,
-		_queryParameters=> shift
-	};
+    # This is the constructor
+    my $class = shift;
 
-	bless $self, $class;
-	return $self;
+    my $self = {
+        _postBackString  => shift,
+        _queryParameters => shift
+    };
+
+    bless $self, $class;
+    return $self;
 }
 
-sub printTextCellEditorCode
-{
-	my $self		= shift;
+sub printTextCellEditorCode {
+    my $self = shift;
 
-	my $textCellEditorTemplate = <<"END_textCellEditorTemplate";
-	new YAHOO.widget.TextareaCellEditor
-	(
-		{
-			disableBtns: false,
-			asyncSubmitter: function(callback, newValue) 
-			{ 
-				var record = this.getRecord();
-				if (this.value == newValue) 
-				{ 
-					callback(); 
-				} 
-
-				YAHOO.util.Connect.asyncRequest('POST',%s,
-															{ 
-																success:function(o) 
-																{ 
-																	if(o.status === 200) 
-																	{
-																		// HTTP 200 OK
-																		callback(true, newValue); 
-																	} 
-																	else 
-																	{ 
-																		alert(o.statusText);
-																		//callback();
-																	} 
-																}, 
-																failure:function(o) 
-																{ 
-																	alert(o.statusText); 
-																	callback(); 
-																},
-																scope:this 
-															}, %s);
-			}
-		}
-	)
+    my $textCellEditorTemplate = <<"END_textCellEditorTemplate";
+new YAHOO.widget.TextareaCellEditor({
+    disableBtns: false,
+    asyncSubmitter: function(callback, newValue) { 
+        var record = this.getRecord();
+        if (this.value === newValue) { callback(); } 
+        YAHOO.util.Connect.asyncRequest('POST', %s, { 
+            success: function(o) { 
+                if(o.status === 200) {
+                    // HTTP 200 OK
+                    callback(true, newValue); 
+                } else { 
+                    alert(o.statusText);
+                    //callback();
+                } 
+            }, 
+            failure: function(o) { 
+                alert(o.statusText); 
+                callback(); 
+            },
+            scope:this 
+        }, %s);
+    }
+})
 END_textCellEditorTemplate
 
     $textCellEditorTemplate = sprintf(
@@ -90,7 +77,7 @@ END_textCellEditorTemplate
         $self->{_queryParameters}
     );
 
-	return $textCellEditorTemplate;
+    return $textCellEditorTemplate;
 }
 
 1;

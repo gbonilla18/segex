@@ -2,21 +2,23 @@
 * Note: the following NCBI search shows only genes specific to a given species:
 * http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
 */
-var graph_ul;
-var graph_content;
-
-function buildSVGElement(project_id, reporter, transform) {
-    var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + reporter + "&trans=" + transform;
-    var width = 1200;
-    var height = 600;
-    return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
-}
 
 YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
 YAHOO.util.Event.addListener(window, "load", function() {
+    var graph_ul;
+    var graph_content;
+
+    function buildSVGElement(project_id, reporter, transform) {
+        var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + reporter + "&trans=" + transform;
+        var width = 1200;
+        var height = 600;
+        return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
+    }
+
     if (show_graphs) {
         graph_ul = YAHOO.util.Dom.get("graphs");
     }
+
     YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
 
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
@@ -28,6 +30,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
         }
     };
+
     YAHOO.widget.DataTable.Formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
         var a = oData.split(/ *, */);
         var out = "";
@@ -61,53 +64,75 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var myColumnList;
     var myColumnDefs;
     if (extra_fields) {
+        function createCellEditor(postBackURL, postBackQueryParameters) {
+            return new YAHOO.widget.TextareaCellEditor({
+                disableBtns: false,
+                asyncSubmitter: function(callback, newValue) {
+                    var record = this.getRecord();
+                    //var column = this.getColumn();
+                    //var datatable = this.getDataTable();
+                    if (this.value === newValue) { callback(); }
+                    YAHOO.util.Connect.asyncRequest("POST", postBackURL, {
+                        success:function(o) {
+                            if(o.status === 200) {
+                                // HTTP 200 OK
+                                callback(true, newValue);
+                            } else {
+                                alert(o.statusText);
+                                //callback();
+                            }
+                        },
+                        failure:function(o) {
+                            alert(o.statusText);
+                            callback();
+                        },
+                        scope:this
+                    }, postBackQueryParameters(newValue, record));
+                }
+            });
+        }
+
         myColumnList = ["0","1","2","3","4","5","6","7"];
         myColumnDefs = [
-            {key:"0", sortable:true, resizeable:true, label:probelist.headers[0], formatter:"formatProbe"},
-            {key:"1", sortable:true, resizeable:true, label:probelist.headers[1]},
-            {key:"2", sortable:true, resizeable:true, label:probelist.headers[2], formatter:"formatAccNum"}, 
-            {key:"3", sortable:true, resizeable:true, label:probelist.headers[3], formatter:"formatGene"},
-            {key:"4", sortable:true, resizeable:true, label:probelist.headers[4]},
-            {key:"5", sortable:true, resizeable:true, label:probelist.headers[5], formatter:"formatSequence"},
-            {key:"6", sortable:true, resizeable:true, label:probelist.headers[6]},
-            {key:"7", sortable:true, resizeable:true, label:probelist.headers[7],
-
-                editor:new YAHOO.widget.TextareaCellEditor({
-                    disableBtns: false,
-                    asyncSubmitter: function(callback, newValue) {
-                        var record = this.getRecord();
-                        //var column = this.getColumn();
-                        //var datatable = this.getDataTable();
-                        if (this.value == newValue) { callback(); }
-                        YAHOO.util.Connect.asyncRequest("POST", url_prefix + "?a=updateCell", {
-                            success:function(o) {
-                                if(o.status === 200) {
-                                    // HTTP 200 OK
-                                    callback(true, newValue);
-                                } else {
-                                    alert(o.statusText);
-                                    //callback();
-                                }
-                            },
-                            failure:function(o) {
-                                alert(o.statusText);
-                                callback();
-                            },
-                            scope:this
-                        }, "type=gene&note=" + escape(newValue) + "&pname=" + encodeURI(record.getData("1")) + "&seqname=" + encodeURI(record.getData("3")) + "&accnum=" + encodeURI(record.getData("2"))
-                        );
+            {key:"0", sortable:true, resizeable:true, 
+                label:probelist.headers[0], formatter:"formatProbe"},
+            {key:"1", sortable:true, resizeable:true, 
+                label:probelist.headers[1]},
+            {key:"2", sortable:true, resizeable:true, 
+                label:probelist.headers[2], formatter:"formatAccNum"}, 
+            {key:"3", sortable:true, resizeable:true, 
+                label:probelist.headers[3], formatter:"formatGene"},
+            {key:"4", sortable:true, resizeable:true, 
+                label:probelist.headers[4]},
+            {key:"5", sortable:true, resizeable:true, 
+                label:probelist.headers[5], formatter:"formatSequence"},
+            {key:"6", sortable:true, resizeable:true, 
+                label:probelist.headers[6]},
+            {key:"7", sortable:true, resizeable:true, 
+                label:probelist.headers[7], editor:createCellEditor(
+                    url_prefix + "?a=updateCell", 
+                    function(newValue, record) {
+                        return "type=gene&note=" + escape(newValue) 
+                             + "&pname=" + encodeURI(record.getData("1")) 
+                             + "&seqname=" + encodeURI(record.getData("3")) 
+                             + "&accnum=" + encodeURI(record.getData("2"));
                     }
-                })
+                )
             }
         ];
     } else {
         myColumnList = ["0","1","2","3","4"];
         myColumnDefs = [
-            {key:"0", sortable:true, resizeable:true, label:probelist.headers[0], formatter:"formatProbe"},
-            {key:"1", sortable:true, resizeable:true, label:probelist.headers[1]},
-            {key:"2", sortable:true, resizeable:true, label:probelist.headers[2], formatter:"formatAccNum"}, 
-            {key:"3", sortable:true, resizeable:true, label:probelist.headers[3], formatter:"formatGene"},
-            {key:"4", sortable:true, resizeable:true, label:probelist.headers[4]}
+            {key:"0", sortable:true, resizeable:true, 
+                label:probelist.headers[0], formatter:"formatProbe"},
+            {key:"1", sortable:true, resizeable:true, 
+                label:probelist.headers[1]},
+            {key:"2", sortable:true, resizeable:true, 
+                label:probelist.headers[2], formatter:"formatAccNum"}, 
+            {key:"3", sortable:true, resizeable:true, 
+                label:probelist.headers[3], formatter:"formatGene"},
+            {key:"4", sortable:true, resizeable:true, 
+                label:probelist.headers[4]}
         ];
     }
     myDataSource.responseSchema = {
@@ -119,7 +144,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
         })
     };
 
-    var myDataTable = new YAHOO.widget.DataTable("probetable", myColumnDefs, myDataSource, myData_config);
+    var myDataTable = new YAHOO.widget.DataTable(
+        "probetable", myColumnDefs, myDataSource, myData_config);
 
     // Set up editing flow 
     var highlightEditableCell = function(oArgs) { 
@@ -129,14 +155,17 @@ YAHOO.util.Event.addListener(window, "load", function() {
         } 
     }; 
     myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
-    myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
+    myDataTable.subscribe("cellMouseoutEvent", 
+        myDataTable.onEventUnhighlightCell); 
     myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
 
     var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
     var nl = nodes.length;
 
     // Ideally, would want to use a "pre-formatter" event to clear graph_content
-    // TODO: fix the fact that when cells are updated via cell editor, the graphs are rebuilt unnecessarily.
+    // TODO: fix the fact that when cells are updated via cell editor, the
+    // graphs are rebuilt unnecessarily.
+    //
     myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
         graph_content = "";
         return true;
@@ -145,36 +174,46 @@ YAHOO.util.Event.addListener(window, "load", function() {
         graph_content = "";
         return true;
     };
-    myDataTable.subscribe("renderEvent", function () {
-        if (show_graphs) {
-            graph_ul.innerHTML = graph_content;
-        } else {
+
+    // TODO: why are we adding a new listener every time the table is rendered?
+    myDataTable.subscribe("renderEvent", 
+        (show_graphs) 
+        ? function () { graph_ul.innerHTML = graph_content; }
+        : function () {
             // if the line below is moved to window.load closure,
             // panels will no longer show up after sorting
             var manager = new YAHOO.widget.OverlayManager();
             var myEvent = YAHOO.util.Event;
-            var i;
-            var imgFile;
-            for (i = 0; i < nl; i++) {
+            for (var i = 0; i < nl; i++) {
                 myEvent.addListener("show" + i, "click", function () {
                     var index = this.getAttribute("id").substring(4);
                     var panel_old = manager.find("panel" + index);
 
                     if (panel_old === null) {
-                        imgFile = this.innerHTML;    // replaced ".text" with ".innerHTML" because of IE problem
-                        var panel =  new YAHOO.widget.Panel("panel" + index, { close:true, visible:true, draggable:true, constraintoviewport:false, context:["container" + index, "tl", "br"] } );
+                        // replaced ".text" with ".innerHTML" because of IE
+                        // problem
+                        var imgFile = this.innerHTML;    
+                        var panel = new YAHOO.widget.Panel("panel" + index, { 
+                            close:true, visible:true, draggable:true, 
+                            constraintoviewport:false, 
+                            context:["container" + index, "tl", "br"] 
+                        });
                         panel.setHeader(imgFile);
-                        panel.setBody(buildSVGElement(project_id, imgFile, response_transform));
+                        panel.setBody(buildSVGElement(project_id,
+                            imgFile, 
+                            response_transform
+                        ));
                         manager.register(panel);
                         panel.render("container" + index);
-                        // panel.show is unnecessary here because visible:true is set
+                        // panel.show is unnecessary here because visible:true
+                        // is set
                     } else {
                         panel_old.show();
                     }
                 }, nodes[i], true);
             }
-        };
-    });
+        }
+    );
 
     return {
         oDS: myDataSource,

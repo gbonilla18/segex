@@ -1,0 +1,122 @@
+SEPARATING MODEL AND VIEW
+
+Separation of concerns is achieved by minimizing the number of points of contact
+between two functionally different parts of code (decoupling), which in turn is
+achieved by minimization and formalization of points of communication. This may
+seem obvious, but for some reason seems stressed more rarely than it should be
+(i.e. perfect decoupling of code is almost always impossible, otherwise few
+programmers would produce it in entangled form in the first place, so decoupling
+typically comes down to refining points of communication).
+
+The separation of model (data in SQL tables) and view (in-browser HTML) is
+achieved via two intermediaries: Perl and JSON/Javascript. The data flow is as
+follows:
+
+    SQL -> Perl -> JSON -> HTML
+
+We do this intentionally, to avoid the obvious shortcut:
+
+    SQL -> Perl -> HTML
+
+Skipping the JSON intermediary is not recommended because (1) it complicates
+implementation of dynamic interfaces, and (2) when dynamic interfaces are
+implemented, they have to deal with absence of clear separation between data and
+presentation (i.e. between model and view). The second point becomes more clear
+when we think in terms of the client page and what represents model, view and
+controller there:
+
+   --------   HTTP   -------                        ------
+  | SERVER | =====> | JSON  | ===================> | HTML |
+  |        |        | HEAD  |                      | BODY |
+  |        |        | model | =>  ------------  => | view |
+  |        |         -------  <- | Javascript | <-  ------
+  |        | ==================> | .js files  |      |
+   --------  <------------------ | controller |      |
+                      AJAX        ------------       |
+             <---------------------------------------
+                      HTTP GET/POST to CGI controller
+
+                   |________________ VIEW ________________|
+
+The above is a "zoomed-in" view focusing on the client. There is a whole new
+separate MVC subsystem on the client, with its own model, view, and controller
+-- and this subsystem is embedded within the "view" part of the overall MVC
+superstructure.
+
+If we were to directly write data model to HTML (for example, by filling in a
+select box with dynamic data), dynamic interactions on the user's side would
+require either constant HTTP requests or looking up data from the DOM tree. We
+want to avoid this because such lookups are (1) inefficient, (2) can easily lead
+to corruption of view because they introduce circular dependencies where HTML is
+updated with data collected from previous HTML state and so on. Writing model as
+JSON introduces directionality and avoids such "incestuous" dependencies of
+content on itself.  Doing so also lends itself to easy introduction of AJAX
+where need for it exists.
+
+All dynamic data (i.e. contents of tables, dropdown lists, etc.) should be
+written as JSON to page header (never inside <BODY> tag!). The JSON data should
+be formed first as native Perl data structures and converted to JSON with the
+use of JSON::XS module. For example, we do not want this:
+
+    my $out = 'var contents = ';
+    for (@result_array) {
+        my $col1 = $_->[3];
+        my $col2 = $_->[1];
+        # backslash double quotes
+        $col1 =~ s/"/\\"/g;
+        $col2 =~ s/"/\\"/g;
+        $out .= '{"probe":"' . $col1 . '","gene":"' . $col2 . '"}' . ',';
+    }
+    $out =~ s/,\s*$//;
+    return "$out;\n";
+
+Such code increases coupling between Perl and Javascript, which is bad, because,
+when writing it, we have to worry about the different syntaxes of these two
+languages at once, which makes our code more error prone and our coding slower.
+Instead, we write:
+
+    use JSON::XS;
+
+    my @tmp;
+    for (@result_array) {
+        push @tmp, { probe => $_->[3], gene => $_->[1] };
+    }
+    return sprintf(
+        "var contents = %s;\n",
+        encode_json(\@tmp)
+    );
+
+Or using functional style,
+
+    use JSON::XS;
+
+    return sprintf(
+        "var contents = %s;\n",
+        encode_json([ 
+            map { { probe => $_->[3], gene => $_->[1] } } 
+            @result_array
+        ])
+    );
+
+Because we first form a Perl data structure in the second example, if we make a
+typo, for example, Perl will let us know about it right away. Similarly,
+JSON::XS ensures that the Perl data structure is encoded as valid Javascript
+without needing to backslash double quotes manually.
+
+CONTROLLER
+
+To be determined... Right now considering the use of CGI::Application to handle
+dispatching of requests.
+
+
+REST ARCHITECTURE
+
+Except for special cases, all forms should be sent as GET requests instead of
+POST. The URLs should be short enough and human readable enough that they could
+be modified by the user. Care should be taken that, in case a link is shared via
+email, the resulting page looks the same regardless of who the user is or what
+computer he or she uses. To achieve this goal, all state information should be
+expressly specified in the form of URL parameters in the GET request.
+
+Actions with names such as Load, Get, Show etc. are redundant (because HTTP
+request is already named GET).

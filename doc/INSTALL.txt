@@ -1,7 +1,7 @@
 ============ DATABASE SETUP ===============
 
-1. Create empty database and add a dedicated user account. Note: in default
-MySQL instllation, the root password is empty (simply press enter to proceed).
+1. Create empty database and add a dedicated user account. Note: in the default
+MySQL installation, the root password is empty (simply press enter to proceed).
 
   mysql -u root -p
   > create database segex_dev;
@@ -24,9 +24,9 @@ creation and updating the Config.pm file.
 
 ==== A. Linux ====
 
-1. Change log file path in "Debug.pm" to a path actually present and writeable
-on the given system. On Linux, the path is "/var/www/error_log/error_log". Then
-one has to make sure that a CGI process has write access to said file. On Linux,
+1. Change log file path in "Debug.pm" to a path actually present and writable on
+the given system. On Linux, the path is "/var/www/error_log/error_log". Then one
+has to make sure that a CGI process has write access to said file. On Linux,
 Apache server process is owned by user under username "nobody". However, I
 recommend creating a separate log file so that more than one software/database
 instance could be set up on the same machine.
@@ -83,13 +83,12 @@ CGI_ROOT.
 
 ==== B. Mac OS X ====
 
-1. Change log file path in "Debug.pm" to a path actually present and writeable
-on the given system. On Mac OS X, the path is
-"/private/var/log/apache2/error_log". Then one has to make sure that a CGI
-process has write access to said file. On Mac OS X, Apache server process is
-owned by user under username "www". However, I recommend creating a separate log
-file so that more than one software/database instance could be set up on the
-same machine.
+1. Change log file path in "Debug.pm" to a path actually present and writable on
+the given system. On Mac OS X, the path is "/private/var/log/apache2/error_log".
+Then one has to make sure that a CGI process has write access to said file. On
+Mac OS X, Apache server process is owned by user under username "www". However,
+I recommend creating a separate log file so that more than one software/database
+instance could be set up on the same machine.
 
   mkdir -p ~/log/apache2
   cd  ~/log/apache2

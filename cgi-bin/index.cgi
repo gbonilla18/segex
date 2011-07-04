@@ -38,6 +38,7 @@ use SGX::TFSDisplay;
 use SGX::FindProbes;
 use SGX::ChooseProject;
 use SGX::CompareExperiments;
+use SGX::AddExperiment;
 
 #---------------------------------------------------------------------------
 #  User Authentication
@@ -105,6 +106,7 @@ use constant COMPAREEXPERIMENTS        => 'Compare';    # submit button text
 use constant FINDPROBES            => 'Search';        # submit button text
 use constant UPDATEPROBE        => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
+use constant UPLOADEXP        => 'uploadExp';
 
 my $loadModule;
 
@@ -134,6 +136,29 @@ while (defined($action)) { switch ($action) {
         # TODO: only admins should be allowed to perform this action
         if ($s->is_authorized('user')) {
             $content = \&uploadAnnot;
+            $title = 'Complete';
+            $action = undef;    # final state
+        } else {
+            $action = FORM.LOGIN;
+        }
+    }
+    case FORM.UPLOADEXP{
+        # TODO: only admins should be allowed to perform this action
+        if ($s->is_authorized('user')) {
+            $title = 'Upload Experiment';
+            push @js_src_yui, (
+                'yahoo-dom-event/yahoo-dom-event.js'
+            );
+            $content = \&form_uploadExp;
+            $action = undef;    # final state
+        } else {
+            $action = FORM.LOGIN;
+        }
+     }
+    case UPLOADEXP {
+        # TODO: only admins should be allowed to perform this action
+        if ($s->is_authorized('user')) {
+            $content = \&uploadExp;
             $title = 'Complete';
             $action = undef;    # final state
         } else {
@@ -206,21 +231,8 @@ while (defined($action)) { switch ($action) {
     }
     case MANAGEPROJECTS {
         if ($s->is_authorized('user')) {
-
-            push @js_src_yui, (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'connection/connection-min.js',
-                'dragdrop/dragdrop-min.js',
-                'container/container-min.js',
-                'element/element-min.js',
-                'datasource/datasource-min.js',
-                'paginator/paginator-min.js',
-                'datatable/datatable-min.js',
-                'selector/selector-min.js'
-            );
-
-            $loadModule = SGX::ManageProjects->new($dbh,$q);
-            $loadModule->dispatch_js(\@js_src_code);
+            $loadModule = SGX::ManageProjects->new($dbh, $q);
+            $loadModule->dispatch_js(\@js_src_yui, \@js_src_code);
             $content = \&manageProjects;
             $title = 'Projects';
             $action = undef;    # final state
@@ -252,18 +264,8 @@ while (defined($action)) { switch ($action) {
     }
     case MANAGEEXPERIMENTS {
         if ($s->is_authorized('user')) {
-            push @js_src_yui, (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'connection/connection-min.js',
-                'dragdrop/dragdrop-min.js',
-                'container/container-min.js',
-                'element/element-min.js',
-                'datasource/datasource-min.js',
-                'paginator/paginator-min.js',
-                'datatable/datatable-min.js',
-                'selector/selector-min.js'
-            );
-
+            $loadModule = SGX::ManageExperiments->new($dbh, $q);
+            $loadModule->dispatch_js(\@js_src_yui, \@js_src_code);
             $content = \&manageExperiments;
             $title = 'Experiments';
             $action = undef;    # final state
@@ -675,7 +677,7 @@ sub build_sidemenu
         my $curr_proj = $s->{session_cookie}->{curr_proj};
         if (defined($curr_proj) and $curr_proj ne '') {
             $proj_name = $q->a(
-                {-href=>"$url_prefix?a=manageProjects&ManageAction=edit&id=$curr_proj"}, 
+                {-href=>"$url_prefix?a=manageProjects&b=edit&id=$curr_proj"}, 
                 $proj_name
             );
         } else {
@@ -750,8 +752,11 @@ sub build_menu
 
         # upload
         push @{$menu{$upload}}, 
+            $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADEXP,
+                -title=>'Upload Experiment Data'}, 'Upload Experiments');
+        push @{$menu{$upload}}, 
             $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADANNOT,
-                -title=>'Upload Probe Annotations'}, 'Upload Annotations');
+                -title=>'Upload Probe Annotations'}, 'Upload Annotation');
 
         # manage
         push @{$menu{$manage}}, 
@@ -1374,6 +1379,23 @@ sub get_annot_fields {
     return;
 }
 #######################################################################################
+sub form_uploadExp {
+    my $addExperimentInfo =
+      SGX::AddExperiment->new( $dbh, $q, UPLOADEXP );
+    $addExperimentInfo->loadFromForm();
+    $addExperimentInfo->loadPlatformData();
+    $addExperimentInfo->drawAddExperimentMenu();
+}
+#######################################################################################
+sub uploadExp {
+    my $addExperimentInfo =
+      SGX::AddExperiment->new( $dbh, $q, undef );
+    $addExperimentInfo->loadFromForm();
+    $addExperimentInfo->addNewExperiment();
+
+    return 1;
+}
+#######################################################################################
 sub form_uploadAnnot {
 
     #If we have a newpid in the querystring, default the dropdown list.
@@ -1730,7 +1752,7 @@ sub uploadAnnot {
 sub managePlatforms
 {
     my $managePlatform = SGX::ManageMicroarrayPlatforms->new($dbh,$q);
-    $managePlatform->dispatch($q->url_param('ManageAction'));
+    $managePlatform->dispatch($q->url_param('b'));
     return;
 }
 
@@ -1746,7 +1768,7 @@ sub managePlatforms
 #===============================================================================
 sub manageProjects
 {
-    $loadModule->dispatch($q->url_param('ManageAction'));
+    $loadModule->dispatch();
     return;
 }
 
@@ -1763,7 +1785,7 @@ sub manageProjects
 sub manageStudies
 {
     my $ms = SGX::ManageStudies->new($dbh,$q, JS_DIR);
-    $ms->dispatch($q->url_param('ManageAction'));
+    $ms->dispatch($q->url_param('b'));
     return;
 }
 
@@ -1779,8 +1801,7 @@ sub manageStudies
 #===============================================================================
 sub manageExperiments
 {
-    my $me = SGX::ManageExperiments->new($dbh,$q, JS_DIR);
-    $me->dispatch($q->url_param('ManageAction'));
+    $loadModule->dispatch();
     return;
 }
 

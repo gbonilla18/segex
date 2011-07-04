@@ -227,7 +227,7 @@ sub showPlatforms
 	#.
 	print $self->{_cgi}->start_form(
 		-method=>'POST',
-		-action=>$self->{_cgi}->url(-absolute=>1).'?a=managePlatforms&ManageAction=add',
+		-action=>$self->{_cgi}->url(-absolute=>1).'?a=managePlatforms&b=add',
 		-onsubmit=>'return validate_fields(this, [\'pname\',\'species\']);'
 	) .
 	$self->{_cgi}->dl(
@@ -273,8 +273,8 @@ sub printTableInformation
 	my $arrayRef 	= shift;
 	my @names 	= @$arrayRef;
 	my $CGIRef 	= shift;
-	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=managePlatforms&ManageAction=delete&id=';
-	my $editURL	= $CGIRef->url(absolute=>1).'?a=managePlatforms&ManageAction=edit&id=';
+	my $deleteURL 	= $CGIRef->url(absolute=>1).'?a=managePlatforms&b=delete&id=';
+	my $editURL	= $CGIRef->url(absolute=>1).'?a=managePlatforms&b=edit&id=';
 
 	#This is the code to use the AJAXy update box for platform name..
 	my $postBackURLpname				= '"'.$CGIRef->url(-absolute=>1).'?a=updateCell"';
@@ -350,7 +350,7 @@ sub editPlatform
 	#Edit existing platform.
 	print $self->{_cgi}->start_form(
 		-method=>'POST',
-		-action=>$self->{_cgi}->url(-absolute=>1).'?a=managePlatforms&ManageAction=editSubmit&id=' . $self->{_pid},
+		-action=>$self->{_cgi}->url(-absolute=>1).'?a=managePlatforms&b=editSubmit&id=' . $self->{_pid},
 		-onsubmit=>'return validate_fields(this, [\'pname\',\'species\']);'
 	) .
 	$self->{_cgi}->dl(

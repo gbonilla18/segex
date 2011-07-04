@@ -196,7 +196,7 @@ sub dispatch {
     {
         my $redirectSite =
             $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageStudies&ManageAction=edit&id='
+          . '?a=manageStudies&b=edit&id='
           . $self->{_stid};
         my $redirectString =
 "<script type=\"text/javascript\">window.location = \"$redirectSite\"</script>";
@@ -353,7 +353,7 @@ sub showStudies {
     print $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageStudies&ManageAction=load',
+          . '?a=manageStudies&b=load',
         -onsubmit => 'return validate_fields(this, [\'study\']);'
       )
       . $self->{_cgi}->dl(
@@ -370,8 +370,7 @@ sub showStudies {
         $self->{_cgi}->dt('&nbsp;'),
         $self->{_cgi}->dd(
             $self->{_cgi}->submit(
-                -name  => 'SelectStudy',
-                -id    => 'SelectStudy',
+                -name  => 'b',
                 -class => 'css3button',
                 -value => 'Load'
             ),
@@ -398,7 +397,7 @@ sub showStudies {
     print $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageStudies&ManageAction=add',
+          . '?a=manageStudies&b=add',
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       )
       . $self->{_cgi}->dl(
@@ -508,9 +507,9 @@ sub printTableInformation {
     my @names     = @$arrayRef;
     my $CGIRef    = shift;
     my $deleteURL = $CGIRef->url( absolute => 1 )
-      . '?a=manageStudies&ManageAction=delete&id=';
+      . '?a=manageStudies&b=delete&id=';
     my $editURL =
-      $CGIRef->url( absolute => 1 ) . '?a=manageStudies&ManageAction=edit&id=';
+      $CGIRef->url( absolute => 1 ) . '?a=manageStudies&b=edit&id=';
 
     #This is the code to use the AJAXy update box for description..
     my $postBackURLDescr =
@@ -606,7 +605,7 @@ sub editStudy {
        $self->{_cgi}->start_form(
         -method => 'POST',
         -action => $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageStudies&ManageAction=editSubmit&id='
+          . '?a=manageStudies&b=editSubmit&id='
           . $self->{_stid},
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       )
@@ -686,7 +685,7 @@ sub editStudy {
         -method => 'POST',
         -name   => 'AddExistingForm',
         -action => $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageStudies&ManageAction=addExisting&id='
+          . '?a=manageStudies&b=addExisting&id='
           . $self->{_stid},
         -onsubmit => "return validate_fields(this,'');"
       )
@@ -734,7 +733,7 @@ sub editStudy {
         -method => 'POST',
         -name   => 'AddExistingUnassignedForm',
         -action => $self->{_cgi}->url( -absolute => 1 )
-          . '?a=manageStudies&ManageAction=addExisting&id='
+          . '?a=manageStudies&b=addExisting&id='
           . $self->{_stid},
         -onsubmit => "return validate_fields(this,'');"
       )
@@ -790,7 +789,7 @@ sub printExperimentTableInformation {
     my $studyID  = shift;
     my $deleteURL =
         $CGIRef->url( absolute => 1 )
-      . '?a=manageStudies&ManageAction=deleteExperiment&id='
+      . '?a=manageStudies&b=deleteExperiment&id='
       . $studyID
       . '&removeid=';
 

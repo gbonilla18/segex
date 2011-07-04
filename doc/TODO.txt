@@ -117,3 +117,8 @@ https://github.com/alexyoung/ico
 *) Under "Upload" section of main menu, add link "Upload Data" right above
 "Upload Annotation". The link will allow one to add an experiment to a specific
 study.
+
+*) Catch the exception that occurs on failure to connect to database (can test
+this easily by stopping MySQL daemon on Mac) and present the user with a page
+that describes what happened and encourages the user to send an email to the
+correct address (rather than display an ugly error message).

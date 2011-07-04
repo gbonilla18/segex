@@ -74,8 +74,8 @@ sub loadFromForm {
       if defined( $self->{_cgi}->param('stid') );
     $self->{_stid} = ( $self->{_cgi}->url_param('stid') )
       if defined( $self->{_cgi}->url_param('stid') );
-    $self->{_pid} = ( $self->{_cgi}->param('platform_addNew') )
-      if defined( $self->{_cgi}->param('platform_addNew') );
+    $self->{_pid} = ( $self->{_cgi}->param('pid') )
+      if defined( $self->{_cgi}->param('pid') );
     $self->{_ExperimentDescription} =
       ( $self->{_cgi}->param('ExperimentDescription') )
       if defined( $self->{_cgi}->param('ExperimentDescription') );
@@ -100,15 +100,12 @@ sub drawAddExperimentMenu {
     my $self = shift;
 
     print
-'<br /><h3 name = "Add_Caption" id = "Add_Caption">Add New Experiment</h3>'
+'<br /><h3 name = "Add_Caption" id = "Add_Caption">Upload Experiment Data</h3>'
       . "\n";
 
     print $self->{_cgi}->start_form(
         -method => 'POST',
-        -action => $self->{_cgi}->url( -absolute => 1 ) . '?a='
-          . $self->{_QueryingPage}
-          . '&ManageAction=addNew&stid='
-          . $self->{_stid},
+        -action => $self->{_cgi}->url( -absolute => 1 ) . '?a=' .  $self->{_QueryingPage},
         -onsubmit =>
 'return validate_fields(this, [\'Sample1\',\'Sample2\',\'uploaded_data_file\']);'
       )
@@ -125,8 +122,8 @@ sub drawAddExperimentMenu {
         $self->{_cgi}->dt('Platform:'),
         $self->{_cgi}->dd(
             $self->{_cgi}->popup_menu(
-                -name   => 'platform_addNew',
-                -id     => 'platform_addNew',
+                -name   => 'pid',
+                -id     => 'pid',
                 -values => [ keys %{ $self->{_platformList} } ],
                 -labels => $self->{_platformList}
             )
