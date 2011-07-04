@@ -135,9 +135,6 @@ email, the resulting page looks the same regardless of who the user is or what
 computer he or she uses. To achieve this goal, all state information should be
 expressly specified in the form of URL parameters in the GET request.
 
-Actions with names such as Load, Get, Show etc. are redundant (because HTTP
-request is already named GET).
-
 HTML
 
 Generated HTML should be valid. Since most pages being worked on are private, it

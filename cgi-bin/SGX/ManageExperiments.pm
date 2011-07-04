@@ -38,7 +38,9 @@ use URI::Escape;
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
 #       METHOD:  new
-#   PARAMETERS:  ????
+#   PARAMETERS:  dbh => $dbh        - DBI database handle
+#                cgi => $q          - reference to CGI.pm object instance
+#                user_session => $s - SGX::User instance reference
 #      RETURNS:  ????
 #  DESCRIPTION:  This is the constructor
 #       THROWS:  no exceptions
@@ -46,15 +48,19 @@ use URI::Escape;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
+    my ($class, %param) = @_;
 
-    my $class = shift;
+    my ($dbh, $q, $s, $js_src_yui, $js_src_code) = 
+        @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
     # :TODO:07/01/2011 04:02:51:es: To find out the number of probes for each
     # experiment, run separate queries for better performance
     my $self = {
-        _dbh    => shift,
-        _cgi    => shift,
-        _js_dir => shift,
+        _dbh    => $dbh,
+        _cgi    => $q,
+        _UserSession => $s,
+        _js_src_yui => $js_src_yui,
+        _js_src_code => $js_src_code,
 
         # load experiments when a study is known
         _LoadQuery => <<"END_LoadQuery",
@@ -239,7 +245,7 @@ sub dispatch {
             print $self->showExperiments();
         }
     }
-    return;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -254,8 +260,11 @@ sub dispatch {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub dispatch_js {
-    my ( $self, $js_src_yui, $js_ref ) = @_;
-    my $q = $self->{_cgi};
+    my ( $self ) = @_;
+
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+
     my $action =
       ( defined $q->param('b') )
       ? $q->param('b')
@@ -272,30 +281,83 @@ sub dispatch_js {
 
     switch ($action) {
         case 'delete' {
+            if (!$s->is_authorized('user')) { return; }
             $self->deleteExperiment(
                 id         => $q->param('id'),
                 deleteFrom => $q->param('deleteFrom')
             );
         }
+        case 'update' {
+            # This is a *very generic* method handling AJAX request --
+            # basically update a key-value pair in a specified row in the table
+            # # :TODO:07/04/2011 16:48:45:es: Abstract out this method into a
+            # base class for SGX modules.
+            #
+            my %valid_fields;
+            @valid_fields{qw{sample1 sample2 ExperimentDescription AdditionalInformation}} = ();
+
+            if (!$s->is_authorized('user')) {
+                # Send 401 Unauthorized header
+                print $q->header(-status=>401);
+                exit(0);
+            }
+            my $field = $q->param('field');
+            if (not defined($field) or not exists($valid_fields{$field})) {
+                # Send 400 Bad Request header
+                print $q->header(-status=>400);
+                exit(0);
+            }
+            # after field name has been checked against %valid_fields hash, it
+            # is safe to fill it in directly:
+            my $query = "update experiment set $field=? where eid=?";
+            # Note that when $q->param('value') is undefined, DBI should fill in
+            # NULL into the corresponding placeholder.
+            my $rc = eval { $dbh->do( $query, undef,
+                $q->param('value'),
+                $q->param('id')
+            )} or 0;
+
+            if ($rc) {
+                # Some rows were updated:
+                # Send 200 OK header
+                print $q->header(-status=>200);
+                exit(1);
+            } else {
+                if (!$@) {
+                    # Normal condition -- no rows updated:
+                    # Send 404 Not Found header
+                    print $q->header(-status=>404);
+                    exit(0);
+                } else {
+                    # Error condition -- no rows updated:
+                    # Send 400 Bad Request header
+                    print $q->header(-status=>400);
+                    $@->throw();
+                }
+            }
+        }
         case 'Load' {
+            if (!$s->is_authorized('user')) { return; }
             #$self->loadFromForm();
             $self->{_stid} = $q->param('study');
             $self->{_pid}  = $q->param('platform');
             $self->loadAllExperimentsFromStudy();
             $self->loadStudyData();
             $self->loadPlatformData();
-            push @$js_ref, { -code => $self->showExperiments_js() };
-            push @$js_ref, { -src  => 'ManageExperiments.js' };
+            push @$js_src_code, { -code => $self->showExperiments_js() };
+            push @$js_src_code, { -src  => 'ManageExperiments.js' };
         }
         else {
+            if (!$s->is_authorized('user')) { return; }
             #$self->loadAllExperimentsFromStudy();
             $self->loadStudyData();
             $self->loadPlatformData();
 
-            push @$js_ref, { -code => $self->showExperiments_js() };
-            push @$js_ref, { -src => 'ManageExperiments.js' };
+            push @$js_src_code, { -code => $self->showExperiments_js() };
+            push @$js_src_code, { -src => 'ManageExperiments.js' };
         }
     }
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================

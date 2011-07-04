@@ -78,9 +78,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
         YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = 
             function(elCell, oRecord, oColumn, oData) {
                 if(oRecord.getData("9") == '') {
-                    elCell.innerHTML = '<a title="Delete this experiment and its associated data from the database" onclick="return deleteConfirmation();" target="_self" href="' + deleteURL + oData + '">Delete</a>';
+                    elCell.innerHTML = '<a title="Delete this experiment and \
+its associated data from the database" onclick="return deleteConfirmation();" \
+target="_self" href="' + deleteURL + oData + '">Delete</a>';
                 } else {
-                    elCell.innerHTML = '<a title="Unassign this experiment from all studies" onclick="return deleteConfirmation({ itemName: \\"experiment\\" });" target="_self" href="' + deleteURL + oData + "&deleteFrom=" + encodeURI(oRecord.getData("9")) + '\">Unassign</a>';
+                    elCell.innerHTML = '<a title="Unassign this experiment \
+from all studies" onclick="return deleteConfirmation(\
+{ itemName: \\"experiment\\" });" target="_self" href="' + deleteURL + oData + 
+"&deleteFrom=" + encodeURI(oRecord.getData("9")) + '\">Unassign</a>';
                 }
         };
 
@@ -90,23 +95,21 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 label:"No."},
             {key:"0", sortable:true, resizeable:true, 
                 label:"Sample 1", editor:createCellEditor(
-                        url_prefix + "?a=updateCell",
+                        url_prefix + "?a=manageExperiments",
                         function(newValue, record) {
-                            return "type=experimentSamples" 
-                                 + "&S1=" + escape(newValue) 
-                                 + "&S2=" + encodeURI(record.getData("1")) 
-                                 + "&eid=" + encodeURI(record.getData("3"));
+                            return "b=update&field=sample1"
+                                 + "&value=" + escape(newValue) 
+                                 + "&id=" + encodeURI(record.getData("3"));
                         }
                     )
                 },
             {key:"1", sortable:true, resizeable:true, 
                 label:"Sample 2",editor:createCellEditor(
-                        url_prefix + "?a=updateCell",
+                        url_prefix + "?a=manageExperiments",
                         function(newValue, record) {
-                            return "type=experimentSamples"
-                                 + "&S1=" + encodeURI(record.getData("0")) 
-                                 + "&S2=" + escape(newValue) 
-                                 + "&eid=" + encodeURI(record.getData("3"));
+                            return "b=update&field=sample2"
+                                 + "&value=" + escape(newValue) 
+                                 + "&id=" + encodeURI(record.getData("3"));
                         }
                     )
                 },
@@ -114,23 +117,21 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 label:"Probe Count"},
             {key:"5", sortable:false, resizeable:true, 
                 label:"Experiment Description",editor:createCellEditor(
-                        url_prefix + "?a=updateCell",
+                        url_prefix + "?a=manageExperiments",
                         function(newValue, record) {
-                            return "type=experiment"
-                                 + "&desc=" + escape(newValue) 
-                                 + "&add=" + encodeURI(record.getData("6")) 
-                                 + "&eid=" + encodeURI(record.getData("3"));
+                            return "b=update&field=ExperimentDescription"
+                                 + "&value=" + escape(newValue) 
+                                 + "&id=" + encodeURI(record.getData("3"));
                         }
                     )
                 },
             {key:"6", sortable:false, resizeable:true, 
                 label:"Additional Information",editor:createCellEditor(
-                        url_prefix + "?a=updateCell",
+                        url_prefix + "?a=manageExperiments",
                         function(newValue, record) {
-                            return "type=experiment"
-                                 + "&desc=" + encodeURI(record.getData("5")) + 
-                                 + "&add=" + escape(newValue) 
-                                 + "&eid=" + encodeURI(record.getData("3"));
+                            return "b=update&field=AdditionalInformation"
+                                 + "&value=" + escape(newValue) 
+                                 + "&id=" + encodeURI(record.getData("3"));
                         }
                     )
                 },

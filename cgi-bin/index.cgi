@@ -104,7 +104,7 @@ use constant HELP            => 'help';
 use constant ABOUT            => 'about';
 use constant COMPAREEXPERIMENTS        => 'Compare';    # submit button text
 use constant FINDPROBES            => 'Search';        # submit button text
-use constant UPDATEPROBE        => 'updateCell';
+use constant UPDATECELL        => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
 use constant UPLOADEXP        => 'uploadExp';
 
@@ -193,7 +193,7 @@ while (defined($action)) { switch ($action) {
             $action = FORM.LOGIN;
         }
     }
-    case UPDATEPROBE {
+    case UPDATECELL {
         # AJAX request
         if ($s->is_authorized('user')) {
             if (updateCell()) {
@@ -263,9 +263,14 @@ while (defined($action)) { switch ($action) {
         }
     }
     case MANAGEEXPERIMENTS {
-        if ($s->is_authorized('user')) {
-            $loadModule = SGX::ManageExperiments->new($dbh, $q);
-            $loadModule->dispatch_js(\@js_src_yui, \@js_src_code);
+        $loadModule = SGX::ManageExperiments->new(
+            dbh => $dbh, 
+            cgi => $q,
+            user_session => $s,
+            js_src_yui => \@js_src_yui,
+            js_src_code => \@js_src_code
+        );
+        if ($loadModule->dispatch_js()) {
             $content = \&manageExperiments;
             $title = 'Experiments';
             $action = undef;    # final state
@@ -1189,28 +1194,6 @@ sub updateCell {
                     return 0;
                 }
             }
-        }
-        case 'experiment' 
-        {
-            my $rc = $dbh->do(
-                'update experiment set ExperimentDescription=?, AdditionalInformation=? where eid=?',
-                undef,
-                $q->param('desc'),
-                $q->param('add'),
-                $q->param('eid')
-            );
-            return $rc;
-        }
-        case 'experimentSamples' 
-        {
-            my $rc = $dbh->do(
-                'update experiment set sample1=?, sample2=? where eid=?',
-                undef,
-                $q->param('S1'),
-                $q->param('S2'),
-                $q->param('eid')
-            );
-            return $rc;
         }
         case 'study'
         {
