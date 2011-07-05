@@ -758,7 +758,7 @@ sub build_menu
         # upload
         push @{$menu{$upload}}, 
             $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADEXP,
-                -title=>'Upload Experiment Data'}, 'Upload Experiments');
+                -title=>'Upload Data from an Experiment'}, 'Upload Data');
         push @{$menu{$upload}}, 
             $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADANNOT,
                 -title=>'Upload Probe Annotations'}, 'Upload Annotation');
@@ -1367,7 +1367,7 @@ sub form_uploadExp {
       SGX::AddExperiment->new( $dbh, $q, UPLOADEXP );
     $addExperimentInfo->loadFromForm();
     $addExperimentInfo->loadPlatformData();
-    $addExperimentInfo->drawAddExperimentMenu();
+    print $addExperimentInfo->drawAddExperimentMenu();
 }
 #######################################################################################
 sub uploadExp {

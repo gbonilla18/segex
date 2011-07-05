@@ -1,37 +1,43 @@
 function populateSelectFilterStudy() {
 
-    var obj = document.getElementById("study");
-    var pid_object = document.getElementById("platform");
+    var studyDropdown = document.getElementById("study");
+    var platformDropdown = document.getElementById("platform");
 
-    var pid = pid_object.options[pid_object.selectedIndex].value;
+    // Currently getting current platform from selected option in the Platforms
+    // dropdown box. This is bad practice. Need to send current platform as JSON
+    // value.
+    var pid = platformDropdown.options[platformDropdown.selectedIndex].value;
 
     // first remove all existing option elements
     //
-    while (obj.options[0]) {
-        obj.removeChild(obj.options[0]);
+    while (studyDropdown.options[0]) {
+        studyDropdown.removeChild(studyDropdown.options[0]);
     }
 
     //Add 'Unassigned Studies' option
-    var opt_unassigned = document.createElement("option");
-    opt_unassigned.setAttribute('value', '');
-    opt_unassigned.innerHTML = 'Unassigned Studies';
-    obj.appendChild(opt_unassigned);			
+    var optionUnassigned = document.createElement("option");
+    optionUnassigned.setAttribute('value', '');
+    optionUnassigned.innerHTML = 'Unassigned';
+    studyDropdown.appendChild(optionUnassigned);			
 
     //Add 'All Studies' option
-    var opt_all = document.createElement("option");
-    opt_all.setAttribute('value', 'all');
-    opt_all.innerHTML = 'All Studies';
-    obj.appendChild(opt_all);
+    var optionAll = document.createElement("option");
+    optionAll.setAttribute('value', 'all');
+    optionAll.innerHTML = 'All Studies';
+    studyDropdown.appendChild(optionAll);
 
     //Add other options
     for (var i in studies) {
         // Only add the ones that are in the platform we selected.
-        if (pid === '' || studies[i][1] === pid )
+        if (pid === 'all' || studies[i][1] === pid )
         {
-            var opt_new = document.createElement("option");
-            opt_new.setAttribute('value', i);
-            opt_new.innerHTML = studies[i][0];
-            obj.appendChild(opt_new);
+            var option = document.createElement("option");
+            option.setAttribute('value', i);
+            if (typeof(curr_study) !== 'undefined' && curr_study == i) {
+                option.selected = "selected";
+            }
+            option.innerHTML = studies[i][0];
+            studyDropdown.appendChild(option);
         }
     }
 }
@@ -89,7 +95,18 @@ from all studies" onclick="return deleteConfirmation(\
                 }
         };
 
-        YAHOO.util.Dom.get("caption").innerHTML = JSStudyList.caption;
+        var caption = JSStudyList.caption;
+        if (typeof(curr_study) !== 'undefined') {
+            if (curr_study === 'all') {
+                caption += 'All Studies';
+            } else if (curr_study === '') {
+                caption += 'Unassigned';
+            } else {
+                caption += studies[curr_study][0];
+            }
+        }
+
+        YAHOO.util.Dom.get("caption").innerHTML = caption;
         var myColumnDefs = [
             {key:"3", sortable:true, resizeable:true, 
                 label:"No."},

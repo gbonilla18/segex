@@ -374,27 +374,26 @@ sub showExperiments_js {
     my ($self) = @_;
     my $q = $self->{_cgi};
 
-    my $return_text = sprintf("var studies = %s;\n",
-        $self->getJavaScriptRecordsForFilterDropDowns()
+    my $return_text = sprintf(
+        "var studies = %s;\nvar curr_study = '%s';\n",
+        $self->getJavaScriptRecordsForFilterDropDowns(),
+        $self->{_stid}
     );
 
     #If we have selected and loaded an experiment, load the table.
     if ( defined( $self->{_Data} ) ) {
         $return_text .= "var show_table = true;\n";
-        my $JSStudyList = {
-            caption => 'Showing all Experiments',
-            records => $self->printJSRecords(),
-            headers => $self->printJSHeaders()
-        };
 
         $return_text .= sprintf(
-            <<"END_showExperiments_js",
-var JSStudyList = %s;
-%s
-END_showExperiments_js
-            encode_json($JSStudyList),
-            $self->printTableInformation()
+            "var JSStudyList = %s;\n",
+            encode_json({
+                caption => 'Showing Experiments from: ',
+                records => $self->printJSRecords(),
+                headers => $self->printJSHeaders()
+            })
         );
+
+        $return_text .= $self->printTableInformation()
 
         #Now we need to re-select the current StudyID, if we have one.
         #if ( defined( $self->{_stid} ) and $self->{_stid} ne '' ) {
@@ -523,6 +522,7 @@ sub showExperiments {
             -method => 'GET',
             -action => $q->url( -absolute => 1 )
               . '?a=manageExperiments&b=Load',
+            -enctype => 'application/x-www-form-urlencoded',
             -onsubmit => 'return validate_fields(this, [\'study\']);'
         ),
         $q->dl(

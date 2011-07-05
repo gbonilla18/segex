@@ -145,9 +145,12 @@ example: my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q, session
 
 REST ARCHITECTURE
 
-Except for special cases, all forms should be sent as GET requests instead of
-POST. The URLs should be short enough and human readable enough that they could
-be modified by the user. Care should be taken that, in case a link is shared via
+Except for special cases (for example when file upload control is present), all
+forms should be sent as GET requests instead of POST. Whenever a form uses GET
+method, its enctype property must be set to "application/x-www-form-urlencoded"
+("multipart/form-data" creates a binary stream which doubles the traffic).  The
+URLs should be short enough and human readable enough that they could be
+modified by the user. Care should be taken that, in case a link is shared via
 email, the resulting page looks the same regardless of who the user is or what
 computer he or she uses. To achieve this goal, all state information should be
 expressly specified in the form of URL parameters in the GET request.
@@ -179,9 +182,12 @@ SQL
 
 SQL - General
 
-In Find Probe, we attempt to extract an adjacency list of probes based on
-accession number and gene symbol annotation. The current implementation only
-goes one level deep in the list. Illustration:
+In Find Probe, we attempt to retrieve all probes related to each other through
+gene symbols or accession numbers. The probe table joined with the annotation
+table forms an *adjacency list* of probe ids, so the problem we are looking at
+is recursively extracting all probes related to queried ones based on that
+adjacency list. The current implementation only goes one level deep in the list.
+Illustration:
 
    Probes          Accnum
       x --------> 12321  # x links to 12321
@@ -203,7 +209,6 @@ then combine it using UNION statement with a JOIN of Table A and q.
 
 http://explainextended.com/2009/09/24/adjacency-list-vs-nested-sets-postgresql/
 
-
 SQL - Performance
 
 With Perl code, performance should not be the main consideration, but it is the
@@ -215,7 +220,7 @@ of rows searched early on, using subqueries or INNER joins, (4) benchmark all
 queries, (5) try to rewrite a slow query in several alternative ways (for
 example, using RIGHT joins instead of LEFT etc.) and then benchmark all of them,
 (6) ensure that all commonly performed JOINS operate on indexed columns or
-combinations of columns; create necessary indexes otherwise, (7) use MySQL
+combinations of columns; create necessary indexes otherwise, (7) use query
 optimizer (EXPLAIN statement) to decide which columns should be indexed and to
 track the progress of the query and the number of rows it operates on. (8) avoid
 using NATURAL joins (this is more of a maintainability issue but may affect
@@ -242,7 +247,7 @@ THEORY - Compare Experiments
 
 Compare Experiments produces a list of significant probes in the selected
 experiments. A probe is called significant if it satisfies P<0.05 and
-foldchange>some_number in at least one of the selected experiments. The series
+|foldchange|>x in at least one of the selected experiments. The series
 of experiments (at least one of which, for a given probe, must be significant)
 can be viewed abstractly as a Horn clause -- a disjunction of literals with at
 least one positive literal.
@@ -250,4 +255,7 @@ least one positive literal.
 Some logic on Horn clauses:
 
    E1 | E2 | E3 | E4
-   E1 :- !E2 && !E3 && !E4
+   E1 :- !E2 & !E3 & !E4
+   E2 :- !E1 & !E3 & !E4
+   ...
+

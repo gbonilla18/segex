@@ -98,87 +98,85 @@ sub loadPlatformData {
 
 sub drawAddExperimentMenu {
     my $self = shift;
+    my $q = $self->{_cgi};
 
-    print
-'<br /><h3 name = "Add_Caption" id = "Add_Caption">Upload Experiment Data</h3>'
-      . "\n";
-
-    print $self->{_cgi}->start_form(
+    return 
+    $q->h2('Upload Data from an Experiment'),
+    $q->start_form(
         -method => 'POST',
-        -action => $self->{_cgi}->url( -absolute => 1 ) . '?a=' .  $self->{_QueryingPage},
+        -action => $q->url( -absolute => 1 ) . '?a=' .  $self->{_QueryingPage},
         -onsubmit =>
 'return validate_fields(this, [\'Sample1\',\'Sample2\',\'uploaded_data_file\']);'
-      )
-      . $self->{_cgi}->p(
+      ),
+      $q->p(
 'In order to upload experiment data the file must be in a tab separated format and the columns be as follows.'
-      )
-      . $self->{_cgi}->p(
+      ),
+      $q->p(
 '<b>Reporter Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2</b>'
-      )
-      . $self->{_cgi}->p(
+      ),
+      $q->p(
 'Make sure the first row is the column headings and the second row starts the data.'
-      )
-      . $self->{_cgi}->dl(
-        $self->{_cgi}->dt('Platform:'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->popup_menu(
+      ),
+      $q->dl(
+        $q->dt('Platform:'),
+        $q->dd(
+            $q->popup_menu(
                 -name   => 'pid',
                 -id     => 'pid',
                 -values => [ keys %{ $self->{_platformList} } ],
                 -labels => $self->{_platformList}
             )
         ),
-        $self->{_cgi}->dt('Sample 1:'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->textfield(
+        $q->dt('Sample 1:'),
+        $q->dd(
+            $q->textfield(
                 -name      => 'Sample1',
                 -id        => 'Sample1',
                 -maxlength => 120
             )
         ),
-        $self->{_cgi}->dt('Sample 2:'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->textfield(
+        $q->dt('Sample 2:'),
+        $q->dd(
+            $q->textfield(
                 -name      => 'Sample2',
                 -id        => 'Sample2',
                 -maxlength => 120
             )
         ),
-        $self->{_cgi}->dt('Experiment Description:'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->textfield(
+        $q->dt('Experiment Description:'),
+        $q->dd(
+            $q->textfield(
                 -name      => 'ExperimentDescription',
                 -id        => 'ExperimentDescription',
                 -maxlength => 1000
             )
         ),
-        $self->{_cgi}->dt('Additional Information:'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->textfield(
+        $q->dt('Additional Information:'),
+        $q->dd(
+            $q->textfield(
                 -name      => 'AdditionalInformation',
                 -id        => 'AdditionalInformation',
                 -maxlength => 1000
             )
         ),
-        $self->{_cgi}->dt("Data File to upload:"),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->filefield(
+        $q->dt("Data File to upload:"),
+        $q->dd(
+            $q->filefield(
                 -name => 'uploaded_data_file',
                 -id   => 'uploaded_data_file'
             )
         ),
-        $self->{_cgi}->dt('&nbsp;'),
-        $self->{_cgi}->dd(
-            $self->{_cgi}->submit(
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->submit(
                 -name  => 'AddExperiment',
                 -id    => 'AddExperiment',
                 -class => 'css3button',
                 -value => 'Add Experiment'
             )
         )
-      ) . $self->{_cgi}->end_form;
-
-    return 1;
+      ),
+      $q->end_form;
 }
 
 sub addNewExperiment {
@@ -292,15 +290,7 @@ sub addNewExperiment {
 "File not found to be in correct format. Please press the back button on your browser and try again.\n";
                     exit;
                 }
-
-                print {$OUTPUTTOSERVER} $self->{_stid} . '|'
-                  . $row[0] . '|'
-                  . $row[1] . '|'
-                  . $row[2] . '|'
-                  . $row[3] . '|'
-                  . $row[4] . '|'
-                  . $row[5];
-
+                print {$OUTPUTTOSERVER} join('|', ($self->{_stid}, @row[0..5]));
             }
         }
         close($OUTPUTTOSERVER);
