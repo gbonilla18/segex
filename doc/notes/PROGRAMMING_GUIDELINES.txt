@@ -160,6 +160,35 @@ addListener function from the YUI library and place corresponding code in the
 
 SQL
 
+SQL - General
+
+In Find Probe, we attempt to extract an adjacency list of probes based on
+accession number and gene symbol annotation. The current implementation only
+goes one level deep in the list. Illustration:
+
+   Probes          Accnum
+      x --------> 12321  # x links to 12321
+               /
+      y ------           # y links to both 12321 and 3423
+               \
+      z --------> 3423   # z links to 3423
+
+When searching for probe "x", Find Probes will also return probe "y" because it
+links to the same accession number as "y". It will not, however, return probe
+"z", even though "z", since it shares an accession number with "y", could be
+strongly associated with both x and y. Returning all three probes (and any
+others linked in this way) would require a recursive traversal of the bipartite
+graph formed by the sets of probes, accession numbers, and their relations.
+MySQL does not support recursive queries; however PostgreSQL has a "WITH
+RECURSIVE q AS () SELECT FROM q" statement where, inside the parentheses, we
+select the zeroth level with WHERE clause from a table (call it Table A) and
+then combine it using UNION statement with a JOIN of Table A and q.
+
+http://explainextended.com/2009/09/24/adjacency-list-vs-nested-sets-postgresql/
+
+
+SQL - Performance
+
 With Perl code, performance should not be the main consideration, but it is the
 main consideration with SQL, trumping readability (and nearly everything else).
 Strategies for best database performance: (1) joins are the most expensive

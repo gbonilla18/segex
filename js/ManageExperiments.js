@@ -116,7 +116,7 @@ from all studies" onclick="return deleteConfirmation(\
             {key:"2", sortable:true, resizeable:true, 
                 label:"Probe Count"},
             {key:"5", sortable:false, resizeable:true, 
-                label:"Experiment Description",editor:createCellEditor(
+                label:"Experiment",editor:createCellEditor(
                         url_prefix + "?a=manageExperiments",
                         function(newValue, record) {
                             return "b=update&field=ExperimentDescription"
@@ -126,7 +126,7 @@ from all studies" onclick="return deleteConfirmation(\
                     )
                 },
             {key:"6", sortable:false, resizeable:true, 
-                label:"Additional Information",editor:createCellEditor(
+                label:"Experiment: Additional Info",editor:createCellEditor(
                         url_prefix + "?a=manageExperiments",
                         function(newValue, record) {
                             return "b=update&field=AdditionalInformation"
@@ -138,9 +138,9 @@ from all studies" onclick="return deleteConfirmation(\
             {key:"3", sortable:false, resizeable:true, 
                 label:"Unassign\/Delete",formatter:"formatExperimentDeleteLink"},
             {key:"7", sortable:true, resizeable:true, 
-                label:"Study Description"},
+                label:"Study"},
             {key:"8", sortable:true, resizeable:true, 
-                label:"Platform Name"}
+                label:"Platform"}
         ];
 
         var myDataSource = new YAHOO.util.DataSource(JSStudyList.records);
