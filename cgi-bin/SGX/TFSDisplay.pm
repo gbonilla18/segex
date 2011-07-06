@@ -85,7 +85,6 @@ sub new {
 
     # find out what the current project is set to
     if (defined($self->{_UserSession})) {
-        #$self->{_UserSession}->read_perm_cookie();
         $self->{_WorkingProject} =
             $self->{_UserSession}->{session_cookie}->{curr_proj};
         $self->{_WorkingProjectName} =
