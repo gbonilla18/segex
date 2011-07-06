@@ -35,6 +35,16 @@ use File::Temp;
 use File::Path qw/remove_tree/;
 use Carp;
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  AddExperiment
+#       METHOD:  new
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub new {
 
     # This is the constructor
@@ -63,6 +73,16 @@ sub new {
     return $self;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  AddExperiment
+#       METHOD:  loadFromForm
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Loads CGI parameters
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadFromForm {
     my $self = shift;
 
@@ -85,7 +105,17 @@ sub loadFromForm {
     return 1;
 }
 
-#Loads information into the object that is used to create the study dropdown.
+#===  CLASS METHOD  ============================================================
+#        CLASS:  AddExperiment
+#       METHOD:  loadPlatformData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Loads information into the object that is used to create the
+#  study dropdown
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadPlatformData {
     my $self = shift;
 
@@ -96,6 +126,16 @@ sub loadPlatformData {
     return 1;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  AddExperiment
+#       METHOD:  drawAddExperimentMenu
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  returns array of HTML element strings
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub drawAddExperimentMenu {
     my $self = shift;
     my $q = $self->{_cgi};
@@ -179,6 +219,16 @@ sub drawAddExperimentMenu {
       $q->end_form;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  AddExperiment
+#       METHOD:  addNewExperiment
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Performs actual upload and data validation
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub addNewExperiment {
 
     #Get reference to our object.

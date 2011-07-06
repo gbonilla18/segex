@@ -48,31 +48,42 @@ sub new {
 	my $self = {
 		_dbh		=> shift,
 		_cgi	=> shift,
-		_LoadQuery	=> 'select 	platform.pname, 
-						platform.def_f_cutoff AS \'Default Fold Change\', 
-						platform.def_p_cutoff AS \'Default P-Value\', 
-						platform.species AS \'Species\',
-						platform.pid,
-						CASE 
-							WHEN isAnnotated THEN \'Y\' 
-							ELSE \'N\' 
-						END AS \'Annotated\',
-						COUNT(probe.rid) AS \'Probe Count\',
-						SUM(IF(IFNULL(probe.probe_sequence,\'\') <> \'\' ,1,0)) AS \'Probe Sequences Loaded\',
-						SUM(IF(IFNULL(annotates.gid,\'\') <> \'\',1,0)) AS \'Probes with Annotations\',
-						SUM(IF(IFNULL(gene.seqname,\'\') <> \'\',1,0)) AS \'Gene Symbol\',
-						SUM(IF(IFNULL(gene.description,\'\') <> \'\',1,0)) AS \'Gene Name\'	
-					FROM platform
-					LEFT JOIN probe 		ON probe.pid = platform.pid
-					LEFT JOIN annotates 	ON annotates.rid = probe.rid
-					LEFT JOIN gene 			ON gene.gid = annotates.gid
-					GROUP BY pname, 
-					def_f_cutoff, 
-					def_p_cutoff, 
-					species,
-					pid,
-					isAnnotated;',
-		_LoadSingleQuery=> 'select pname, def_f_cutoff, def_p_cutoff, species,pid,CASE WHEN isAnnotated THEN \'Y\' ELSE \'N\' END AS \'Is Annotated\' from platform WHERE pid = {0};',
+		_LoadQuery	=> <<"END_LoadQuery",
+SELECT platform.pname, 
+	platform.def_f_cutoff AS 'Default Fold Change', 
+	platform.def_p_cutoff AS 'Default P-Value', 
+	platform.species AS 'Species',
+	platform.pid,
+	CASE 
+		WHEN isAnnotated THEN 'Yes' 
+		ELSE 'No'
+	END AS 'Annotated',
+	COUNT(probe.rid) AS 'Probe Count',
+	COUNT(probe.probe_sequence) AS 'Probe Sequences',
+	COUNT(annotates.gid) AS 'Probes with Annotations',
+	COUNT(gene.seqname) AS 'Gene Symbols',
+	COUNT(gene.description) AS 'Gene Names'	
+FROM platform
+LEFT JOIN probe USING(pid)
+LEFT JOIN annotates USING(rid)
+LEFT JOIN gene USING(gid)
+GROUP BY pid
+
+END_LoadQuery
+
+		_LoadSingleQuery=> <<"END_LoadSingleQuery",
+select 
+    pname, 
+    def_f_cutoff, 
+    def_p_cutoff, 
+    species,
+    pid,
+    CASE WHEN isAnnotated THEN 'Y' ELSE 'N' END AS 'Is Annotated' 
+from platform 
+WHERE pid = {0}
+
+END_LoadSingleQuery
+
 		_UpdateQuery	=> 'UPDATE platform SET pname = \'{0}\',def_f_cutoff = \'{1}\', def_p_cutoff = \'{2}\', species = \'{3}\' WHERE pid = {4};',
 		_InsertQuery	=> 'INSERT INTO platform (pname,def_f_cutoff,def_p_cutoff,species) VALUES (\'{0}\',\'{1}\',\'{2}\',\'{3}\');',
 		_DeleteQuery	=> \@deleteStatementList,

@@ -63,9 +63,6 @@ sub new {
         _ProbeExperimentHash => '',
         _Data                => '',
         _eids                => '',
-        _ExperimentRec       => '',
-        _ExperimentCount     => 0,
-        _ExperimentData      => '',
         _FullExperimentRec   => '',
         _FullExperimentCount => 0,
         _FullExperimentData  => '',
@@ -132,8 +129,8 @@ sub new {
     bless $self, $class;
     return $self;
 }
-#######################################################################################
 
+#######################################################################################
 sub build_ExperimentDataQuery {
     my $self = shift;
     my $whereSQL;
@@ -154,23 +151,25 @@ SELECT
     microarray.ratio,
     microarray.foldchange,
     microarray.pvalue,
-    IFNULL(microarray.intensity1,0),
-    IFNULL(microarray.intensity2,0),
+    microarray.intensity1,
+    microarray.intensity2,
     CONCAT(
-        study.description, ': ', 
+        GROUP_CONCAT(study.description SEPARATOR ','), ': ', 
         experiment.sample2, '/', experiment.sample1
     ) AS 'Name',
-    study.stid,
+    GROUP_CONCAT(study.stid SEPARATOR ','),
     study.pid
 FROM microarray 
 INNER JOIN experiment USING(eid)
 INNER JOIN StudyExperiment USING(eid)
 INNER JOIN study USING(stid)
 $whereSQL
+GROUP BY experiment.eid
 ORDER BY experiment.eid ASC
 END_ExperimentDataQuery
 }
 
+#######################################################################################
 sub set_SearchItems {
     my ( $self, $mode ) = @_;
 
@@ -481,34 +480,28 @@ sub loadExperimentData {
 #    }
 #}
 
-    foreach my $key ( keys %{ $self->{_ProbeHash} } ) {
-        $self->build_ExperimentDataQuery();
-        my $tempReportQuery = $self->{_ExperimentDataQuery};
+    $self->build_ExperimentDataQuery();
+    my $sth   = $self->{_dbh}->prepare($self->{_ExperimentDataQuery});
 
-        $self->{_ExperimentRec}   = $self->{_dbh}->prepare($tempReportQuery);
-        $self->{_ExperimentCount} = $self->{_ExperimentRec}->execute($key);
-        $self->{_ExperimentData}  = $self->{_ExperimentRec}->fetchall_arrayref;
-        $self->{_ExperimentRec}->finish;
+    foreach my $key ( keys %{ $self->{_ProbeHash} } ) {
+        my $rc    = $sth->execute($key);
+        my $tmp = $sth->fetchall_arrayref;
 
         #We use a temp hash that gets added to the _ProbeExperimentHash.
         my %tempHash;
 
-        #For each experiment we get, stash the results in a string
-        foreach ( @{ $self->{_ExperimentData} } ) {
-
-            #This is a | seperated string with all the experiment info.
-
-#Add this experiment to the hash which will have all the experiments and their data for a given reporter.
-#$tempHash{$_->[0]} = $experimentDataString;
+        #For each experiment
+        foreach ( @$tmp ) {
+            # EID => [ratio, foldchange, pvalue, intensity1, intensity2]
             $tempHash{ $_->[0] } = [ @$_[ 1 .. 5 ] ];
 
-            #Keep a hash of EID and PID.
+            # EID => PID
             $self->{_ExperimentListHash}->{ $_->[0] } = $_->[8];
 
-            #Keep a hash of EID and STID.
+            # [EID, STID] => 1
             $self->{_ExperimentStudyListHash}->{ $_->[0] . '|' . $_->[7] } = 1;
 
-            #Keep a hash of experiment names and EID.
+            # EID => Name
             $self->{_ExperimentNameListHash}->{ $_->[0] } = $_->[6];
 
         }
@@ -517,6 +510,7 @@ sub loadExperimentData {
         $self->{_ProbeExperimentHash}->{$key} = \%tempHash;
 
     }
+    $sth->finish;
     return;
 }
 
@@ -663,14 +657,18 @@ sub printFindProbeCSV {
         foreach my $EIDvalue ( sort { $a <=> $b }
             keys %{ $self->{_ExperimentListHash} } )
         {
-
             #Only try to see the EID's for platform $currentPID.
             if ( $self->{_ExperimentListHash}->{$EIDvalue} == $currentPID ) {
 
                 # Add all the experiment data to the output string.
                 my $outputColumns =
                   $self->{_ProbeExperimentHash}->{$key}->{$EIDvalue};
-                $outRow .= join( ',', @$outputColumns ) . ',,';
+                my @outputColumns_array = (defined $outputColumns) 
+                                        ? @$outputColumns
+                                        : map {undef} 1..5;
+                $outRow .= join( ',', 
+                    map {(defined $_) ? $_ : ''} @outputColumns_array 
+                ) . ',,';
             }
         }
 

@@ -69,7 +69,7 @@ SELECT
     study.pid,
     experiment.sample1,
     experiment.sample2,
-    COUNT(1),
+    (SELECT COUNT(*) FROM microarray WHERE eid=experiment.eid) AS 'Probe Count',
     ExperimentDescription,
     AdditionalInformation,
     IF(study.stid IS NULL, 'Unknown Study', study.description) AS description,
@@ -79,7 +79,6 @@ FROM experiment
 INNER JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
 INNER JOIN study ON study.stid = StudyExperiment.stid
 LEFT JOIN platform ON platform.pid = study.pid
-LEFT JOIN microarray ON microarray.eid = experiment.eid
 WHERE study.stid=?
 GROUP BY experiment.eid
 ORDER BY experiment.eid ASC
@@ -144,27 +143,27 @@ ORDER BY experiment.eid ASC
 
 END_LoadAllExperimentsQuery
 
-        _LoadSingleQuery => <<"END_LoadSingleQuery",
-SELECT eid,
-    sample1,
-    sample2,
-    ExperimentDescription,
-    AdditionalInformation
-FROM experiment
-NATURAL JOIN StudyExperiment
-NATURAL JOIN study
-WHERE experiment.eid = {0}
+#        _LoadSingleQuery => <<"END_LoadSingleQuery",
+#SELECT eid,
+#    sample1,
+#    sample2,
+#    ExperimentDescription,
+#    AdditionalInformation
+#FROM experiment
+#NATURAL JOIN StudyExperiment
+#NATURAL JOIN study
+#WHERE experiment.eid = {0}
+#
+#END_LoadSingleQuery
 
-END_LoadSingleQuery
-
-        _UpdateQuery => <<"END_UpdateQuery",
-UPDATE experiment
-SET ExperimentDescription = '{0}',
-    AdditionalInformation = '{1}',
-    sample1 = '{2}',
-    sample2 = '{3}'
-WHERE eid = {4}
-END_UpdateQuery
+#        _UpdateQuery => <<"END_UpdateQuery",
+#UPDATE experiment
+#SET ExperimentDescription = '{0}',
+#    AdditionalInformation = '{1}',
+#    sample1 = '{2}',
+#    sample2 = '{3}'
+#WHERE eid = {4}
+#END_UpdateQuery
 
         _DeleteQueries => [
             'DELETE FROM microarray WHERE eid = ?',
@@ -374,11 +373,12 @@ sub showExperiments_js {
     my ($self) = @_;
     my $q = $self->{_cgi};
 
-    my $return_text = sprintf(
-        "var studies = %s;\nvar curr_study = '%s';\n",
-        $self->getJavaScriptRecordsForFilterDropDowns(),
-        $self->{_stid}
-    );
+    my $return_text = 
+        sprintf( "var studies = %s;\n",
+                $self->getJavaScriptRecordsForFilterDropDowns())
+        .
+        sprintf( "var curr_study = '%s';\n",
+                (defined $self->{_stid}) ? $self->{_stid} : 'all');
 
     #If we have selected and loaded an experiment, load the table.
     if ( defined( $self->{_Data} ) ) {
@@ -387,7 +387,7 @@ sub showExperiments_js {
         $return_text .= sprintf(
             "var JSStudyList = %s;\n",
             encode_json({
-                caption => 'Showing Experiments from: ',
+                caption => 'Showing Experiments',
                 records => $self->printJSRecords(),
                 headers => $self->printJSHeaders()
             })

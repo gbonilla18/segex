@@ -95,7 +95,7 @@ from all studies" onclick="return deleteConfirmation(\
                 }
         };
 
-        var caption = JSStudyList.caption;
+        var caption = JSStudyList.caption + ' from: ';
         if (typeof(curr_study) !== 'undefined') {
             if (curr_study === 'all') {
                 caption += 'All Studies';
