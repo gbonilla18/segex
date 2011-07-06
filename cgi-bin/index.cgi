@@ -731,7 +731,7 @@ sub build_sidemenu
 #===============================================================================
 sub build_menu
 {
-    my ($view, $upload, $manage) = ('View', 'Upload', 'Manage');
+    my ($view, $upload, $manage) = ('Query', 'Upload', 'Manage');
     my %menu;
     my $menu_t = tie(
         %menu, 'Tie::IxHash',

@@ -30,9 +30,19 @@ use warnings;
 
 use Switch;
 use SGX::DrawingJavaScript;
+use JSON::XS;
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  new
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub new {
-	# This is the constructor
 	my $class = shift;
 
 	my @deleteStatementList;
@@ -148,7 +158,16 @@ sub dispatch
     }
 }
 
-#Loads all platforms into the object from the database.
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  loadAllPlatforms
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Loads all platforms into the object from the database.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadAllPlatforms
 {
 	my $self = shift;
@@ -160,7 +179,16 @@ sub loadAllPlatforms
 	$self->{_Records}->finish;
 }
 
-#Loads a single platform from the database based on the URL parameter.
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  loadSinglePlatform
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Loads a single platform from the database based on the URL parameter
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadSinglePlatform
 {
 	#Grab object and id from URL.
@@ -188,7 +216,16 @@ sub loadSinglePlatform
 	$self->{_Records}->finish;
 }
 
-#Load the data from the submitted form.
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  loadFromForm
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Load the data from the submitted form.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadFromForm
 {
 	my $self = shift;
@@ -200,32 +237,40 @@ sub loadFromForm
 	$self->{_pid}		= ($self->{_cgi}->url_param('id')) 	if defined($self->{_cgi}->url_param('id'));
 }
 
-#Draw the javascript and HTML for the platform table.
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  showPlatforms
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Draw the javascript and HTML for the platform table.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub showPlatforms 
 {
 	my $self = shift;
-	my $error_string = "";
-	my $JSPlatformList = "var JSPlatformList = {caption: \"Showing all Platforms\",records: [";
 
+    my @JSPlatformList;
 	#Loop through data and load into JavaScript array.
-	foreach (sort {$a->[3] cmp $b->[3]} @{$self->{_Data}}) 
+	foreach my $row (sort {$a->[3] cmp $b->[3]} @{$self->{_Data}}) 
 	{
-		foreach (@$_) 
-		{
-			$_ = '' if !defined $_;
-			$_ =~ s/"//g;	# strip all double quotes (JSON data are bracketed with double quotes)
-		}
-
-		$JSPlatformList .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"'.$_->[4].'",5:"'.$_->[5].'",6:"'.$_->[6].'",7:"'.$_->[7].'",8:"'.$_->[8].'",9:"'.$_->[9].'",10:"'.$_->[10].'"},';
+        push @JSPlatformList, { map { $_ => $row->[$_] } 0..10 };
 	}
-	$JSPlatformList =~ s/,\s*$//;	# strip trailing comma
-	$JSPlatformList .= ']};' . "\n";
+    
 	print	'<h2>Manage Platforms</h2><br /><br />' . "\n";
 	print	'<h3 name = "caption" id="caption"></h3>' . "\n";
 	print	'<div><a id="PlatformTable_astext">View as plain text</a></div>' . "\n";
 	print	'<div id="PlatformTable"></div>' . "\n";
 	print	"<script type=\"text/javascript\">\n";
-	print $JSPlatformList;
+	print sprintf(<<"END_JSPlatformList",
+var JSPlatformList = {
+    caption: 'Showing all Platforms',
+    records: %s
+};
+END_JSPlatformList
+        encode_json(\@JSPlatformList)
+    );
 
     print "YAHOO.util.Event.addListener(\"PlatformTable_astext\", \"click\", export_table, JSPlatformList, true);\n";
 	printTableInformation($self->{_FieldNames},$self->{_cgi});
@@ -235,7 +280,6 @@ sub showPlatforms
 
 	print	'<br /><h3 name = "Add_Caption" id = "Add_Caption">Add Platform</h3>' . "\n";
 
-	#.
 	print $self->{_cgi}->start_form(
 		-method=>'POST',
 		-action=>$self->{_cgi}->url(-absolute=>1).'?a=managePlatforms&b=add',
@@ -256,6 +300,16 @@ sub showPlatforms
 	$self->{_cgi}->end_form;	
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  printDrawResultsTableJS
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub printDrawResultsTableJS
 {
 	print	'
@@ -279,6 +333,16 @@ sub printDrawResultsTableJS
 	
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  printTableInformation
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub printTableInformation
 {
 	my $arrayRef 	= shift;
@@ -324,6 +388,16 @@ sub printTableInformation
 		];' . "\n";
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  insertNewPlatform
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub insertNewPlatform
 {
 	my $self = shift;
@@ -338,6 +412,16 @@ sub insertNewPlatform
 	$self->{_pid}		= $self->{_dbh}->{'mysql_insertid'};
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  deletePlatform
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub deletePlatform
 {
 	my $self = shift;
@@ -352,6 +436,16 @@ sub deletePlatform
 
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  editPlatform
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub editPlatform
 {
 	my $self = shift;
@@ -380,6 +474,16 @@ sub editPlatform
 	$self->{_cgi}->end_form;	
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageMicroarrayPlatforms
+#       METHOD:  editSubmitPlatform
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub editSubmitPlatform
 {	
 	my $self = shift;
@@ -392,4 +496,5 @@ sub editSubmitPlatform
 
 	$self->{_dbh}->do($updateStatement) or die $self->{_dbh}->errstr;
 }
+
 1;

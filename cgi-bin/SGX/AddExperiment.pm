@@ -66,7 +66,7 @@ sub new {
         _sample1               => '',
         _sample2               => '',
         _ExperimentDescription => '',
-        _AdditionalInformation => ''
+        _AdditionalInfo        => ''
     };
 
     bless $self, $class;
@@ -96,12 +96,10 @@ sub loadFromForm {
       if defined( $self->{_cgi}->url_param('stid') );
     $self->{_pid} = ( $self->{_cgi}->param('pid') )
       if defined( $self->{_cgi}->param('pid') );
-    $self->{_ExperimentDescription} =
-      ( $self->{_cgi}->param('ExperimentDescription') )
-      if defined( $self->{_cgi}->param('ExperimentDescription') );
-    $self->{_AdditionalInformation} =
-      ( $self->{_cgi}->param('AdditionalInformation') )
-      if defined( $self->{_cgi}->param('AdditionalInformation') );
+    $self->{_ExperimentDescription} = ( $self->{_cgi}->param('ExperimentName') )
+      if defined( $self->{_cgi}->param('ExperimentName') );
+    $self->{_AdditionalInfo} = ( $self->{_cgi}->param('AdditionalInfo') )
+      if defined( $self->{_cgi}->param('AdditionalInfo') );
     return 1;
 }
 
@@ -138,15 +136,16 @@ sub loadPlatformData {
 #===============================================================================
 sub drawAddExperimentMenu {
     my $self = shift;
-    my $q = $self->{_cgi};
+    my $q    = $self->{_cgi};
 
-    return 
-    $q->h2('Upload Data from an Experiment'),
-    $q->start_form(
-        -method => 'POST',
-        -action => $q->url( -absolute => 1 ) . '?a=' .  $self->{_QueryingPage},
+    return
+      $q->h2('Upload Data to a New Experiment'),
+      $q->start_form(
+        -method  => 'POST',
+        -action  => $q->url( -absolute => 1 ) . '?a=' . $self->{_QueryingPage},
+        -enctype => 'multipart/form-data',
         -onsubmit =>
-'return validate_fields(this, [\'Sample1\',\'Sample2\',\'uploaded_data_file\']);'
+'return validate_fields(this, [\'Sample1\',\'Sample2\',\'UploadFile\']);'
       ),
       $q->p(
 'In order to upload experiment data the file must be in a tab separated format and the columns be as follows.'
@@ -158,7 +157,7 @@ sub drawAddExperimentMenu {
 'Make sure the first row is the column headings and the second row starts the data.'
       ),
       $q->dl(
-        $q->dt('Platform:'),
+        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
             $q->popup_menu(
                 -name   => 'pid',
@@ -167,7 +166,7 @@ sub drawAddExperimentMenu {
                 -labels => $self->{_platformList}
             )
         ),
-        $q->dt('Sample 1:'),
+        $q->dt( $q->label( { -for => 'Sample1' }, 'Sample 1:' ) ),
         $q->dd(
             $q->textfield(
                 -name      => 'Sample1',
@@ -175,7 +174,7 @@ sub drawAddExperimentMenu {
                 -maxlength => 120
             )
         ),
-        $q->dt('Sample 2:'),
+        $q->dt( $q->label( { -for => 'Sample2' }, 'Sample 2:' ) ),
         $q->dd(
             $q->textfield(
                 -name      => 'Sample2',
@@ -183,27 +182,31 @@ sub drawAddExperimentMenu {
                 -maxlength => 120
             )
         ),
-        $q->dt('Experiment Description:'),
+        $q->dt( $q->label( { -for => 'ExperimentName' }, 'Experiment Name:' ) ),
         $q->dd(
             $q->textfield(
-                -name      => 'ExperimentDescription',
-                -id        => 'ExperimentDescription',
+                -name      => 'ExperimentName',
+                -id        => 'ExperimentName',
                 -maxlength => 1000
             )
         ),
-        $q->dt('Additional Information:'),
+        $q->dt(
+            $q->label(
+                { -for => 'AdditionalInfo' }, 'Additional Information:'
+            )
+        ),
         $q->dd(
             $q->textfield(
-                -name      => 'AdditionalInformation',
-                -id        => 'AdditionalInformation',
+                -name      => 'AdditionalInfo',
+                -id        => 'AdditionalInfo',
                 -maxlength => 1000
             )
         ),
-        $q->dt("Data File to upload:"),
+        $q->dt( $q->label( { -for => 'UploadFile' }, 'Data File to Upload:' ) ),
         $q->dd(
             $q->filefield(
-                -name => 'uploaded_data_file',
-                -id   => 'uploaded_data_file'
+                -name => 'UploadFile',
+                -id   => 'UploadFile'
             )
         ),
         $q->dt('&nbsp;'),
@@ -235,7 +238,7 @@ sub addNewExperiment {
     my $self = shift;
 
     #The is the file handle of the uploaded file.
-    my $uploadedFile = $self->{_cgi}->upload('uploaded_data_file');
+    my $uploadedFile = $self->{_cgi}->upload('UploadFile');
 
     if ( !$uploadedFile ) {
         print
@@ -248,7 +251,7 @@ sub addNewExperiment {
         $insertStatement =~ s/\{0\}/\Q$self->{_sample1}\E/;
         $insertStatement =~ s/\{1\}/\Q$self->{_sample2}\E/;
         $insertStatement =~ s/\{2\}/\Q$self->{_ExperimentDescription}\E/;
-        $insertStatement =~ s/\{3\}/\Q$self->{_AdditionalInformation}\E/;
+        $insertStatement =~ s/\{3\}/\Q$self->{_AdditionalInfo}\E/;
 
         $self->{_dbh}->do($insertStatement);
 
@@ -340,7 +343,8 @@ sub addNewExperiment {
 "File not found to be in correct format. Please press the back button on your browser and try again.\n";
                     exit;
                 }
-                print {$OUTPUTTOSERVER} join('|', ($self->{_stid}, @row[0..5]));
+                print {$OUTPUTTOSERVER}
+                  join( '|', ( $self->{_stid}, @row[ 0 .. 5 ] ) );
             }
         }
         close($OUTPUTTOSERVER);

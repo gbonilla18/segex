@@ -29,9 +29,19 @@ use warnings;
 
 use Math::BigInt;
 use Data::Dumper;
+use JSON::XS;
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  new
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub new {
-	# This is the constructor
 	my ($class, $dbh, %param) = @_;
 
 	my $self = {
@@ -98,9 +108,16 @@ sub new {
 }
 
 
-#######################################################################################
-#LOAD TFS DATA
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  loadTFSData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  LOAD TFS DATA
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadTFSData
 {
 	my $self = shift;	
@@ -249,11 +266,17 @@ ORDER BY abs_fs DESC
 	$self->{_RowCountAll} = $self->{_Records}->execute or die $self->{_dbh}->errstr;
 
 }
-#######################################################################################
 
-#######################################################################################
-#LOAD PLATFORM DATA FOR CSV OUTPUT
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  getPlatformData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  LOAD PLATFORM DATA FOR CSV OUTPUT
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub getPlatformData
 {
 	my $self = shift;
@@ -283,11 +306,17 @@ sub getPlatformData
 	$self->{_RecordsPlatform}->finish;
 
 }
-#######################################################################################
 
-#######################################################################################
-#LOAD DATA FROM FORM.
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  loadDataFromSubmission
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  LOAD DATA FROM FORM
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadDataFromSubmission
 {
 	my $self = shift;	
@@ -312,12 +341,18 @@ sub loadDataFromSubmission
 	$self->{_searchFilters}	= $self->{_cgi}->param('searchFilter');
 	
 }
-#######################################################################################
 
 
-#######################################################################################
-#LOAD ALL DATA FOR CSV OUTPUT
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  loadAllData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  LOAD ALL DATA FOR CSV OUTPUT
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadAllData
 {
 	my $self = shift;	
@@ -447,11 +482,18 @@ sub loadAllData
 	$self->{_Data}				= $self->{_Records}->fetchall_arrayref;	
 
 }
-#######################################################################################
 
-#######################################################################################
-#DISPLAY PLATFORM,EXPERIMENT INFO, AND EXPERIMENT DATA TO A CSV FILE.
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  displayTFSInfoCSV
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  DISPLAY PLATFORM,EXPERIMENT INFO, AND EXPERIMENT DATA TO A CSV
+#  FILE
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub displayTFSInfoCSV
 {
 	my $self = shift;
@@ -615,11 +657,18 @@ sub displayTFSInfoCSV
 
 	exit;
 }
-#######################################################################################
 
 
-#######################################################################################
-#Display TFS info.
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  displayTFSInfo
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Display TFS info
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub displayTFSInfo
 {
 	my $self = shift;
@@ -630,30 +679,37 @@ var summary = {
 caption: "Experiments compared",
 headers: ["&nbsp;","Experiment Number", "Study Description", "Sample2/Sample1", "Experiment Description", "&#124;Fold Change&#124; &gt;", "P &lt;", "&nbsp;"],
 parsers: ["number","number", "string", "string", "string", "number", "number", "string"],
-records: [
+records: 
 ';
 
+    my @tmpArrayHead;
 	for ($i = 0; $i < @{$self->{_eids}}; $i++) {
 
 		my @IDSplit = split(/\|/,${$self->{_eids}}[$i]);
 		my $currentEID = $IDSplit[1];
 
-		my $currentTitle = $self->{_headerRecords}->{$currentEID}->{title};
-		$currentTitle    =~ s/"/\\"/g;
+        my $this_eid = $self->{_headerRecords}->{$currentEID};
+		my $currentTitle = $this_eid->{title};
 
-		my $currentStudyDescription = $self->{_headerRecords}->{$currentEID}->{description};
-		my $currentExperimentHeading = $self->{_headerRecords}->{$currentEID}->{experimentHeading};
-		my $currentExperimentDescription = $self->{_headerRecords}->{$currentEID}->{ExperimentDescription};
+		my $currentStudyDescription = $this_eid->{description};
+		my $currentExperimentHeading = $this_eid->{experimentHeading};
+		my $currentExperimentDescription = $this_eid->{ExperimentDescription};
 		
-		$out .= '{0:"' . ($i + 1) . '",1:"' . $currentEID . '",2:"' . $currentStudyDescription . '",3:"' . $currentExperimentHeading . '",4:"' . $currentExperimentDescription . '",5:"' . ${$self->{_fcs}}[$i] . '",6:"' . ${$self->{_pvals}}[$i].'",7:"';
-		
-		# test for bit presence and print out 1 if present, 0 if absent
-		if (defined($self->{_fs})) { $out .= (1 << $i & $self->{_fs}) ? "x\"},\n" : "\"},\n" }
-		else { $out .= "\"},\n" }
+        push @tmpArrayHead, { 
+            0 => ($i + 1),
+            1 => $currentEID,
+            2 => $currentStudyDescription,
+            3 => $currentExperimentHeading,
+            4 => $currentExperimentDescription,
+            5 => ${$self->{_fcs}}[$i],
+            6 => ${$self->{_pvals}}[$i],
+            7 => (defined($self->{_fs}) && 1 << $i & $self->{_fs}) ? 'x' : ''
+        };
 	}
-	$out =~ s/,\s*$//;	# strip trailing comma
-	$out .= '
-]};
+
+	$out .= encode_json(\@tmpArrayHead)
+         . '
+};
 ';
 
 #0:Counter
@@ -709,39 +765,24 @@ headers: ["TFS", 		"'.join('","', @table_header).		'" ],
 parsers: ["string", 	"'.join('","', @table_parser).		'" ],
 formats: ["formatText", "'.join('","', @table_format).		'" ],
 frm_tpl: ["", 			"'.join('","', @format_template).	'" ],
-records: [
+records: 
 ';
 	# print table body
+    my @tmpArray;
 	while (my @row = $self->{_Records}->fetchrow_array) {
-		my $abs_fs = shift(@row);
-		my $dir_fs = shift(@row);
+        my ($abs_fs, $dir_fs) = splice @row, 0, 2;
 
 		# Math::BigInt->badd(x,y) is used to add two very large numbers x and y
 		# actually Math::BigInt library is supposed to overload Perl addition operator,
 		# but if fails to do so for some reason in this CGI program.
 		my $TFS = sprintf("$abs_fs.%0".@{$self->{_eids}}.'s', Math::BigInt->badd(substr(unpack('b32', pack('V', $abs_fs)),0,@{$self->{_eids}}), substr(unpack('b32', pack('V', $dir_fs)),0,@{$self->{_eids}})));
 
-		$out .= "{0:\"$TFS\"";
-		
-		foreach (@row) { $_ = '' if !defined $_ }
-		
-		$row[2] =~ s/\"//g;	# strip off quotes from gene symbols
-		
-		my $real_num_start = $self->{_numStart} - 2; # TODO: verify why '2' is used here
-		
-		for (my $j = 0; $j < $real_num_start; $j++) {
-			$out .= ','.($j + 1).':"'.$row[$j].'"';	# string value
-		}
-		
-		for (my $j = $real_num_start; $j < @row; $j++) {
-			$out .=	','.($j + 1).':'.$row[$j];	# numeric value
-		}
-		$out .= "},\n";
+        push @tmpArray, { 0 => $TFS, map { $_ => $row[$_ - 1] } 1..@row };
 	}
 	$self->{_Records}->finish;
-	$out =~ s/,\s*$//;	# strip trailing comma
-	$out .= '
-]};
+    $out .= encode_json(\@tmpArray)
+	     . '
+};
 
 YAHOO.util.Event.addListener("summ_astext", "click", export_table, summary, true);
 YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
@@ -781,7 +822,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
 	}
 	Formatter.formatNumber = function(elCell, oRecord, oColumn, oData) {
 		// Overrides the built-in formatter
-		elCell.innerHTML = oData.toPrecision(3);
+        if (oData !== null) {
+            elCell.innerHTML = oData.toPrecision(3);
+        }
 	}
 	Dom.get("tfs_caption").innerHTML = tfs.caption;
 	var tfs_table_defs = [];
