@@ -246,8 +246,8 @@ sub getFormHTML {
     $q->div({-id=>'filterList', -style=>'display:none;'},
         $q->h3('Filter on the following terms:'),
         $q->dl(
-            $q->dt($q->label({-for=>'search_terms'}, 'Search term(s):')),
-            $q->dd($q->textarea(-rows=>10, -columns=>50, -tabindex=>1, -name=>'search_terms', -id=>'search_terms')),
+            $q->dt($q->label({-for=>'terms'}, 'Search term(s):')),
+            $q->dd($q->textarea(-rows=>10, -columns=>50, -tabindex=>1, -name=>'terms', -id=>'terms')),
         )
     ),
     $q->div({-id=>'filterUpload',-style=>'display:none;'},
@@ -327,7 +327,7 @@ sub getResultsJS
     {
         # if $q->param('upload_file') is not set, all other fields in Upload File
         # subsection don't matter
-        assert(!$q->param('search_terms'));
+        assert(!$q->param('terms'));
         my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q);
         $findProbes->{_WorkingProject} = $curr_proj;
 
@@ -346,9 +346,9 @@ sub getResultsJS
         $probeList     = $findProbes->getProbeList();
         $probeListQuery    = " WHERE rid IN ($probeList) ";
     }
-    elsif($q->param('search_terms'))
+    elsif($q->param('terms'))
     {
-        # if $q->param('search_terms') is not set, all other fields in Filter List
+        # if $q->param('terms') is not set, all other fields in Filter List
         # subsection don't matter
         assert(!$q->param('upload_file'));
         my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q);

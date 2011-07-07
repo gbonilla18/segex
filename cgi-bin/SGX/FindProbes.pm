@@ -174,7 +174,7 @@ sub set_SearchItems {
     my ( $self, $mode ) = @_;
 
     # 'text' must always be set
-    my $text = $self->{_cgi}->param('search_terms');
+    my $text = $self->{_cgi}->param('terms');
 
     #This will be the array that holds all the splitted items.
     my @textSplit;
@@ -840,11 +840,11 @@ sub getFormHTML {
       $q->p('You can enter here a list of probes, accession numbers, or gene names. 
           The results will contain probes that are related to the search terms.'),
       $q->dl(
-        $q->dt( $q->label( { -for => 'search_terms' }, 'Search term(s):' ) ),
+        $q->dt( $q->label( { -for => 'terms' }, 'Search term(s):' ) ),
         $q->dd(
             $q->textarea(
-                -name     => 'search_terms',
-                -id       => 'search_terms',
+                -name     => 'terms',
+                -id       => 'terms',
                 -rows     => 10,
                 -columns  => 50,
                 -tabindex => 1
@@ -1170,7 +1170,7 @@ sub findProbes_js {
 %sFound %d probe%s annotated with $type groups matching '$qtext' (${type}s grouped
 by gene symbol or accession number)
 END_caption
-            (defined $proj_name) ? "${proj_name}: " : '',
+            (defined($proj_name) and $proj_name ne '') ? "${proj_name}: " : '',
             $rowcount,
             ( $rowcount == 1 ) ? '' : 's'
         );

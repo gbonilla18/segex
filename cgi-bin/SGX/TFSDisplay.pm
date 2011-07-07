@@ -745,7 +745,7 @@ for (my $j = $self->{_numStart}; $j < @{$self->{_Records}->{NAME}}; $j++) {
 	push @table_format, 'formatNumber';
 }
 
-my $find_probes = $self->{_cgi}->a({-target=>'_blank', -href=>$self->{_cgi}->url(-absolute=>1).'?a=Search&graph=on&type=%1$s&text={0}', -title=>'Find all %1$ss related to %1$s {0}'}, '{0}');
+my $find_probes = $self->{_cgi}->a({-target=>'_blank', -href=>$self->{_cgi}->url(-absolute=>1).'?a=Search&graph=on&type=%1$s&terms={0}', -title=>'Find all %1$ss related to %1$s {0}'}, '{0}');
 $find_probes =~ s/"/\\"/g;	# prepend all double quotes with backslashes
 
 my @format_template;
