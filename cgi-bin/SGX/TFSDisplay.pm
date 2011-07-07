@@ -695,6 +695,7 @@ records:
 		my $currentExperimentHeading = $this_eid->{experimentHeading};
 		my $currentExperimentDescription = $this_eid->{ExperimentDescription};
 		
+        # test for bit presence (store in 7:)
         push @tmpArrayHead, { 
             0 => ($i + 1),
             1 => $currentEID,

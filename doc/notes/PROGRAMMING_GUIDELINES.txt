@@ -281,15 +281,4 @@ THEORY - Compare Experiments
 
 Compare Experiments produces a list of significant probes in the selected
 experiments. A probe is called significant if it satisfies P<0.05 and
-|foldchange|>x in at least one of the selected experiments. The series
-of experiments (at least one of which, for a given probe, must be significant)
-can be viewed abstractly as a Horn clause -- a disjunction of literals with at
-least one positive literal.
-
-Some logic on Horn clauses:
-
-   E1 | E2 | E3 | E4
-   E1 :- !E2 & !E3 & !E4
-   E2 :- !E1 & !E3 & !E4
-   ...
-
+|foldchange|>x in at least one of the selected experiments.
