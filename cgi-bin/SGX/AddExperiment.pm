@@ -96,8 +96,8 @@ sub loadFromForm {
       if defined( $self->{_cgi}->url_param('stid') );
     $self->{_pid} = ( $self->{_cgi}->param('pid') )
       if defined( $self->{_cgi}->param('pid') );
-    $self->{_ExperimentDescription} = ( $self->{_cgi}->param('ExperimentName') )
-      if defined( $self->{_cgi}->param('ExperimentName') );
+    $self->{_ExperimentDescription} = ( $self->{_cgi}->param('ExperimentDesc') )
+      if defined( $self->{_cgi}->param('ExperimentDesc') );
     $self->{_AdditionalInfo} = ( $self->{_cgi}->param('AdditionalInfo') )
       if defined( $self->{_cgi}->param('AdditionalInfo') );
     return 1;
@@ -182,11 +182,11 @@ sub drawAddExperimentMenu {
                 -maxlength => 120
             )
         ),
-        $q->dt( $q->label( { -for => 'ExperimentName' }, 'Experiment Name:' ) ),
+        $q->dt( $q->label( { -for => 'ExperimentDesc' }, 'Experiment Description' ) ),
         $q->dd(
             $q->textfield(
-                -name      => 'ExperimentName',
-                -id        => 'ExperimentName',
+                -name      => 'ExperimentDesc',
+                -id        => 'ExperimentDesc',
                 -maxlength => 1000
             )
         ),

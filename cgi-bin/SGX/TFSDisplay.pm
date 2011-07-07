@@ -169,7 +169,12 @@ sub loadTFSData
 	
 	#If we got a list to filter on, build the string.
 	my $probeListQuery	= '';
-	
+
+         # :TODO:07/07/2011 12:38:40:es: SQL injection risk: no validation done
+         # one _searchFilters before being inserted into WHERE statement.
+         # Fix this by writing a validate_numeric_list function which will take
+         # a string of comma-delimited numbers, split it, make sure every member
+         # is a number, and concatenate it again.
 	if(defined($self->{_searchFilters}) && $self->{_searchFilters} ne '')
 	{
 		$probeListQuery	= " WHERE rid IN (" . $self->{_searchFilters} . ") ";
@@ -847,6 +852,5 @@ YAHOO.util.Event.addListener(window, "load", function() {
 ';
 	$out;
 }
-#######################################################################################
 
 1;

@@ -890,7 +890,8 @@ sub getFormHTML {
                 -labels   => \%opts_dropdown
             )
         ),
-        $q->dt( { -id => 'graph_names' }, 'Differential Expression Graphs:' ),
+        $q->dt( { -id => 'graph_names' }, 
+                $q->label({-for => 'graph'}, 'Differential Expression Graphs:') ),
         $q->dd(
             { -id => 'graph_values' },
             $q->checkbox(

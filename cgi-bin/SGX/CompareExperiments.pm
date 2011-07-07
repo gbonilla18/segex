@@ -284,8 +284,7 @@ sub getFormHTML {
     $q->dl(
         $q->dt('&nbsp;'),
         $q->dd(
-            $q->submit(-name=>'submit',-class=>'css3button',-value=>'Compare'),
-            $q->hidden(-name=>'a',-value=>$submit_action, -override=>1)
+            $q->submit(-name=>'a',-class=>'css3button',-value=>$submit_action)
         )
     ),
     $q->endform;
@@ -479,7 +478,7 @@ sub getResultsJS
             uri_escape('1. '.$ht->{$currentEID1}->{title}).'|'.
             uri_escape('2. '.$ht->{$currentEID2}->{title});
 
-        $out .= "var venn = '<img src=\"http://chart.apis.google.com/chart?$qstring\" />';\n";
+        $out .= "var venn = '<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />';\n";
     }
     case 3 {
         # draw three circles
@@ -534,50 +533,28 @@ var searchFilter = "' . $probeList . '";
 
 var summary = {
 caption: "Experiments compared",
-records: [
+records: 
 ';
 
+    my @tmpArray;
     for ($i = 0; $i < @eids; $i++) 
     {
-        my @IDSplit = split(/\|/,$eids[$i]);
-
-        my $currentSTID = $IDSplit[0];
-        my $currentEID = $IDSplit[1];        
+        my ($currentSTID, $currentEID) = split(/\|/,$eids[$i]);
         
-        my $escapedTitle        = $ht->{$currentEID}->{title};
-        $escapedTitle        =~ s/\\/\\\\/g;
-        $escapedTitle        =~ s/"/\\\"/g;
-
-        $out .= '{0:"'. ($i + 1) . '",1:"' . $escapedTitle . '",2:"' . $fcs[$i] . '",3:"' . $pvals[$i] . '",4:"'.$hc{$i} . "\"},\n";
+        push @tmpArray, {
+            0 => ($i + 1),
+            1 => $ht->{$currentEID}->{title},
+            2 => $fcs[$i],
+            3 => $pvals[$i],
+            4 => $hc{$i}
+        }
     }
-    $out =~ s/,\s*$//;      # strip trailing comma
-    $out .= '
-]};
+    $out .= encode_json(\@tmpArray)
+         . '
+};
 ';
 
     # TFS breakdown table ------------------------------
-
-    $out .= '
-var tfs = {
-caption: "View data for reporters significant in unique experiment combinations",
-records: [
-';
-
-    # numerical sort on hash value
-    foreach my $key (sort {$h->{$b}->{fs} <=> $h->{$a}->{fs}} keys %$h) {
-        $out .= '{0:"'.$key.'",';
-        for ($i = 0; $i < $exp_count; $i++) {
-            # use of bitwise AND operator to test for bit presence
-            if (1 << $i & $h->{$key}->{fs})    { 
-                $out .= ($i + 1).':"x",';
-            } else {
-                $out .= ($i + 1).':"",';
-            }
-        }
-        $out .= ($i + 1).':"'.$h->{$key}->{c}."\"},\n";
-    }
-    $out =~ s/,\s*$//;      # strip trailing comma
-
     my $tfs_defs = "{key:\"0\", sortable:true, resizeable:false, label:\"FS\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
     my $tfs_response_fields = "{key:\"0\", parser:\"number\"},\n";
     for ($i = 1; $i <= $exp_count; $i++) {
@@ -589,8 +566,26 @@ records: [
     $tfs_response_fields .= "{key:\"$i\", parser:\"number\"},
 {key:\"".($i + 1)."\", parser:\"number\"}\n";
 
+
     $out .= '
-]};
+var tfs = {
+caption: "View data for reporters significant in unique experiment combinations",
+records: 
+';
+
+    my @tfsBreakdown;
+    # numerical sort on hash value
+    foreach my $key (sort {$h->{$b}->{fs} <=> $h->{$a}->{fs}} keys %$h) {
+        push @tfsBreakdown, {
+            0 => $key,
+            (map { $_ => (1 << ($_ - 1) & $h->{$key}->{fs}) ? 'x' : ''}
+                1..$exp_count),
+            ($exp_count + 1) => $h->{$key}->{c}
+        }
+    }
+    $out .= encode_json(\@tfsBreakdown)
+         . '
+};
 
 YAHOO.util.Event.addListener(window, "load", function() {
     var Dom = YAHOO.util.Dom;
@@ -673,7 +668,7 @@ sub getResultsHTML {
         $q->h2({-id=>'summary_caption'},''),
         $q->div({-id=>'summary_table', -class=>'table_cont'},''),
         $q->start_form(
-            -method=>'POST',
+            -method=>'GET',
             -action=>$q->url(-absolute=>1) . "?a=" . $action,
             -target=>'_blank',
             -class=>'getTFS',
@@ -688,9 +683,10 @@ sub getResultsHTML {
         $q->hidden(-name=>'searchFilter', -id=>'searchFilter'),
         $q->h2({-id=>'tfs_caption'},''),
         $q->dl(
-            $q->dt('Data to display:'),
+            $q->dt($q->label({-for => 'opts'}, 'Data to display:')),
             $q->dd($q->popup_menu(
                     -name=>'opts',
+                    -id=>'opts',
                     -values=>[keys %opts_dropdown], 
                     -default=>'0',
                     -labels=>\%opts_dropdown

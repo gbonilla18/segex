@@ -713,7 +713,7 @@ sub build_sidemenu
                 -title=>'About this site'},'About');
     push @menu, $q->a({-href=>$url_prefix.'?a='.HELP,
                 -title=>'Help pages',
-                -target=>'_new'},'Help');
+                -target=>'new'},'Help');
     return \@menu;
 }
 
