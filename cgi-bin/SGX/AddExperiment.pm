@@ -131,7 +131,7 @@ sub dispatch_js {
                     $self->{_error_message} = $exception->error;
                 } else {
                     # Internal or DBI exception: re-throw
-                    $exception-throw();
+                    $exception->throw();
                 }
             } else {
                 # no error
