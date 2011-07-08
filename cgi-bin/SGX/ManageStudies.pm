@@ -29,7 +29,7 @@ package SGX::ManageStudies;
 use strict;
 use warnings;
 
-use SGX::AddExperiment;
+#use SGX::AddExperiment;
 use SGX::DrawingJavaScript;
 use Switch;
 

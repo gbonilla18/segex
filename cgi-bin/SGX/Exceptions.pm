@@ -38,6 +38,10 @@ use warnings;
 
 package SGX::Exceptions;
 
+# User exceptions are messages to user; Internal exceptions are messages for
+# internal development puprposes. Showing internal exceptions to user may pose a
+# security risk.
+#
 use Exception::Class (
     'SGX::Exception::User',
     'SGX::Exception::Internal'

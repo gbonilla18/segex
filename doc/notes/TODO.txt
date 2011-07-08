@@ -112,3 +112,5 @@ Experiment.
 (to a new experiment) with the given study preselected.
 
 *) :TODO:07/07/2011 12:38:40:es: in TFSDisplay.pm
+
+*) Make upload file headers optional in Upload Data to a new experiment

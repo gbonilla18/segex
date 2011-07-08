@@ -192,7 +192,9 @@ sub dispatch {
         }
         case 'addExisting' {
             $self->loadFromForm();
-
+ # :TODO:07/08/2011 13:02:50:es: adding existing study should be done in the
+ # section of the controller that deals with model (dispatch_js), not the
+ # section that deals with the view (this one).
             # TRY:
             my $record_count = eval { $self->addExistingStudy() } || 0;
             my $msg = $q->p("$record_count record(s) added. ");
@@ -200,7 +202,10 @@ sub dispatch {
             # CATCH:
             if ( my $exception = $@ ) {
                 if ( $exception->isa('Exception::Class::DBI::STH') ) {
-
+ # :TODO:07/08/2011 13:00:37:es: 
+ # :TRICKY:07/08/2011 13:00:29:es: 
+ #  Throwing descriptive errors from DBI may be insecure. Consider throwing
+ #  custon SGX::Exception::User instead when no records where inserted.
                     # only catching statement errors. Typical error: duplicate
                     # record is being inserted.
                     $msg .= $q->pre( $exception->error );

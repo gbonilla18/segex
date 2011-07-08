@@ -74,6 +74,14 @@ my @js_src_yui;
 #my @js_src_code = ({-src=>'prototype.js'}, {-src=>'form.js'});
 my @js_src_code = ({-src=>'form.js'});
 
+my %controller_context = (
+    dbh => $dbh, 
+    cgi => $q,
+    user_session => $s,
+    js_src_yui => \@js_src_yui,
+    js_src_code => \@js_src_code
+);
+
 my $content;    # this will be a reference to a subroutine that displays the main content
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
@@ -106,7 +114,7 @@ use constant COMPAREEXPERIMENTS        => 'Compare';    # submit button text
 use constant FINDPROBES            => 'Search';        # submit button text
 use constant UPDATECELL        => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
-use constant UPLOADEXP        => 'uploadExp';
+use constant UPLOADEXP        => 'uploadData';
 
 my $loadModule;
 
@@ -142,23 +150,11 @@ while (defined($action)) { switch ($action) {
             $action = FORM.LOGIN;
         }
     }
-    case FORM.UPLOADEXP{
-        # TODO: only admins should be allowed to perform this action
-        if ($s->is_authorized('user')) {
-            $title = 'Upload Experiment';
-            push @js_src_yui, (
-                'yahoo-dom-event/yahoo-dom-event.js'
-            );
-            $content = \&form_uploadExp;
-            $action = undef;    # final state
-        } else {
-            $action = FORM.LOGIN;
-        }
-     }
     case UPLOADEXP {
-        # TODO: only admins should be allowed to perform this action
-        if ($s->is_authorized('user')) {
-            $content = \&uploadExp;
+        $loadModule = SGX::AddExperiment->new(%controller_context);
+        #if ($s->is_authorized('user')) {
+        if ($loadModule->dispatch_js()) {
+            $content = \&uploadData;
             $title = 'Complete';
             $action = undef;    # final state
         } else {
@@ -263,13 +259,7 @@ while (defined($action)) { switch ($action) {
         }
     }
     case MANAGEEXPERIMENTS {
-        $loadModule = SGX::ManageExperiments->new(
-            dbh => $dbh, 
-            cgi => $q,
-            user_session => $s,
-            js_src_yui => \@js_src_yui,
-            js_src_code => \@js_src_code
-        );
+        $loadModule = SGX::ManageExperiments->new(%controller_context);
         if ($loadModule->dispatch_js()) {
             $content = \&manageExperiments;
             $title = 'Experiments';
@@ -757,7 +747,7 @@ sub build_menu
 
         # upload
         push @{$menu{$upload}}, 
-            $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADEXP,
+            $q->a({-href=>$url_prefix.'?a='.UPLOADEXP,
                 -title=>'Upload Data from an Experiment'}, 'Upload Data');
         push @{$menu{$upload}}, 
             $q->a({-href=>$url_prefix.'?a='.FORM.UPLOADANNOT,
@@ -1362,20 +1352,8 @@ sub get_annot_fields {
     return;
 }
 #######################################################################################
-sub form_uploadExp {
-    my $addExperimentInfo =
-      SGX::AddExperiment->new( $dbh, $q, UPLOADEXP );
-    $addExperimentInfo->loadFromForm();
-    $addExperimentInfo->loadPlatformData();
-    print $addExperimentInfo->drawAddExperimentMenu();
-}
-#######################################################################################
-sub uploadExp {
-    my $addExperimentInfo =
-      SGX::AddExperiment->new( $dbh, $q, undef );
-    $addExperimentInfo->loadFromForm();
-    $addExperimentInfo->addNewExperiment();
-
+sub uploadData {
+    $loadModule->dispatch();
     return 1;
 }
 #######################################################################################

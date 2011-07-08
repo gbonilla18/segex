@@ -282,3 +282,18 @@ THEORY - Compare Experiments
 Compare Experiments produces a list of significant probes in the selected
 experiments. A probe is called significant if it satisfies P<0.05 and
 |foldchange|>x in at least one of the selected experiments.
+
+
+EXCEPTIONS
+
+Use SGX::Exceptions. 
+
+User exceptions (SGX::Exception::User) are messages to user; internal exceptions
+(SGX::Exception::Internal) are messages for internal development purposes.
+Showing internal exceptions to user may pose a security risk.
+
+Because we use Class::Exception::DBI module, DBI exceptions have the same
+interface. When you need to communicate a DBI error (e.g. duplicate record) to
+user, do not show DBI exception to user directly -- instead re-throw it as User
+exception with a custom message.
+
