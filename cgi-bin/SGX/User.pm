@@ -138,13 +138,12 @@ package SGX::User;
 use strict;
 use warnings;
 
-use CGI::Carp qw/croak/;
-
 use vars qw($VERSION);
 
 $VERSION = '0.11';
 
 use base qw/SGX::Cookie/;
+use CGI::Carp qw/croak/;
 use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
 use SGX::Debug;
@@ -217,16 +216,15 @@ sub authenticate {
         return;
     }
 
-    $password = sha1_hex($password);
     my $sth =
       $self->{dbh}
-      ->prepare( 'select level,full_name from users where uname=? and pwd=?' )
-      or croak $self->{dbh}->errstr;
-    my $row_count = $sth->execute( $username, $password )
-      or croak $self->{dbh}->errstr;
+      ->prepare( 'select level,full_name from users where uname=? and pwd=?' );
+    my $row_count = $sth->execute( $username, sha1_hex($password) );
 
     if ( $row_count != 1 ) {
-
+         # :TODO:07/09/2011 23:58:04:es: Consider using
+         # SGX::Exception::User::Login to send the error message
+         #
         # user not found in the database
         $sth->finish;
         $$error = 'Login incorrect';
@@ -301,9 +299,8 @@ sub reset_password {
     my $sth =
       $self->{dbh}->prepare(
         'select full_name, email from users where uname=? and email_confirmed=1'
-      ) or croak $self->{dbh}->errstr;
-    my $row_count = $sth->execute($username)
-      or croak $self->{dbh}->errstr;
+      );
+    my $row_count = $sth->execute($username);
 
     if ( $row_count == 1 ) {
 
@@ -343,18 +340,16 @@ END_RESET_PWD_MSG
         $fh->close or croak 'Could not send email';
 
         # update the database
-        $new_pwd = sha1_hex($new_pwd);
         my $rows_affected =
           $self->{dbh}->do( 'update users set pwd=? where uname=?',
-            undef, $new_pwd, $username )
-          or croak $self->{dbh}->errstr;
+            undef, sha1_hex($new_pwd), $username );
 
         assert( $rows_affected == 1 );
 
         #if ($rows_affected == 1) {
-        #    $self->{dbh}->commit or croak $self->{dbh}->errstr;
+        #    $self->{dbh}->commit;
         #} else {
-        #    $self->{dbh}->rollback or croak $self->{dbh}->errstr;
+        #    $self->{dbh}->rollback;
         #}
 
         return 1;
@@ -430,8 +425,7 @@ sub change_password {
 
     my $rows_affected =
       $self->{dbh}->do( 'update users set pwd=? where uname=? and pwd=?',
-        undef, $new_password1, $username, $old_password )
-      or croak $self->{dbh}->errstr;
+        undef, $new_password1, $username, $old_password );
 
     if ( $rows_affected == 1 ) {
         return 1;
@@ -494,7 +488,7 @@ sub change_email {
         $username,
         $password,
         $email1
-    ) or croak $self->{dbh}->errstr;
+    );
 
     if ( $rows_affected == 1 ) {
         $self->send_verify_email(
@@ -593,9 +587,8 @@ sub register_user {
         $$error = 'Full name not specified';
         return;
     }
-    my $sth = $self->{dbh}->prepare('select count(*) from users where uname=?')
-      or croak $self->{dbh}->errstr;
-    my $row_count = $sth->execute($username) or croak $self->{dbh}->errstr;
+    my $sth = $self->{dbh}->prepare('select count(*) from users where uname=?');
+    my $row_count = $sth->execute($username);
     assert( $row_count == 1 );
     my $user_found = $sth->fetchrow_array();
     $sth->finish();
@@ -604,18 +597,16 @@ sub register_user {
         return;
     }
 
-    $password1 = sha1_hex($password1);
-
     my $rows_affected = $self->{dbh}->do(
 'insert into users set uname=?, pwd=?, email=?, full_name=?, address=?, phone=?',
         undef,
         $username,
-        $password1,
+        sha1_hex($password1),
         $email1,
         $full_name,
         $address,
         $phone
-    ) or croak $self->{dbh}->errstr;
+    );
 
     assert( $rows_affected == 1 );
     $self->send_verify_email(
@@ -728,8 +719,7 @@ sub verify_email {
     }
     my $rows_affected =
       $self->{dbh}->do( 'update users set email_confirmed=1 WHERE uname=?',
-        undef, $username )
-      or croak $self->{dbh}->errstr;
+        undef, $username );
 
     assert( $rows_affected == 1 );
     return 1;

@@ -114,3 +114,7 @@ Experiment.
 *) :TODO:07/07/2011 12:38:40:es: in TFSDisplay.pm
 
 *) Make upload file headers optional in Upload Data to a new experiment
+
+*) CSV format should be supported in addition to tab-delimited. The idea is that
+the same formats that are supported for output should also be supported for
+input.

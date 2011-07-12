@@ -13,6 +13,7 @@ em {
 	visibility:hidden;
 }
 address, ul, p, pre { margin-bottom:1.4167em; }
+pre { font-size: 120%; }
 h1, h2, h3, h4, h5, h6, caption {
         font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
         font-weight:bold;

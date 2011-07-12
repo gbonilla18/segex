@@ -188,19 +188,19 @@ sub cookie_array {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub add_cookie {
-    my $self = shift;
+    my ($self, %param) = @_;
 
     # set defaults first
-    my %param = (
+    my %cookie_opts = (
 
         #-domain   => $ENV{SERVER_NAME},
         -path     => dirname( $ENV{SCRIPT_NAME} ),
         -httponly => 1,
-        @_
+        %param
     );
 
     # prepare the cookie
-    push @cookies, CGI::Cookie->new(%param);
+    push @cookies, CGI::Cookie->new(%cookie_opts);
     return;
 }
 

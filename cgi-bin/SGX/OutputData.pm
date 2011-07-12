@@ -1,3 +1,4 @@
+
 =head1 NAME
 
 SGX::OutputData
@@ -27,51 +28,119 @@ package SGX::OutputData;
 
 use strict;
 use warnings;
-use CGI::Carp qw/croak/;
 use Data::Dumper;
 use Switch;
+use JSON::XS;
+use SGX::Model::PlatformStudyExperiment;
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  new
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub new {
-    # This is the constructor
-    my $class = shift;
+    my ( $class, %param ) = @_;
 
-    my $ReportQuery = <<"END_ReportQuery";
-SELECT CONCAT(study.description, ' - ', experiment.sample2, ' / ', experiment.sample1) AS Identity,
-    probe.reporter,
+    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
+      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+
+    my $self = {
+        _dbh         => $dbh,
+        _cgi         => $q,
+        _UserSession => $s,
+        _js_src_yui  => $js_src_yui,
+        _js_src_code => $js_src_code,
+
+        _ReportQuery => <<"END_ReportQuery",
+SELECT  
+    CONCAT(
+        study.description, ' - ', 
+        experiment.sample2, ' / ', 
+        experiment.sample1
+    ) AS 'Study',
+    probe.reporter AS 'Reporter',
     gene.accnum AS 'Accession Number',
-    gene.seqname AS Gene,
-    microarray.ratio,
-    microarray.foldchange,
-    microarray.pvalue,
-    microarray.intensity2,
-    microarray.intensity1
-FROM    experiment
-INNER JOIN StudyExperiment USING(eid)
-INNER JOIN Study USING(stid)
+    gene.seqname AS 'Gene',
+    microarray.ratio AS 'Ratio',
+    microarray.foldchange AS 'Fold Change',
+    microarray.pvalue AS 'P-value',
+    microarray.intensity1 AS 'Intensity 1',
+    microarray.intensity2 AS 'Intensity 2'
+FROM experiment
+LEFT JOIN StudyExperiment USING(eid)
+LEFT JOIN Study USING(stid)
 INNER JOIN microarray USING(eid)
-INNER JOIN probe ON probe.rid = microarray.rid
-INNER JOIN annotates ON annotates.rid = probe.rid
-INNER JOIN gene ON gene.gid = annotates.gid
-WHERE    experiment.eid IN (?)
+LEFT JOIN probe ON probe.rid = microarray.rid
+LEFT JOIN annotates ON annotates.rid = probe.rid
+LEFT JOIN gene ON gene.gid = annotates.gid
+WHERE experiment.eid IN (%s)
+GROUP BY experiment.eid, microarray.rid
 ORDER BY experiment.eid
 
 END_ReportQuery
 
-    my $self = {
-        _dbh        => shift,
-        _cgi    => shift,
-        _js_dir        => shift,
-        _ExistingStudyQuery         => 'SELECT stid,description,pid FROM study',
-        _ExistingExperimentQuery     => 'SELECT stid,eid,sample2,sample1 FROM experiment RIGHT JOIN StudyExperiment USING(eid);',
-        _ReportQuery            => $ReportQuery,
-        _ExistingExperimentList        => {},
-        _Data                => '',
-        _FieldNames            => '',
-        _SelectedExperiment        => ''
+        _Data            => '',
+        _RecordsReturned => undef,
+        _FieldNames      => ''
     };
 
     bless $self, $class;
     return $self;
+}
+
+#---------------------------------------------------------------------------
+#  Controller methods
+#---------------------------------------------------------------------------
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  dispatch_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch_js {
+    my ($self) = @_;
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+
+    my $action =
+      ( defined $q->param('b') )
+      ? $q->param('b')
+      : '';
+
+    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
+    switch ($action) {
+        case 'Load' {
+            return if not $s->is_authorized('user');
+            push @$js_src_yui,
+              (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'element/element-min.js',
+                'datasource/datasource-min.js',
+                'paginator/paginator-min.js',
+                'datatable/datatable-min.js'
+              );
+            my @eids = $self->{_cgi}->param('eids');
+            $self->{_eidList} = \@eids;
+            $self->loadReportData();
+            push @$js_src_code, { -code => $self->runReport_js() };
+        }
+        else {
+            return if not $s->is_authorized('user');
+            push @$js_src_code, { -src => 'OutputData.js' };
+            push @$js_src_code,
+              { -code => $self->getJSRecordsForExistingDropDowns() };
+        }
+    }
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -84,229 +153,278 @@ END_ReportQuery
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub dispatch
-{
-    my ( $self, $action ) = @_;
+sub dispatch {
+    my ($self) = @_;
 
-    $action = '' if not defined($action);
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+
+    my $action =
+      ( defined $q->param('b') )
+      ? $q->param('b')
+      : '';
+
     switch ($action) {
-        case 'runReport' {
-            $self->loadFromForm();
-            $self->loadReportData();
-            $self->runReport();
-            #print "<br />Record updated - Redirecting...<br />";
+        case 'Load' {
+            print $self->LoadHTML();
         }
         else {
+
             # default action: show form
-            $self->showExperiments();
+            print $self->showForm();
         }
     }
-    return;
+    return 1;
 }
 
-#Load the data from the submitted form.
-sub loadFromForm
-{
-    my $self = shift;
-    $self->{_eidList} = ($self->{_cgi}->param('experiment_exist')) if defined($self->{_cgi}->param('experiment_exist'));
-    return;
-}
-
-sub loadReportData
-{
-    my $self = shift;
-    
-    $self->{_Records} = $self->{_dbh}->prepare($self->{_ReportQuery}) 
-        or croak $self->{_dbh}->errstr;
-    my $tempRecordCount = $self->{_Records}->execute($self->{_eidList})
-        or croak $self->{_dbh}->errstr;
-
-    $self->{_FieldNames}     = $self->{_Records}->{NAME};
-    $self->{_Data}         = $self->{_Records}->fetchall_arrayref;
-    return;
-}
-
-#######################################################################################
-#PRINTING HTML AND JAVASCRIPT STUFF
-#######################################################################################
-#Draw the javascript and HTML for the experiment table.
-sub showExperiments
-{
-    my $self = shift;
-    my $error_string = "";
-
-    print    '<h2>Output Data</h2><br /><br />' . "\n";
-    print    '<script src="' . $self->{_js_dir} . '/OutputData.js" type="text/javascript"></script>';
-    print    "<script type=\"text/javascript\">\n";
-
-    printJavaScriptRecordsForExistingDropDowns($self);
-
-    print     "</script>\n";
-
-    print    '<br /><h3 name = "Output_Caption" id = "Output_Caption">Select Items to output</h3>' . "\n";
-
-    print $self->{_cgi}->start_form(
-        -method=>'POST',
-        -name=>'AddExistingForm',
-        -action=>$self->{_cgi}->url(-absolute=>1).'?a=outputData&outputAction=runReport',
-        -onsubmit=>'return validate_fields(this,"");'
-    ) .
-    $self->{_cgi}->dl(
-        $self->{_cgi}->dt('Study : '),
-        $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'study_exist', -id=>'study_exist',-onchange=>"populateSelectExistingExperiments(document.getElementById(\"experiment_exist\"),document.getElementById(\"study_exist\"));")),
-        $self->{_cgi}->dt('Experiment : '),
-        $self->{_cgi}->dd($self->{_cgi}->popup_menu(-name=>'experiment_exist',-multiple=>'true', -id=>'experiment_exist')),
-        $self->{_cgi}->dt('&nbsp;'),
-        $self->{_cgi}->dd($self->{_cgi}->submit(-name=>'RunReport',-id=>'RunReport',-class=>'css3button', -value=>'Run Report'))
-    ) .
-    $self->{_cgi}->end_form;
-    return;
-}
-
-sub printDrawResultsTableJS
-{
-    print <<"END_DrawResultsTableJS";
-    var myDataSource         = new YAHOO.util.DataSource(OutputReport.records);
-    myDataSource.responseType     = YAHOO.util.DataSource.TYPE_JSARRAY;
-    myDataSource.responseSchema     = {fields: ["0","1","2","3","4","5","6","7","8"]};
-    var myData_config         = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
-    var myDataTable         = new YAHOO.widget.DataTable("OutputTable", myColumnDefs, myDataSource, myData_config);
-
-END_DrawResultsTableJS
-    return;
-}
-
-sub printJSRecords
-{
-    my $self = shift;
-    my $tempRecordList = '';
-
-    #Loop through data and load into JavaScript array.
-    foreach (@{$self->{_Data}}) 
-    {
-        foreach (@$_)
-        {
-            $_ = '' if !defined $_;
-            $_ =~ s/"//g;    # strip all double quotes (JSON data are bracketed with double quotes)
-        }
-        #stid,description,pubmed,platform.pid,platform.pname,platform.species
-        $tempRecordList .= '{0:"'.$_->[0].'",1:"'.$_->[1].'",2:"'.$_->[2].'",3:"'.$_->[3].'",4:"' . $_->[4] . '",5:"' . $_->[5] . '",6:"' . $_->[6] . '",7:"' . $_->[7] . '",8:"' . $_->[8] . '"},'. "\n";
-    }
-    $tempRecordList =~ s/,\s*$//;    # strip trailing comma
-
-    return $tempRecordList;
-}
-
-sub printJSHeaders
-{
-    my $self = shift;
-    my $tempHeaderList = '';
-
-    #Loop through data and load into JavaScript array.
-    foreach (@{$self->{_FieldNames}})
-    {
-        $tempHeaderList .= '"' . $_ . '",';
-    }
-    $tempHeaderList =~ s/,\s*$//;    # strip trailing comma
-
-    return $tempHeaderList;
-
-
-}
-
-sub printTableInformation
-{
-    print <<"END_TableInformation";
-        var myColumnDefs = [
-        {key:"0", sortable:true, resizeable:true, label:"Study"},
-        {key:"1", sortable:true, resizeable:true, label:"Reporter"},
-        {key:"2", sortable:true, resizeable:true, label:"Accession Number"},
-        {key:"3", sortable:false, resizeable:true, label:"Gene"},
-        {key:"4", sortable:false, resizeable:true, label:"Ratio"},
-        {key:"5", sortable:false, resizeable:true, label:"Fold Change"},
-        {key:"6", sortable:false, resizeable:true, label:"P value"},
-        {key:"7", sortable:false, resizeable:true, label:"Intensity 2"},
-        {key:"8", sortable:false, resizeable:true, label:"Intensity 1"}
-        ];
-END_TableInformation
-    return;
-}
-##########################################################
-
-sub printJavaScriptRecordsForExistingDropDowns
-{
-    my $self         = shift;
-
-    my $studyQuery         = $self->{_ExistingStudyQuery};
-    my $experimentQuery    = $self->{_ExistingExperimentQuery};
-
-    my $tempRecords     = $self->{_dbh}->prepare($studyQuery) or croak $self->{_dbh}->errstr;
-    my $tempRecordCount    = $tempRecords->execute or croak $self->{_dbh}->errstr;
-
-    print "YAHOO.util.Event.addListener(window, 'load', init);\n";
-    print "var study = {};";
-
-    my $out = "";
-
-    while (my @row = $tempRecords->fetchrow_array) {
-        $out .= 'study['.$row[0]."] = {};\n";
-        $out .= 'study['.$row[0].'][0] = \''.$row[1]."';\n"; # study description
-        $out .= 'study['.$row[0]."][1] = {};\n";     # sample 1 name
-        $out .= 'study['.$row[0]."][2] = {};\n";     # sample 2 name
-        $out .= 'study['.$row[0].'][3] = \''.$row[2]."';\n"; # platform id
-    }
-    $tempRecords->finish;
-
-    $tempRecords         = $self->{_dbh}->prepare($experimentQuery) or croak $self->{_dbh}->errstr;
-    $tempRecordCount    = $tempRecords->execute or croak $self->{_dbh}->errstr;
-
-    ### populate the Javascript hash with the content of the experiment recordset
-    while (my @row = $tempRecords->fetchrow_array) {
-        $out .= 'study['.$row[0].'][1]['.$row[1].'] = \''.$row[2]."';\n";
-        $out .= 'study['.$row[0].'][2]['.$row[1].'] = \''.$row[3]."';\n";
-    }
-    $tempRecords->finish;
-
-    print $out;
-    print 'function init() {';
-    print 'populateExistingStudy("study_exist");';
-    print 'populateSelectExistingExperiments(document.getElementById("experiment_exist"),document.getElementById("study_exist"));';
-    print '}';
-    return;
-}
-
-#######################################################################################
-sub runReport
-{
+#---------------------------------------------------------------------------
+#  Model methods
+#---------------------------------------------------------------------------
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::OutputData
+#       METHOD:  loadReportData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Run the main query to return the result table
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub loadReportData {
     my $self = shift;
 
-    my $records = printJSRecords($self);
-    my $headers = printJSHeaders($self);
+    # cache database handle
+    my $dbh = $self->{_dbh};
 
-    my $JSOuputList = <<"END_JSOuputList";
-var OutputReport = 
-    {
-        caption: "Showing all Experiments",
-        records: [$records],
-        headers: [$headers]
-    };
+    my $query_text = sprintf($self->{_ReportQuery},
+        join(',', map { '?' } 1..scalar(@{$self->{_eidList}})));
+
+    my $sth = $dbh->prepare( $query_text );
+
+    $self->{_RecordsReturned} = $sth->execute( @{$self->{_eidList}} );
+
+    $self->{_FieldNames} = $sth->{NAME};
+    $self->{_Data}       = $sth->fetchall_arrayref;
+
+    $sth->finish;
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  getJSRecords
+#   PARAMETERS:  none; relies on _Data field
+#      RETURNS:  ARRAY reference
+#  DESCRIPTION:  Returns data structure containing body of the table.
+#       THROWS:  no exceptions
+#     COMMENTS:  Remaps an array of array references into an array of hash 
+#                references.
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getJSRecords {
+    my $self = shift;
+
+    return [
+        map {
+            my $i   = 0;
+            my $row = $_;
+            +{ map { $i++ => $_ } @$row }
+          } @{ $self->{_Data} }
+    ];
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  getJSHeaders
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  returns data structure containing table headers
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getJSHeaders {
+    my $self = shift;
+    return $self->{_FieldNames};
+}
+
+
+#---------------------------------------------------------------------------
+#  View methods
+#---------------------------------------------------------------------------
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  showForm
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Draw the javascript and HTML for the experiment table
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub showForm {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    return $q->h2('Output Data'), $q->h3('Select Items to output'), $q->dl(
+        $q->dt( $q->label( { -for => 'platform' }, 'Platform:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name => 'platform',
+                -id   => 'platform'
+            )
+        ),
+
+      ),
+      $q->start_form(
+        -method  => 'GET',
+        -enctype => 'application/x-www-form-urlencoded',
+        -action  => $q->url( -absolute => 1 ) . '?a=outputData'
+      ),
+      $q->dl(
+        $q->dt( $q->label( { -for => 'study' }, 'Study:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name => 'study',
+                -id   => 'study'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'eids' }, 'Experiment(s):' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name     => 'eids',
+                -id       => 'eids',
+                -multiple => 'multiple'
+            )
+        ),
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->hidden(
+                -name  => 'a',
+                -value => 'outputData'
+            ),
+            $q->submit(
+                -name  => 'b',
+                -id    => 'b',
+                -class => 'css3button',
+                -value => 'Load'
+            )
+        )
+      ),
+      $q->end_form;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::OutputData
+#       METHOD:  getJSRecordsForExistingDropDowns
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Return Javascript code including the JSON model necessary to 
+#                populate Platform->Study->Experiment select controls.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getJSRecordsForExistingDropDowns {
+    my $self = shift;
+
+    my $model_obj =
+      SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
+    my $model = $model_obj->getByPlatformStudyExperiment(
+        platform_info   => 1,
+        experiment_info => 1
+    );
+
+    return sprintf(
+        <<"END_ret",
+var PlatfStudyExp = %s;
+YAHOO.util.Event.addListener(window, 'load', function() {
+    populatePlatform();
+    populatePlatformStudy();
+    populateStudyExperiment();
+});
+YAHOO.util.Event.addListener('platform', 'change', function() {
+    populatePlatformStudy();
+    populateStudyExperiment();
+});
+YAHOO.util.Event.addListener('study', 'change', function() {
+    populateStudyExperiment();
+});
+END_ret
+        encode_json($model)
+    );
+}
+
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::OutputData
+#       METHOD:  LoadHTML
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Return basic HTML frame for YUI DataTable control
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub LoadHTML {
+    my $self = shift;
+    my $q = $self->{_cgi};
+
+    return
+      $q->h3( { -id => 'caption' }, "Found $self->{_RecordsReturned} records" ),
+      $q->div( $q->a( { -id => 'OutPut_astext' }, 'View as plain text' ) ),
+      $q->div( { -id => 'OutputTable' }, '' );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::OutputData
+#       METHOD:  runReport_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Return Javascript to populate YUI DataTable control
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub runReport_js {
+    my $self = shift;
+
+    my $records = encode_json( getJSRecords($self) );
+    my $headers = encode_json( getJSHeaders($self) );
+
+    return <<"END_JSOuputList";
+var OutputReport = {
+    caption: "Showing all Experiments",
+    records: $records,
+    headers: $headers
+};
+YAHOO.util.Event.addListener("OutPut_astext", "click", export_table, OutputReport, true);
+YAHOO.util.Event.addListener(window, 'load', function() {
+    var myColumnDefs = [
+        {key:"0", sortable:true, resizeable:true, label:OutputReport.headers[0]},
+        {key:"1", sortable:true, resizeable:true, label:OutputReport.headers[1]},
+        {key:"2", sortable:true, resizeable:true, label:OutputReport.headers[2]},
+        {key:"3", sortable:true, resizeable:true, label:OutputReport.headers[3]},
+        {key:"4", sortable:true, resizeable:true, label:OutputReport.headers[4]},
+        {key:"5", sortable:true, resizeable:true, label:OutputReport.headers[5]},
+        {key:"6", sortable:true, resizeable:true, label:OutputReport.headers[6]},
+        {key:"7", sortable:true, resizeable:true, label:OutputReport.headers[7]},
+        {key:"8", sortable:true, resizeable:true, label:OutputReport.headers[8]}
+    ];
+
+    var myDataSource = new YAHOO.util.DataSource(OutputReport.records);
+    myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+    myDataSource.responseSchema = {fields: ["0","1","2","3","4","5","6","7","8"]};
+    var myData_config = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
+    var myDataTable = new YAHOO.widget.DataTable(
+                        "OutputTable", 
+                        myColumnDefs, 
+                        myDataSource, 
+                        myData_config
+    );
+});
+
 END_JSOuputList
 
-    print    '<h3 name = "caption" id="caption"></h3>' . "\n";
-    print    '<div><a id="OutPut_astext" onclick="export_table(OutputReport)">View as plain text</a></div>' . "\n";
-    print    '<div id="OutputTable"></div>' . "\n";
-    print    "<script type=\"text/javascript\">\n";
-    print $JSOuputList;
-
-    print "YAHOO.util.Event.addListener(\"OutPut_astext\", \"click\", export_table, OutputReport, true);\n";
-
-    printTableInformation();
-    printDrawResultsTableJS();
-
-    print     "</script>\n";
-    return;
 }
-
-#######################################################################################
 
 1;

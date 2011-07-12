@@ -269,19 +269,8 @@ while (defined($action)) { switch ($action) {
         }
     }
     case OUTPUTDATA {
-        if ($s->is_authorized('user')) {
-            push @js_src_yui, (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'connection/connection-min.js',
-                'dragdrop/dragdrop-min.js',
-                'container/container-min.js',
-                'element/element-min.js',
-                'datasource/datasource-min.js',
-                'paginator/paginator-min.js',
-                'datatable/datatable-min.js',
-                'selector/selector-min.js'
-            );
-
+        $loadModule = SGX::OutputData->new(%controller_context);
+        if ($loadModule->dispatch_js()) {
             $content = \&outputData;
             $title = 'Output Data';
             $action = undef;    # final state
@@ -1779,8 +1768,7 @@ sub manageExperiments
 #===============================================================================
 sub outputData
 {
-    my $od = SGX::OutputData->new($dbh,$q, JS_DIR);
-    $od->dispatch($q->url_param('outputAction'));
+    $loadModule->dispatch();
     return;
 }
 

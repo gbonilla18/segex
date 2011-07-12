@@ -297,3 +297,8 @@ interface. When you need to communicate a DBI error (e.g. duplicate record) to
 user, do not show DBI exception to user directly -- instead re-throw it as User
 exception with a custom message.
 
+I/O
+
+CSV format should be supported in addition to tab-delimited. The idea is that
+the same formats that are supported for output should also be supported for
+input.

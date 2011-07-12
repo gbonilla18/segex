@@ -1,40 +1,99 @@
-function $() {
-        var elements = new Array();
-        for (var i = 0; i < arguments.length; i++) {
-                var element = arguments[i];
-                if (typeof element == 'string')
-                        element = document.getElementById(element);
-                if (arguments.length == 1)
-                        return element;
-                elements.push(element);
-        }       
-        return elements;
+/******************************************************************/
+function populatePlatform()
+{
+    // This function is only run once, on page load
+    var platform = document.getElementById('platform');
+    for (var i in PlatfStudyExp) {
+        var this_platform = PlatfStudyExp[i];
+        var new_opt = document.createElement('option');
+        new_opt.setAttribute('value', i);
+        new_opt.innerHTML = this_platform.name + ' \\ ' + this_platform.species;
+        platform.appendChild(new_opt); 
+    }
+    //current_platform = obj.options[obj.selectedIndex].value;
 }
-function populateExistingStudy(id) {
-	obj = $(id);
-	for (var i in study) {
-		var new_opt = document.createElement("option");
-		new_opt.setAttribute('value',i);
-		new_opt.innerHTML = study[i][0];
-		obj.appendChild(new_opt); 
-	}
-	current_platform = obj.options[obj.selectedIndex].value;
+/******************************************************************/
+function populatePlatformStudy()
+{
+    var platform = document.getElementById('platform');
+    var pid;
+    try {
+        pid = platform.options[platform.selectedIndex].value;
+    } catch(e) {
+        if (e instanceof TypeError) {
+            // cannot be set because no option was selected
+        } else {
+            // other error types: rethrow exception
+            throw e;
+        }
+    }
+
+    var study = document.getElementById('study');
+
+    // first remove all existing option elements
+    while (study.options[0]) {
+        study.removeChild(study.options[0]);
+    }
+
+    // now add new ones
+    if (typeof pid !== 'undefined') {
+        var studies = PlatfStudyExp[pid].studies;
+        for (var i in studies) {
+            var this_study = studies[i];
+            var new_opt = document.createElement('option');
+            new_opt.setAttribute('value', i);
+            new_opt.innerHTML = this_study.name;
+            study.appendChild(new_opt);
+        }
+    }
 }
-function populateSelectExistingExperiments(obj, stid_object) {
-
-	var stid;
-
-	stid = stid_object.options[stid_object.selectedIndex].value;
-
-        // first remove all existing option elements
-        while(obj.options[0]) {
-                obj.removeChild(obj.options[0]);
+/******************************************************************/
+function populateStudyExperiment()
+{
+    var platform = document.getElementById('platform');
+    var pid;
+    try {
+        pid = platform.options[platform.selectedIndex].value;
+    } catch(e) {
+        if (e instanceof TypeError) {
+            // cannot be set because no option was selected
+        } else {
+            // other error types: rethrow exception
+            throw e;
         }
-        // now add new ones
-        for (var i in study[stid][1]) {
-                var new_opt = document.createElement("option");
-                new_opt.setAttribute('value', i);
-                new_opt.innerHTML = study[stid][1][i] + ' / ' + study[stid][2][i];
-                obj.appendChild(new_opt);
+    }
+
+    var study = document.getElementById('study');
+    var stid;
+    try {
+        stid = study.options[study.selectedIndex].value;
+    } catch(e) {
+         if (e instanceof TypeError) {
+            // cannot be set because no option was selected
+        } else {
+            // other error types: rethrow exception
+            throw e;
         }
+    }
+
+    var eids = document.getElementById('eids');
+
+    // first remove all existing option elements
+    while(eids.options[0]) {
+        eids.removeChild(eids.options[0]);
+    }
+
+    // now add new ones
+    if (typeof pid !== 'undefined' && typeof stid !== 'undefined') {
+        var this_platform = PlatfStudyExp[pid];
+        var experiment_ids = this_platform.studies[stid].experiments;
+        var experiments = this_platform.experiments;
+        for (var i in experiment_ids) {
+            var this_experiment = experiments[i]
+            var new_opt = document.createElement('option');
+            new_opt.setAttribute('value', i);
+            new_opt.innerHTML = this_experiment[0] + ' / ' + this_experiment[1];
+            eids.appendChild(new_opt);
+        }
+    }
 }

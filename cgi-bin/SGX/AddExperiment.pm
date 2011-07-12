@@ -29,6 +29,7 @@ package SGX::AddExperiment;
 
 use strict;
 use warnings;
+use SGX::CSV;
 use SGX::DropDownData;
 use Data::Dumper;
 use File::Temp;
@@ -87,7 +88,7 @@ END_StudyPlatformQuery
         _sample2               => '',
         _ExperimentDescription => '',
         _AdditionalInfo        => '',
-        _rowsInserted          => 0
+        _rowsInserted          => undef
     };
 
     bless $self, $class;
@@ -128,7 +129,7 @@ sub dispatch_js {
             if (my $exception = $@) {
                 if ( $exception->isa('SGX::Exception::User') ) {
                     # User exception
-                    $self->{_error_message} = $exception->error;
+                    $self->{_error_message} = 'Error in input: ' . $exception->error;
                 } else {
                     # Internal or DBI exception: re-throw
                     $exception->throw();
@@ -283,7 +284,8 @@ sub drawAddExperimentMenu {
           'return validate_fields(this, [\'Sample1\',\'Sample2\',\'file\']);'
       ),
       $q->p(
-'In order to upload experiment data the file must be in a tab separated format and the columns be as follows:'
+'The data file must be in plain-text tab-delimited format with the following
+columns:'
       ),
       $q->pre(
         'Reporter Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'
@@ -363,8 +365,8 @@ sub drawAddExperimentMenu {
 #        CLASS:  AddExperiment
 #       METHOD:  addNewExperiment
 #   PARAMETERS:  ????
-#      RETURNS:  Fills out _eid and _rowsInserted fields. Returns the number of
-#      rows inserted.
+#      RETURNS:  True value on success. Also fills out _eid and _rowsInserted 
+#                fields.
 #  DESCRIPTION:  Performs actual upload and data validation
 #       THROWS:  SGX::Exception::Internal, SGX::Exception::User
 #     COMMENTS:   # :TODO:07/08/2011 12:55:45:es: Make headers optional
@@ -390,7 +392,7 @@ sub addNewExperiment {
       )
       or SGX::Exception::Internal->throw( error => "No rows were inserted\n" );
 
-    # :TRICKY:07/08/2011 12:52:00:es: Fills out _eid field
+    # Fills out _eid field
     $self->{_eid} = $self->{_dbh}->{'mysql_insertid'};
 
     #Regex to strip quotes.
@@ -405,13 +407,13 @@ sub addNewExperiment {
     my $outputFileName = $direc_out . 'StudyData';
 
     #This is the temp file we use to convert.
-    my $outputFileName_final = $direc_out . 'StudyData_final';
+    my $outputFileName_unix = $direc_out . 'StudyData_unix';
 
-    open my $OUTPUTTEMP, '>', $outputFileName_final
+    open my $OUTPUTTEMP, '>', $outputFileName_unix
       or SGX::Exception::Internal->throw(
-        error => "Could not open $outputFileName_final for writing: $!\n" );
+        error => "Could not open $outputFileName_unix for writing: $!\n" );
 
-    #Write the contents of the upload to the new file.
+    # Convert contents of the uploaded file to UNIX format
     while (<$uploadedFile>) {
         s/\r\n|\n|\r/\n/g;
         print {$OUTPUTTEMP} $_;
@@ -419,66 +421,30 @@ sub addNewExperiment {
     close($OUTPUTTEMP);
 
     #Open the converted file that was uploaded.
-    open my $FINALUPLOAD, '<', $outputFileName_final
+    open my $FINALUPLOAD, '<', $outputFileName_unix
       or SGX::Exception::Internal->throw(
-        error => "Could not open $outputFileName_final for reading: $!\n" );
+        error => "Could not open $outputFileName_unix for reading: $!\n" );
 
     #Open file we are writing to server.
     open my $OUTPUTTOSERVER, '>', $outputFileName
       or SGX::Exception::Internal->throw(
         error => "Could not open $outputFileName for writing: $!\n" );
 
-    #Check each line in the uploaded file and write it to our temp file.
-    while (<$FINALUPLOAD>) {
-        my @row = split(/ *\t */);
+    my $ok = eval {
+        SGX::CSV::csv_rewrite_keynum (
+            $FINALUPLOAD,
+            $OUTPUTTOSERVER,
+            input_header => 1,
+            data_fields  => 5,
+            csv_in_opts  => { sep_char => "\t" }
+        )
+    };
 
-        # The first line should be "Reporter Name" in the first column. We don't
-        # process this line.
-        if ( !( $row[0] eq '"Reporter Name"' ) ) {
-            for ( my $i = 0 ; $i < 6 ; $i++ ) {
-                $row[$i] = '' if not defined $row[$i];
-            }
-            if ( $row[0] =~ $regex_strip_quotes ) {
-                $row[0] = $2;
-                $row[0] =~ s/,//g;
-            }
-            if ( $row[1] =~ $regex_strip_quotes ) {
-                $row[1] = $2;
-                $row[1] =~ s/,//g;
-            }
-            if ( $row[2] =~ $regex_strip_quotes ) {
-                $row[2] = $2;
-                $row[2] =~ s/,//g;
-            }
-            if ( $row[3] =~ $regex_strip_quotes ) {
-                $row[3] = $2;
-                $row[3] =~ s/,//g;
-            }
-            if ( $row[4] =~ $regex_strip_quotes ) {
-                $row[4] = $2;
-                $row[4] =~ s/,//g;
-            }
-            if ( $row[5] =~ $regex_strip_quotes ) {
-                $row[5] = $2 . "\n";
-                $row[5] =~ s/,//g;
-                $row[5] =~ s/\"//g;
-            }
-
-            #Make sure we have a value for each column.
-            if (   !exists( $row[0] )
-                || !exists( $row[1] )
-                || !exists( $row[2] )
-                || !exists( $row[3] )
-                || !exists( $row[4] )
-                || !exists( $row[5] ) )
-            {
-                SGX::Exception::User->throw(
-                    error => "File not in correct format\n" );
-            }
-
-            print {$OUTPUTTOSERVER}
-              join( '|', ( $self->{_stid}, @row[ 0 .. 5 ] ) );
-        }
+    # in case of error, close files first and rethrow the exception
+    if ( not $ok or $@ ) {
+        close($OUTPUTTOSERVER);
+        close($FINALUPLOAD);
+        $@->throw();
     }
     close($OUTPUTTOSERVER);
     close($FINALUPLOAD);
@@ -494,7 +460,6 @@ sub addNewExperiment {
     my $createTableStatement = sprintf(
         <<"END_createTableStatement",
 CREATE TABLE %s (
-    stid INT(1),
     reporter VARCHAR(150),
     ratio DOUBLE,
     foldchange DOUBLE,
@@ -511,9 +476,8 @@ END_createTableStatement
         <<"END_inputStatement",
 LOAD DATA LOCAL INFILE %s
 INTO TABLE %s
-FIELDS TERMINATED BY '|'
-LINES TERMINATED BY '\n' (
-    stid,
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
     reporter,
     ratio,
     foldchange,
@@ -580,10 +544,10 @@ END_insertStatement
         );
     }
 
-    # :TRICKY:07/08/2011 12:52:24:es: Fills out _rowsInserted field
+    # Fills out _rowsInserted field
     $self->{_rowsInserted} = $rowsInserted;
 
-    return $rowsInserted;
+    return 1;
 }
 
 1;
