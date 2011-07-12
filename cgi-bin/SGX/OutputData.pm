@@ -10,6 +10,7 @@ Grouping of functions for dumping data.
 
 =head1 AUTHORS
 Michael McDuffie
+Eugene Scherba
 
 =head1 SEE ALSO
 
@@ -58,17 +59,17 @@ sub new {
 
         _ReportQuery => <<"END_ReportQuery",
 SELECT  
+    study.description     AS 'Study',
     CONCAT(
-        study.description, ' - ', 
-        experiment.sample2, ' / ', 
-        experiment.sample1
-    ) AS 'Study',
-    probe.reporter AS 'Reporter',
-    gene.accnum AS 'Accession Number',
-    gene.seqname AS 'Gene',
-    microarray.ratio AS 'Ratio',
+        experiment.sample1, ' / ', 
+        experiment.sample2
+    )                     AS 'Sample 1 / Sample 2',
+    probe.reporter        AS 'Reporter',
+    gene.accnum           AS 'Accession Number',
+    gene.seqname          AS 'Gene',
+    microarray.ratio      AS 'Ratio',
     microarray.foldchange AS 'Fold Change',
-    microarray.pvalue AS 'P-value',
+    microarray.pvalue     AS 'P-value',
     microarray.intensity1 AS 'Intensity 1',
     microarray.intensity2 AS 'Intensity 2'
 FROM experiment
@@ -195,12 +196,14 @@ sub loadReportData {
     # cache database handle
     my $dbh = $self->{_dbh};
 
-    my $query_text = sprintf($self->{_ReportQuery},
-        join(',', map { '?' } 1..scalar(@{$self->{_eidList}})));
+    my $query_text = sprintf(
+        $self->{_ReportQuery},
+        join( ',', map { '?' } 1 .. scalar( @{ $self->{_eidList} } ) )
+    );
 
-    my $sth = $dbh->prepare( $query_text );
+    my $sth = $dbh->prepare($query_text);
 
-    $self->{_RecordsReturned} = $sth->execute( @{$self->{_eidList}} );
+    $self->{_RecordsReturned} = $sth->execute( @{ $self->{_eidList} } );
 
     $self->{_FieldNames} = $sth->{NAME};
     $self->{_Data}       = $sth->fetchall_arrayref;
@@ -216,7 +219,7 @@ sub loadReportData {
 #      RETURNS:  ARRAY reference
 #  DESCRIPTION:  Returns data structure containing body of the table.
 #       THROWS:  no exceptions
-#     COMMENTS:  Remaps an array of array references into an array of hash 
+#     COMMENTS:  Remaps an array of array references into an array of hash
 #                references.
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -246,7 +249,6 @@ sub getJSHeaders {
     my $self = shift;
     return $self->{_FieldNames};
 }
-
 
 #---------------------------------------------------------------------------
 #  View methods
@@ -318,7 +320,7 @@ sub showForm {
 #       METHOD:  getJSRecordsForExistingDropDowns
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Return Javascript code including the JSON model necessary to 
+#  DESCRIPTION:  Return Javascript code including the JSON model necessary to
 #                populate Platform->Study->Experiment select controls.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -354,7 +356,6 @@ END_ret
     );
 }
 
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::OutputData
 #       METHOD:  LoadHTML
@@ -367,7 +368,7 @@ END_ret
 #===============================================================================
 sub LoadHTML {
     my $self = shift;
-    my $q = $self->{_cgi};
+    my $q    = $self->{_cgi};
 
     return
       $q->h3( { -id => 'caption' }, "Found $self->{_RecordsReturned} records" ),
@@ -388,8 +389,26 @@ sub LoadHTML {
 sub runReport_js {
     my $self = shift;
 
-    my $records = encode_json( getJSRecords($self) );
-    my $headers = encode_json( getJSHeaders($self) );
+    my $headers_ref = getJSHeaders($self);
+    my $records     = encode_json( getJSRecords($self) );
+    my $headers     = encode_json($headers_ref);
+
+    my @columns = 0 .. ( @$headers_ref - 1 );
+
+    my $myColumnDefs = encode_json(
+        [
+            map {
+                +{
+                    key        => "$_",
+                    sortable   => JSON::XS::true,
+                    resizeable => JSON::XS::true,
+                    label      => $headers_ref->[$_]
+                  }
+              } @columns
+        ]
+    );
+
+    my $responseSchemaFields = encode_json( [ map { "$_" } @columns ] );
 
     return <<"END_JSOuputList";
 var OutputReport = {
@@ -399,21 +418,11 @@ var OutputReport = {
 };
 YAHOO.util.Event.addListener("OutPut_astext", "click", export_table, OutputReport, true);
 YAHOO.util.Event.addListener(window, 'load', function() {
-    var myColumnDefs = [
-        {key:"0", sortable:true, resizeable:true, label:OutputReport.headers[0]},
-        {key:"1", sortable:true, resizeable:true, label:OutputReport.headers[1]},
-        {key:"2", sortable:true, resizeable:true, label:OutputReport.headers[2]},
-        {key:"3", sortable:true, resizeable:true, label:OutputReport.headers[3]},
-        {key:"4", sortable:true, resizeable:true, label:OutputReport.headers[4]},
-        {key:"5", sortable:true, resizeable:true, label:OutputReport.headers[5]},
-        {key:"6", sortable:true, resizeable:true, label:OutputReport.headers[6]},
-        {key:"7", sortable:true, resizeable:true, label:OutputReport.headers[7]},
-        {key:"8", sortable:true, resizeable:true, label:OutputReport.headers[8]}
-    ];
+    var myColumnDefs = $myColumnDefs;
 
     var myDataSource = new YAHOO.util.DataSource(OutputReport.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-    myDataSource.responseSchema = {fields: ["0","1","2","3","4","5","6","7","8"]};
+    myDataSource.responseSchema = {fields: $responseSchemaFields};
     var myData_config = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
     var myDataTable = new YAHOO.widget.DataTable(
                         "OutputTable", 
