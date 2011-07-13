@@ -401,8 +401,11 @@ sub addNewExperiment {
     # Fills out _eid field
     $self->{_eid} = $self->{_dbh}->{'mysql_insertid'};
 
-    #This is where we put the temp file we will import.
-    my $tmp            = File::Temp->new();
+    # This is where we put the temp file we will import. UNLINK option to
+    # File::Temp constructor means that the File::Temp destructor will try to
+    # unlink the temporary file on its own (we don't need to worry about
+    # unlinking).
+    my $tmp            = File::Temp->new(SUFFIX => '.txt', UNLINK => 1);
     my $outputFileName = $tmp->filename();
 
     #Open file we are writing to server.
@@ -530,8 +533,10 @@ END_insertStatement
     my $rowsInserted =
       $self->{_dbh}->do( $insertStatement, undef, $this_eid, $this_pid );
 
-    # remove temporary file
-    unlink $outputFileName;
+    # no need to unlink because the destructor to File::Temp instance will try
+    # to unlink the file on its own and will generate a warning if path is not
+    # found.
+    #unlink $outputFileName;
 
     #Run the command to drop the temp table.
     $self->{_dbh}->do($dropStatement);

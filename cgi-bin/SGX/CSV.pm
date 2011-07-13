@@ -94,13 +94,13 @@ sub csv_rewrite_keynum {
 
     # whether input file contains a header
     my $input_header =
-      defined( $param{input_header} )
+      ( exists $param{input_header} )
       ? $param{input_header}
       : 0;    # default: no header
 
     # Text::CSV options for input file
     my $param_csv_in_opts =
-      defined( $param{csv_in_opts} )
+      ( exists $param{csv_in_opts} )
       ? $param{csv_in_opts}
       : {};
 
@@ -111,7 +111,7 @@ sub csv_rewrite_keynum {
 
     # Text::CSV options for output file
     my $param_csv_out_opts =
-      defined( $param{csv_out_opts} )
+      ( exists $param{csv_out_opts} )
       ? $param{csv_out_opts}
       : {};
 

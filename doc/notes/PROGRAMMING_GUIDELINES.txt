@@ -302,3 +302,27 @@ I/O
 CSV format should be supported in addition to tab-delimited. The idea is that
 the same formats that are supported for output should also be supported for
 input.
+
+DEFAULT ARGUMENTS TO PERL SUBROUTINES
+
+The following snippet is from the constructor to File::Temp in default Perl
+installation. It shows an example of how default arguments could be used by a
+subroutine. We should not be converting to uppercase unless special behavior is
+desired, but the example below shows how it could be done when needed. Note that
+exists() is used instead of defined() to set defaults. This allows the user to
+use the following: my $tmp = File::Temp->new(UNLINK => undef); to set UNLINK to
+false.  Since undefined value evaluates to false, we should allow for the use of
+undef in such situations. We may not want to delete argument from argument
+lists, however, since it may result in ambiguity. For example, $args{UNLINK}
+evaluates to false after UNLINK has been deleted from the argument list.
+
+  # read arguments and convert keys to upper case
+  my %args = @_;
+  %args = map { uc($_), $args{$_} } keys %args;
+
+  # see if they are unlinking (defaulting to yes)
+  my $unlink = (exists $args{UNLINK} ? $args{UNLINK} : 1 );
+  delete $args{UNLINK};
+
+
+
