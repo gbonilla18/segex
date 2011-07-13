@@ -51,7 +51,6 @@ use strict;
 use warnings;
 
 use Text::CSV;
-use Scalar::Util qw/looks_like_number/;
 use SGX::Exceptions;
 
 #===  FUNCTION  ================================================================
@@ -61,13 +60,12 @@ use SGX::Exceptions;
 #                database. The original idea was to input a tab-separated file,
 #                validate it, and rewrite it as a pipe-separated file.
 #   PARAMETERS:  Required:
-#                    $in  - input file handle
+#                    $in  - ARRAY reference to input file contents split by lines
 #                    $out - output file handle
+#                    $is_valid - array of functions to validate input fields
 #
 #                Optional (named) with default values:
 #                    input_header => 0  - whether input contains a header
-#                    data_fields  => 0  - how many data fields follow the key
-#                                         field
 #                    csv_in_opts  => {} - Input Text::CSV options, e.g.
 #                                         csv_in_opts => { sep_char => "\t" }
 #                    csv_out_opts => {} - Output Text::CSV options, e.g.
@@ -86,21 +84,13 @@ use SGX::Exceptions;
 #                   LINES TERMINATED BY '\n' STARTING BY ''
 #
 #       THROWS:  SGX::Exception::User
-#     COMMENTS:  Would be nice if this was rewritten as a class that, on object
-#                instantiation, generates a custom method for field validation
-#                (see Higher Order Perl etc.)
+#     COMMENTS:  n/a
 #
 #     SEE ALSO:  perldoc Text::CSV
 #                http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm
 #===============================================================================
 sub csv_rewrite_keynum {
-    my ( $in, $out, %param ) = @_;
-
-    # minimum required number of data fields
-    my $req_data_fields =
-      defined( $param{data_fields} )
-      ? $param{data_fields}
-      : 0;    # default: no data fields
+    my ( $in, $out, $is_valid, %param ) = @_;
 
     # whether input file contains a header
     my $input_header =
@@ -130,47 +120,52 @@ sub csv_rewrite_keynum {
     # set through $param{csv_out_opts}.
     my %csv_out_opts = ( sep_char => ',', eol => "\n", %$param_csv_out_opts );
 
-    my $csv_in    = Text::CSV->new( \%csv_in_opts );
-    my $csv_out   = Text::CSV->new( \%csv_out_opts );
-    my $record_no = 0;
+    my $csv_in  = Text::CSV->new( \%csv_in_opts );
+    my $csv_out = Text::CSV->new( \%csv_out_opts );
+    my $record_num = 0;    # record is a non-empty line
 
-    while ( my $row = $csv_in->getline($in) ) {
-        my @fields = @$row;
-        next if all_empty(@fields);    # skip blank lines
-        $record_no++;
-        next if $input_header and $record_no == 1;    # skip header if needed
-        my $first_field = shift @fields;
-        SGX::Exception::User->throw( error => "Key field empty at line $." )
-          if all_empty($first_field);
-        my $data_fields = scalar(@fields);
-        SGX::Exception::User->throw(
-            error => "At least $req_data_fields data fields required"
-              . " but only $data_fields found at line $." )
-          if $data_fields < $req_data_fields;
-        SGX::Exception::User->throw(
-            error => "Non-numeric value where numeric was expected at line $." )
-          if not all_numbers(@fields);
+    # require as many fields as have validating functions
+    my $req_fields = @$is_valid;
 
-        $csv_out->print( $out, [ $first_field, @fields ] );
+    for ( my $line_num = 1 ; $csv_in->parse( shift(@$in) ) ; $line_num++ ) {
+        my @fields = $csv_in->fields();
+
+        # skip blank lines
+        next if all_empty(@fields);
+
+        # skip header if requested to
+        $record_num++;
+        next if $input_header and $record_num == 1;
+
+        # check total number of fields present
+        if ( ( my $fc = @fields ) < $req_fields ) {
+            SGX::Exception::User->throw( error =>
+"Only $fc field(s) found ($req_fields required) at line $line_num\n"
+            );
+        }
+
+        # perform validation on each column
+        foreach ( 0 .. ( $req_fields - 1 ) ) {
+            if ( !$is_valid->[$_]->( $fields[$_] ) ) {
+                my $col_num = $_ + 1;
+                SGX::Exception::User->throw( error =>
+                      "Invalid formatting at line $line_num column $col_num\n"
+                );
+            }
+        }
+
+        # write to output
+        $csv_out->print( $out, \@fields );
     }
-    my $ret = $csv_in->eof
-      or SGX::Exception::User->throw( $csv_in->error_diag() );
-    return $ret;
-}
 
-#===  FUNCTION  ================================================================
-#         NAME:  all_numbers
-#      PURPOSE:  Checks whether array consists solely of values that look like
-#                numbers. Can also take a scalar.
-#   PARAMETERS:  Array or scalar to check
-#      RETURNS:  True/False
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  Uses looks_like_number from Scalar::Util. Returns true when run
-#                on a zero-length array (of no elements).
-#     SEE ALSO:  n/a
-#===============================================================================
-sub all_numbers { looks_like_number($_) || return for @_; return 1 }
+    # check for errors
+    if ( my $error = $csv_in->error_diag() ) {
+        SGX::Exception::User->throw($error);
+    }
+
+    # return number of records written
+    return $record_num;
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty

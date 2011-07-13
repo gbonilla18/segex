@@ -1,4 +1,18 @@
 /******************************************************************/
+function getSelectedValue(obj)
+{
+    try {
+        return obj.options[obj.selectedIndex].value;
+    } catch(e) {
+        if (e instanceof TypeError) {
+            // cannot be set because no option was selected
+        } else {
+            // other error types: rethrow exception
+            throw e;
+        }
+    }
+}
+/******************************************************************/
 function populatePlatform()
 {
     // This function is only run once, on page load
@@ -16,18 +30,7 @@ function populatePlatform()
 function populatePlatformStudy()
 {
     var platform = document.getElementById('platform');
-    var pid;
-    try {
-        pid = platform.options[platform.selectedIndex].value;
-    } catch(e) {
-        if (e instanceof TypeError) {
-            // cannot be set because no option was selected
-        } else {
-            // other error types: rethrow exception
-            throw e;
-        }
-    }
-
+    var pid = getSelectedValue(platform);
     var study = document.getElementById('study');
 
     // first remove all existing option elements
@@ -51,30 +54,10 @@ function populatePlatformStudy()
 function populateStudyExperiment()
 {
     var platform = document.getElementById('platform');
-    var pid;
-    try {
-        pid = platform.options[platform.selectedIndex].value;
-    } catch(e) {
-        if (e instanceof TypeError) {
-            // cannot be set because no option was selected
-        } else {
-            // other error types: rethrow exception
-            throw e;
-        }
-    }
+    var pid = getSelectedValue(platform);
 
     var study = document.getElementById('study');
-    var stid;
-    try {
-        stid = study.options[study.selectedIndex].value;
-    } catch(e) {
-         if (e instanceof TypeError) {
-            // cannot be set because no option was selected
-        } else {
-            // other error types: rethrow exception
-            throw e;
-        }
-    }
+    var stid = getSelectedValue(study);
 
     var eids = document.getElementById('eids');
 

@@ -410,6 +410,13 @@ sub runReport_js {
 
     my $responseSchemaFields = encode_json( [ map { "$_" } @columns ] );
 
+ # :TODO:07/12/2011 10:00:04:es: rewrite export_table() Javascript function such
+ # that it assumes that .headers field is in the same format as DataTable column
+ # definitions. Then switch column definition code everytwhere from being
+ # hardcoded into Javascript to being Perl-generated and JSON-encoded.
+ #
+ # Also conider treating DataSource responseSchema.fields the same way.
+ #
     return <<"END_JSOuputList";
 var OutputReport = {
     caption: "Showing all Experiments",

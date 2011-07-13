@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SGX::AddExperiment
+SGX::UploadData
 
 =head1 SYNOPSIS
 
@@ -25,7 +25,7 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 
 =cut
 
-package SGX::AddExperiment;
+package SGX::UploadData;
 
 use strict;
 use warnings;
@@ -33,13 +33,13 @@ use SGX::CSV;
 use SGX::DropDownData;
 use Data::Dumper;
 use File::Temp;
-use File::Path qw/remove_tree/;
 use Carp;
 use Switch;
 use SGX::Exceptions;
+use Scalar::Util qw/looks_like_number/;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  AddExperiment
+#        CLASS:  UploadData
 #       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -96,7 +96,7 @@ END_StudyPlatformQuery
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  AddExperiment
+#        CLASS:  UploadData
 #       METHOD:  dispatch_js
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -124,19 +124,24 @@ sub dispatch_js {
             # upload data to new experiment
             return if not $s->is_authorized('user');
             $self->loadFromForm();
-            my $rc = eval { $self->addNewExperiment() } || 0;
+            my $rows_inserted = eval { $self->addNewExperiment() };
 
-            if (my $exception = $@) {
+            if ( my $exception = $@ ) {
                 if ( $exception->isa('SGX::Exception::User') ) {
-                    # User exception
-                    $self->{_error_message} = 'Error in input: ' . $exception->error;
-                } else {
-                    # Internal or DBI exception: re-throw
-                    $exception->throw();
+
+                    # Notify user of user exceptions
+                    $self->{_error_message} =
+                      'Error in input: ' . $exception->error;
                 }
-            } else {
-                # no error
-                $self->{_message} = "Success! Rows inserted: $rc";
+                else {
+                    $exception->throw();    # rethrow internal or DBI exceptions
+                }
+            }
+            elsif ( !$rows_inserted ) {
+                $self->{_error_message} = 'No records were added';
+            }
+            else {
+                $self->{_message} = "Success! Records added: $rows_inserted";
             }
 
             # view needs this
@@ -156,7 +161,7 @@ sub dispatch_js {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  AddExperiment
+#        CLASS:  UploadData
 #       METHOD:  dispatch
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -176,18 +181,19 @@ sub dispatch {
       : '';
 
     # notice about rows added or error message
-    print $q->p({-style=>'color:red; font-weight:bold;'}, 
-       $self->{_error_message}) if $self->{_error_message};
-    print $q->p({-style=>'font-weight:bold;'}, 
-       $self->{_message}) if $self->{_message};
+    print $q->p( { -style => 'color:red; font-weight:bold;' },
+        $self->{_error_message} )
+      if $self->{_error_message};
+    print $q->p( { -style => 'font-weight:bold;' }, $self->{_message} )
+      if $self->{_message};
 
     # always show form
-    print $self->drawAddExperimentMenu();
+    print $self->drawUploadDataMenu();
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  AddExperiment
+#        CLASS:  UploadData
 #       METHOD:  loadFromForm
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -217,7 +223,7 @@ sub loadFromForm {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  AddExperiment
+#        CLASS:  UploadData
 #       METHOD:  loadPlatformData
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -238,7 +244,7 @@ sub loadPlatformData {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  AddExperiment
+#        CLASS:  UploadData
 #       METHOD:  loadStudyData
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -261,8 +267,8 @@ sub loadStudyData {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  AddExperiment
-#       METHOD:  drawAddExperimentMenu
+#        CLASS:  UploadData
+#       METHOD:  drawUploadDataMenu
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  returns array of HTML element strings
@@ -270,7 +276,7 @@ sub loadStudyData {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub drawAddExperimentMenu {
+sub drawUploadDataMenu {
     my $self = shift;
     my $q    = $self->{_cgi};
 
@@ -362,10 +368,10 @@ columns:'
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  AddExperiment
+#        CLASS:  UploadData
 #       METHOD:  addNewExperiment
 #   PARAMETERS:  ????
-#      RETURNS:  True value on success. Also fills out _eid and _rowsInserted 
+#      RETURNS:  True value on success. Also fills out _eid and _rowsInserted
 #                fields.
 #  DESCRIPTION:  Performs actual upload and data validation
 #       THROWS:  SGX::Exception::Internal, SGX::Exception::User
@@ -395,59 +401,55 @@ sub addNewExperiment {
     # Fills out _eid field
     $self->{_eid} = $self->{_dbh}->{'mysql_insertid'};
 
-    #Regex to strip quotes.
-    my $regex_strip_quotes = qr/^("?)(.*)\1$/;
-
-    #We need to create an output directory in /tmp
-    my $tmp       = File::Temp->new();
-    my $direc_out = $tmp->filename();
-    mkdir $direc_out;
-
     #This is where we put the temp file we will import.
-    my $outputFileName = $direc_out . 'StudyData';
-
-    #This is the temp file we use to convert.
-    my $outputFileName_unix = $direc_out . 'StudyData_unix';
-
-    open my $OUTPUTTEMP, '>', $outputFileName_unix
-      or SGX::Exception::Internal->throw(
-        error => "Could not open $outputFileName_unix for writing: $!\n" );
-
-    # Convert contents of the uploaded file to UNIX format
-    while (<$uploadedFile>) {
-        s/\r\n|\n|\r/\n/g;
-        print {$OUTPUTTEMP} $_;
-    }
-    close($OUTPUTTEMP);
-
-    #Open the converted file that was uploaded.
-    open my $FINALUPLOAD, '<', $outputFileName_unix
-      or SGX::Exception::Internal->throw(
-        error => "Could not open $outputFileName_unix for reading: $!\n" );
+    my $tmp            = File::Temp->new();
+    my $outputFileName = $tmp->filename();
 
     #Open file we are writing to server.
     open my $OUTPUTTOSERVER, '>', $outputFileName
       or SGX::Exception::Internal->throw(
         error => "Could not open $outputFileName for writing: $!\n" );
 
-    my $ok = eval {
-        SGX::CSV::csv_rewrite_keynum (
-            $FINALUPLOAD,
+    # Read uploaded file in "slurp" mode (at once), and break it on the
+    # following combinations of line separators in respective order: (1) CRLF
+    # (Windows), (2) LF (Unix), and (3) CR (Mac).
+    my @lines = split(
+        /\r\n|\n|\r/,
+        do { local $/ = <$uploadedFile> }
+    );
+
+    # :TODO:07/12/2011 21:21:33:es: check whether the file gets deleted
+    # automatically on close
+    close $uploadedFile;
+
+    my $valid_records = eval {
+        SGX::CSV::csv_rewrite_keynum(
+            \@lines,
             $OUTPUTTOSERVER,
+            [
+                sub { shift =~ m/[^\s]/ },
+                sub { looks_like_number(shift) },
+                sub { looks_like_number(shift) },
+                sub { looks_like_number(shift) },
+                sub { looks_like_number(shift) },
+                sub { looks_like_number(shift) }
+            ],
             input_header => 1,
-            data_fields  => 5,
             csv_in_opts  => { sep_char => "\t" }
-        )
+        );
     };
 
     # in case of error, close files first and rethrow the exception
-    if ( not $ok or $@ ) {
+    if ( my $exception = $@ ) {
         close($OUTPUTTOSERVER);
-        close($FINALUPLOAD);
-        $@->throw();
+        $exception->throw();
+    }
+    elsif ( !$valid_records ) {
+        close($OUTPUTTOSERVER);
+        SGX::Exception::User->throw(
+            error => "No input records found in file\n" );
     }
     close($OUTPUTTOSERVER);
-    close($FINALUPLOAD);
 
     #--------------------------------------------
     #Now get the temp file into a temp MYSQL table.
@@ -528,13 +530,13 @@ END_insertStatement
     my $rowsInserted =
       $self->{_dbh}->do( $insertStatement, undef, $this_eid, $this_pid );
 
+    # remove temporary file
+    unlink $outputFileName;
+
     #Run the command to drop the temp table.
     $self->{_dbh}->do($dropStatement);
 
     #--------------------------------------------
-
-    #Remove the temp directory.
-    remove_tree($direc_out);
 
     # :TODO:07/08/2011 10:47:36:es: find out why "< 2" is used below
     if ( $rowsInserted < 2 ) {
@@ -547,7 +549,7 @@ END_insertStatement
     # Fills out _rowsInserted field
     $self->{_rowsInserted} = $rowsInserted;
 
-    return 1;
+    return $rowsInserted;
 }
 
 1;
