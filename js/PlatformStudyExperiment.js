@@ -13,23 +13,50 @@ function getSelectedValue(obj)
     }
 }
 /******************************************************************/
+function buildDropDown(obj, tuples) {
+    for (var i = 0, len = tuples.length; i < len; i++) {
+        var key = tuples[i][0];
+        var value = tuples[i][1];
+        var new_opt = document.createElement('option');
+        new_opt.setAttribute('value', key);
+        new_opt.innerHTML = value;
+        obj.appendChild(new_opt);
+    }
+}
+/******************************************************************/
+function clearDropDown(obj) {
+    while (obj.options[0]) {
+        obj.removeChild(obj.options[0]);
+    }
+}
+/******************************************************************/
 function populatePlatform()
 {
     // This function is only run once, on page load
     var platforms = document.getElementById('pid');
+
+    // sort by platform name
+    var tuples = [];
     for (var i in PlatfStudyExp) {
         var this_platform = PlatfStudyExp[i];
-        var new_opt = document.createElement('option');
-        new_opt.setAttribute('value', i);
-        var content = this_platform.name;
-        if (this_platform.species !== null) {
-            content += ' \\ ' + this_platform.species;
-        }
-        new_opt.innerHTML = content;
-        platforms.appendChild(new_opt); 
+        var content = (this_platform.species !== null)
+                    ? this_platform.name + ' \\ ' + this_platform.species
+                    : this_platform.name;
+        tuples.push([i, content]);
     }
+    // generic tuple sort (sort hash by value)
+    tuples.sort(function(a, b) {
+        a = a[1];
+        b = b[1];
+        return a < b ? -1 : (a > b ? 1 : 0); 
+    });
+
+    // build dropdown box
+    buildDropDown(platforms, tuples);
+
     //current_platform = obj.options[obj.selectedIndex].value;
 }
+
 /******************************************************************/
 function populatePlatformStudy()
 {
@@ -38,20 +65,26 @@ function populatePlatformStudy()
     var studies = document.getElementById('stid');
 
     // first remove all existing option elements
-    while (studies.options[0]) {
-        studies.removeChild(studies.options[0]);
-    }
+    clearDropDown(studies);
 
     // now add new ones
     if (typeof pid !== 'undefined') {
         var study_data = PlatfStudyExp[pid].studies;
+
+        // sort by study id
+        var tuples = [];
         for (var i in study_data) {
-            var this_study = study_data[i];
-            var new_opt = document.createElement('option');
-            new_opt.setAttribute('value', i);
-            new_opt.innerHTML = this_study.name;
-            studies.appendChild(new_opt);
+            var content = study_data[i].name;
+            tuples.push([i, content]);
         }
+        // generic tuple sort (sort hash by numeric key)
+        tuples.sort(function(a, b) {
+            a = parseInt(a[0]);
+            b = parseInt(b[0]);
+            return a < b ? -1 : (a > b ? 1 : 0); 
+        });
+        
+        buildDropDown(studies, tuples);
     }
 }
 /******************************************************************/
@@ -66,21 +99,29 @@ function populateStudyExperiment()
     var experiments = document.getElementById('eid');
 
     // first remove all existing option elements
-    while(experiments.options[0]) {
-        experiments.removeChild(experiments.options[0]);
-    }
+    clearDropDown(experiments);
 
     // now add new ones
     if (typeof pid !== 'undefined' && typeof stid !== 'undefined') {
         var this_platform = PlatfStudyExp[pid];
         var experiment_ids = this_platform.studies[stid].experiments;
         var experiment_data = this_platform.experiments;
+
+        // sort by experiment id
+        var tuples = [];
         for (var i in experiment_ids) {
             var this_experiment = experiment_data[i]
-            var new_opt = document.createElement('option');
-            new_opt.setAttribute('value', i);
-            new_opt.innerHTML = this_experiment[0] + ' / ' + this_experiment[1];
-            experiments.appendChild(new_opt);
+            var content = this_experiment[0] + ' / ' + this_experiment[1];
+            tuples.push([i, content]);
         }
+        // generic tuple sort (sort hash by numeric key)
+        tuples.sort(function(a, b) {
+            a = parseInt(a[0]);
+            b = parseInt(b[0]);
+            return a < b ? -1 : (a > b ? 1 : 0); 
+        });
+
+        // build dropdown box
+        buildDropDown(experiments, tuples);
     }
 }
