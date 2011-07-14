@@ -58,11 +58,13 @@ sub new {
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
     my $self = {
-        _dbh                   => $dbh,
-        _cgi                   => $q,
-        _UserSession           => $s,
-        _js_src_yui            => $js_src_yui,
-        _js_src_code           => $js_src_code,
+        _dbh         => $dbh,
+        _cgi         => $q,
+        _UserSession => $s,
+        _js_src_yui  => $js_src_yui,
+        _js_src_code => $js_src_code,
+        _PlatformStudyExperiment =>
+          SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
         _stid                  => '',
         _pid                   => '',
         _sample1               => '',
@@ -97,15 +99,23 @@ sub dispatch_js {
       ? $q->param('b')
       : '';
 
+    return if not $s->is_authorized('user');
+
     push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
+    $self->{_PlatformStudyExperiment}->init(
+        platforms          => 1,
+        studies            => 1,
+        platform_by_study  => 1,
+        empty_platform     => 'Create New Platform',
+        empty_study        => 'Do not assign'
+    );
+    $self->init();
 
     switch ($action) {
         case 'Upload' {
 
             # upload data to new experiment
-            return if not $s->is_authorized('user');
-            $self->loadFromForm();
             my $rows_inserted = eval { $self->addNewExperiment() };
 
             if ( my $exception = $@ ) {
@@ -126,17 +136,15 @@ sub dispatch_js {
                 $self->{_message} = "Success! Records added: $rows_inserted";
             }
 
-            # view needs this
-            push @$js_src_code, { -code => $self->loadPlatformData() };
+            # show form
+            push @$js_src_code, { -code => $self->getDropDownJS() };
         }
         else {
 
             # default: show form
-            return if not $s->is_authorized('user');
-            $self->loadFromForm();
-
-            # view needs this
-            push @$js_src_code, { -code => $self->loadPlatformData() };
+            push @$js_src_code, {
+                -code => $self->getDropDownJS()
+            };
         }
     }
     return 1;
@@ -157,10 +165,10 @@ sub dispatch {
 
     my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
 
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
+    #my $action =
+    #  ( defined $q->param('b') )
+    #  ? $q->param('b')
+    #  : '';
 
     # notice about rows added or error message
     print $q->p( { -style => 'color:red; font-weight:bold;' },
@@ -170,62 +178,58 @@ sub dispatch {
       if $self->{_message};
 
     # always show form
-    print $self->drawUploadDataMenu();
+    print $self->showForm();
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  loadFromForm
+#       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Loads CGI parameters
+#  DESCRIPTION:  Get state (mostly from CGI parameters)
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub loadFromForm {
+sub init {
     my $self = shift;
 
-    $self->{_sample1} = ( $self->{_cgi}->param('Sample1') )
-      if defined( $self->{_cgi}->param('Sample1') );
-    $self->{_sample2} = ( $self->{_cgi}->param('Sample2') )
-      if defined( $self->{_cgi}->param('Sample2') );
-    $self->{_stid} = ( $self->{_cgi}->param('stid') )
-      if defined( $self->{_cgi}->param('stid') );
-    $self->{_pid} = ( $self->{_cgi}->param('pid') )
-      if defined( $self->{_cgi}->param('pid') );
-    $self->{_ExperimentDescription} = ( $self->{_cgi}->param('ExperimentDesc') )
-      if defined( $self->{_cgi}->param('ExperimentDesc') );
-    $self->{_AdditionalInfo} = ( $self->{_cgi}->param('AdditionalInfo') )
-      if defined( $self->{_cgi}->param('AdditionalInfo') );
+    my $q = $self->{_cgi};
+
+    $self->{_sample1} = $q->param('Sample1');
+    $self->{_sample2} = $q->param('Sample2');
+    my $stid = $q->param('stid');
+    if ( defined $stid ) {
+        $self->{_stid} = $stid;
+        my $pid =
+          $self->{_PlatformStudyExperiment}->get_ByStudy()->{$stid}->{pid};
+        $self->{_pid} = ( defined $pid ) ? $pid : $q->param('pid');
+    }
+    $self->{_ExperimentDescription} = $q->param('ExperimentDesc');
+    $self->{_AdditionalInfo}        = $q->param('AdditionalInfo');
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  loadPlatformData
+#       METHOD:  getDropDownJS
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Loads information into the object that is used to create the
+#  DESCRIPTION:  Returns JSON data plus JavaScript code required to build
 #                platform and study dropdowns
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub loadPlatformData {
+sub getDropDownJS {
     my $self = shift;
 
-    my $model_obj =
-      SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
-    my $model = $model_obj->getByPlatformStudyExperiment(
-        platform_info   => 1,
-        experiment_info => 0
-    );
+    my $PlatfStudyExp =
+      encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
 
-    return sprintf(
-        <<"END_ret",
-var PlatfStudyExp = %s;
+    return <<"END_ret";
+var PlatfStudyExp = $PlatfStudyExp;
 YAHOO.util.Event.addListener(window, 'load', function() {
     populatePlatform();
     populatePlatformStudy();
@@ -234,13 +238,11 @@ YAHOO.util.Event.addListener('pid', 'change', function() {
     populatePlatformStudy();
 });
 END_ret
-        encode_json($model)
-    );
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  drawUploadDataMenu
+#       METHOD:  showForm
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  returns array of HTML element strings
@@ -248,7 +250,7 @@ END_ret
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub drawUploadDataMenu {
+sub showForm {
     my $self = shift;
     my $q    = $self->{_cgi};
 
@@ -358,6 +360,8 @@ columns:'
 sub addNewExperiment {
     my $self = shift;
 
+    my $dbh = $self->{_dbh};
+
     #---------------------------------------------------------------------------
     #  First we rewrite and validate the uploaded file
     #---------------------------------------------------------------------------
@@ -410,12 +414,16 @@ sub addNewExperiment {
     # in case of error, close files first and rethrow the exception
     if ( my $exception = $@ ) {
         close($OUTPUTTOSERVER);
-        $exception->throw();
+
+        # :TRICKY:07/14/2011 13:38:58:es: this rewrites exception message
+        $exception->throw(
+            error => 'Failed to create new experiment: ' . $exception->error );
     }
     elsif ( $valid_records < 1 ) {
         close($OUTPUTTOSERVER);
         SGX::Exception::User->throw(
-            error => "No records found in input file\n" );
+            error => 'Failed to create new experiment: '
+              . "No records found in input file\n" );
     }
     close($OUTPUTTOSERVER);
 
@@ -426,7 +434,7 @@ sub addNewExperiment {
     my $temp_table = time() . '_' . getppid();
 
     #Command to create temp table.
-    my $createTableStatement = <<"END_createTableStatement",
+    my $createTableStatement = <<"END_createTableStatement";
 CREATE TABLE $temp_table (
     reporter VARCHAR(150),
     ratio DOUBLE,
@@ -437,8 +445,8 @@ CREATE TABLE $temp_table (
 )
 END_createTableStatement
 
-      #This is the mysql command to suck in the file.
-      my $inputStatement = sprintf(
+    #This is the mysql command to suck in the file into the temp table.
+    my $loadDataStatement = sprintf(
         <<"END_inputStatement",
 LOAD DATA LOCAL INFILE %s
 INTO TABLE $temp_table
@@ -452,12 +460,12 @@ LINES TERMINATED BY '\n' STARTING BY '' (
     intensity2
 )
 END_inputStatement
-        $self->{_dbh}->quote($outputFileName),
-      );
+        $dbh->quote($outputFileName),
+    );
 
-    # This is the mysql command to get results from temp file into the
+    # This is the mysql command to insert results from the temp table into
     # microarray table.
-    my $insertStatement = <<"END_insertStatement",
+    my $insertStatement = <<"END_insertStatement";
 INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity1,intensity2)
 SELECT
     probe.rid,
@@ -472,8 +480,7 @@ INNER JOIN $temp_table AS temptable USING(reporter)
 WHERE probe.pid=?
 END_insertStatement
 
-      # This is the statement to add a new experiment
-      my $addExperimentStatement = <<"END_InsertExperiment",
+    my $addExperimentStatement = <<"END_InsertExperiment";
 INSERT INTO experiment (
     pid,
     sample1,
@@ -483,53 +490,82 @@ INSERT INTO experiment (
 ) VALUES (?, ?, ?, ?, ?)
 END_InsertExperiment
 
-      # This is the command to drop the temp table.
-      my $dropStatement = "DROP TABLE $temp_table";
+    my $addStudyExperimentStatement =
+      'INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)';
+
+    my $dropExperimentStatement = 'DELETE FROM experiment WHERE eid=?';
+
+    my $dropTableStatement = "DROP TABLE $temp_table";
 
     #---------------------------------------------------------------------------
     #  Run MySQL statements
     #---------------------------------------------------------------------------
     #Run the command to create the temp table.
-    $self->{_dbh}->do($createTableStatement);
+    $dbh->do($createTableStatement);
 
     #Run the command to suck in the data.
-    my $rowsLoaded = $self->{_dbh}->do($inputStatement);
+    my $rowsLoaded = $dbh->do($loadDataStatement);
 
     # If $rowsLoaded is zero or negative, bail out ASAP
     if ( $rowsLoaded < 1 ) {
-        $self->{_dbh}->do($dropStatement);    # drop temporary table
+        $dbh->do($dropTableStatement);    # drop temporary table
         SGX::Exception::Internal->throw(
-            error => "No rows were loaded into temporary table\n" );
+            error => 'Failed to create new experiment: '
+              . "No rows were loaded into temporary table\n" );
     }
 
     # Adding a new experiment into database as late as possible
-    $self->{_dbh}->do(
-        $addExperimentStatement, undef,
-        $self->{_pid},           $self->{_sample1},
-        $self->{_sample2},       $self->{_ExperimentDescription},
-        $self->{_AdditionalInfo}
+    my $this_eid;
+    if (
+        $dbh->do(
+            $addExperimentStatement, undef,
+            $self->{_pid},           $self->{_sample1},
+            $self->{_sample2},       $self->{_ExperimentDescription},
+            $self->{_AdditionalInfo}
+        )
       )
-      or
-      SGX::Exception::Internal->throw( error => "Cannot add new experiment\n" );
+    {
 
-    # Grab the id of the experiment inserted
-    my $this_eid = $self->{_dbh}->{mysql_insertid};
-    $self->{_eid} = $this_eid;
+        # Grab the id of the experiment inserted
+        $this_eid = $dbh->{mysql_insertid};
+        $self->{_eid} = $this_eid;
+    }
+    else {
+        $dbh->do($dropTableStatement);
+        SGX::Exception::Internal->throw(
+            error => "Failed to create new experiment\n" );
+    }
+
+    if ( defined $self->{_stid} ) {
+        $dbh->do( $addStudyExperimentStatement, undef, $self->{_stid},
+            $this_eid );
+    }
 
     #Run the command to insert the data.
     my $recordsInserted =
-      $self->{_dbh}->do( $insertStatement, undef, $this_eid, $self->{_pid} );
+      $dbh->do( $insertStatement, undef, $this_eid, $self->{_pid} );
     $self->{_rowsInserted} = $recordsInserted;
 
     #Run the command to drop the temp table.
-    $self->{_dbh}->do($dropStatement);
+    $dbh->do($dropTableStatement);
 
+    # :TODO:07/14/2011 14:15:47:es: implement commit/rollback mechanism for data
+    # upload
+    #
     if ( $recordsInserted < $rowsLoaded ) {
         my $failedProbes = $rowsLoaded - $recordsInserted;
+        my $prefix       = '';
+
+        # drop experiment entirely if zero records were inserted
+        if ( $recordsInserted < 1 ) {
+            $dbh->do( $dropExperimentStatement, undef, $this_eid );
+            $prefix = 'Failed to create new experiment: ';
+        }
+
         SGX::Exception::User->throw(
             error => sprintf(
                 <<"END_WRONGPLATFORM",
-Found %d rows in the uploaded file, but %d records were 
+${prefix}Found %d rows in the uploaded file, but %d records were 
 loaded into the database (failed to load %d probes). 
 Check that you are uploading data to the correct platform.
 END_WRONGPLATFORM

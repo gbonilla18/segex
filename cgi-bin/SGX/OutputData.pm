@@ -57,6 +57,9 @@ sub new {
         _js_src_yui  => $js_src_yui,
         _js_src_code => $js_src_code,
 
+        _PlatformStudyExperiment =>
+            SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
+
         _ReportQuery => <<"END_ReportQuery",
 SELECT  
     study.description     AS 'Study',
@@ -136,9 +139,14 @@ sub dispatch_js {
         }
         else {
             return if not $s->is_authorized('user');
+            $self->{_PlatformStudyExperiment}->init(
+                platforms          => 1,
+                studies            => 1,
+                experiments        => 1
+            );
             push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
             push @$js_src_code,
-              { -code => $self->getJSRecordsForExistingDropDowns() };
+              { -code => $self->getDropDownJS() };
         }
     }
     return 1;
@@ -317,7 +325,7 @@ sub showForm {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::OutputData
-#       METHOD:  getJSRecordsForExistingDropDowns
+#       METHOD:  getDropDownJS
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Return Javascript code including the JSON model necessary to
@@ -326,19 +334,14 @@ sub showForm {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getJSRecordsForExistingDropDowns {
+sub getDropDownJS {
     my $self = shift;
 
-    my $model_obj =
-      SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
-    my $model = $model_obj->getByPlatformStudyExperiment(
-        platform_info   => 1,
-        experiment_info => 1
-    );
+    my $PlatfStudyExp =
+          encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
 
-    return sprintf(
-        <<"END_ret",
-var PlatfStudyExp = %s;
+    return <<"END_ret";
+var PlatfStudyExp = $PlatfStudyExp;
 YAHOO.util.Event.addListener(window, 'load', function() {
     populatePlatform();
     populatePlatformStudy();
@@ -352,8 +355,6 @@ YAHOO.util.Event.addListener('stid', 'change', function() {
     populateStudyExperiment();
 });
 END_ret
-        encode_json($model)
-    );
 }
 
 #===  CLASS METHOD  ============================================================

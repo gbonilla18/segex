@@ -21,7 +21,11 @@ function populatePlatform()
         var this_platform = PlatfStudyExp[i];
         var new_opt = document.createElement('option');
         new_opt.setAttribute('value', i);
-        new_opt.innerHTML = this_platform.name + ' \\ ' + this_platform.species;
+        var content = this_platform.name;
+        if (this_platform.species !== null) {
+            content += ' \\ ' + this_platform.species;
+        }
+        new_opt.innerHTML = content;
         platforms.appendChild(new_opt); 
     }
     //current_platform = obj.options[obj.selectedIndex].value;

@@ -77,7 +77,7 @@ use warnings;
 #use SGX::Debug qw/assert/;
 use Data::Dumper;
 use Hash::Merge qw/merge/;
-use List::Util qw/reduce/;
+use SGX::Exceptions;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
@@ -96,12 +96,8 @@ sub new {
 
     my $self = {
         _dbh        => $dbh,
-        _ByPlatform => {
-            platform           => undef,
-            platformStudy      => undef,
-            platformExperiment => undef
-        },
-        _ByStudy => undef
+        _ByPlatform => {},
+        _ByStudy    => {}
     };
 
     bless $self, $class;
@@ -110,109 +106,168 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
-#       METHOD:  overlayByPlatform
-#   PARAMETERS:  none
-#      RETURNS:  HASHREF to merged data
-#  DESCRIPTION:  Merges (or overlays) all data in $self->{_ByPlatform}
+#       METHOD:  get_ByPlatform
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  getter method for _ByPlatform
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub overlayByPlatform {
-    my ($self) = @_;
-
-    my $model = 
-      reduce { merge( $a, $b ) }
-      grep { defined }
-      values %{ $self->{_ByPlatform} };
-
-    # For testing:
-      #@{ $self->{_ByPlatform} }{qw{platform platformStudy platformExperiment}};
-      #@{ $self->{_ByPlatform} }{qw{platformStudy platform platformExperiment}};
-      #@{ $self->{_ByPlatform} }{qw{platformStudy platformExperiment platform}};
-      #@{ $self->{_ByPlatform} }{qw{platform platformExperiment platformStudy}};
-      #@{ $self->{_ByPlatform} }{qw{platformExperiment platformStudy platform}};
-      #@{ $self->{_ByPlatform} }{qw{platformExperiment platform platformStudy}};
-
-    return $model;
+sub get_ByPlatform {
+    my $self = shift;
+    return $self->{_ByPlatform};
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
-#       METHOD:  getByPlatformStudyExperiment
-#   PARAMETERS:  
-#       platform_info => [1|0]     - whether to add platform info such as
-#                                    species and platform name
-#       experiment_info => [1|0]   - whether to add experiment info
-#                                    (names of sample 1 and sample 2)
-#       require_unassigned =>[1|0] - whether to always list
-#                                    "Unassigned Experiments" among studies,
-#                                    even when no such experiments exist.
+#       METHOD:  get_ByStudy
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  getter method for _ByStudy
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_ByStudy {
+    my $self = shift;
+    return $self->{_ByStudy};
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::PlatformStudyExperiment
+#       METHOD:  init
+#   PARAMETERS:
+#       platforms          => T/F - whether to add platform info such as
+#                                   species and platform name
+#       studies            => T/F - whether to add study info such as study description
+#       experiments        => T/F - whether to add experiment info
+#                                   (names of sample 1 and sample 2)
+#       empty_study        => str/F - name of an empty study (If true, a special study
+#                                   under given name will always show up in
+#                                   the list. If false, "@Unassigned" study
+#                                   will show up only in special cases.
+#       empty_platform     => str/F - if true, a special platform will show
+#                                   up in the list.
+#       platform_by_study  => T/F - whether to store info about
+#                                   which platform a study belongs to on a
+#                                   per-study basis (_ByStudy hash).
 #      RETURNS:  HASHREF of merged data structure
 #  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getByPlatformStudyExperiment {
+sub init {
     my ( $self, %param ) = @_;
 
-    # require_unassigned parameter
-    my $require_unassigned = $param{require_unassigned};
+    #---------------------------------------------------------------------------
+    #  process argument hash
+    #---------------------------------------------------------------------------
+    # defaulting to "no"
+    my $platform_info = $param{platforms};
 
-    # platform_info parameter
-    if ($param{platform_info}) {
-        $self->getPlatformInfo();
+    # defaulting to "no"
+    my $study_info = $param{studies};
+
+    # defaulting to "no"
+    my $experiment_info = $param{experiments};
+
+    # defaulting to "no"
+    my $empty_study = $param{empty_study};
+
+    # defaulting to "no"
+    my $empty_platform = $param{empty_platform};
+
+    # defaulting to "no"
+    my $platform_by_study = $param{platform_by_study};
+
+    #---------------------------------------------------------------------------
+    #  build model
+    #---------------------------------------------------------------------------
+    $self->getPlatforms( empty => $empty_platform ) if $platform_info;
+
+    # we didn't define getStudy() because getPlatformStudy() accomplishes the
+    # same goal (there is a one-to-many relationship between platforms and
+    # studies).
+    $self->getPlatformStudy(
+        reverse_lookup => $platform_by_study,
+        empty          => $empty_study
+    ) if $study_info;
+    $self->getExperiments() if $experiment_info;
+
+    if ( $study_info && $experiment_info ) {
+        $self->getStudyExperiment();
     }
-    # experiment_info parameter
-    if ($param{experiment_info}) {
-        $self->getExperiments();
-    }
 
-    $self->getPlatformStudy()
-      if not defined $self->{_ByPlatform}->{platformStudy};
+    #---------------------------------------------------------------------------
+    #  platforms => 1, studies => 1, experiments => 1
+    #---------------------------------------------------------------------------
+    if ( $platform_info && $study_info && $experiment_info ) {
+        my $model   = $self->{_ByPlatform};
+        my $studies = $self->{_ByStudy};
 
-    my $model = $self->overlayByPlatform();
+        # Also determine which experiment ids do not belong to any study. Do
+        # this by obtaining a list of all experiments in the platform (keys
+        # %{$platform->{experiments}}) and subtracting from it experiments
+        # belonging to each study as we iterate over the list of all studies in
+        # the platform.
+        #
+        my $this_empty_study =
+          ( defined $empty_study )
+          ? "\@$empty_study"
+          : '@Unassigned';
 
-    $self->getStudyExperiment()
-      if not defined $self->{_ByStudy};
-    my $studies = $self->{_ByStudy};
+        my $this_empty_platform = 
+          ( defined $empty_platform )
+          ? "\@$empty_platform"
+          : '@Unassigned';
 
-    # Also determine which experiment ids do not belong to any study. Do this by
-    # obtaining a list of all experiments in the platform (keys
-    # %{$platform->{experiments}}) and subtracting from it experiments belonging
-    # to each study as we iterate over the list of all studies in the platform.
-    #
-    foreach my $platform ( values %$model ) {
-        # populate %unassigned hash initially with all experiments for the
-        # platform
-        my %unassigned = map { $_ => undef } keys %{$platform->{experiments}};
+        foreach my $platform ( values %$model ) {
 
-        my $platformStudies = $platform->{studies};
-        foreach my $study ( keys %$platformStudies ) {
-            my $studyExperiments = $studies->{$study};
-            $platformStudies->{$study}->{experiments} = $studyExperiments;
+            # populate %unassigned hash initially with all experiments for the
+            # platform
+            my %unassigned =
+              map { $_ => undef } keys %{ $platform->{experiments} };
 
-            # delete assigned experiments from unassigned
-            delete @unassigned{ keys %$studyExperiments };
+            # initialize $platform->{studies} (must always be present)
+            $platform->{studies} ||= {};
+            $platform->{name} ||= $this_empty_platform;
+            $platform->{species} ||= undef;
+
+            # cache "studies" field
+            my $platformStudies = $platform->{studies};
+            foreach my $study ( keys %$platformStudies ) {
+                my $studyExperiments = $studies->{$study}->{experiments};
+                $platformStudies->{$study}->{experiments} = $studyExperiments;
+
+                # delete assigned experiments from unassigned
+                delete @unassigned{ keys %$studyExperiments };
+            }
+
+            # if %unassigned hash is not empty, add "Unassigned" study to
+            # studies
+            if (%unassigned) {
+                if ( exists $platformStudies->{''} ) {
+                    $platformStudies->{''}->{experiments} = \%unassigned;
+                }
+                else {
+                    $platformStudies->{''} = {
+                        experiments => \%unassigned,
+                        name        => $this_empty_study
+                    };
+                }
+            }
         }
-
-        # if %unassigned hash is not empty, add "Unassigned" study to studies
-        if ($require_unassigned or %unassigned) {
-            $platformStudies->{''} = {
-                experiments => \%unassigned,
-                name => '@Unassigned'
-            };
-        }
     }
 
-    return $model;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
-#       METHOD:  getPlatformInfo
-#   PARAMETERS:  ????
+#       METHOD:  getPlatforms
+#   PARAMETERS:  empty => str/F  - name of the empty platform
 #      RETURNS:  HASHREF to model
 #
 #  DESCRIPTION:  Builds a nested data structure that describes which studies
@@ -256,8 +311,14 @@ sub getByPlatformStudyExperiment {
 #                relationships between studies and experiments and a list of
 #                experiments, which can be composited in afterwards.
 #===============================================================================
-sub getPlatformInfo {
-    my $self = shift;
+sub getPlatforms {
+    my ( $self, %param ) = @_;
+
+    my $unassigned_name = $param{empty};
+    my %unassigned =
+        ( defined $unassigned_name )
+      ? ( '' => { name => "\@$unassigned_name", species => undef } )
+      : ();
 
     # cache the database handle
     my $dbh = $self->{_dbh};
@@ -276,7 +337,7 @@ END_PLATFORMQUERY
     $sth_platform->bind_columns( undef, \$pid, \$pname, \$species );
 
     # what is returned
-    my %model;
+    my %model = (%unassigned);
 
     # first setup the model using platform info
     while ( $sth_platform->fetch ) {
@@ -292,14 +353,20 @@ END_PLATFORMQUERY
 
     $sth_platform->finish;
 
-    $self->{_ByPlatform}->{platform} = \%model;
-    return \%model;
+    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # this simply sets it to \%model
+    $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
 #       METHOD:  getPlatformStudy
-#   PARAMETERS:  ????
+#   PARAMETERS:  empty          => 'Unassigned Experiments' - name of a study node
+#                               whose id is a zero-length string.
+#                reverse_lookup => true/false  - whether to store info about
+#                               which platform a study belongs to on a per-study
+#                               basis (_ByStudy hash).
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  Exception::Class::DBI
@@ -309,11 +376,14 @@ END_PLATFORMQUERY
 sub getPlatformStudy {
     my ( $self, %param ) = @_;
 
-    my $unassigned_name = $param{unassigned};
+    my $unassigned_name = $param{empty};
     my %unassigned =
         ( defined $unassigned_name )
-      ? ( '' => { name => $unassigned_name } )
+      ? ( '' => { name => "\@$unassigned_name" } )
       : ();
+
+    # defaulting to "no"
+    my $reverse_lookup = $param{reverse_lookup};
 
     # cache the database handle
     my $dbh = $self->{_dbh};
@@ -333,6 +403,8 @@ END_STUDYQUERY
     my ( $pid, $stid, $study_desc );
     $sth_study->bind_columns( undef, \$pid, \$stid, \$study_desc );
 
+    my %reverse_model;
+
     # complete the model using study info
     while ( $sth_study->fetch ) {
         if ( exists $model{$pid} ) {
@@ -342,11 +414,24 @@ END_STUDYQUERY
             $model{$pid} =
               { studies => { %unassigned, $stid => { name => $study_desc } } };
         }
+        if ($reverse_lookup) {
+            if ( exists $reverse_model{$stid} ) {
+                $reverse_model{$stid}->{pid} = $pid;
+            }
+            else {
+                $reverse_model{$stid} = { pid => $pid };
+            }
+        }
     }
     $sth_study->finish;
 
-    $self->{_ByPlatform}->{platformStudy} = \%model;
-    return \%model;
+    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # this simply sets it to \%model
+    $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
+    if ($reverse_lookup) {
+        $self->{_ByStudy} = merge( \%reverse_model, $self->{_ByStudy} );
+    }
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -398,8 +483,10 @@ END_EXPERIMENTQUERY
 
     $sth_experiment->finish;
 
-    $self->{_ByPlatform}->{platformExperiment} = \%model;
-    return \%model;
+    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # this simply sets it to \%model
+    $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -412,8 +499,8 @@ END_EXPERIMENTQUERY
 #                /* var StudyExperiment -- note that this structure is missing
 #                 * experiments not assigned to studies */
 #                var StudyExperiment = {
-#                    '108': { '1120':null, '2311':null },
-#                    '120': { '1120':null }
+#                    '108': { 'experiments' : { '1120':null, '2311':null }},
+#                    '120': { 'experiments' : { '1120':null }}
 #                };
 #
 #       THROWS:  Exception::Class::DBI
@@ -440,14 +527,16 @@ END_STUDYEXPERIMENTQUERY
     while ( $sth_StudyExperiment->fetch ) {
 
         if ( exists $model{$se_stid} ) {
-            $model{$se_stid}->{$se_eid} = undef;
+            $model{$se_stid}->{experiments}->{$se_eid} = undef;
         }
         else {
-            $model{$se_stid} = { $se_eid => undef };
+            $model{$se_stid} = { experiments => { $se_eid => undef } };
         }
     }
 
-    $self->{_ByStudy} = \%model;
+    # Merge in the hash we just built. If $self->{_ByStudy} is undefined,
+    # this simply sets it to \%model
+    $self->{_ByStudy} = merge( \%model, $self->{_ByStudy} );
     return \%model;
 }
 

@@ -318,11 +318,13 @@ evaluates to false after UNLINK has been deleted from the argument list.
 
   # read arguments and convert keys to upper case
   my %args = @_;
-  %args = map { uc($_), $args{$_} } keys %args;
+  #%args = map { uc($_), $args{$_} } keys %args;
 
-  # see if they are unlinking (defaulting to yes)
+  # see if they are unlinking (defaulting to "yes")
   my $unlink = (exists $args{UNLINK} ? $args{UNLINK} : 1 );
-  delete $args{UNLINK};
+  #delete $args{UNLINK};
 
+If the named argument defaulted to "no", we could simply assign it:
 
+  my $unlink = $args{UNLINK};
 
