@@ -136,7 +136,7 @@ sub dispatch_js {
         }
         else {
             return if not $s->is_authorized('user');
-            push @$js_src_code, { -src => 'OutputData.js' };
+            push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
             push @$js_src_code,
               { -code => $self->getJSRecordsForExistingDropDowns() };
         }
@@ -268,11 +268,11 @@ sub showForm {
     my $q    = $self->{_cgi};
 
     return $q->h2('Output Data'), $q->h3('Select Items to output'), $q->dl(
-        $q->dt( $q->label( { -for => 'platform' }, 'Platform:' ) ),
+        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
             $q->popup_menu(
-                -name => 'platform',
-                -id   => 'platform'
+                -name => 'pid',
+                -id   => 'pid'
             )
         ),
 
@@ -283,18 +283,18 @@ sub showForm {
         -action  => $q->url( -absolute => 1 ) . '?a=outputData'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'study' }, 'Study:' ) ),
+        $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
         $q->dd(
             $q->popup_menu(
-                -name => 'study',
-                -id   => 'study'
+                -name => 'stid',
+                -id   => 'stid'
             )
         ),
-        $q->dt( $q->label( { -for => 'eids' }, 'Experiment(s):' ) ),
+        $q->dt( $q->label( { -for => 'eid' }, 'Experiment(s):' ) ),
         $q->dd(
             $q->popup_menu(
-                -name     => 'eids',
-                -id       => 'eids',
+                -name     => 'eid',
+                -id       => 'eid',
                 -multiple => 'multiple'
             )
         ),
@@ -344,11 +344,11 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     populatePlatformStudy();
     populateStudyExperiment();
 });
-YAHOO.util.Event.addListener('platform', 'change', function() {
+YAHOO.util.Event.addListener('pid', 'change', function() {
     populatePlatformStudy();
     populateStudyExperiment();
 });
-YAHOO.util.Event.addListener('study', 'change', function() {
+YAHOO.util.Event.addListener('stid', 'change', function() {
     populateStudyExperiment();
 });
 END_ret

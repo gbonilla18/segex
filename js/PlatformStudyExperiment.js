@@ -16,67 +16,67 @@ function getSelectedValue(obj)
 function populatePlatform()
 {
     // This function is only run once, on page load
-    var platform = document.getElementById('platform');
+    var platforms = document.getElementById('pid');
     for (var i in PlatfStudyExp) {
         var this_platform = PlatfStudyExp[i];
         var new_opt = document.createElement('option');
         new_opt.setAttribute('value', i);
         new_opt.innerHTML = this_platform.name + ' \\ ' + this_platform.species;
-        platform.appendChild(new_opt); 
+        platforms.appendChild(new_opt); 
     }
     //current_platform = obj.options[obj.selectedIndex].value;
 }
 /******************************************************************/
 function populatePlatformStudy()
 {
-    var platform = document.getElementById('platform');
-    var pid = getSelectedValue(platform);
-    var study = document.getElementById('study');
+    var platforms = document.getElementById('pid');
+    var pid = getSelectedValue(platforms);
+    var studies = document.getElementById('stid');
 
     // first remove all existing option elements
-    while (study.options[0]) {
-        study.removeChild(study.options[0]);
+    while (studies.options[0]) {
+        studies.removeChild(studies.options[0]);
     }
 
     // now add new ones
     if (typeof pid !== 'undefined') {
-        var studies = PlatfStudyExp[pid].studies;
-        for (var i in studies) {
-            var this_study = studies[i];
+        var study_data = PlatfStudyExp[pid].studies;
+        for (var i in study_data) {
+            var this_study = study_data[i];
             var new_opt = document.createElement('option');
             new_opt.setAttribute('value', i);
             new_opt.innerHTML = this_study.name;
-            study.appendChild(new_opt);
+            studies.appendChild(new_opt);
         }
     }
 }
 /******************************************************************/
 function populateStudyExperiment()
 {
-    var platform = document.getElementById('platform');
-    var pid = getSelectedValue(platform);
+    var platforms = document.getElementById('pid');
+    var pid = getSelectedValue(platforms);
 
-    var study = document.getElementById('study');
-    var stid = getSelectedValue(study);
+    var studies = document.getElementById('stid');
+    var stid = getSelectedValue(studies);
 
-    var eids = document.getElementById('eids');
+    var experiments = document.getElementById('eid');
 
     // first remove all existing option elements
-    while(eids.options[0]) {
-        eids.removeChild(eids.options[0]);
+    while(experiments.options[0]) {
+        experiments.removeChild(experiments.options[0]);
     }
 
     // now add new ones
     if (typeof pid !== 'undefined' && typeof stid !== 'undefined') {
         var this_platform = PlatfStudyExp[pid];
         var experiment_ids = this_platform.studies[stid].experiments;
-        var experiments = this_platform.experiments;
+        var experiment_data = this_platform.experiments;
         for (var i in experiment_ids) {
-            var this_experiment = experiments[i]
+            var this_experiment = experiment_data[i]
             var new_opt = document.createElement('option');
             new_opt.setAttribute('value', i);
             new_opt.innerHTML = this_experiment[0] + ' / ' + this_experiment[1];
-            eids.appendChild(new_opt);
+            experiments.appendChild(new_opt);
         }
     }
 }

@@ -568,7 +568,7 @@ sub insertNewStudy {
 
     $self->{_dbh}->do($insertStatement) or croak $self->{_dbh}->errstr;
 
-    $self->{_stid} = $self->{_dbh}->{'mysql_insertid'};
+    $self->{_stid} = $self->{_dbh}->{mysql_insertid};
     return;
 }
 

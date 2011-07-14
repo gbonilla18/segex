@@ -19,7 +19,7 @@
 #  open( my $out, '>', $outfile ) or die "$outfile: $!";
 #  print "Rewriting...\n";
 #  my $ok = eval {
-#      SGX::CSV::csv_rewrite_keynum(
+#      SGX::CSV::csv_rewrite(
 #          $in,
 #          $out,
 #          input_header => 1,
@@ -54,7 +54,7 @@ use Text::CSV;
 use SGX::Exceptions;
 
 #===  FUNCTION  ================================================================
-#         NAME:  csv_rewrite_keynum
+#         NAME:  csv_rewrite
 #      PURPOSE:  Validate user-uploaded microarray data and rewrite the file
 #                provided into a new file for safe slurp-mode loading into the
 #                database. The original idea was to input a tab-separated file,
@@ -89,7 +89,8 @@ use SGX::Exceptions;
 #     SEE ALSO:  perldoc Text::CSV
 #                http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm
 #===============================================================================
-sub csv_rewrite_keynum {
+sub csv_rewrite
+{
     my ( $in, $out, $is_valid, %param ) = @_;
 
     # whether input file contains a header

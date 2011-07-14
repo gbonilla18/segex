@@ -17,7 +17,9 @@ our @EXPORT =
 #---------------------------------------------------------------------------
 #  Database-specific
 #---------------------------------------------------------------------------
-use constant DATABASE_STRING => 'dbi:mysql:segex_dev';
+ # :TODO:07/13/2011 15:20:26:es: Consider allowing "mysql_local_infile" only for
+ # special kinds of users (ones who have permission to upload data/annotation)
+use constant DATABASE_STRING => 'dbi:mysql:segex_dev;mysql_local_infile=1';
 use constant DATABASE_USER   => 'segex_dev_user';
 use constant DATABASE_PWD    => 'b00g3yk1d';
 

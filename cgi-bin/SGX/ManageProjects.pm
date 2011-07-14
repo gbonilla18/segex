@@ -753,7 +753,7 @@ sub insertNewProject {
       ->do( $self->{_InsertQuery}, undef, $self->{_prname}, $self->{_prdesc},
         $self->{_manager} );
 
-    $self->{_prid} = $self->{_dbh}->{'mysql_insertid'};
+    $self->{_prid} = $self->{_dbh}->{mysql_insertid};
     return $self->{_prid};
 }
 

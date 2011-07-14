@@ -29,6 +29,8 @@ package SGX::UploadData;
 
 use strict;
 use warnings;
+
+use JSON::XS;
 use SGX::CSV;
 use SGX::DropDownData;
 use Data::Dumper;
@@ -36,6 +38,7 @@ use File::Temp;
 use Carp;
 use Switch;
 use SGX::Exceptions;
+use SGX::Model::PlatformStudyExperiment;
 use Scalar::Util qw/looks_like_number/;
 
 #===  CLASS METHOD  ============================================================
@@ -55,35 +58,13 @@ sub new {
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
     my $self = {
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s,
-        _js_src_yui  => $js_src_yui,
-        _js_src_code => $js_src_code,
-
-        _InsertQuery => <<"END_InsertQuery",
-INSERT INTO experiment (
-    sample1,
-    sample2,
-    ExperimentDescription,
-    AdditionalInformation
-) VALUES (?, ?, ?, ?)
-END_InsertQuery
-
-        _stid => '',
-        _pid  => '',
-
-        _PlatformQuery => <<"END_PlatformQuery",
-SELECT pid, CONCAT(pname, ' \\\\ ', species)
-FROM platform
-END_PlatformQuery
-
-        _StudyPlatformQuery => <<"END_StudyPlatformQuery",
-SELECT pid, stid, description
-FROM study
-END_StudyPlatformQuery
-
-        _platformList          => {},
+        _dbh                   => $dbh,
+        _cgi                   => $q,
+        _UserSession           => $s,
+        _js_src_yui            => $js_src_yui,
+        _js_src_code           => $js_src_code,
+        _stid                  => '',
+        _pid                   => '',
         _sample1               => '',
         _sample2               => '',
         _ExperimentDescription => '',
@@ -117,6 +98,7 @@ sub dispatch_js {
       : '';
 
     push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
+    push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
 
     switch ($action) {
         case 'Upload' {
@@ -137,15 +119,15 @@ sub dispatch_js {
                     $exception->throw();    # rethrow internal or DBI exceptions
                 }
             }
-            elsif ( !$rows_inserted ) {
-                $self->{_error_message} = 'No records were added';
+            elsif ( $rows_inserted == 0 ) {
+                $self->{_error_message} = 'No records were added.';
             }
             else {
                 $self->{_message} = "Success! Records added: $rows_inserted";
             }
 
             # view needs this
-            $self->loadPlatformData();
+            push @$js_src_code, { -code => $self->loadPlatformData() };
         }
         else {
 
@@ -154,7 +136,7 @@ sub dispatch_js {
             $self->loadFromForm();
 
             # view needs this
-            $self->loadPlatformData();
+            push @$js_src_code, { -code => $self->loadPlatformData() };
         }
     }
     return 1;
@@ -211,8 +193,6 @@ sub loadFromForm {
       if defined( $self->{_cgi}->param('Sample2') );
     $self->{_stid} = ( $self->{_cgi}->param('stid') )
       if defined( $self->{_cgi}->param('stid') );
-    $self->{_stid} = ( $self->{_cgi}->url_param('stid') )
-      if defined( $self->{_cgi}->url_param('stid') );
     $self->{_pid} = ( $self->{_cgi}->param('pid') )
       if defined( $self->{_cgi}->param('pid') );
     $self->{_ExperimentDescription} = ( $self->{_cgi}->param('ExperimentDesc') )
@@ -228,7 +208,7 @@ sub loadFromForm {
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Loads information into the object that is used to create the
-#  study dropdown
+#                platform and study dropdowns
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -236,34 +216,26 @@ sub loadFromForm {
 sub loadPlatformData {
     my $self = shift;
 
-    my $platformDropDown =
-      SGX::DropDownData->new( $self->{_dbh}, $self->{_PlatformQuery} );
+    my $model_obj =
+      SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
+    my $model = $model_obj->getByPlatformStudyExperiment(
+        platform_info   => 1,
+        experiment_info => 0
+    );
 
-    $self->{_platformList} = $platformDropDown->loadDropDownValues();
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  loadStudyData
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub loadStudyData {
-    my $self = shift;
-
-    my $sth = $self->{_dbh}->prepare( $self->{_StudyPlatformQuery} );
-    my $rc  = $sth->execute();
-
-    $self->{_studyList} = $sth->fetchall_hashref();
-
-    $sth->finish();
-
-    return 1;
+    return sprintf(
+        <<"END_ret",
+var PlatfStudyExp = %s;
+YAHOO.util.Event.addListener(window, 'load', function() {
+    populatePlatform();
+    populatePlatformStudy();
+});
+YAHOO.util.Event.addListener('pid', 'change', function() {
+    populatePlatformStudy();
+});
+END_ret
+        encode_json($model)
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -303,10 +275,15 @@ columns:'
         $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
             $q->popup_menu(
-                -name   => 'pid',
-                -id     => 'pid',
-                -values => [ keys %{ $self->{_platformList} } ],
-                -labels => $self->{_platformList}
+                -name => 'pid',
+                -id   => 'pid'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name => 'stid',
+                -id   => 'stid'
             )
         ),
         $q->dt( $q->label( { -for => 'Sample1' }, 'Sample 1:' ) ),
@@ -379,33 +356,21 @@ columns:'
 #     SEE ALSO:  n/a
 #===============================================================================
 sub addNewExperiment {
-
-    #Get reference to our object.
     my $self = shift;
 
-    #The is the file handle of the uploaded file.
-    my $uploadedFile = $self->{_cgi}->upload('file');
-
-    if ( !$uploadedFile ) {
-        SGX::Exception::User->throw( error => 'File failed to upload. '
-              . "Be sure to enter a valid file to upload\n" );
-    }
-
-    $self->{_dbh}->do(
-        $self->{_InsertQuery}, undef, $self->{_sample1}, $self->{_sample2},
-        $self->{_ExperimentDescription},
-        $self->{_AdditionalInfo}
-      )
-      or SGX::Exception::Internal->throw( error => "No rows were inserted\n" );
-
-    # Fills out _eid field
-    $self->{_eid} = $self->{_dbh}->{'mysql_insertid'};
+    #---------------------------------------------------------------------------
+    #  First we rewrite and validate the uploaded file
+    #---------------------------------------------------------------------------
+    # The is the file handle of the uploaded file.
+    my $uploadedFile = $self->{_cgi}->upload('file')
+      or SGX::Exception::User->throw( error => 'File failed to upload. '
+          . "Be sure to enter a valid file to upload\n" );
 
     # This is where we put the temp file we will import. UNLINK option to
     # File::Temp constructor means that the File::Temp destructor will try to
     # unlink the temporary file on its own (we don't need to worry about
     # unlinking).
-    my $tmp            = File::Temp->new(SUFFIX => '.txt', UNLINK => 1);
+    my $tmp = File::Temp->new( SUFFIX => '.txt', UNLINK => 1 );
     my $outputFileName = $tmp->filename();
 
     #Open file we are writing to server.
@@ -426,7 +391,7 @@ sub addNewExperiment {
     close $uploadedFile;
 
     my $valid_records = eval {
-        SGX::CSV::csv_rewrite_keynum(
+        SGX::CSV::csv_rewrite(
             \@lines,
             $OUTPUTTOSERVER,
             [
@@ -447,24 +412,22 @@ sub addNewExperiment {
         close($OUTPUTTOSERVER);
         $exception->throw();
     }
-    elsif ( !$valid_records ) {
+    elsif ( $valid_records < 1 ) {
         close($OUTPUTTOSERVER);
         SGX::Exception::User->throw(
-            error => "No input records found in file\n" );
+            error => "No records found in input file\n" );
     }
     close($OUTPUTTOSERVER);
 
-    #--------------------------------------------
-    #Now get the temp file into a temp MYSQL table.
-
-    #Get time to make our unique ID.
-    #Make idea with the time and ID of the running application.
-    my $processID = time() . '_' . getppid();
+    #---------------------------------------------------------------------------
+    #  Create various MySQL statements
+    #---------------------------------------------------------------------------
+    #Make our unique ID using time and running process ID
+    my $temp_table = time() . '_' . getppid();
 
     #Command to create temp table.
-    my $createTableStatement = sprintf(
-        <<"END_createTableStatement",
-CREATE TABLE %s (
+    my $createTableStatement = <<"END_createTableStatement",
+CREATE TABLE $temp_table (
     reporter VARCHAR(150),
     ratio DOUBLE,
     foldchange DOUBLE,
@@ -473,14 +436,12 @@ CREATE TABLE %s (
     intensity2 DOUBLE
 )
 END_createTableStatement
-        $processID
-    );
 
-    #This is the mysql command to suck in the file.
-    my $inputStatement = sprintf(
+      #This is the mysql command to suck in the file.
+      my $inputStatement = sprintf(
         <<"END_inputStatement",
 LOAD DATA LOCAL INFILE %s
-INTO TABLE %s
+INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n' STARTING BY '' (
     reporter,
@@ -492,69 +453,97 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 )
 END_inputStatement
         $self->{_dbh}->quote($outputFileName),
-        $processID
-    );
+      );
 
     # This is the mysql command to get results from temp file into the
     # microarray table.
-    my $this_eid        = $self->{_eid};
-    my $this_pid        = $self->{_pid};
-    my $insertStatement = sprintf(
-        <<"END_insertStatement",
-INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity2,intensity1)
+    my $insertStatement = <<"END_insertStatement",
+INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity1,intensity2)
 SELECT
     probe.rid,
     ? as eid,
     temptable.ratio,
     temptable.foldchange,
     temptable.pvalue,
-    temptable.intensity2,
-    temptable.intensity1
+    temptable.intensity1,
+    temptable.intensity2
 FROM probe
-INNER JOIN %s AS temptable USING(reporter)
+INNER JOIN $temp_table AS temptable USING(reporter)
 WHERE probe.pid=?
 END_insertStatement
-        $processID
-    );
 
-    #This is the command to drop the temp table.
-    my $dropStatement = sprintf( 'DROP TABLE %s', $processID );
+      # This is the statement to add a new experiment
+      my $addExperimentStatement = <<"END_InsertExperiment",
+INSERT INTO experiment (
+    pid,
+    sample1,
+    sample2,
+    ExperimentDescription,
+    AdditionalInformation
+) VALUES (?, ?, ?, ?, ?)
+END_InsertExperiment
 
-    #--------------------------------------------
+      # This is the command to drop the temp table.
+      my $dropStatement = "DROP TABLE $temp_table";
 
-    #---------------------------------------------
+    #---------------------------------------------------------------------------
+    #  Run MySQL statements
+    #---------------------------------------------------------------------------
     #Run the command to create the temp table.
     $self->{_dbh}->do($createTableStatement);
 
     #Run the command to suck in the data.
-    $self->{_dbh}->do($inputStatement);
+    my $rowsLoaded = $self->{_dbh}->do($inputStatement);
+
+    # If $rowsLoaded is zero or negative, bail out ASAP
+    if ( $rowsLoaded < 1 ) {
+        $self->{_dbh}->do($dropStatement);    # drop temporary table
+        SGX::Exception::Internal->throw(
+            error => "No rows were loaded into temporary table\n" );
+    }
+
+    # Adding a new experiment into database as late as possible
+    $self->{_dbh}->do(
+        $addExperimentStatement, undef,
+        $self->{_pid},           $self->{_sample1},
+        $self->{_sample2},       $self->{_ExperimentDescription},
+        $self->{_AdditionalInfo}
+      )
+      or
+      SGX::Exception::Internal->throw( error => "Cannot add new experiment\n" );
+
+    # Grab the id of the experiment inserted
+    my $this_eid = $self->{_dbh}->{mysql_insertid};
+    $self->{_eid} = $this_eid;
 
     #Run the command to insert the data.
-    my $rowsInserted =
-      $self->{_dbh}->do( $insertStatement, undef, $this_eid, $this_pid );
-
-    # no need to unlink because the destructor to File::Temp instance will try
-    # to unlink the file on its own and will generate a warning if path is not
-    # found.
-    #unlink $outputFileName;
+    my $recordsInserted =
+      $self->{_dbh}->do( $insertStatement, undef, $this_eid, $self->{_pid} );
+    $self->{_rowsInserted} = $recordsInserted;
 
     #Run the command to drop the temp table.
     $self->{_dbh}->do($dropStatement);
 
-    #--------------------------------------------
-
-    # :TODO:07/08/2011 10:47:36:es: find out why "< 2" is used below
-    if ( $rowsInserted < 2 ) {
+    if ( $recordsInserted < $rowsLoaded ) {
+        my $failedProbes = $rowsLoaded - $recordsInserted;
         SGX::Exception::User->throw(
-            error => "Experiment data could not be added. "
-              . "Verify that you are using the correct annotations for the platform\n"
+            error => sprintf(
+                <<"END_WRONGPLATFORM",
+Found %d rows in the uploaded file, but %d records were 
+loaded into the database (failed to load %d probes). 
+Check that you are uploading data to the correct platform.
+END_WRONGPLATFORM
+                $rowsLoaded,
+                $recordsInserted,
+                $rowsLoaded - $recordsInserted
+            )
         );
     }
-
-    # Fills out _rowsInserted field
-    $self->{_rowsInserted} = $rowsInserted;
-
-    return $rowsInserted;
+    elsif ( $recordsInserted > $rowsLoaded ) {
+        SGX::Exception::Internal->throw(
+            error => "More probe records were updated than rows uploaded\n" );
+    }
+    return $recordsInserted;
 }
 
 1;

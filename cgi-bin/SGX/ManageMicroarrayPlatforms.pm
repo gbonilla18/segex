@@ -409,7 +409,7 @@ sub insertNewPlatform
 
 	$self->{_dbh}->do($insertStatement) or die $self->{_dbh}->errstr;
 
-	$self->{_pid}		= $self->{_dbh}->{'mysql_insertid'};
+	$self->{_pid}		= $self->{_dbh}->{mysql_insertid};
 }
 
 #===  CLASS METHOD  ============================================================
