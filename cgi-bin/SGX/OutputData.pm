@@ -58,7 +58,7 @@ sub new {
         _js_src_code => $js_src_code,
 
         _PlatformStudyExperiment =>
-            SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
+          SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
 
         _ReportQuery => <<"END_ReportQuery",
 SELECT  
@@ -112,7 +112,7 @@ END_ReportQuery
 #===============================================================================
 sub dispatch_js {
     my ($self) = @_;
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
 
     my $action =
@@ -132,21 +132,19 @@ sub dispatch_js {
                 'paginator/paginator-min.js',
                 'datatable/datatable-min.js'
               );
-            my @eids = $self->{_cgi}->param('eids');
-            $self->{_eidList} = \@eids;
+            $self->init();
             $self->loadReportData();
             push @$js_src_code, { -code => $self->runReport_js() };
         }
         else {
             return if not $s->is_authorized('user');
             $self->{_PlatformStudyExperiment}->init(
-                platforms          => 1,
-                studies            => 1,
-                experiments        => 1
+                platforms   => 1,
+                studies     => 1,
+                experiments => 1
             );
-            push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
-            push @$js_src_code,
-              { -code => $self->getDropDownJS() };
+            push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
+            push @$js_src_code, { -code => $self->getDropDownJS() };
         }
     }
     return 1;
@@ -165,7 +163,7 @@ sub dispatch_js {
 sub dispatch {
     my ($self) = @_;
 
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
 
     my $action =
       ( defined $q->param('b') )
@@ -183,6 +181,22 @@ sub dispatch {
         }
     }
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::OutputData
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    my @eids = $self->{_cgi}->param('eid');
+    $self->{_eidList} = \@eids;
 }
 
 #---------------------------------------------------------------------------
@@ -338,7 +352,7 @@ sub getDropDownJS {
     my $self = shift;
 
     my $PlatfStudyExp =
-          encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
+      encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
 
     return <<"END_ret";
 var PlatfStudyExp = $PlatfStudyExp;
@@ -371,8 +385,8 @@ sub LoadHTML {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    return
-      $q->h3( { -id => 'caption' }, "Found $self->{_RecordsReturned} records" ),
+    return $q->h3( { -id => 'caption' },
+        sprintf( "Found %d records", $self->{_RecordsReturned} ) ),
       $q->div( $q->a( { -id => 'OutPut_astext' }, 'View as plain text' ) ),
       $q->div( { -id => 'OutputTable' }, '' );
 }

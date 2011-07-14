@@ -91,7 +91,7 @@ sub new {
 sub dispatch_js {
     my ($self) = @_;
 
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
 
     my $action =
@@ -163,7 +163,7 @@ sub dispatch_js {
 sub dispatch {
     my ($self) = @_;
 
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
 
     #my $action =
     #  ( defined $q->param('b') )
