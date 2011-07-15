@@ -77,7 +77,7 @@ SELECT
     microarray.intensity2 AS 'Intensity 2'
 FROM experiment
 LEFT JOIN StudyExperiment USING(eid)
-LEFT JOIN Study USING(stid)
+LEFT JOIN study USING(stid)
 INNER JOIN microarray USING(eid)
 LEFT JOIN probe ON probe.rid = microarray.rid
 LEFT JOIN annotates ON annotates.rid = probe.rid
