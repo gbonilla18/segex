@@ -71,7 +71,7 @@ sub new {
         _sample2               => '',
         _ExperimentDescription => '',
         _AdditionalInfo        => '',
-        _rowsInserted          => undef
+        _recordsInserted       => undef
     };
 
     bless $self, $class;
@@ -91,7 +91,7 @@ sub new {
 sub dispatch_js {
     my ($self) = @_;
 
-    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
+    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
 
     my $action =
@@ -104,37 +104,16 @@ sub dispatch_js {
     push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
     $self->{_PlatformStudyExperiment}->init(
-        platforms          => 1,
-        studies            => 1,
-        platform_by_study  => 1,
-        empty_platform     => 'Create New Platform',
-        empty_study        => 'Do not assign'
+        platforms         => 1,
+        studies           => 1,
+        platform_by_study => 1,
+        empty_study       => 'Do not assign'
     );
     $self->init();
 
     switch ($action) {
         case 'Upload' {
-
-            # upload data to new experiment
-            my $rows_inserted = eval { $self->addNewExperiment() };
-
-            if ( my $exception = $@ ) {
-                if ( $exception->isa('SGX::Exception::User') ) {
-
-                    # Notify user of user exceptions
-                    $self->{_error_message} =
-                      'Error in input: ' . $exception->error;
-                }
-                else {
-                    $exception->throw();    # rethrow internal or DBI exceptions
-                }
-            }
-            elsif ( $rows_inserted == 0 ) {
-                $self->{_error_message} = 'No records were added.';
-            }
-            else {
-                $self->{_message} = "Success! Records added: $rows_inserted";
-            }
+            $self->uploadData();
 
             # show form
             push @$js_src_code, { -code => $self->getDropDownJS() };
@@ -264,8 +243,7 @@ sub showForm {
           'return validate_fields(this, [\'Sample1\',\'Sample2\',\'file\']);'
       ),
       $q->p(
-'The data file must be in plain-text tab-delimited format with the following
-columns:'
+'The data file must be in plain-text tab-delimited format with the following columns:'
       ),
       $q->pre(
         'Reporter Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'
@@ -348,27 +326,20 @@ columns:'
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  addNewExperiment
+#       METHOD:  uploadData
 #   PARAMETERS:  ????
-#      RETURNS:  True value on success. Also fills out _eid and _rowsInserted
-#                fields.
-#  DESCRIPTION:  Performs actual upload and data validation
-#       THROWS:  SGX::Exception::Internal, SGX::Exception::User
-#     COMMENTS:   # :TODO:07/08/2011 12:55:45:es: Make headers optional
+#      RETURNS:  ????
+#  DESCRIPTION:  Main upload function: high-level control over
+#                sanitizeUploadFilei() and loadToDatabase() methods
+#       THROWS:  SGX::Exception::Internal, Exception::Class::DBI
+#     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub addNewExperiment {
+sub uploadData {
     my $self = shift;
 
-    my $dbh = $self->{_dbh};
-
-    #---------------------------------------------------------------------------
-    #  First we rewrite and validate the uploaded file
-    #---------------------------------------------------------------------------
-    # The is the file handle of the uploaded file.
-    my $uploadedFile = $self->{_cgi}->upload('file')
-      or SGX::Exception::User->throw( error => 'File failed to upload. '
-          . "Be sure to enter a valid file to upload\n" );
+    # upload data to new experiment
+    my $recordsLoaded = 0;
 
     # This is where we put the temp file we will import. UNLINK option to
     # File::Temp constructor means that the File::Temp destructor will try to
@@ -376,6 +347,75 @@ sub addNewExperiment {
     # unlinking).
     my $tmp = File::Temp->new( SUFFIX => '.txt', UNLINK => 1 );
     my $outputFileName = $tmp->filename();
+
+    my $validRecords = eval { $self->sanitizeUploadFile($outputFileName) } || 0;
+
+    if ( my $exception = $@ ) {
+        if ( $exception->isa('SGX::Exception::User') ) {
+
+            # Notify user of user exceptions
+            $self->{_error_message} =
+              'Error while uploading: ' . $exception->error;
+        }
+        else {
+            $exception->throw();    # rethrow internal or DBI exceptions
+        }
+    }
+    elsif ( $validRecords == 0 ) {
+        $self->{_error_message} = 'No valid records were uploaded.';
+    }
+    else {
+
+        # some valid records uploaded -- now load to the database
+        my $dbh = $self->{_dbh};
+
+        # turn off autocommit to allow rollback
+        $dbh->{AutoCommit} = 0;
+        $recordsLoaded = eval { $self->loadToDatabase($outputFileName) } || 0;
+
+        if ( my $exception = $@ ) {
+            $dbh->rollback;
+            if ( $exception->isa('SGX::Exception::User') ) {
+                $self->{_error_message} =
+                  'Error while loading into the database: ' . $exception->error;
+            }
+            else {
+                $exception->throw();    # rethrow internal or DBI exceptions
+            }
+        }
+        elsif ( $recordsLoaded == 0 ) {
+            $dbh->rollback;
+            $self->{_error_message} = 'Failed adding data to the database.';
+        }
+        else {
+            $dbh->commit;
+        }
+        $self->{_message} =
+          sprintf( 'Success: %d records loaded', $recordsLoaded );
+    }
+    return $recordsLoaded;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadData
+#       METHOD:  sanitizeUploadFile
+#   PARAMETERS:  $outputFileName - Name of the temporary file to write to
+#      RETURNS:  Number of valid records found (also duplicated to _validRecords
+#                field)
+#  DESCRIPTION:  validate and rewrite the uploaded file
+#       THROWS:  SGX::Exception::Internal, SGX::Exception::User
+#     COMMENTS:   # :TODO:07/08/2011 12:55:45:es: Make headers optional
+#     SEE ALSO:  n/a
+#===============================================================================
+sub sanitizeUploadFile {
+    my ( $self, $outputFileName ) = @_;
+
+    my $q = $self->{_cgi};
+
+    # The is the file handle of the uploaded file.
+    my $uploadedFile = $q->upload('file')
+      or SGX::Exception::User->throw( error => 'File failed to upload. '
+          . "Be sure to enter a valid file to upload\n" );
 
     #Open file we are writing to server.
     open my $OUTPUTTOSERVER, '>', $outputFileName
@@ -390,11 +430,10 @@ sub addNewExperiment {
         do { local $/ = <$uploadedFile> }
     );
 
-    # :TODO:07/12/2011 21:21:33:es: check whether the file gets deleted
-    # automatically on close
+    # upload file should get deleted automatically on close
     close $uploadedFile;
 
-    my $valid_records = eval {
+    my $validRecords = eval {
         SGX::CSV::csv_rewrite(
             \@lines,
             $OUTPUTTOSERVER,
@@ -409,27 +448,50 @@ sub addNewExperiment {
             input_header => 1,
             csv_in_opts  => { sep_char => "\t" }
         );
-    };
+    } || 0;
+
+    $self->{_validRecords} = $validRecords;
 
     # in case of error, close files first and rethrow the exception
     if ( my $exception = $@ ) {
         close($OUTPUTTOSERVER);
-
-        # :TRICKY:07/14/2011 13:38:58:es: this rewrites exception message
-        $exception->throw(
-            error => 'Failed to create new experiment: ' . $exception->error );
+        $exception->throw();
     }
-    elsif ( $valid_records < 1 ) {
+    elsif ( $validRecords < 1 ) {
         close($OUTPUTTOSERVER);
         SGX::Exception::User->throw(
-            error => 'Failed to create new experiment: '
-              . "No records found in input file\n" );
+            error => "No records found in input file\n" );
     }
     close($OUTPUTTOSERVER);
 
+    return $validRecords;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadData
+#       METHOD:  loadToDatabase
+#   PARAMETERS:  Name of the sanitized file to use for database loading.
+#      RETURNS:  Number of records inserted into the microarray table (also
+#                duplicated as _recordsInserted field). Fills _eid field
+#                (corresponds to the id of the added experiment).
+#  DESCRIPTION:
+#       THROWS:  SGX::Exception::Internal, SGX::Exception::User,
+#                Exception::Class::DBI
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub loadToDatabase {
+    my ( $self, $outputFileName ) = @_;
+
+    my $dbh = $self->{_dbh};
+
     #---------------------------------------------------------------------------
-    #  Create various MySQL statements
+    #  Create MySQL statements
     #---------------------------------------------------------------------------
+ # :TODO:07/15/2011 11:12:25:es: prepare statements separately (do not want to
+ # rollback database on statement preparation failures) and execute them later,
+ # within the commit/rollback transaction block.
+ #
     #Make our unique ID using time and running process ID
     my $temp_table = time() . '_' . getppid();
 
@@ -493,8 +555,6 @@ END_InsertExperiment
     my $addStudyExperimentStatement =
       'INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)';
 
-    my $dropExperimentStatement = 'DELETE FROM experiment WHERE eid=?';
-
     my $dropTableStatement = "DROP TABLE $temp_table";
 
     #---------------------------------------------------------------------------
@@ -508,43 +568,34 @@ END_InsertExperiment
 
     # If $rowsLoaded is zero or negative, bail out ASAP
     if ( $rowsLoaded < 1 ) {
-        $dbh->do($dropTableStatement);    # drop temporary table
         SGX::Exception::Internal->throw(
-            error => 'Failed to create new experiment: '
-              . "No rows were loaded into temporary table\n" );
+            error => "No rows were loaded into temporary table\n" );
     }
 
     # Adding a new experiment into database as late as possible
-    my $this_eid;
-    if (
-        $dbh->do(
-            $addExperimentStatement, undef,
-            $self->{_pid},           $self->{_sample1},
-            $self->{_sample2},       $self->{_ExperimentDescription},
-            $self->{_AdditionalInfo}
-        )
-      )
-    {
+    my $experimentsAdded = $dbh->do(
+        $addExperimentStatement, undef,
+        $self->{_pid},           $self->{_sample1},
+        $self->{_sample2},       $self->{_ExperimentDescription},
+        $self->{_AdditionalInfo}
+    );
 
-        # Grab the id of the experiment inserted
-        $this_eid = $dbh->{mysql_insertid};
-        $self->{_eid} = $this_eid;
-    }
-    else {
-        $dbh->do($dropTableStatement);
+    # Grab the id of the experiment inserted
+    my $this_eid = $dbh->{mysql_insertid};
+    $self->{_eid} = $this_eid;
+
+    if ( $experimentsAdded < 1 ) {
         SGX::Exception::Internal->throw(
             error => "Failed to create new experiment\n" );
     }
 
-    if ( defined $self->{_stid} ) {
-        $dbh->do( $addStudyExperimentStatement, undef, $self->{_stid},
-            $this_eid );
-    }
+    $dbh->do( $addStudyExperimentStatement, undef, $self->{_stid}, $this_eid )
+      if defined( $self->{_stid} );
 
     #Run the command to insert the data.
     my $recordsInserted =
       $dbh->do( $insertStatement, undef, $this_eid, $self->{_pid} );
-    $self->{_rowsInserted} = $recordsInserted;
+    $self->{_recordsInserted} = $recordsInserted;
 
     #Run the command to drop the temp table.
     $dbh->do($dropTableStatement);
@@ -553,19 +604,10 @@ END_InsertExperiment
     # upload
     #
     if ( $recordsInserted < $rowsLoaded ) {
-        my $failedProbes = $rowsLoaded - $recordsInserted;
-        my $prefix       = '';
-
-        # drop experiment entirely if zero records were inserted
-        if ( $recordsInserted < 1 ) {
-            $dbh->do( $dropExperimentStatement, undef, $this_eid );
-            $prefix = 'Failed to create new experiment: ';
-        }
-
         SGX::Exception::User->throw(
             error => sprintf(
                 <<"END_WRONGPLATFORM",
-${prefix}Found %d rows in the uploaded file, but %d records were 
+Found %d rows in the uploaded file, but %d records were 
 loaded into the database (failed to load %d probes). 
 Check that you are uploading data to the correct platform.
 END_WRONGPLATFORM

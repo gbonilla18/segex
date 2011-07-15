@@ -79,9 +79,7 @@ function populatePlatformStudy()
         }
         // generic tuple sort (sort hash by numeric key)
         tuples.sort(function(a, b) {
-            a = parseInt(a[0]);
-            b = parseInt(b[0]);
-            return a < b ? -1 : (a > b ? 1 : 0); 
+            return a[0] - b[0];
         });
         
         buildDropDown(studies, tuples);
@@ -116,9 +114,7 @@ function populateStudyExperiment()
         }
         // generic tuple sort (sort hash by numeric key)
         tuples.sort(function(a, b) {
-            a = parseInt(a[0]);
-            b = parseInt(b[0]);
-            return a < b ? -1 : (a > b ? 1 : 0); 
+            return a[0] - b[0];
         });
 
         // build dropdown box
