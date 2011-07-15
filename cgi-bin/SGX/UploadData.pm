@@ -385,7 +385,8 @@ sub uploadData {
                 || $exception->isa('Exception::Class::DBI::STH') )
             {
 
-                # catch User and DBI::STH exceptions
+                # Catch User and DBI::STH exceptions
+                # Note: this block catches duplicate key record exceptions
                 $self->{_error_message} = sprintf(
                     <<"END_error_message",
 Error loading data into the database. The response was:

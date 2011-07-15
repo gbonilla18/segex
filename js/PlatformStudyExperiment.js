@@ -35,6 +35,13 @@ function populatePlatform()
     // This function is only run once, on page load
     var platforms = document.getElementById('pid');
 
+    // First remove all existing option elements -- need to do this even though
+    // platform drop-down list is never repopulated after page loads. This is
+    // because it seems that some browsers (Firefox, Safari) automatically add
+    // an option to the dropdown that was present in the same control before
+    // page load.
+    clearDropDown(platforms);
+
     // sort by platform name
     var tuples = [];
     for (var i in PlatfStudyExp) {
