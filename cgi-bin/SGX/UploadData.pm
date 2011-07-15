@@ -369,9 +369,15 @@ sub uploadData {
         # some valid records uploaded -- now load to the database
         my $dbh = $self->{_dbh};
 
-        # turn off autocommit to allow rollback
+        # turn off auto-commit to allow rollback; cache old value
+        my $old_AutoCommit = $dbh->{AutoCommit};
         $dbh->{AutoCommit} = 0;
-        $recordsLoaded = eval { $self->loadToDatabase($outputFileName) } || 0;
+
+        # prepare SQL statements (all prepare errors are fatal)
+        my $sth_hash = $self->loadToDatabase_prepare($outputFileName);
+
+        # execute SQL statements (catch some errors)
+        $recordsLoaded = eval { $self->loadToDatabase_execute($sth_hash) } || 0;
 
         if ( my $exception = $@ ) {
             $dbh->rollback;
@@ -390,6 +396,10 @@ sub uploadData {
         else {
             $dbh->commit;
         }
+
+        # restore old value of AutoCommit
+        $dbh->{AutoCommit} = $old_AutoCommit;
+
         $self->{_message} =
           sprintf( 'Success: %d records loaded', $recordsLoaded );
     }
@@ -452,7 +462,7 @@ sub sanitizeUploadFile {
 
     $self->{_validRecords} = $recordsValid;
 
-    # in case of error, close files first and rethrow the exception
+    # In case of error, close files first and rethrow the exception
     if ( my $exception = $@ ) {
         close($OUTPUTTOSERVER);
         $exception->throw();
@@ -469,34 +479,32 @@ sub sanitizeUploadFile {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  loadToDatabase
-#   PARAMETERS:  Name of the sanitized file to use for database loading.
-#      RETURNS:  Number of records inserted into the microarray table (also
-#                duplicated as _recordsInserted field). Fills _eid field
-#                (corresponds to the id of the added experiment).
-#  DESCRIPTION:
-#       THROWS:  SGX::Exception::Internal, SGX::Exception::User,
-#                Exception::Class::DBI
+#       METHOD:  loadToDatabase_prepare
+#   PARAMETERS:  $self           - object instance
+#                $outputFileName - Name of the sanitized file to use for database
+#                                  loading.
+#      RETURNS:  Hash reference containing prepared statements
+#  DESCRIPTION:  Prepare SQL statements used for loading data. We prepare these
+#                statements separately from where they are executed because we
+#                want to separate possible prepare exceptions (which are fatal
+#                and do not cause rollback) from execute exceptions (which are
+#                currently fatal though may be caught in the future and which
+#                *do* cause rollback).
+#       THROWS:  Exception::Class::DBI
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub loadToDatabase {
+sub loadToDatabase_prepare {
     my ( $self, $outputFileName ) = @_;
 
     my $dbh = $self->{_dbh};
 
-    #---------------------------------------------------------------------------
-    #  Create MySQL statements
-    #---------------------------------------------------------------------------
- # :TODO:07/15/2011 11:12:25:es: prepare statements separately (do not want to
- # rollback database on statement preparation failures) and execute them later,
- # within the commit/rollback transaction block.
- #
-    #Make our unique ID using time and running process ID
+    # Give temporary table a unique ID using time and running process ID
     my $temp_table = time() . '_' . getppid();
 
-    #Command to create temp table.
-    my $createTableStatement = <<"END_createTableStatement";
+    my $sth_hash = {};
+
+    $sth_hash->{createTable} ||= $dbh->prepare(<<"END_createTable");
 CREATE TEMPORARY TABLE $temp_table (
     reporter VARCHAR(150) NOT NULL,
     ratio DOUBLE,
@@ -506,11 +514,11 @@ CREATE TEMPORARY TABLE $temp_table (
     intensity2 DOUBLE,
     PRIMARY KEY (reporter)
 ) ENGINE=MEMORY
-END_createTableStatement
+END_createTable
 
-    #This is the mysql command to suck in the file into the temp table.
-    my $loadDataStatement = sprintf(
-        <<"END_inputStatement",
+    $sth_hash->{loadData} ||= $dbh->prepare(
+        sprintf(
+            <<"END_loadData",
 LOAD DATA LOCAL INFILE %s
 INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
@@ -522,13 +530,12 @@ LINES TERMINATED BY '\n' STARTING BY '' (
     intensity1,
     intensity2
 )
-END_inputStatement
-        $dbh->quote($outputFileName),
+END_loadData
+            $dbh->quote($outputFileName),
+        )
     );
 
-    # This is the mysql command to insert results from the temp table into
-    # microarray table.
-    my $insertStatement = <<"END_insertStatement";
+    $sth_hash->{insertResponse} ||= $dbh->prepare(<<"END_insert");
 INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity1,intensity2)
 SELECT
     probe.rid,
@@ -541,9 +548,9 @@ SELECT
 FROM probe
 INNER JOIN $temp_table AS temptable USING(reporter)
 WHERE probe.pid=?
-END_insertStatement
+END_insert
 
-    my $addExperimentStatement = <<"END_InsertExperiment";
+    $sth_hash->{insertExperiment} ||= $dbh->prepare(<<"END_insertExperiment");
 INSERT INTO experiment (
     pid,
     sample1,
@@ -551,52 +558,82 @@ INSERT INTO experiment (
     ExperimentDescription,
     AdditionalInformation
 ) VALUES (?, ?, ?, ?, ?)
-END_InsertExperiment
+END_insertExperiment
 
-    my $addStudyExperimentStatement =
-      'INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)';
+    $sth_hash->{insertStudyExperiment} ||=
+      ( defined $self->{_stid} )
+      ? $dbh->prepare('INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)')
+      : undef;
 
-    #---------------------------------------------------------------------------
-    #  Run MySQL statements
-    #---------------------------------------------------------------------------
-    #Run the command to create the temp table.
-    $dbh->do($createTableStatement);
+    return $sth_hash;
+}
 
-    #Run the command to suck in the data.
-    my $rowsLoaded = $dbh->do($loadDataStatement);
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadData
+#       METHOD:  loadToDatabase_execute
+#   PARAMETERS:  $self        - object instance
+#                $sth_hash    - reference to hash containing statement handles
+#                               to be executed
+#      RETURNS:  Number of records inserted into the microarray table (also
+#                duplicated as _recordsInserted field). Fills _eid field
+#                (corresponds to the id of the added experiment).
+#  DESCRIPTION:  Runs SQL statements
+#       THROWS:  SGX::Exception::Internal, SGX::Exception::User,
+#                Exception::Class::DBI
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub loadToDatabase_execute {
+    my ( $self, $sth_hash ) = @_;
 
-    # If $rowsLoaded is zero or negative, bail out ASAP
-    if ( $rowsLoaded < 1 ) {
-        SGX::Exception::Internal->throw(
-            error => "No rows were loaded into temporary table\n" );
-    }
+    my ( $sth_createTable, $sth_loadData, $sth_insertExperiment,
+        $sth_insertStudyExperiment, $sth_insertResponse )
+      = @$sth_hash{
+        qw(createTable loadData insertExperiment insertStudyExperiment insertResponse)
+      };
 
-    # Adding a new experiment into database as late as possible
-    my $experimentsAdded = $dbh->do(
-        $addExperimentStatement, undef,
-        $self->{_pid},           $self->{_sample1},
-        $self->{_sample2},       $self->{_ExperimentDescription},
+    my $dbh = $self->{_dbh};
+
+    # Create temporary table
+    $sth_createTable->execute();
+
+    # Insert a new experiment
+    my $experimentsAdded = $sth_insertExperiment->execute(
+        $self->{_pid}, $self->{_sample1}, $self->{_sample2},
+        $self->{_ExperimentDescription},
         $self->{_AdditionalInfo}
     );
 
-    # Grab the id of the experiment inserted
-    my $this_eid = $dbh->{mysql_insertid};
-    $self->{_eid} = $this_eid;
-
+    # Check that experiment was actually added
     if ( $experimentsAdded < 1 ) {
         SGX::Exception::Internal->throw(
             error => "Failed to create new experiment\n" );
     }
 
-    $dbh->do( $addStudyExperimentStatement, undef, $self->{_stid}, $this_eid )
-      if defined( $self->{_stid} );
+    # Grab the id of the experiment inserted
+    my $this_eid = $dbh->{mysql_insertid};
+    $self->{_eid} = $this_eid;
 
-    #Run the command to insert the data.
+    # Add experiment to study if study id is defined
+    $sth_insertStudyExperiment->execute( $self->{_stid}, $this_eid )
+      if defined($sth_insertStudyExperiment);
+
+    # Suck in the data into the temporary table
+    my $rowsLoaded = $sth_loadData->execute();
+
+    # If no rows were loaded, bail out ASAP
+    if ( $rowsLoaded < 1 ) {
+        SGX::Exception::Internal->throw(
+            error => "No rows were loaded into temporary table\n" );
+    }
+
+    # Copy data from temporary table to the microarray/reposnse table
     my $recordsInserted =
-      $dbh->do( $insertStatement, undef, $this_eid, $self->{_pid} );
+      $sth_insertResponse->execute( $this_eid, $self->{_pid} );
     $self->{_recordsInserted} = $recordsInserted;
 
-    # check row counts
+    # Check row counts; throw errors if too few or too many records were
+    # inserted into the microarray/reposnse table
     if ( $recordsInserted < $rowsLoaded ) {
         SGX::Exception::User->throw(
             error => sprintf(
@@ -615,6 +652,8 @@ END_WRONGPLATFORM
         SGX::Exception::Internal->throw(
             error => "More probe records were updated than rows uploaded\n" );
     }
+
+    # Return the number of records inserted into the microarray/reposnse table
     return $recordsInserted;
 }
 
