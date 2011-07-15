@@ -150,10 +150,10 @@ sub dispatch {
     #  : '';
 
     # notice about rows added or error message
-    print $q->p( { -style => 'color:red; font-weight:bold;' },
+    print $q->pre( { -style => 'color:red; font-weight:bold;' },
         $self->{_error_message} )
       if $self->{_error_message};
-    print $q->p( { -style => 'font-weight:bold;' }, $self->{_message} )
+    print $q->pre( { -style => 'font-weight:bold;' }, $self->{_message} )
       if $self->{_message};
 
     # always show form
@@ -243,13 +243,13 @@ sub showForm {
           'return validate_fields(this, [\'Sample1\',\'Sample2\',\'file\']);'
       ),
       $q->p(
-'The data file must be in plain-text tab-delimited format with the following columns:'
+'The data file must be in plain-text tab-delimited format with the following six columns:'
       ),
       $q->pre(
-        'Reporter Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'
+        'Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'
       ),
       $q->p(
-'Make sure the first row is the column headings and the second row starts the data.'
+'The first column can be either a number or a string; the remaining five columns must be numeric. Make sure the first row in the file contains a header (actual data should start with the second row).'
       ),
       $q->dl(
         $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
@@ -353,12 +353,12 @@ sub uploadData {
     if ( my $exception = $@ ) {
         if ( $exception->isa('SGX::Exception::User') ) {
 
-            # Notify user of user exceptions
+            # Notify user of User exceptions
             $self->{_error_message} =
-              'Error while uploading: ' . $exception->error;
+              'There was a problem with your input: ' . $exception->error;
         }
         else {
-            $exception->throw();    # rethrow internal or DBI exceptions
+            $exception->throw();    # rethrow Internal or other exceptions
         }
     }
     elsif ( $recordsValid == 0 ) {
@@ -381,12 +381,26 @@ sub uploadData {
 
         if ( my $exception = $@ ) {
             $dbh->rollback;
-            if ( $exception->isa('SGX::Exception::User') ) {
-                $self->{_error_message} =
-                  'Error while loading into the database: ' . $exception->error;
+            if (   $exception->isa('SGX::Exception::User')
+                || $exception->isa('Exception::Class::DBI::STH') )
+            {
+
+                # catch User and DBI::STH exceptions
+                $self->{_error_message} = sprintf(
+                    <<"END_error_message",
+Error loading data into the database. The response was:
+
+%s
+
+No changes to the database were stored.
+END_error_message
+                    $exception->error
+                );
             }
             else {
-                $exception->throw();    # rethrow internal or DBI exceptions
+
+                # rethrow Internal exceptions
+                $exception->throw();
             }
         }
         elsif ( $recordsLoaded == 0 ) {
@@ -395,13 +409,12 @@ sub uploadData {
         }
         else {
             $dbh->commit;
+            $self->{_message} =
+              sprintf( 'Success: %d records loaded', $recordsLoaded );
         }
 
         # restore old value of AutoCommit
         $dbh->{AutoCommit} = $old_AutoCommit;
-
-        $self->{_message} =
-          sprintf( 'Success: %d records loaded', $recordsLoaded );
     }
     return $recordsLoaded;
 }
