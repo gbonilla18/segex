@@ -107,7 +107,7 @@ sub dispatch_js {
         platforms         => 1,
         studies           => 1,
         platform_by_study => 1,
-        empty_study       => 'Do not assign'
+        empty_study       => 'Unassigned Experiments'
     );
     $self->init();
 
@@ -511,8 +511,7 @@ CREATE TEMPORARY TABLE $temp_table (
     foldchange DOUBLE,
     pvalue DOUBLE,
     intensity1 DOUBLE,
-    intensity2 DOUBLE,
-    PRIMARY KEY (reporter)
+    intensity2 DOUBLE
 ) ENGINE=MEMORY
 END_createTable
 

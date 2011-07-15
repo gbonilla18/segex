@@ -1,4 +1,4 @@
-# 06/01/11
+-- 06/01/11
 
 CREATE TABLE `project` (
   `prid` int(10) NOT NULL AUTO_INCREMENT,
@@ -22,10 +22,12 @@ CREATE TABLE `ProjectStudy` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 
-# 07/07/11
+-- 07/07/11
 
 ALTER TABLE experiment ADD COLUMN pid INT(11) DEFAULT NULL;
 UPDATE experiment SET pid=(SELECT DISTINCT pid FROM StudyExperiment NATURAL JOIN study WHERE eid=experiment.eid);
 
-# 07/15/11
+-- 07/15/11
+
+-- allow creating temporary tables that are dropped on session close
 GRANT CREATE TEMPORARY TABLES ON `segex_dev`.* TO 'segex_dev_user'@'localhost';
