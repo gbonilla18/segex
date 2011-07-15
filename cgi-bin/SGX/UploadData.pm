@@ -330,7 +330,7 @@ sub showForm {
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Main upload function: high-level control over
-#                sanitizeUploadFilei() and loadToDatabase() methods
+#                sanitizeUploadFile() and loadToDatabase() methods
 #       THROWS:  SGX::Exception::Internal, Exception::Class::DBI
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -348,7 +348,7 @@ sub uploadData {
     my $tmp = File::Temp->new( SUFFIX => '.txt', UNLINK => 1 );
     my $outputFileName = $tmp->filename();
 
-    my $validRecords = eval { $self->sanitizeUploadFile($outputFileName) } || 0;
+    my $recordsValid = eval { $self->sanitizeUploadFile($outputFileName) } || 0;
 
     if ( my $exception = $@ ) {
         if ( $exception->isa('SGX::Exception::User') ) {
@@ -361,7 +361,7 @@ sub uploadData {
             $exception->throw();    # rethrow internal or DBI exceptions
         }
     }
-    elsif ( $validRecords == 0 ) {
+    elsif ( $recordsValid == 0 ) {
         $self->{_error_message} = 'No valid records were uploaded.';
     }
     else {
@@ -433,7 +433,7 @@ sub sanitizeUploadFile {
     # upload file should get deleted automatically on close
     close $uploadedFile;
 
-    my $validRecords = eval {
+    my $recordsValid = eval {
         SGX::CSV::csv_rewrite(
             \@lines,
             $OUTPUTTOSERVER,
@@ -450,21 +450,21 @@ sub sanitizeUploadFile {
         );
     } || 0;
 
-    $self->{_validRecords} = $validRecords;
+    $self->{_validRecords} = $recordsValid;
 
     # in case of error, close files first and rethrow the exception
     if ( my $exception = $@ ) {
         close($OUTPUTTOSERVER);
         $exception->throw();
     }
-    elsif ( $validRecords < 1 ) {
+    elsif ( $recordsValid < 1 ) {
         close($OUTPUTTOSERVER);
         SGX::Exception::User->throw(
             error => "No records found in input file\n" );
     }
     close($OUTPUTTOSERVER);
 
-    return $validRecords;
+    return $recordsValid;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -497,14 +497,15 @@ sub loadToDatabase {
 
     #Command to create temp table.
     my $createTableStatement = <<"END_createTableStatement";
-CREATE TABLE $temp_table (
-    reporter VARCHAR(150),
+CREATE TEMPORARY TABLE $temp_table (
+    reporter VARCHAR(150) NOT NULL,
     ratio DOUBLE,
     foldchange DOUBLE,
     pvalue DOUBLE,
     intensity1 DOUBLE,
-    intensity2 DOUBLE
-)
+    intensity2 DOUBLE,
+    PRIMARY KEY (reporter)
+) ENGINE=MEMORY
 END_createTableStatement
 
     #This is the mysql command to suck in the file into the temp table.
@@ -555,8 +556,6 @@ END_InsertExperiment
     my $addStudyExperimentStatement =
       'INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)';
 
-    my $dropTableStatement = "DROP TABLE $temp_table";
-
     #---------------------------------------------------------------------------
     #  Run MySQL statements
     #---------------------------------------------------------------------------
@@ -597,12 +596,7 @@ END_InsertExperiment
       $dbh->do( $insertStatement, undef, $this_eid, $self->{_pid} );
     $self->{_recordsInserted} = $recordsInserted;
 
-    #Run the command to drop the temp table.
-    $dbh->do($dropTableStatement);
-
-    # :TODO:07/14/2011 14:15:47:es: implement commit/rollback mechanism for data
-    # upload
-    #
+    # check row counts
     if ( $recordsInserted < $rowsLoaded ) {
         SGX::Exception::User->throw(
             error => sprintf(

@@ -1,0 +1,31 @@
+# 06/01/11
+
+CREATE TABLE `project` (
+  `prid` int(10) NOT NULL AUTO_INCREMENT,
+  `prname` varchar(255) NOT NULL DEFAULT 'New Project',
+  `prdesc` varchar(1023) NOT NULL DEFAULT '',
+  `manager` int(10) unsigned,
+  PRIMARY KEY (`prid`),
+  UNIQUE KEY `prname` (`prname`),
+  KEY `manager` (`manager`),
+  CONSTRAINT `project_ibfk_1` FOREIGN KEY (`manager`) REFERENCES `users` (`uid`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+CREATE TABLE `ProjectStudy` (
+  `prid` int(10) NOT NULL,
+  `stid` int(10) NOT NULL,
+  PRIMARY KEY (`prid`,`stid`),
+  KEY `prid` (`prid`),
+  KEY `stid` (`stid`),
+  CONSTRAINT `ProjectStudy_ibfk_1` FOREIGN KEY (`prid`) REFERENCES `project` (`prid`) ON DELETE CASCADE,
+  CONSTRAINT `ProjectStudy_ibfk_2` FOREIGN KEY (`stid`) REFERENCES `study` (`stid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+
+# 07/07/11
+
+ALTER TABLE experiment ADD COLUMN pid INT(11) DEFAULT NULL;
+UPDATE experiment SET pid=(SELECT DISTINCT pid FROM StudyExperiment NATURAL JOIN study WHERE eid=experiment.eid);
+
+# 07/15/11
+GRANT CREATE TEMPORARY TABLES ON `segex_dev`.* TO 'segex_dev_user'@'localhost';
