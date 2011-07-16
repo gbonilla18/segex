@@ -63,15 +63,21 @@ sub new {
         _UserSession => $s,
         _js_src_yui  => $js_src_yui,
         _js_src_code => $js_src_code,
+
+        #
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
-        _stid                  => '',
-        _pid                   => '',
-        _sample1               => '',
-        _sample2               => '',
-        _ExperimentDescription => '',
-        _AdditionalInfo        => '',
-        _recordsInserted       => undef
+
+        # URL params
+        _stid           => '',
+        _pid            => '',
+        _sample1        => '',
+        _sample2        => '',
+        _ExperimentDesc => '',
+        _AdditionalInfo => '',
+
+        #
+        _recordsInserted => undef
     };
 
     bless $self, $class;
@@ -176,17 +182,21 @@ sub init {
 
     my $q = $self->{_cgi};
 
-    $self->{_sample1} = $q->param('Sample1');
-    $self->{_sample2} = $q->param('Sample2');
+    $self->{_sample1} = $q->param('sample1');
+    $self->{_sample2} = $q->param('sample2');
     my $stid = $q->param('stid');
     if ( defined $stid ) {
         $self->{_stid} = $stid;
+
+        # If a study is set, use th corresponding platform while ignoring the
+        # platform parameter. Also update the _pid field with the platform id
+        # obtained from the lookup by study id.
         my $pid =
-          $self->{_PlatformStudyExperiment}->get_ByStudy()->{$stid}->{pid};
+          $self->{_PlatformStudyExperiment}->getPlatformFromStudy($stid);
         $self->{_pid} = ( defined $pid ) ? $pid : $q->param('pid');
     }
-    $self->{_ExperimentDescription} = $q->param('ExperimentDesc');
-    $self->{_AdditionalInfo}        = $q->param('AdditionalInfo');
+    $self->{_ExperimentDesc} = $q->param('ExperimentDesc');
+    $self->{_AdditionalInfo} = $q->param('AdditionalInfo');
     return 1;
 }
 
@@ -207,14 +217,30 @@ sub getDropDownJS {
     my $PlatfStudyExp =
       encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
 
+    my $currentSelection = encode_json(
+        {
+            'platform' => {
+                element   => undef,
+                selected  => +{ $self->{_pid} => undef },
+                elementId => 'pid'
+            },
+            'study' => {
+                element   => undef,
+                selected  => +{ $self->{_stid} => undef },
+                elementId => 'stid'
+            }
+        }
+    );
+
     return <<"END_ret";
 var PlatfStudyExp = $PlatfStudyExp;
+var currentSelection = $currentSelection;
 YAHOO.util.Event.addListener(window, 'load', function() {
-    populatePlatform();
-    populatePlatformStudy();
+    populatePlatform.apply(currentSelection);
+    populatePlatformStudy.apply(currentSelection);
 });
-YAHOO.util.Event.addListener('pid', 'change', function() {
-    populatePlatformStudy();
+YAHOO.util.Event.addListener(currentSelection.platform.elementId, 'change', function() {
+    populatePlatformStudy.apply(currentSelection);
 });
 END_ret
 }
@@ -240,17 +266,19 @@ sub showForm {
         -action  => $q->url( -absolute => 1 ) . '?a=uploadData',
         -enctype => 'multipart/form-data',
         -onsubmit =>
-          'return validate_fields(this, [\'Sample1\',\'Sample2\',\'file\']);'
+          'return validate_fields(this, [\'sample1\',\'sample2\',\'file\']);'
       ),
-      $q->p(
-'The data file must be in plain-text tab-delimited format with the following six columns:'
-      ),
+      $q->p(<<"END_TEXT1"),
+The data file must be in plain-text tab-delimited format with the following six
+columns:
+END_TEXT1
       $q->pre(
-        'Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'
-      ),
-      $q->p(
-'The first column can be either a number or a string; the remaining five columns must be numeric. Make sure the first row in the file contains a header (actual data should start with the second row).'
-      ),
+        'Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'),
+      $q->p(<<"END_TEXT2"),
+The first column can be either a number or a string; the remaining five columns
+must be numeric.  Make sure the first row in the file contains a header (actual
+data should start with the second row).
+END_TEXT2
       $q->dl(
         $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
@@ -266,19 +294,19 @@ sub showForm {
                 -id   => 'stid'
             )
         ),
-        $q->dt( $q->label( { -for => 'Sample1' }, 'Sample 1:' ) ),
+        $q->dt( $q->label( { -for => 'sample1' }, 'Sample 1:' ) ),
         $q->dd(
             $q->textfield(
-                -name      => 'Sample1',
-                -id        => 'Sample1',
+                -name      => 'sample1',
+                -id        => 'sample1',
                 -maxlength => 120
             )
         ),
-        $q->dt( $q->label( { -for => 'Sample2' }, 'Sample 2:' ) ),
+        $q->dt( $q->label( { -for => 'sample2' }, 'Sample 2:' ) ),
         $q->dd(
             $q->textfield(
-                -name      => 'Sample2',
-                -id        => 'Sample2',
+                -name      => 'sample2',
+                -id        => 'sample2',
                 -maxlength => 120
             )
         ),
@@ -344,21 +372,25 @@ sub uploadData {
     # This is where we put the temp file we will import. UNLINK option to
     # File::Temp constructor means that the File::Temp destructor will try to
     # unlink the temporary file on its own (we don't need to worry about
-    # unlinking).
+    # unlinking). Because we are initializing an instance of File::Temp in the
+    # namespace of this function, the temporary file will be deleted when the
+    # function exists (when the reference to File::Temp will go out of context).
+    #
     my $tmp = File::Temp->new( SUFFIX => '.txt', UNLINK => 1 );
     my $outputFileName = $tmp->filename();
 
     my $recordsValid = eval { $self->sanitizeUploadFile($outputFileName) } || 0;
 
     if ( my $exception = $@ ) {
-        if ( $exception->isa('SGX::Exception::User') ) {
 
-            # Notify user of User exceptions
+        # Notify user of User exception; rethrow Internal and other types of
+        # exceptions.
+        if ( $exception->isa('SGX::Exception::User') ) {
             $self->{_error_message} =
               'There was a problem with your input: ' . $exception->error;
         }
         else {
-            $exception->throw();    # rethrow Internal or other exceptions
+            $exception->throw();
         }
     }
     elsif ( $recordsValid == 0 ) {
@@ -381,11 +413,13 @@ sub uploadData {
 
         if ( my $exception = $@ ) {
             $dbh->rollback;
+
+            # Catch User and DBI::STH exceptions; rethrow Internal and other
+            # types of exceptions
             if (   $exception->isa('SGX::Exception::User')
                 || $exception->isa('Exception::Class::DBI::STH') )
             {
 
-                # Catch User and DBI::STH exceptions
                 # Note: this block catches duplicate key record exceptions
                 $self->{_error_message} = sprintf(
                     <<"END_error_message",
@@ -399,14 +433,12 @@ END_error_message
                 );
             }
             else {
-
-                # rethrow Internal exceptions
                 $exception->throw();
             }
         }
         elsif ( $recordsLoaded == 0 ) {
             $dbh->rollback;
-            $self->{_error_message} = 'Failed adding data to the database.';
+            $self->{_error_message} = 'Failed to add data to the database.';
         }
         else {
             $dbh->commit;
@@ -438,8 +470,8 @@ sub sanitizeUploadFile {
 
     # The is the file handle of the uploaded file.
     my $uploadedFile = $q->upload('file')
-      or SGX::Exception::User->throw( error => 'File failed to upload. '
-          . "Be sure to enter a valid file to upload\n" );
+      or
+      SGX::Exception::User->throw( error => "Failed to upload input file.\n" );
 
     #Open file we are writing to server.
     open my $OUTPUTTOSERVER, '>', $outputFileName
@@ -613,7 +645,7 @@ sub loadToDatabase_execute {
     # Insert a new experiment
     my $experimentsAdded = $sth_insertExperiment->execute(
         $self->{_pid}, $self->{_sample1}, $self->{_sample2},
-        $self->{_ExperimentDescription},
+        $self->{_ExperimentDesc},
         $self->{_AdditionalInfo}
     );
 

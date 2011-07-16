@@ -13,14 +13,17 @@ function getSelectedValue(obj)
     }
 }
 /******************************************************************/
-function buildDropDown(obj, tuples) {
+function buildDropDown(obj, tuples, selected) {
     for (var i = 0, len = tuples.length; i < len; i++) {
         var key = tuples[i][0];
         var value = tuples[i][1];
-        var new_opt = document.createElement('option');
-        new_opt.setAttribute('value', key);
-        new_opt.innerHTML = value;
-        obj.appendChild(new_opt);
+        var option = document.createElement('option');
+        option.setAttribute('value', key);
+        if (typeof(selected) !== 'undefined' && (key in selected)) {
+            option.selected = 'selected';
+        }
+        option.innerHTML = value;
+        obj.appendChild(option);
     }
 }
 /******************************************************************/
@@ -29,11 +32,16 @@ function clearDropDown(obj) {
         obj.removeChild(obj.options[0]);
     }
 }
-/******************************************************************/
+/******************************************************************
+* populatePlatform()
+* This function is typically run only once, on page load
+******************************************************************/
 function populatePlatform()
 {
-    // This function is only run once, on page load
-    var platforms = document.getElementById('pid');
+    var platform = this.platform;
+    var platforms = (platform.element === null)
+        ? (platform.element = document.getElementById(platform.elementId))
+        : platform.element;
 
     // First remove all existing option elements -- need to do this even though
     // platform drop-down list is never repopulated after page loads. This is
@@ -45,10 +53,10 @@ function populatePlatform()
     // sort by platform name
     var tuples = [];
     for (var i in PlatfStudyExp) {
-        var this_platform = PlatfStudyExp[i];
-        var content = (this_platform.species !== null)
-                    ? this_platform.name + ' \\ ' + this_platform.species
-                    : this_platform.name;
+        var platformNode = PlatfStudyExp[i];
+        var content = (platformNode.species !== null)
+        ? platformNode.name + ' \\ ' + platformNode.species
+        : platformNode.name;
         tuples.push([i, content]);
     }
     // generic tuple sort (sort hash by value)
@@ -59,22 +67,27 @@ function populatePlatform()
     });
 
     // build dropdown box
-    buildDropDown(platforms, tuples);
-
-    //current_platform = obj.options[obj.selectedIndex].value;
+    buildDropDown(platforms, tuples, platform.selected);
 }
 
 /******************************************************************/
 function populatePlatformStudy()
 {
-    var platforms = document.getElementById('pid');
-    var pid = getSelectedValue(platforms);
-    var studies = document.getElementById('stid');
+    var platform = this.platform;
+    var platforms = (platform.element === null)
+        ? (platform.element = document.getElementById(platform.elementId))
+        : platform.element;
+
+    var study = this.study;
+    var studies = (study.element === null)
+        ? (study.element = document.getElementById(study.elementId))
+        : study.element;
 
     // first remove all existing option elements
     clearDropDown(studies);
 
     // now add new ones
+    var pid = getSelectedValue(platforms);
     if (typeof pid !== 'undefined') {
         var study_data = PlatfStudyExp[pid].studies;
 
@@ -88,35 +101,44 @@ function populatePlatformStudy()
         tuples.sort(function(a, b) {
             return a[0] - b[0];
         });
-        
-        buildDropDown(studies, tuples);
+
+        buildDropDown(studies, tuples, study.selected);
     }
 }
 /******************************************************************/
 function populateStudyExperiment()
 {
-    var platforms = document.getElementById('pid');
+    var platform = this.platform;
+    var platforms = (platform.element === null)
+        ? (platform.element = document.getElementById(platform.elementId))
+        : platform.element;
     var pid = getSelectedValue(platforms);
 
-    var studies = document.getElementById('stid');
+    var study = this.study;
+    var studies = (study.element === null)
+        ? (study.element = document.getElementById(study.elementId))
+        : study.element;
     var stid = getSelectedValue(studies);
 
-    var experiments = document.getElementById('eid');
+    var experiment = this.experiment;
+    var experiments = (experiment.element === null)
+        ? (experiment.element = document.getElementById(experiment.elementId))
+        : experiment.element;
 
     // first remove all existing option elements
     clearDropDown(experiments);
 
     // now add new ones
     if (typeof pid !== 'undefined' && typeof stid !== 'undefined') {
-        var this_platform = PlatfStudyExp[pid];
-        var experiment_ids = this_platform.studies[stid].experiments;
-        var experiment_data = this_platform.experiments;
+        var platformNode = PlatfStudyExp[pid];
+        var experiment_ids = platformNode.studies[stid].experiments;
+        var experiment_data = platformNode.experiments;
 
         // sort by experiment id
         var tuples = [];
         for (var i in experiment_ids) {
-            var this_experiment = experiment_data[i]
-            var content = this_experiment[0] + ' / ' + this_experiment[1];
+            var experimentNode = experiment_data[i]
+            var content = experimentNode[0] + ' / ' + experimentNode[1];
             tuples.push([i, content]);
         }
         // generic tuple sort (sort hash by numeric key)
@@ -125,6 +147,6 @@ function populateStudyExperiment()
         });
 
         // build dropdown box
-        buildDropDown(experiments, tuples);
+        buildDropDown(experiments, tuples, experiment.selected);
     }
 }

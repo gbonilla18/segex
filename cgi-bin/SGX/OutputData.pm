@@ -195,7 +195,14 @@ sub dispatch {
 #===============================================================================
 sub init {
     my $self = shift;
-    my @eids = $self->{_cgi}->param('eid');
+    my $q = $self->{_cgi};
+
+    # optional
+    $self->{_pid} = $q->param('pid');
+    $self->{_stid} = $q->param('stid');
+
+    # required
+    my @eids = $q->param('eid');
     $self->{_eidList} = \@eids;
 }
 
@@ -354,19 +361,40 @@ sub getDropDownJS {
     my $PlatfStudyExp =
       encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
 
+    my $currentSelection = encode_json(
+        {
+            'platform' => {
+                element   => undef,
+                selected  => +{ $self->{_pid} => undef },
+                elementId => 'pid'
+            },
+            'study' => {
+                element   => undef,
+                selected  => +{ $self->{_stid} => undef },
+                elementId => 'stid'
+            },
+            'experiment' => {
+                element   => undef,
+                selected  => +{ map { $_ => undef } @{$self->{_eidList}} },
+                elementId => 'eid'
+            }
+        }
+    );
+
     return <<"END_ret";
 var PlatfStudyExp = $PlatfStudyExp;
+var currentSelection = $currentSelection;
 YAHOO.util.Event.addListener(window, 'load', function() {
-    populatePlatform();
-    populatePlatformStudy();
-    populateStudyExperiment();
+    populatePlatform.apply(currentSelection);
+    populatePlatformStudy.apply(currentSelection);
+    populateStudyExperiment.apply(currentSelection);
 });
 YAHOO.util.Event.addListener('pid', 'change', function() {
-    populatePlatformStudy();
-    populateStudyExperiment();
+    populatePlatformStudy.apply(currentSelection);
+    populateStudyExperiment.apply(currentSelection);
 });
 YAHOO.util.Event.addListener('stid', 'change', function() {
-    populateStudyExperiment();
+    populateStudyExperiment.apply(currentSelection);
 });
 END_ret
 }

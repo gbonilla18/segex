@@ -135,6 +135,20 @@ sub get_ByStudy {
 }
 
 #===  CLASS METHOD  ============================================================
+#        CLASS:  PlatformStudyExperiment
+#       METHOD:  getPlatformFromStudy
+#   PARAMETERS:  stid
+#      RETURNS:  pid
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getPlatformFromStudy {
+    my ($self, $stid) = @_;
+    return $self->{_ByStudy}->{$stid}->{pid};
+}
+#===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
 #       METHOD:  init
 #   PARAMETERS:
