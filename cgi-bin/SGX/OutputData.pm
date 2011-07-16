@@ -90,7 +90,11 @@ END_ReportQuery
 
         _Data            => '',
         _RecordsReturned => undef,
-        _FieldNames      => ''
+        _FieldNames      => '',
+        #
+        _stid            => '',
+        _pid             => '',
+        _eidList         => []
     };
 
     bless $self, $class;

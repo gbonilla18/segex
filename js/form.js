@@ -11,29 +11,6 @@ function $() {
     return elements;
 }
 
-/*
-* Recursively merge properties of two objects 
-* http://stackoverflow.com/questions/171251/how-can-i-merge-properties-of-two-javascript-objects-dynamically/383245#383245
-*
-*/
-function MergeRecursive(obj1, obj2) {
-    for (var p in obj2) {
-        try {
-            // Property in destination object set; update its value.
-            if ( obj2[p].constructor==Object ) {
-                obj1[p] = MergeRecursive(obj1[p], obj2[p]);
-            } else {
-                obj1[p] = obj2[p];
-            }
-        } catch(e) {
-            // Property in destination object not set; create it and set its
-            // value.
-            obj1[p] = obj2[p];
-        }
-    }
-    return obj1;
-}
-
 function export_table(e) {
     var records = this.records;
     var row_count = records.length;
@@ -142,13 +119,12 @@ function validate_fields(of,reqfields) {
                         if(v == "") {cf_adderr(f);}
                 }
                 break;
+            case "file":
             case "textarea":
             case "password":
                 if(v==""){cf_adderr(f);}
                 break;
-            /* case "checkbox":
-                if(!f.checked){cf_adderr(f);}
-                break;
+            /* 
             case "select-one":
                 if(!f.selectedIndex && f.selectedIndex==0){cf_adderr(f);}
                 break; */

@@ -43,7 +43,7 @@ use SGX::UploadAnnot;
 #---------------------------------------------------------------------------
 #  User Authentication
 #---------------------------------------------------------------------------
-my $softwareVersion = '0.2.2';
+my $softwareVersion = '0.2.3';
 
 my $dbh = sgx_db_connect();
 my $s   = SGX::User->new(
