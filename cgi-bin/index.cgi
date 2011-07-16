@@ -147,7 +147,7 @@ while ( defined($action) ) {
             #if ($s->is_authorized('user')) {
             if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
-                $title   = 'Complete';
+                $title   = 'Upload Data';
                 $action  = undef;                # final state
             }
             else {
