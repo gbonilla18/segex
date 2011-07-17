@@ -414,25 +414,32 @@ sub uploadData {
         if ( my $exception = $@ ) {
             $dbh->rollback;
 
-            # Catch User and DBI::STH exceptions; rethrow Internal and other
-            # types of exceptions
-            if (   $exception->isa('SGX::Exception::User')
-                || $exception->isa('Exception::Class::DBI::STH') )
-            {
+            if ( $exception->isa('SGX::Exception::User') ) {
 
-                # Note: this block catches duplicate key record exceptions
+                # Catch User exceptions
                 $self->{_error_message} = sprintf(
-                    <<"END_error_message",
-Error loading data into the database. The response was:
-
-%s
-
+                    <<"END_User_exception",
+Error loading data into the database:\n\n%s\n
 No changes to the database were stored.
-END_error_message
+END_User_exception
+                    $exception->error
+                );
+            }
+            elsif ( $exception->isa('Exception::Class::DBI::STH') ) {
+
+                # Catch DBI::STH exceptions. Note: this block catches duplicate
+                # key record exceptions.
+                $self->{_error_message} = sprintf(
+                    <<"END_DBI_STH_exception",
+Error loading data into the database. The database responded:\n\n%s\n
+No changes to the database were stored.
+END_DBI_STH_exception
                     $exception->error
                 );
             }
             else {
+
+                # Rethrow Internal and other types of exceptions.
                 $exception->throw();
             }
         }
@@ -679,17 +686,14 @@ sub loadToDatabase_execute {
 
     # Check row counts; throw errors if too few or too many records were
     # inserted into the microarray/reposnse table
-    if ( $recordsInserted < $rowsLoaded ) {
+    if ( my $extraRecords = $rowsLoaded - $recordsInserted ) {
         SGX::Exception::User->throw(
             error => sprintf(
                 <<"END_WRONGPLATFORM",
-Found %d rows in the uploaded file, but %d records were 
-loaded into the database (failed to load %d probes). 
-Check that you are uploading data to the correct platform.
+The input file contains %d records absent from the platform you entered.
+Make sure you are uploading data to the correct platform.
 END_WRONGPLATFORM
-                $rowsLoaded,
-                $recordsInserted,
-                $rowsLoaded - $recordsInserted
+                $extraRecords
             )
         );
     }

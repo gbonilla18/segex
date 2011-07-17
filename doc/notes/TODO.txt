@@ -118,3 +118,7 @@ Experiment.
 *) CSV format should be supported in addition to tab-delimited. The idea is that
 the same formats that are supported for output should also be supported for
 input.
+
+*) Instead of scattering calls to File::Temp throughout the application,
+consider centralizing temporary directory info in Config.pm either by relying on
+prefix from File::Temp or some other way.
