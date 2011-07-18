@@ -32,7 +32,6 @@ use warnings;
 
 use JSON::XS;
 use SGX::CSV;
-use SGX::DropDownData;
 use Data::Dumper;
 use File::Temp;
 use Carp;

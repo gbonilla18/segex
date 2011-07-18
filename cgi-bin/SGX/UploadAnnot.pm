@@ -95,11 +95,11 @@ sub dispatch_js {
         else {
             return if not $s->is_authorized('user');
             push @$js_src_yui,
-                  (
-                    'yahoo-dom-event/yahoo-dom-event.js',
-                    'animation/animation-min.js',
-                    'dragdrop/dragdrop-min.js'
-                  );
+              (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'animation/animation-min.js',
+                'dragdrop/dragdrop-min.js'
+              );
             push @$js_src_code, { -src => 'UploadAnnot.js' };
         }
     }
@@ -131,6 +131,7 @@ sub dispatch {
             print $self->LoadHTML();
         }
         else {
+
             # default action: show form
             print $self->form_uploadAnnot();
         }
@@ -144,7 +145,7 @@ sub dispatch {
 
 #===  FUNCTION  ================================================================
 #         NAME:  get_annot_fields
-#      PURPOSE:  
+#      PURPOSE:
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  ????
@@ -153,37 +154,39 @@ sub dispatch {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_annot_fields {
-    # takes two arguments which are references to hashes that will store field names of two tables:
-    # probe and gene
-    my ($probe_fields, $gene_fields) = @_;
 
-    # get fields from Probe table (except pid, rid)
-    #my $sth = $dbh->prepare(qq{show columns from probe where Field not regexp "^[a-z]id\$"});
-    #my $rowcount = $sth->execute();
-    #while (my @row = $sth->fetchrow_array) {
-    #    $probe_fields->{$row[0]} = 1;
-    #}
-    #$sth->finish;
+# takes two arguments which are references to hashes that will store field names of two tables:
+# probe and gene
+    my ( $probe_fields, $gene_fields ) = @_;
 
-    $probe_fields->{'Reporter ID'}         = 'reporter';
-    $probe_fields->{'Probe Sequence'}     = 'probe_sequence';
-    $probe_fields->{'Note From Probe'}     = 'note';
+# get fields from Probe table (except pid, rid)
+#my $sth = $dbh->prepare(qq{show columns from probe where Field not regexp "^[a-z]id\$"});
+#my $rowcount = $sth->execute();
+#while (my @row = $sth->fetchrow_array) {
+#    $probe_fields->{$row[0]} = 1;
+#}
+#$sth->finish;
 
-    # get fields from Gene table (except pid, gid)
-    #$sth = $dbh->prepare(qq{show columns from gene where Field not regexp "^[a-z]id\$"});
-    #$rowcount = $sth->execute();
-    #while (my @row = $sth->fetchrow_array) {
-    #    $gene_fields->{$row[0]} = 1;
-    #}
-    #$sth->finish;
+    $probe_fields->{'Reporter ID'}     = 'reporter';
+    $probe_fields->{'Probe Sequence'}  = 'probe_sequence';
+    $probe_fields->{'Note From Probe'} = 'note';
 
-    $gene_fields->{'Gene Symbol'}         = 'seqname';
-    $gene_fields->{'Accession Number'}    = 'accnum';
-    $gene_fields->{'Gene Name'}         = 'description';
-    $gene_fields->{'Source'}             = 'source';
-    $gene_fields->{'Gene Note'}         = 'gene_note';
+# get fields from Gene table (except pid, gid)
+#$sth = $dbh->prepare(qq{show columns from gene where Field not regexp "^[a-z]id\$"});
+#$rowcount = $sth->execute();
+#while (my @row = $sth->fetchrow_array) {
+#    $gene_fields->{$row[0]} = 1;
+#}
+#$sth->finish;
+
+    $gene_fields->{'Gene Symbol'}      = 'seqname';
+    $gene_fields->{'Accession Number'} = 'accnum';
+    $gene_fields->{'Gene Name'}        = 'description';
+    $gene_fields->{'Source'}           = 'source';
+    $gene_fields->{'Gene Note'}        = 'gene_note';
     return;
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::UploadAnnot
 #       METHOD:  uploadAnnot
@@ -196,157 +199,179 @@ sub get_annot_fields {
 #===============================================================================
 sub uploadAnnot {
     my $self = shift;
-    my $dbh = $self->{_dbh};
-    my $q = $self->{_cgi};
+    my $dbh  = $self->{_dbh};
+    my $q    = $self->{_cgi};
 
     my @fields;
     my $regex_split_on_commas = qr/ *, */;
-    
+
     #Fields is an array of the fields from the input box.
-    @fields = split($regex_split_on_commas, $q->param('fields')) if defined($q->param('fields'));
-    
+    @fields = split( $regex_split_on_commas, $q->param('fields') )
+      if defined( $q->param('fields') );
+
     #If the user didn't select enough fields on the input screen, warn them.
-    if (@fields < 2) 
-    {
- # :TODO:07/12/2011 15:03:47:es: replace printing with exceptions here
+    if ( @fields < 2 ) {
+
+        # :TODO:07/12/2011 15:03:47:es: replace printing with exceptions here
         print $q->p('Too few fields specified -- nothing to update.');
         return;
     }
 
-    # How the precompiled regular expression below works:
-    # - Sometimes fields in the tab-delimited file are bounded by double quotes, like this "124442,34345,5656".
-    #   We need to strip these quotes, however it would be nice to preserve the quotes if they are actually used for something,
-    #   such as ""some" test", where the word "some" is enclosed in double quotes.
-    # - The regex below matches 0 or 1 quotation mark at the beginning ^("?)
-    #   and then backreferences the matched character at the end of the string \1$
-    #   The actual content of the field is matched in (.*) and referenced outside regex as $2.
+# How the precompiled regular expression below works:
+# - Sometimes fields in the tab-delimited file are bounded by double quotes, like this "124442,34345,5656".
+#   We need to strip these quotes, however it would be nice to preserve the quotes if they are actually used for something,
+#   such as ""some" test", where the word "some" is enclosed in double quotes.
+# - The regex below matches 0 or 1 quotation mark at the beginning ^("?)
+#   and then backreferences the matched character at the end of the string \1$
+#   The actual content of the field is matched in (.*) and referenced outside regex as $2.
     my $regex_strip_quotes = qr/^("?)(.*)\1$/;
 
     #Create two hashes that hold hash{Long Name} = DBName
-    my (%probe_fields, %gene_fields);
-    
-    get_annot_fields(\%probe_fields, \%gene_fields);
+    my ( %probe_fields, %gene_fields );
+
+    get_annot_fields( \%probe_fields, \%gene_fields );
 
     my $i = 0;
-    
+
     #This hash will hold hash{DBName} = index
     my %col;
-    
+
     #Create a hash mapping record names to columns in the file
-    foreach (@fields) 
-    {
-        # if the assertion below fails, the field specified by the user 
+    foreach (@fields) {
+
+        # if the assertion below fails, the field specified by the user
         # either doesn't exist or is protected.
-        assert($probe_fields{$_} || $gene_fields{$_});
-        
-        if($probe_fields{$_})
-        {
-            $col{$probe_fields{$_}} = $i;
+        assert( $probe_fields{$_} || $gene_fields{$_} );
+
+        if ( $probe_fields{$_} ) {
+            $col{ $probe_fields{$_} } = $i;
         }
-        
-        if($gene_fields{$_})
-        {
-            $col{$gene_fields{$_}} = $i;
+
+        if ( $gene_fields{$_} ) {
+            $col{ $gene_fields{$_} } = $i;
         }
 
         $i++;
     }
-    
+
     # delete core fields from field hash
     delete $probe_fields{"Reporter ID"};
     delete $gene_fields{"Accession Number"};
     delete $gene_fields{"Gene Symbol"};
-    
+
     # create two slices of specified fields, one for each table
     my @slice_probe = @col{%probe_fields};
-    my @slice_gene = @col{%gene_fields};
-    
+    my @slice_gene  = @col{%gene_fields};
+
     @slice_probe = grep { defined($_) } @slice_probe;    # remove undef elements
-    @slice_gene = grep { defined($_) } @slice_gene;        # remove undef elements
-    
+    @slice_gene  = grep { defined($_) } @slice_gene;     # remove undef elements
+
     my $gene_titles = '';
-    foreach (@slice_gene) { $gene_titles .= ','.$gene_fields{$fields[$_]} }
-    
+    foreach (@slice_gene) { $gene_titles .= ',' . $gene_fields{ $fields[$_] } }
+
     my $probe_titles = '';
-    foreach (@slice_probe) { $probe_titles .= ','.$probe_fields{$fields[$_]} }
-    
-    my $reporter_index             = $col{reporter};    # probe table only is updated when this is defined and value is valid
-    my $outside_have_reporter     = defined($reporter_index);
-    my $accnum_index             = $col{accnum};
-    my $seqname_index             = $col{seqname};
-    my $outside_have_gene         = defined($accnum_index) || defined($seqname_index);
-    my $pid_value                 = $q->param('platform');
-    my $replace_accnum             = $outside_have_reporter && $outside_have_gene && !defined($q->param('add'));
-    
-    if (!$outside_have_reporter && !$outside_have_gene) 
-    {
+    foreach (@slice_probe) {
+        $probe_titles .= ',' . $probe_fields{ $fields[$_] };
+    }
+
+    my $reporter_index =
+      $col{reporter}; # probe table only is updated when this is defined and value is valid
+    my $outside_have_reporter = defined($reporter_index);
+    my $accnum_index          = $col{accnum};
+    my $seqname_index         = $col{seqname};
+    my $outside_have_gene = defined($accnum_index) || defined($seqname_index);
+    my $pid_value         = $q->param('platform');
+    my $replace_accnum =
+         $outside_have_reporter
+      && $outside_have_gene
+      && !defined( $q->param('add') );
+
+    if ( !$outside_have_reporter && !$outside_have_gene ) {
         print $q->p('No core fields specified -- cannot proceed with update.');
         return;
     }
-    
+
     my $update_gene;
 
     # Access uploaded file
     my $fh = $q->upload('uploaded_file');
+
     # Perl 6 will allow setting $/ to a regular expression,
     # which would remove the need to read the whole file at once.
     #
     # "local $/" sets input record separator to undefined, allowing "slurp" mode
     # The "trick" below involving do{} block is from Modern Perl, p.150. After
     # the do{} block, the value of $/ reverts to the previous state.
-    my @lines = split(/\r\n|\n|\r/, do { local $/ = <$fh> });
+    my @lines = split(
+        /\r\n|\n|\r/,
+        do { local $/ = <$fh> }
+    );
     close($fh);
+
     # the line below attempts to split on (1) Windows-style line CRLF line
     # breaks, (2) Unix-style LF line breaks, (3) Mac-style CR line breaks in the
     # respective order:
 
     #my $clock0 = clock();
     foreach (@lines) {
-        my @row = split(/ *\t */);    # split on a tab surrounded by any number (including zero) of blanks
+
+        # split on a tab surrounded by any number (including zero) of blanks
+        my @row = split(/ *\t */);
         my @sql;
 
         my $have_reporter = 0;
 
-        # probe fields -- updated only when reporter (core field for probe table) is specified
+# probe fields -- updated only when reporter (core field for probe table) is specified
         if ($outside_have_reporter) {
             my $reporter_value;
-            my $probe_values = '';
+            my $probe_values     = '';
             my $probe_duplicates = '';
             foreach (@slice_probe) {
                 my $value = $row[$_];
-                # alternative one-liner:
-                # $value = ($value && $value =~ $regex_strip_quotes && $2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
+
+# alternative one-liner:
+# $value = ($value && $value =~ $regex_strip_quotes && $2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
                 if ($value) {
                     $value =~ $regex_strip_quotes;
-                    $value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-                } else {
+                    $value = ( $2 && $2 ne '#N/A' ) ? $dbh->quote($2) : 'NULL';
+                }
+                else {
                     $value = 'NULL';
                 }
+
                 #$row[$_] = $value;
-                $probe_values .= ','.$value;
-                $probe_duplicates .= ','.$probe_fields{$fields[$_]}.'='.$value;
+                $probe_values .= ',' . $value;
+                $probe_duplicates .=
+                  ',' . $probe_fields{ $fields[$_] } . '=' . $value;
             }
-            if (defined($reporter_index)) {
+            if ( defined($reporter_index) ) {
                 $reporter_value = $row[$reporter_index];
                 if ($reporter_value) {
                     $reporter_value =~ $regex_strip_quotes;
-                    $reporter_value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-                } else {
+                    $reporter_value =
+                      ( $2 && $2 ne '#N/A' ) ? $dbh->quote($2) : 'NULL';
+                }
+                else {
                     $reporter_value = 'NULL';
                 }
                 $have_reporter++ if $reporter_value ne 'NULL';
             }
             if ($have_reporter) {
-                # TODO: ensure new rows are not inserted into the Probe table
-                # unless we are explicitly setting up a new platform.
-                #
-                # if reporter was not specified, will not be able to obtain rid and update the "annotates" table
-                push @sql, qq{insert into probe (pid, reporter $probe_titles) values ($pid_value, $reporter_value $probe_values) on duplicate key update rid=LAST_INSERT_ID(rid) $probe_duplicates};
+
+# TODO: ensure new rows are not inserted into the Probe table
+# unless we are explicitly setting up a new platform.
+#
+# if reporter was not specified, will not be able to obtain rid and update the "annotates" table
+                push @sql,
+qq{insert into probe (pid, reporter $probe_titles) values ($pid_value, $reporter_value $probe_values) on duplicate key update rid=LAST_INSERT_ID(rid) $probe_duplicates};
                 push @sql, qq{set \@rid:=LAST_INSERT_ID()};
-                # only delete "annotates" content, not the "gene" content.
-                # Then, when everything is done, can go over the entire "gene" table and try to delete records.
-                # Successful delete means the records were orphaned (not pointed to from the "annotates" table).
-                push (@sql, qq{delete quick ignore from annotates where rid=\@rid}) if $replace_accnum;
+
+# only delete "annotates" content, not the "gene" content.
+# Then, when everything is done, can go over the entire "gene" table and try to delete records.
+# Successful delete means the records were orphaned (not pointed to from the "annotates" table).
+                push( @sql,
+                    qq{delete quick ignore from annotates where rid=\@rid} )
+                  if $replace_accnum;
             }
         }
 
@@ -359,8 +384,9 @@ sub uploadAnnot {
             my $value = $row[$_];
             if ($value) {
                 $value =~ $regex_strip_quotes;
-                $value = ($2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-            } else {
+                $value = ( $2 && $2 ne '#N/A' ) ? $dbh->quote($2) : 'NULL';
+            }
+            else {
                 $value = 'NULL';
             }
             $row[$_] = $value;
@@ -369,105 +395,139 @@ sub uploadAnnot {
             my $gene_values = '';
             $update_gene = '';
             foreach (@slice_gene) {
-                $gene_values .= ','.$row[$_];
-                $update_gene .= ','.$gene_fields{$fields[$_]}.'='.$row[$_];
+                $gene_values .= ',' . $row[$_];
+                $update_gene .=
+                  ',' . $gene_fields{ $fields[$_] } . '=' . $row[$_];
             }
 
-            if (defined($seqname_index)) {
+            if ( defined($seqname_index) ) {
                 $seqname_value = $row[$seqname_index];
                 if ($seqname_value) {
                     $seqname_value =~ $regex_strip_quotes;
-                    $seqname_value = ($2 && $2 ne '#N/A' && $2 ne 'Data not found') ? $dbh->quote($2) : 'NULL';
-                } else {
+                    $seqname_value =
+                      ( $2 && $2 ne '#N/A' && $2 ne 'Data not found' )
+                      ? $dbh->quote($2)
+                      : 'NULL';
+                }
+                else {
                     $seqname_value = 'NULL';
                 }
                 $have_seqname++ if $seqname_value ne 'NULL';
             }
-            if (defined($accnum_index)) {
-                # The two lines below split the value matched by the regular expression (stored in $2)
-                # on a comma surrounded by any number (including zero) of blanks, delete invalid members 
-                # from the resulting array, quote each member with DBI::quote, and assign the array to @accnum_array.
+            if ( defined($accnum_index) ) {
+
+# The two lines below split the value matched by the regular expression (stored in $2)
+# on a comma surrounded by any number (including zero) of blanks, delete invalid members
+# from the resulting array, quote each member with DBI::quote, and assign the array to @accnum_array.
                 $row[$accnum_index] =~ $regex_strip_quotes;
-                @accnum_array = map { $dbh->quote($_) } grep { $_ && $_ ne '#N/A' } split($regex_split_on_commas, $2);
+                @accnum_array =
+                  map { $dbh->quote($_) }
+                  grep { $_ && $_ ne '#N/A' }
+                  split( $regex_split_on_commas, $2 );
 
                 # Iterate over the resulting array
-                if ($have_reporter && @accnum_array) {
-                    push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
+                if ( $have_reporter && @accnum_array ) {
+                    push @sql,
+qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
                     foreach (@accnum_array) {
-                        push @sql, qq{insert into gene (accnum, seqname $gene_titles) values ($_, $seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
-                        push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
+                        push @sql,
+qq{insert into gene (accnum, seqname $gene_titles) values ($_, $seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
+                        push @sql,
+qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
                     }
                 }
             }
-            if ($have_reporter && !@accnum_array && $have_seqname) {
+            if ( $have_reporter && !@accnum_array && $have_seqname ) {
+
                 # have gene symbol but not accession number
-                push @sql, qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
-                push @sql, qq{insert into gene (seqname $gene_titles) values ($seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
-                push @sql, qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
+                push @sql,
+qq{update gene natural join annotates set seqname=$seqname_value where rid=\@rid};
+                push @sql,
+qq{insert into gene (seqname $gene_titles) values ($seqname_value $gene_values) on duplicate key update gid=LAST_INSERT_ID(gid) $update_gene};
+                push @sql,
+qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
             }
         }
         if (@slice_gene) {
-            if (!$outside_have_gene) {
-                # if $outside_have_gene is true, $update_gene string has been formed already
+            if ( !$outside_have_gene ) {
+
+    # if $outside_have_gene is true, $update_gene string has been formed already
                 $update_gene = '';
                 foreach (@slice_gene) {
+
                     # title1 = value1, title2 = value2, ...
-                    $update_gene .= ','.$gene_fields{$fields[$_]} .'='.$row[$_];
+                    $update_gene .=
+                      ',' . $gene_fields{ $fields[$_] } . '=' . $row[$_];
                 }
             }
-            $update_gene =~ s/^,//;      # strip leading comma
+            $update_gene =~ s/^,//;    # strip leading comma
             if ($have_reporter) {
-                if (!@accnum_array && !$have_seqname && !$replace_accnum) {
-                    # if $replace_accnum was specified, all rows from annotates table where rid=@rid
-                    # have already been deleted, so no genes would be updated anyway
-                    push @sql, qq{update gene natural join annotates set $update_gene where rid=\@rid};
+                if ( !@accnum_array && !$have_seqname && !$replace_accnum ) {
+
+# if $replace_accnum was specified, all rows from annotates table where rid=@rid
+# have already been deleted, so no genes would be updated anyway
+                    push @sql,
+qq{update gene natural join annotates set $update_gene where rid=\@rid};
                 }
-            } else {
-                if (!@accnum_array && $have_seqname) {
-                    my $eq_seqname = ($seqname_value eq 'NULL') ? 'is NULL' : "=$seqname_value";
-                    push @sql, qq{update gene set $update_gene where seqname $eq_seqname and pid=$pid_value};
-                } elsif (@accnum_array && !$have_seqname) {
+            }
+            else {
+                if ( !@accnum_array && $have_seqname ) {
+                    my $eq_seqname =
+                      ( $seqname_value eq 'NULL' )
+                      ? 'is NULL'
+                      : "=$seqname_value";
+                    push @sql,
+qq{update gene set $update_gene where seqname $eq_seqname and pid=$pid_value};
+                }
+                elsif ( @accnum_array && !$have_seqname ) {
                     foreach (@accnum_array) {
-                        my $eq_accnum = ($_ eq 'NULL') ? 'is NULL' : "=$_";
-                        push @sql, qq{update gene set $update_gene where accnum $eq_accnum and pid=$pid_value};
+                        my $eq_accnum = ( $_ eq 'NULL' ) ? 'is NULL' : "=$_";
+                        push @sql,
+qq{update gene set $update_gene where accnum $eq_accnum and pid=$pid_value};
                     }
-                } elsif (@accnum_array && $have_seqname) {
-                    my $eq_seqname = ($seqname_value eq 'NULL') ? 'is NULL' : "=$seqname_value";
+                }
+                elsif ( @accnum_array && $have_seqname ) {
+                    my $eq_seqname =
+                      ( $seqname_value eq 'NULL' )
+                      ? 'is NULL'
+                      : "=$seqname_value";
                     foreach (@accnum_array) {
-                        my $eq_accnum = ($_ eq 'NULL') ? 'is NULL' : "=$_";
-                        push @sql, qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname and pid=$pid_value};
+                        my $eq_accnum = ( $_ eq 'NULL' ) ? 'is NULL' : "=$_";
+                        push @sql,
+qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname and pid=$pid_value};
                     }
                 }
             }
         }
+
         # execute the SQL statements
-        foreach(@sql) { $dbh->do($_); }
+        foreach (@sql) { $dbh->do($_); }
     }
+
     #my $clock1 = clock();
 
-    if ($outside_have_reporter && $replace_accnum) {
-        #warn "begin optimizing\n";
-        # have to "optimize" because some of the deletes above were performed with "ignore" option
+    if ( $outside_have_reporter && $replace_accnum ) {
+
+#warn "begin optimizing\n";
+# have to "optimize" because some of the deletes above were performed with "ignore" option
         $dbh->do('optimize table annotates');
+
         # in case any gene records have been orphaned, delete them
         $dbh->do(
-            'delete gene from gene left join annotates on gene.gid=annotates.gid where annotates.gid is NULL'
+'delete gene from gene left join annotates on gene.gid=annotates.gid where annotates.gid is NULL'
         );
+
         #warn "end optimizing\n";
     }
     my $count_lines = @lines;
-    #print $q->p(sprintf("%d lines processed in %g seconds", $count_lines, $clock1 - $clock0));
-    print $q->p(sprintf("%d lines processed.", $count_lines));
-    
+
+#print $q->p(sprintf("%d lines processed in %g seconds", $count_lines, $clock1 - $clock0));
+    print $q->p( sprintf( "%d lines processed.", $count_lines ) );
+
     #Flag the platform as being annotated.
-    return $dbh->do(
-        'UPDATE platform SET isAnnotated=1 WHERE pid=?',
-        undef,
-        $pid_value
-    );
+    return $dbh->do( 'UPDATE platform SET isAnnotated=1 WHERE pid=?',
+        undef, $pid_value );
 }
-
-
 
 #---------------------------------------------------------------------------
 #  View methods
@@ -486,81 +546,91 @@ sub uploadAnnot {
 sub form_uploadAnnot {
 
     my $self = shift;
-    my $dbh = $self->{_dbh};
-    my $q = $self->{_cgi};
+    my $dbh  = $self->{_dbh};
+    my $q    = $self->{_cgi};
 
     #If we have a newpid in the querystring, default the dropdown list.
-    my $newpid = defined($q->url_param('newpid')) ? $q->url_param('newpid') : '';
+    my $newpid =
+      defined( $q->url_param('newpid') ) ? $q->url_param('newpid') : '';
 
     my %core_fields;
     my $core_fields_t = tie(
         %core_fields, 'Tie::IxHash',
-        'Reporter ID'         => 1,
-        'Accession Number'     => 1,
-        'Gene Symbol'         => 1
+        'Reporter ID'      => 1,
+        'Accession Number' => 1,
+        'Gene Symbol'      => 1
     );
- # :TODO:07/12/2011 14:12:49:es: Move out code that queries the platform table
- # from this view method
- #
-    # get a list of platforms and cutoff values
-    my $sth = $dbh->prepare(qq{SELECT pid, pname FROM platform ORDER BY pname ASC});
+
+   # :TODO:07/12/2011 14:12:49:es: Move out code that queries the platform table
+   # from this view method
+   #
+   # get a list of platforms and cutoff values
+    my $sth =
+      $dbh->prepare(qq{SELECT pid, pname FROM platform ORDER BY pname ASC});
     my $rowcount = $sth->execute();
     my %platforms;
-    my $platforms_t = tie(
-        %platforms, 'Tie::IxHash'
-    );
-    while (my @row = $sth->fetchrow_array) {
-        $platforms{$row[0]} = $row[1];
+    my $platforms_t = tie( %platforms, 'Tie::IxHash' );
+    while ( my @row = $sth->fetchrow_array ) {
+        $platforms{ $row[0] } = $row[1];
     }
     $sth->finish;
 
     my %probe_fields;
-    my $probe_fields_t = tie(
-        %probe_fields, 'Tie::IxHash'
-    );
+    my $probe_fields_t = tie( %probe_fields, 'Tie::IxHash' );
     my %gene_fields;
-    my $gene_fields_t = tie(
-        %gene_fields, 'Tie::IxHash'
-    );
+    my $gene_fields_t = tie( %gene_fields, 'Tie::IxHash' );
 
-    get_annot_fields(\%probe_fields, \%gene_fields);
+    get_annot_fields( \%probe_fields, \%gene_fields );
 
     my @fieldlist =
-        map { $q->li({-class=>($core_fields{$_}) ? 'core' : 'list1', -id=>$_}, $_) } 
-        (keys %probe_fields, keys %gene_fields);
+      map {
+        $q->li(
+            { -class => ( $core_fields{$_} ) ? 'core' : 'list1', -id => $_ },
+            $_ )
+      } ( keys %probe_fields, keys %gene_fields );
 
     return
-    $q->h2('Upload Annotation'),
-    $q->p('Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'),
-    $q->p('The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.'),
-    $q->div({-class=>'workarea'}, 
+      $q->h2('Upload Annotation'),
+      $q->p(
+'Only the fields specified below will be updated. You can specify fields by dragging field tags into the target area on the right and reordering them to match the column order in the tab-delimited file. When reporter (manufacturer-provided id) is among the fields uploaded, the existing annotation for the uploaded probes will be lost and replaced with the annotation present in the uploaded file. The "Add accession numbers to existing probes" option will prevent the update program from deleting existing accession numbers from probes.'
+      ),
+      $q->p(
+'The default policy for updating probe-specific fields is to insert new records whenever existing records could not be matched on the probe core field (reporter id). The default policy for updating gene-specific fields is update-only, without insertion of new records. However, new gene records <em>are</em> inserted when both reporter id and either of the gene core fields (accnum, seqname) are specified.'
+      ),
+      $q->div(
+        { -class => 'workarea' },
         $q->h3('Available Fields:'),
-        $q->ul({-id=>'ul1', -class=>'draglist'}, @fieldlist)),
-    $q->div({-class=>'workarea'}, 
+        $q->ul( { -id => 'ul1', -class => 'draglist' }, @fieldlist )
+      ),
+      $q->div(
+        { -class => 'workarea' },
         $q->h3('Fields in the Uploaded File:'),
-        $q->ul({-id=>'ul2', -class=>'draglist'})),
-    $q->startform(
-        -method=>'POST',
-        -action=>$q->url(-absolute=>1).'?a=uploadAnnot',
-        -enctype=>'multipart/form-data'),
-    $q->dl(
+        $q->ul( { -id => 'ul2', -class => 'draglist' } )
+      ),
+      $q->startform(
+        -method  => 'POST',
+        -action  => $q->url( -absolute => 1 ) . '?a=uploadAnnot',
+        -enctype => 'multipart/form-data'
+      ),
+      $q->dl(
         $q->dt('Platform:'),
-        $q->dd($q->popup_menu(
-                -name=>'platform', 
-                -values=>[keys %platforms], 
-                -labels=>\%platforms, 
-                -default=>$newpid
-        )),
+        $q->dd(
+            $q->popup_menu(
+                -name    => 'platform',
+                -values  => [ keys %platforms ],
+                -labels  => \%platforms,
+                -default => $newpid
+            )
+        ),
         $q->dt('File to upload (tab-delimited):'),
-        $q->dd($q->filefield(-name=>'uploaded_file')),
+        $q->dd( $q->filefield( -name => 'uploaded_file' ) ),
         $q->dt('&nbsp;'),
         $q->dd(
-            $q->hidden(-id=>'fields', -name=>'fields'),
-            $q->submit(-class=>'css3button',-value=>'Upload')
+            $q->hidden( -id => 'fields', -name => 'fields' ),
+            $q->submit( -class => 'css3button', -value => 'Upload' )
         )
-    ),
-    $q->end_form;
+      ),
+      $q->end_form;
 }
-
 
 1;
