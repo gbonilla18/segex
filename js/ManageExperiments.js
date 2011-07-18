@@ -1,58 +1,11 @@
-function populateSelectFilterStudy() {
-
-    var studyDropdown = document.getElementById("study");
-    var platformDropdown = document.getElementById("platform");
-
-    // Currently getting current platform from selected option in the Platforms
-    // dropdown box. This is bad practice. Need to send current platform as JSON
-    // value.
-    var pid = platformDropdown.options[platformDropdown.selectedIndex].value;
-
-    // first remove all existing option elements
-    //
-    while (studyDropdown.options[0]) {
-        studyDropdown.removeChild(studyDropdown.options[0]);
-    }
-
-    //Add 'Unassigned Studies' option
-    var optionUnassigned = document.createElement("option");
-    optionUnassigned.setAttribute('value', '');
-    optionUnassigned.innerHTML = 'Unassigned';
-    studyDropdown.appendChild(optionUnassigned);			
-
-    //Add 'All Studies' option
-    var optionAll = document.createElement("option");
-    optionAll.setAttribute('value', 'all');
-    optionAll.innerHTML = 'All Studies';
-    studyDropdown.appendChild(optionAll);
-
-    //Add other options
-    for (var i in studies) {
-        // Only add the ones that are in the platform we selected.
-        if (pid === 'all' || studies[i][1] === pid )
-        {
-            var option = document.createElement("option");
-            option.setAttribute('value', i);
-            if (typeof(curr_study) !== 'undefined' && curr_study == i) {
-                option.selected = "selected";
-            }
-            option.innerHTML = studies[i][0];
-            studyDropdown.appendChild(option);
-        }
-    }
-}
-
-if (show_table) {
+if (typeof(JSStudyList) !== 'undefined') {
     YAHOO.util.Event.addListener("StudyTable_astext", "click", export_table, JSStudyList, true);
 }
 
-YAHOO.util.Event.addListener("platform", "change", populateSelectFilterStudy);
 YAHOO.util.Event.addListener(window, "load", function() {
-    populateSelectFilterStudy();
-
     /**** Everything below applies only when tables are shown ****/
 
-    if (show_table) {
+    if (typeof(JSStudyList) !== 'undefined') {
         function createCellEditor(postBackURL, postBackQueryParameters) {
             return new YAHOO.widget.TextareaCellEditor({
                 disableBtns: false,

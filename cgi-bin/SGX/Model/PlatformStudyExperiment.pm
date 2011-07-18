@@ -135,19 +135,36 @@ sub get_ByStudy {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
+#        CLASS:  SGX::PlatformStudyExperiment
 #       METHOD:  getPlatformFromStudy
 #   PARAMETERS:  stid
 #      RETURNS:  pid
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getPlatformFromStudy {
-    my ($self, $stid) = @_;
+    my ( $self, $stid ) = @_;
     return $self->{_ByStudy}->{$stid}->{pid};
 }
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::PlatformStudyExperiment
+#       METHOD:  getPlatformStudyName
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getPlatformStudyName {
+    my ( $self, $pid, $stid ) = @_;
+    return $self->{_ByPlatform}->{$pid}->{studies}->{$stid}->{name} . ' \ '
+      . $self->{_ByPlatform}->{$pid}->{name};
+}
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
 #       METHOD:  init
@@ -188,25 +205,33 @@ sub init {
     my $experiment_info = $param{experiments};
 
     # defaulting to "no"
-    my $empty_study = $param{empty_study};
+    my $extra_studies = $param{extra_studies};
 
     # defaulting to "no"
-    my $empty_platform = $param{empty_platform};
+    my $extra_platforms = $param{extra_platforms};
 
     # defaulting to "no"
     my $platform_by_study = $param{platform_by_study};
 
+    my $default_study_name = (exists $param{default_study_name})
+                           ? $param{default_study_name}
+                           : '@Unassigned Experiments';
+
+    my $default_platform_name = (exists $param{default_platform_name})
+                           ? $param{default_platform_name}
+                           : '@Unassigned Experiments';
+
     #---------------------------------------------------------------------------
     #  build model
     #---------------------------------------------------------------------------
-    $self->getPlatforms( empty => $empty_platform ) if $platform_info;
+    $self->getPlatforms( extra => $extra_platforms ) if $platform_info;
 
     # we didn't define getStudy() because getPlatformStudy() accomplishes the
     # same goal (there is a one-to-many relationship between platforms and
     # studies).
     $self->getPlatformStudy(
         reverse_lookup => $platform_by_study,
-        empty          => $empty_study
+        extra          => $extra_studies
     ) if $study_info;
     $self->getExperiments() if $experiment_info;
 
@@ -228,14 +253,14 @@ sub init {
         # the platform.
         #
         my $this_empty_study =
-          ( defined $empty_study )
-          ? "\@$empty_study"
-          : '@Unassigned';
+          ( defined($extra_studies) && defined( $extra_studies->{''} ) )
+          ? $extra_studies->{''}->{name}
+          : $default_study_name;
 
-        my $this_empty_platform = 
-          ( defined $empty_platform )
-          ? "\@$empty_platform"
-          : '@Unassigned';
+        my $this_empty_platform =
+          ( defined($extra_platforms) && defined( $extra_platforms->{''} ) )
+          ? $extra_platforms->{''}->{name}
+          : $default_platform_name;
 
         foreach my $platform ( values %$model ) {
 
@@ -246,7 +271,7 @@ sub init {
 
             # initialize $platform->{studies} (must always be present)
             $platform->{studies} ||= {};
-            $platform->{name} ||= $this_empty_platform;
+            $platform->{name}    ||= $this_empty_platform;
             $platform->{species} ||= undef;
 
             # cache "studies" field
@@ -281,7 +306,10 @@ sub init {
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
 #       METHOD:  getPlatforms
-#   PARAMETERS:  empty => str/F  - name of the empty platform
+#   PARAMETERS:  extra => {
+#                   'all' => { name => '@All Platforms', species => undef },
+#                   ''    => { name => '@Unassigned', species => undef }
+#                }
 #      RETURNS:  HASHREF to model
 #
 #  DESCRIPTION:  Builds a nested data structure that describes which studies
@@ -328,11 +356,15 @@ sub init {
 sub getPlatforms {
     my ( $self, %param ) = @_;
 
-    my $unassigned_name = $param{empty};
-    my %unassigned =
-        ( defined $unassigned_name )
-      ? ( '' => { name => "\@$unassigned_name", species => undef } )
-      : ();
+    my $extra_platforms = (defined $param{extra} )
+                        ? $param{extra}
+                        : {};
+
+    #my $unassigned_name = $param{empty};
+    #my %extra_platforms =
+    #    ( defined $unassigned_name )
+    #  ? ( '' => { name => "\@$unassigned_name", species => undef } )
+    #  : ();
 
     # cache the database handle
     my $dbh = $self->{_dbh};
@@ -351,7 +383,7 @@ END_PLATFORMQUERY
     $sth_platform->bind_columns( undef, \$pid, \$pname, \$species );
 
     # what is returned
-    my %model = (%unassigned);
+    my %model = (%$extra_platforms);
 
     # first setup the model using platform info
     while ( $sth_platform->fetch ) {
@@ -376,7 +408,9 @@ END_PLATFORMQUERY
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::PlatformStudyExperiment
 #       METHOD:  getPlatformStudy
-#   PARAMETERS:  empty          => 'Unassigned Experiments' - name of a study node
+#   PARAMETERS:  extra => {
+#                    '' => { name => '@Unassigned' }
+#                }
 #                               whose id is a zero-length string.
 #                reverse_lookup => true/false  - whether to store info about
 #                               which platform a study belongs to on a per-study
@@ -390,11 +424,14 @@ END_PLATFORMQUERY
 sub getPlatformStudy {
     my ( $self, %param ) = @_;
 
-    my $unassigned_name = $param{empty};
-    my %unassigned =
-        ( defined $unassigned_name )
-      ? ( '' => { name => "\@$unassigned_name" } )
-      : ();
+    my $extra_studies = (defined $param{extra})
+                      ? $param{extra}
+                      : {};
+    #my $unassigned_name = $param{empty};
+    #my %unassigned =
+    #    ( defined $unassigned_name )
+    #  ? ( '' => { name => "\@$unassigned_name" } )
+    #  : ();
 
     # defaulting to "no"
     my $reverse_lookup = $param{reverse_lookup};
@@ -426,7 +463,7 @@ END_STUDYQUERY
         }
         else {
             $model{$pid} =
-              { studies => { %unassigned, $stid => { name => $study_desc } } };
+              { studies => { %$extra_studies, $stid => { name => $study_desc } } };
         }
         if ($reverse_lookup) {
             if ( exists $reverse_model{$stid} ) {

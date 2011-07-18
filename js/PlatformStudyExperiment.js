@@ -22,6 +22,7 @@ function buildDropDown(obj, tuples, selected) {
         if (typeof(selected) !== 'undefined' && (key in selected)) {
             option.selected = 'selected';
         }
+        //console.log(key + ' ' + value);
         option.innerHTML = value;
         obj.appendChild(option);
     }
@@ -63,7 +64,7 @@ function populatePlatform()
     tuples.sort(function(a, b) {
         a = a[1];
         b = b[1];
-        return a < b ? -1 : (a > b ? 1 : 0); 
+        return a < b ? -1 : (a > b ? 1 : 0);
     });
 
     // build dropdown box
@@ -99,7 +100,10 @@ function populatePlatformStudy()
         }
         // generic tuple sort (sort hash by numeric key)
         tuples.sort(function(a, b) {
-            return a[0] - b[0];
+            //return a[0] - b[0];
+            a = a[1];
+            b = b[1];
+            return a < b ? -1 : (a > b ? 1 : 0);
         });
 
         buildDropDown(studies, tuples, study.selected);
@@ -137,8 +141,14 @@ function populateStudyExperiment()
         // sort by experiment id
         var tuples = [];
         for (var i in experiment_ids) {
-            var experimentNode = experiment_data[i]
-            var content = experimentNode[0] + ' / ' + experimentNode[1];
+            var experimentNode = experiment_data[i];
+            var content;
+            if (typeof(experimentNode) === 'undefined') {
+                // no experiment info for given eid among platform data
+                content = '@' + i;
+            } else {
+                content = experimentNode[0] + ' / ' + experimentNode[1];
+            }
             tuples.push([i, content]);
         }
         // generic tuple sort (sort hash by numeric key)

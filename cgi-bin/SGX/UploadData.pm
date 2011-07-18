@@ -113,7 +113,7 @@ sub dispatch_js {
         platforms         => 1,
         studies           => 1,
         platform_by_study => 1,
-        empty_study       => 'Unassigned Experiments'
+        extra_studies     => { '' => { name => '@Unassigned Experiments' } }
     );
     $self->init();
 
@@ -155,16 +155,55 @@ sub dispatch {
     #  ? $q->param('b')
     #  : '';
 
-    # notice about rows added or error message
-    print $q->pre( { -style => 'color:red; font-weight:bold;' },
-        $self->{_error_message} )
-      if $self->{_error_message};
-    print $q->pre( { -style => 'font-weight:bold;' }, $self->{_message} )
-      if $self->{_message};
+    print $self->displayMessages();
 
     # always show form
     print $self->showForm();
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadData
+#       METHOD:  displayMessages
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Display messages if any are present
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub displayMessages {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    my @ret;
+    if ( defined( $self->{_error_message} ) && $self->{_error_message} ne '' ) {
+        push @ret,
+          $q->pre( { -style => 'color:red; font-weight:bold;' },
+            $self->{_error_message} );
+    }
+    if ( defined( $self->{_message} ) && $self->{_message} ne '' ) {
+        push @ret,
+          (
+            $q->p( { -style => 'font-weight:bold;' }, $self->{_message} ),
+            $q->p(
+                { -style => 'font-weight:bold;' },
+                'The uploaded data were placed in a new experiment under: '
+                  . $q->a(
+                    {
+                        -href => $q->url( -absolute => 1 )
+                          . sprintf(
+                            '?a=manageExperiments&b=Load&pid=%s&stid=%s',
+                            $self->{_pid}, $self->{_stid}
+                          )
+                    },
+                    $self->{_PlatformStudyExperiment}
+                      ->getPlatformStudyName( $self->{_pid}, $self->{_stid} )
+                  )
+            )
+          );
+    }
+    return @ret;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -188,7 +227,7 @@ sub init {
     if ( defined $stid ) {
         $self->{_stid} = $stid;
 
-        # If a study is set, use th corresponding platform while ignoring the
+        # If a study is set, use the corresponding platform while ignoring the
         # platform parameter. Also update the _pid field with the platform id
         # obtained from the lookup by study id.
         my $pid =
@@ -217,16 +256,26 @@ sub getDropDownJS {
     my $PlatfStudyExp =
       encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
 
+    my $selectedPlatform =
+        ( defined $self->{_pid} )
+      ? { $self->{_pid} => undef }
+      : {};
+
+    my $selectedStudy =
+        ( defined $self->{_stid} )
+      ? { $self->{_stid} => undef }
+      : {};
+
     my $currentSelection = encode_json(
         {
             'platform' => {
                 element   => undef,
-                selected  => +{ $self->{_pid} => undef },
+                selected  => $selectedPlatform,
                 elementId => 'pid'
             },
             'study' => {
                 element   => undef,
-                selected  => +{ $self->{_stid} => undef },
+                selected  => $selectedStudy,
                 elementId => 'stid'
             }
         }
@@ -449,14 +498,72 @@ END_DBI_STH_exception
         }
         else {
             $dbh->commit;
-            $self->{_message} =
-              sprintf( 'Success: %d records loaded', $recordsLoaded );
+
+            my $totalProbes = $self->probesPerPlatform();
+            if ( $recordsLoaded == $totalProbes ) {
+                $self->{_message} = sprintf(
+                    <<"END_FULL_SUCCESS",
+Success! Data for all %d probes from the selected platform 
+were added to the database.
+END_FULL_SUCCESS
+                    $recordsLoaded
+                );
+            }
+            elsif ( $recordsLoaded < $totalProbes ) {
+                $self->{_message} = sprintf(
+                    <<"END_PARTIAL_SUCCESS",
+You added data for %d probes out of total %d in the selected platform
+(no data were added for %d probes).
+END_PARTIAL_SUCCESS
+                    $recordsLoaded,
+                    $totalProbes,
+                    $totalProbes - $recordsLoaded
+                );
+            }
+            else {
+
+                # shouldn't happen
+                SGX::Exception::Internal->throw(
+                    error => sprintf(
+                        "Platform contains %d probes but %d were loaded\n",
+                        $totalProbes, $recordsLoaded
+                    )
+                );
+            }
         }
 
         # restore old value of AutoCommit
         $dbh->{AutoCommit} = $old_AutoCommit;
     }
     return $recordsLoaded;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadData
+#       METHOD:  probesPerPlatform
+#   PARAMETERS:  $pid - [optional] - platform id; if absent, will use
+#                                    $self->{_pid}
+#      RETURNS:  Count of probes
+#  DESCRIPTION:  Returns number of probes that the current platform has
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub probesPerPlatform {
+    my ( $self, $pid ) = @_;
+    $pid = $self->{_pid} if !defined($pid);
+
+    my $dbh = $self->{_dbh};
+
+    my $sth = $dbh->prepare('SELECT COUNT(*) FROM probe WHERE pid=?');
+    my $rc  = $sth->execute($pid);
+
+    #assert( $rc == 1 );
+
+    my ($count) = $sth->fetchrow_array;
+    $sth->finish;
+
+    return $count;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -684,14 +791,14 @@ sub loadToDatabase_execute {
       $sth_insertResponse->execute( $this_eid, $self->{_pid} );
     $self->{_recordsInserted} = $recordsInserted;
 
-    # Check row counts; throw errors if too few or too many records were
-    # inserted into the microarray/reposnse table
+    # Check row counts; throw error if too few or too many records were
+    # inserted into the microarray/response table
     if ( my $extraRecords = $rowsLoaded - $recordsInserted ) {
         SGX::Exception::User->throw(
             error => sprintf(
                 <<"END_WRONGPLATFORM",
 The input file contains %d records absent from the platform you entered.
-Make sure you are uploading data to the correct platform.
+Make sure you are uploading data from a correct platform.
 END_WRONGPLATFORM
                 $extraRecords
             )

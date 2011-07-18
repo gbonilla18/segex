@@ -29,11 +29,11 @@ package SGX::ManageExperiments;
 use strict;
 use warnings;
 
-use SGX::DropDownData;
 use Data::Dumper;
 use Switch;
 use JSON::XS;
 use URI::Escape;
+use SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
@@ -48,19 +48,23 @@ use URI::Escape;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ($class, %param) = @_;
+    my ( $class, %param ) = @_;
 
-    my ($dbh, $q, $s, $js_src_yui, $js_src_code) = 
-        @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
+      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
     # :TODO:07/01/2011 04:02:51:es: To find out the number of probes for each
     # experiment, run separate queries for better performance
     my $self = {
-        _dbh    => $dbh,
-        _cgi    => $q,
+        _dbh         => $dbh,
+        _cgi         => $q,
         _UserSession => $s,
-        _js_src_yui => $js_src_yui,
+        _js_src_yui  => $js_src_yui,
         _js_src_code => $js_src_code,
+
+        # model
+        _PlatformStudyExperiment =>
+          SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
 
         # load experiments when a study is known
         _LoadQuery => <<"END_LoadQuery",
@@ -143,27 +147,27 @@ ORDER BY experiment.eid ASC
 
 END_LoadAllExperimentsQuery
 
-#        _LoadSingleQuery => <<"END_LoadSingleQuery",
-#SELECT eid,
-#    sample1,
-#    sample2,
-#    ExperimentDescription,
-#    AdditionalInformation
-#FROM experiment
-#NATURAL JOIN StudyExperiment
-#NATURAL JOIN study
-#WHERE experiment.eid = {0}
-#
-#END_LoadSingleQuery
+        #        _LoadSingleQuery => <<"END_LoadSingleQuery",
+        #SELECT eid,
+        #    sample1,
+        #    sample2,
+        #    ExperimentDescription,
+        #    AdditionalInformation
+        #FROM experiment
+        #NATURAL JOIN StudyExperiment
+        #NATURAL JOIN study
+        #WHERE experiment.eid = {0}
+        #
+        #END_LoadSingleQuery
 
-#        _UpdateQuery => <<"END_UpdateQuery",
-#UPDATE experiment
-#SET ExperimentDescription = '{0}',
-#    AdditionalInformation = '{1}',
-#    sample1 = '{2}',
-#    sample2 = '{3}'
-#WHERE eid = {4}
-#END_UpdateQuery
+        #        _UpdateQuery => <<"END_UpdateQuery",
+        #UPDATE experiment
+        #SET ExperimentDescription = '{0}',
+        #    AdditionalInformation = '{1}',
+        #    sample1 = '{2}',
+        #    sample2 = '{3}'
+        #WHERE eid = {4}
+        #END_UpdateQuery
 
         _DeleteQueries => [
             'DELETE FROM microarray WHERE eid = ?',
@@ -176,30 +180,11 @@ DELETE FROM StudyExperiment
 WHERE stid = ? AND eid = ?
 END_UnassignQuery
 
-        _StudyQuery => <<"END_StudyQuery",
-SELECT 'all', 'All Studies'
-UNION SELECT '1010', 'Unassigned Study'
-UNION SELECT stid, description
-FROM study ORDER BY 1
-END_StudyQuery
-
-        _StudyPlatformQuery => <<"END_StudyPlatformQuery",
-SELECT pid,stid,description
-FROM study ORDER BY 1, 2
-END_StudyPlatformQuery
-
-        _PlatformQuery => <<"END_PlatformQuery",
-SELECT 'all', 'All Platforms'
-UNION SELECT pid, CONCAT(pname, ' \\\\ ', species)
-FROM platform ORDER BY 1
-END_PlatformQuery
-
         _FieldNames => undef,
         _Data       => undef,
         _stid       => undef,
         _pid        => undef,
         _eid        => undef,
-        _studyList  => {}
     };
 
     bless $self, $class;
@@ -259,7 +244,7 @@ sub dispatch {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub dispatch_js {
-    my ( $self ) = @_;
+    my ($self) = @_;
 
     my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
@@ -280,81 +265,143 @@ sub dispatch_js {
 
     switch ($action) {
         case 'delete' {
-            if (!$s->is_authorized('user')) { return; }
+            if ( !$s->is_authorized('user') ) { return; }
             $self->deleteExperiment(
                 id         => $q->param('id'),
                 deleteFrom => $q->param('deleteFrom')
             );
         }
         case 'update' {
+
             # This is a *very generic* method handling AJAX request --
             # basically update a key-value pair in a specified row in the table
             # # :TODO:07/04/2011 16:48:45:es: Abstract out this method into a
             # base class for SGX modules.
             #
             my %valid_fields;
-            @valid_fields{qw{sample1 sample2 ExperimentDescription AdditionalInformation}} = ();
+            @valid_fields{
+                qw{sample1 sample2 ExperimentDescription AdditionalInformation}}
+              = ();
 
-            if (!$s->is_authorized('user')) {
+            if ( !$s->is_authorized('user') ) {
+
                 # Send 401 Unauthorized header
-                print $q->header(-status=>401);
+                print $q->header( -status => 401 );
                 exit(0);
             }
             my $field = $q->param('field');
-            if (not defined($field) or not exists($valid_fields{$field})) {
+            if ( not defined($field) or not exists( $valid_fields{$field} ) ) {
+
                 # Send 400 Bad Request header
-                print $q->header(-status=>400);
+                print $q->header( -status => 400 );
                 exit(0);
             }
+
             # after field name has been checked against %valid_fields hash, it
             # is safe to fill it in directly:
             my $query = "update experiment set $field=? where eid=?";
+
             # Note that when $q->param('value') is undefined, DBI should fill in
             # NULL into the corresponding placeholder.
-            my $rc = eval { $dbh->do( $query, undef,
-                $q->param('value'),
-                $q->param('id')
-            )} or 0;
+            my $rc = eval {
+                $dbh->do( $query, undef, $q->param('value'), $q->param('id') );
+            } or 0;
 
             if ($rc) {
+
                 # Some rows were updated:
                 # Send 200 OK header
-                print $q->header(-status=>200);
+                print $q->header( -status => 200 );
                 exit(1);
-            } else {
-                if (!$@) {
+            }
+            else {
+                if ( !$@ ) {
+
                     # Normal condition -- no rows updated:
                     # Send 404 Not Found header
-                    print $q->header(-status=>404);
+                    print $q->header( -status => 404 );
                     exit(0);
-                } else {
+                }
+                else {
+
                     # Error condition -- no rows updated:
                     # Send 400 Bad Request header
-                    print $q->header(-status=>400);
+                    print $q->header( -status => 400 );
                     $@->throw();
                 }
             }
         }
         case 'Load' {
-            if (!$s->is_authorized('user')) { return; }
-            #$self->loadFromForm();
-            $self->{_stid} = $q->param('study');
-            $self->{_pid}  = $q->param('platform');
+            if ( !$s->is_authorized('user') ) { return; }
+
+            $self->{_PlatformStudyExperiment}->init(
+                platforms         => 1,
+                studies           => 1,
+                experiments       => 1,
+                platform_by_study => 1,
+                extra_studies     => {
+                    'all' => {
+                        name => '@All Experiments'
+                    }
+                }
+            );
+            $self->init();
             $self->loadAllExperimentsFromStudy();
-            $self->loadStudyData();
-            $self->loadPlatformData();
+
+            # load experiments
             push @$js_src_code, { -code => $self->showExperiments_js() };
             push @$js_src_code, { -src  => 'ManageExperiments.js' };
+
+            # platform drop down
+            push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
+            push @$js_src_code, { -code => $self->getDropDownJS() };
         }
         else {
-            if (!$s->is_authorized('user')) { return; }
-            #$self->loadAllExperimentsFromStudy();
-            $self->loadStudyData();
-            $self->loadPlatformData();
+            if ( !$s->is_authorized('user') ) { return; }
 
-            push @$js_src_code, { -code => $self->showExperiments_js() };
-            push @$js_src_code, { -src => 'ManageExperiments.js' };
+            # platform drop down
+            $self->{_PlatformStudyExperiment}->init(
+                platforms         => 1,
+                studies           => 1,
+                experiments       => 1,
+                platform_by_study => 1,
+                extra_studies     => {
+                    'all' => {
+                        name => '@All Experiments'
+                    }
+                }
+            );
+            push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
+            push @$js_src_code, { -code => $self->getDropDownJS() };
         }
+    }
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Load state (mostly from CGI parameters)
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    my $stid = $q->param('stid');
+    if ( defined $stid ) {
+        $self->{_stid} = $stid;
+
+        # If a study is set, use the corresponding platform while ignoring the
+        # platform parameter. Also update the _pid field with the platform id
+        # obtained from the lookup by study id.
+        my $pid =
+          $self->{_PlatformStudyExperiment}->getPlatformFromStudy($stid);
+        $self->{_pid} = ( defined $pid ) ? $pid : $q->param('pid');
     }
     return 1;
 }
@@ -373,37 +420,71 @@ sub showExperiments_js {
     my ($self) = @_;
     my $q = $self->{_cgi};
 
-    my $return_text = 
-        sprintf( "var studies = %s;\n",
-                $self->getJavaScriptRecordsForFilterDropDowns())
-        .
-        sprintf( "var curr_study = '%s';\n",
-                (defined $self->{_stid}) ? $self->{_stid} : 'all');
-
-    #If we have selected and loaded an experiment, load the table.
-    if ( defined( $self->{_Data} ) ) {
-        $return_text .= "var show_table = true;\n";
-
-        $return_text .= sprintf(
-            "var JSStudyList = %s;\n",
-            encode_json({
+    return sprintf(
+        "var JSStudyList = %s;\n",
+        encode_json(
+            {
                 caption => 'Showing Experiments',
                 records => $self->printJSRecords(),
                 headers => $self->printJSHeaders()
-            })
-        );
+            }
+        )
+    ) . $self->printTableInformation();
+}
 
-        $return_text .= $self->printTableInformation()
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  getDropDownJS
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Returns JSON data plus JavaScript code required to build
+#                platform and study dropdowns
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getDropDownJS {
+    my $self = shift;
 
-        #Now we need to re-select the current StudyID, if we have one.
-        #if ( defined( $self->{_stid} ) and $self->{_stid} ne '' ) {
-        #    print "selectStudy(document.getElementById(\"study\"),\""
-        #      . $self->{_stid} . "\");\n";
-        #}
-    } else {
-        $return_text .= "var show_table = false;\n";
-    }
-    return $return_text;
+    my $PlatfStudyExp =
+      encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
+
+    my $selectedPlatform =
+        ( defined $self->{_pid} )
+      ? { $self->{_pid} => undef }
+      : {};
+
+    my $selectedStudy =
+        ( defined $self->{_stid} )
+      ? { $self->{_stid} => undef }
+      : {};
+
+    my $currentSelection = encode_json(
+        {
+            'platform' => {
+                element   => undef,
+                selected  => $selectedPlatform,
+                elementId => 'pid'
+            },
+            'study' => {
+                element   => undef,
+                selected  => $selectedStudy,
+                elementId => 'stid'
+            }
+        }
+    );
+
+    return <<"END_ret";
+var PlatfStudyExp = $PlatfStudyExp;
+var currentSelection = $currentSelection;
+YAHOO.util.Event.addListener(window, 'load', function() {
+    populatePlatform.apply(currentSelection);
+    populatePlatformStudy.apply(currentSelection);
+});
+YAHOO.util.Event.addListener(currentSelection.platform.elementId, 'change', function() {
+    populatePlatformStudy.apply(currentSelection);
+});
+END_ret
 }
 
 #===  CLASS METHOD  ============================================================
@@ -462,47 +543,6 @@ sub loadAllExperimentsFromStudy {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
-#       METHOD:  loadStudyData
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Loads information into the object that is used to create the study dropdown.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub loadStudyData {
-    my $self = shift;
-
-    my $studyDropDown =
-      SGX::DropDownData->new( $self->{_dbh}, $self->{_StudyQuery} );
-
-    $self->{_studyList} = $studyDropDown->loadDropDownValues();
-
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
-#       METHOD:  loadPlatformData
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Loads information into the object that is used to create the study dropdown.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub loadPlatformData {
-    my $self = shift;
-
-    my $platformDropDown =
-      SGX::DropDownData->new( $self->{_dbh}, $self->{_PlatformQuery} );
-
-    $self->{_platformList} = $platformDropDown->loadDropDownValues();
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
 #       METHOD:  showExperiments
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -522,26 +562,21 @@ sub showExperiments {
             -method => 'GET',
             -action => $q->url( -absolute => 1 )
               . '?a=manageExperiments&b=Load',
-            -enctype => 'application/x-www-form-urlencoded',
-            -onsubmit => 'return validate_fields(this, [\'study\']);'
+            -enctype => 'application/x-www-form-urlencoded'
         ),
         $q->dl(
             $q->dt('Platform:'),
             $q->dd(
                 $q->popup_menu(
-                    -name    => 'platform',
-                    -id      => 'platform',
-                    -values  => [ keys %{ $self->{_platformList} } ],
-                    -labels  => $self->{_platformList}
+                    -name => 'pid',
+                    -id   => 'pid'
                 )
             ),
             $q->dt('Study:'),
             $q->dd(
                 $q->popup_menu(
-                    -name    => 'study',
-                    -id      => 'study',
-                    -values  => [],
-                    -labels  => {}
+                    -name => 'stid',
+                    -id   => 'stid'
                 )
             ),
             $q->dt('&nbsp;'),
@@ -653,44 +688,17 @@ sub printTableInformation {
       . "&destination=$destination"    # current URI (encoded)
       . '&id=';    # resource id on which second-level action will be performed
 
-    my $ret = sprintf(<<"END_printTableInformation",
+    my $ret = sprintf(
+        <<"END_printTableInformation",
 var url_prefix = "%s";
 var deleteURL = "%s";
 
 END_printTableInformation
         $q->url( absolute => 1 ),
-        $deleteURL);
+        $deleteURL
+    );
 
     return $ret;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
-#       METHOD:  getJavaScriptRecordsForFilterDropDowns
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getJavaScriptRecordsForFilterDropDowns {
-    my $self = shift;
-
-    my $tempRecords = $self->{_dbh}->prepare( $self->{_StudyPlatformQuery} )
-      or croak $self->{_dbh}->errstr;
-    my $tempRecordCount = $tempRecords->execute
-      or croak $self->{_dbh}->errstr;
-
-    my %out;
-    while ( my @row = $tempRecords->fetchrow_array ) {
-
-        # Study ID => [Study Description, PID]
-        $out{ $row[1] } = [ $row[2], $row[0] ];
-    }
-    $tempRecords->finish;
-
-    return encode_json( \%out );
 }
 
 #===  CLASS METHOD  ============================================================
