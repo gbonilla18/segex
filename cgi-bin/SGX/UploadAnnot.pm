@@ -32,6 +32,7 @@ use Data::Dumper;
 use Switch;
 use JSON::XS;
 use SGX::Model::PlatformStudyExperiment;
+use Text::CSV;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadAnnot
@@ -157,7 +158,6 @@ sub get_annot_fields {
 
 # takes two arguments which are references to hashes that will store field names of two tables:
 # probe and gene
-    my ( $probe_fields, $gene_fields ) = @_;
 
 # get fields from Probe table (except pid, rid)
 #my $sth = $dbh->prepare(qq{show columns from probe where Field not regexp "^[a-z]id\$"});
@@ -167,9 +167,12 @@ sub get_annot_fields {
 #}
 #$sth->finish;
 
-    $probe_fields->{'Reporter ID'}     = 'reporter';
-    $probe_fields->{'Probe Sequence'}  = 'probe_sequence';
-    $probe_fields->{'Note From Probe'} = 'note';
+    my %probe_fields;
+    my $probe_fields_t = tie(%probe_fields, 'Tie::IxHash',
+        'Reporter ID'     => 'reporter',
+        'Probe Sequence'  => 'probe_sequence',
+        'Note From Probe' => 'note'
+    );
 
 # get fields from Gene table (except pid, gid)
 #$sth = $dbh->prepare(qq{show columns from gene where Field not regexp "^[a-z]id\$"});
@@ -179,12 +182,16 @@ sub get_annot_fields {
 #}
 #$sth->finish;
 
-    $gene_fields->{'Gene Symbol'}      = 'seqname';
-    $gene_fields->{'Accession Number'} = 'accnum';
-    $gene_fields->{'Gene Name'}        = 'description';
-    $gene_fields->{'Source'}           = 'source';
-    $gene_fields->{'Gene Note'}        = 'gene_note';
-    return;
+    my %gene_fields;
+    my $gene_fields_t = tie(%gene_fields, 'Tie::IxHash', 
+        'Gene Symbol'      => 'seqname',
+        'Accession Number' => 'accnum',
+        'Gene Name'        => 'description',
+        'Source'           => 'source',
+        'Gene Note'        => 'gene_note'
+    );
+
+    return (\%probe_fields, \%gene_fields);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -217,19 +224,11 @@ sub uploadAnnot {
         return;
     }
 
-# How the precompiled regular expression below works:
-# - Sometimes fields in the tab-delimited file are bounded by double quotes, like this "124442,34345,5656".
-#   We need to strip these quotes, however it would be nice to preserve the quotes if they are actually used for something,
-#   such as ""some" test", where the word "some" is enclosed in double quotes.
-# - The regex below matches 0 or 1 quotation mark at the beginning ^("?)
-#   and then backreferences the matched character at the end of the string \1$
-#   The actual content of the field is matched in (.*) and referenced outside regex as $2.
-    my $regex_strip_quotes = qr/^("?)(.*)\1$/;
-
     #Create two hashes that hold hash{Long Name} = DBName
-    my ( %probe_fields, %gene_fields );
 
-    get_annot_fields( \%probe_fields, \%gene_fields );
+    my ($probe_fields_ref, $gene_fields_ref) = get_annot_fields();
+    my %probe_fields = %$probe_fields_ref;
+    my %gene_fields = %$gene_fields_ref;
 
     my $i = 0;
 
@@ -255,30 +254,25 @@ sub uploadAnnot {
     }
 
     # delete core fields from field hash
-    delete $probe_fields{"Reporter ID"};
-    delete $gene_fields{"Accession Number"};
-    delete $gene_fields{"Gene Symbol"};
+    delete $probe_fields{'Reporter ID'};
+    delete @gene_fields{ ( 'Accession Number', 'Gene Symbol' ) };
 
     # create two slices of specified fields, one for each table
-    my @slice_probe = @col{%probe_fields};
-    my @slice_gene  = @col{%gene_fields};
+    my @slice_probe = grep { defined } @col{%probe_fields};
+    my @slice_gene  = grep { defined } @col{%gene_fields};
 
-    @slice_probe = grep { defined($_) } @slice_probe;    # remove undef elements
-    @slice_gene  = grep { defined($_) } @slice_gene;     # remove undef elements
+    my $gene_titles =
+      ',' . join( ',', map { $gene_fields{ $fields[$_] } } @slice_gene );
+    my $probe_titles =
+      ',' . join( ',', map { $probe_fields{ $fields[$_] } } @slice_gene );
 
-    my $gene_titles = '';
-    foreach (@slice_gene) { $gene_titles .= ',' . $gene_fields{ $fields[$_] } }
+    # probe table only is updated when $reporter_index is defined and its value
+    # is valid
 
-    my $probe_titles = '';
-    foreach (@slice_probe) {
-        $probe_titles .= ',' . $probe_fields{ $fields[$_] };
-    }
+    my ( $reporter_index, $accnum_index, $seqname_index ) =
+      @col{qw(reporter accnum seqname)};
 
-    my $reporter_index =
-      $col{reporter}; # probe table only is updated when this is defined and value is valid
     my $outside_have_reporter = defined($reporter_index);
-    my $accnum_index          = $col{accnum};
-    my $seqname_index         = $col{seqname};
     my $outside_have_gene = defined($accnum_index) || defined($seqname_index);
     my $pid_value         = $q->param('platform');
     my $replace_accnum =
@@ -296,9 +290,6 @@ sub uploadAnnot {
     # Access uploaded file
     my $fh = $q->upload('uploaded_file');
 
-    # Perl 6 will allow setting $/ to a regular expression,
-    # which would remove the need to read the whole file at once.
-    #
     # "local $/" sets input record separator to undefined, allowing "slurp" mode
     # The "trick" below involving do{} block is from Modern Perl, p.150. After
     # the do{} block, the value of $/ reverts to the previous state.
@@ -312,118 +303,103 @@ sub uploadAnnot {
     # breaks, (2) Unix-style LF line breaks, (3) Mac-style CR line breaks in the
     # respective order:
 
-    #my $clock0 = clock();
-    foreach (@lines) {
+    my $csv_in = Text::CSV->new( { sep_char => "\t" } );
+
+    for ( my $line_num = 1 ; $csv_in->parse( shift @lines ) ; $line_num++ ) {
 
         # split on a tab surrounded by any number (including zero) of blanks
-        my @row = split(/ *\t */);
+        my @row = $csv_in->fields();
         my @sql;
 
         my $have_reporter = 0;
 
-# probe fields -- updated only when reporter (core field for probe table) is specified
+        # probe fields -- updated only when reporter (core field for probe
+        # table) is specified
         if ($outside_have_reporter) {
-            my $reporter_value;
             my $probe_values     = '';
             my $probe_duplicates = '';
             foreach (@slice_probe) {
                 my $value = $row[$_];
-
-# alternative one-liner:
-# $value = ($value && $value =~ $regex_strip_quotes && $2 && $2 ne '#N/A') ? $dbh->quote($2) : 'NULL';
-                if ($value) {
-                    $value =~ $regex_strip_quotes;
-                    $value = ( $2 && $2 ne '#N/A' ) ? $dbh->quote($2) : 'NULL';
-                }
-                else {
-                    $value = 'NULL';
-                }
+                $value =
+                  ( $value ne '' and $value ne '#N/A' )
+                  ? $dbh->quote($value)
+                  : 'NULL';
 
                 #$row[$_] = $value;
                 $probe_values .= ',' . $value;
                 $probe_duplicates .=
                   ',' . $probe_fields{ $fields[$_] } . '=' . $value;
             }
+            my $reporter_value = '';
             if ( defined($reporter_index) ) {
                 $reporter_value = $row[$reporter_index];
-                if ($reporter_value) {
-                    $reporter_value =~ $regex_strip_quotes;
-                    $reporter_value =
-                      ( $2 && $2 ne '#N/A' ) ? $dbh->quote($2) : 'NULL';
-                }
-                else {
-                    $reporter_value = 'NULL';
-                }
+                $reporter_value =
+                  ( $reporter_value ne '' and $reporter_value ne '#N/A' )
+                  ? $dbh->quote($reporter_value)
+                  : 'NULL';
                 $have_reporter++ if $reporter_value ne 'NULL';
             }
             if ($have_reporter) {
 
-# TODO: ensure new rows are not inserted into the Probe table
-# unless we are explicitly setting up a new platform.
-#
-# if reporter was not specified, will not be able to obtain rid and update the "annotates" table
+                # TODO: ensure new rows are not inserted into the Probe table
+                # unless we are explicitly setting up a new platform.
+                #
+                # If reporter was not specified, will not be able to obtain rid
+                # and update the "annotates" table.
                 push @sql,
 qq{insert into probe (pid, reporter $probe_titles) values ($pid_value, $reporter_value $probe_values) on duplicate key update rid=LAST_INSERT_ID(rid) $probe_duplicates};
                 push @sql, qq{set \@rid:=LAST_INSERT_ID()};
 
-# only delete "annotates" content, not the "gene" content.
-# Then, when everything is done, can go over the entire "gene" table and try to delete records.
-# Successful delete means the records were orphaned (not pointed to from the "annotates" table).
+                # Only delete "annotates" content, not the "gene" content.
+                # Then, when everything is done, can go over the entire "gene"
+                # table and try to delete records.  Successful delete means the
+                # records were orphaned (not pointed to from the "annotates"
+                # table).
                 push( @sql,
                     qq{delete quick ignore from annotates where rid=\@rid} )
                   if $replace_accnum;
             }
         }
 
-        my @accnum_array;
-        my $have_seqname = 0;
-        my $seqname_value;
-
         # gene fields -- updated when any of the core fields are specified
         foreach (@slice_gene) {
             my $value = $row[$_];
-            if ($value) {
-                $value =~ $regex_strip_quotes;
-                $value = ( $2 && $2 ne '#N/A' ) ? $dbh->quote($2) : 'NULL';
-            }
-            else {
-                $value = 'NULL';
-            }
+            $value =
+              ( $value ne '' and $value ne '#N/A' )
+              ? $dbh->quote($value)
+              : 'NULL';
             $row[$_] = $value;
         }
+        my $seqname_value;
+        my @accnum_array;
+        my $have_seqname = 0;
         if ($outside_have_gene) {
-            my $gene_values = '';
-            $update_gene = '';
-            foreach (@slice_gene) {
-                $gene_values .= ',' . $row[$_];
-                $update_gene .=
-                  ',' . $gene_fields{ $fields[$_] } . '=' . $row[$_];
-            }
+            $update_gene = join( ',',
+                map { $gene_fields{ $fields[$_] } . '=' . $row[$_] }
+                  @slice_gene );
+            my $gene_values = join( ',', map { $row[$_] } @slice_gene );
+            $gene_values = ',' . $gene_values if $gene_values ne '';
 
             if ( defined($seqname_index) ) {
                 $seqname_value = $row[$seqname_index];
-                if ($seqname_value) {
-                    $seqname_value =~ $regex_strip_quotes;
-                    $seqname_value =
-                      ( $2 && $2 ne '#N/A' && $2 ne 'Data not found' )
-                      ? $dbh->quote($2)
-                      : 'NULL';
-                }
-                else {
-                    $seqname_value = 'NULL';
-                }
+                $seqname_value =
+                  (       $seqname_value ne ''
+                      and $seqname_value ne '#N/A'
+                      and $seqname_value ne 'Data not found' )
+                  ? $dbh->quote($seqname_value)
+                  : 'NULL';
                 $have_seqname++ if $seqname_value ne 'NULL';
             }
             if ( defined($accnum_index) ) {
 
-# The two lines below split the value matched by the regular expression (stored in $2)
-# on a comma surrounded by any number (including zero) of blanks, delete invalid members
-# from the resulting array, quote each member with DBI::quote, and assign the array to @accnum_array.
-                $row[$accnum_index] =~ $regex_strip_quotes;
+                # The two lines below split the value on a comma surrounded by
+                # any number (including zero) of blanks, delete invalid members
+                # from the resulting array, quote each member with DBI::quote,
+                # and assign the array to @accnum_array.
                 @accnum_array =
                   map { $dbh->quote($_) }
                   grep { $_ && $_ ne '#N/A' }
-                  split( $regex_split_on_commas, $2 );
+                  split( $regex_split_on_commas, $row[$accnum_index] );
 
                 # Iterate over the resulting array
                 if ( $have_reporter && @accnum_array ) {
@@ -451,16 +427,14 @@ qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
         if (@slice_gene) {
             if ( !$outside_have_gene ) {
 
-    # if $outside_have_gene is true, $update_gene string has been formed already
-                $update_gene = '';
-                foreach (@slice_gene) {
-
-                    # title1 = value1, title2 = value2, ...
-                    $update_gene .=
-                      ',' . $gene_fields{ $fields[$_] } . '=' . $row[$_];
-                }
+                # If $outside_have_gene is true, $update_gene string has been
+                # formed already.
+                #
+                # title1 = value1, title2 = value2, ...
+                $update_gene = join( ',',
+                    map { $gene_fields{ $fields[$_] } . '=' . $row[$_] }
+                      @slice_gene );
             }
-            $update_gene =~ s/^,//;    # strip leading comma
             if ($have_reporter) {
                 if ( !@accnum_array && !$have_seqname && !$replace_accnum ) {
 
@@ -470,32 +444,30 @@ qq{insert ignore into annotates (rid, gid) values (\@rid, LAST_INSERT_ID())};
 qq{update gene natural join annotates set $update_gene where rid=\@rid};
                 }
             }
-            else {
-                if ( !@accnum_array && $have_seqname ) {
-                    my $eq_seqname =
-                      ( $seqname_value eq 'NULL' )
-                      ? 'is NULL'
-                      : "=$seqname_value";
-                    push @sql,
+            elsif ( !@accnum_array && $have_seqname ) {
+                my $eq_seqname =
+                  ( $seqname_value eq 'NULL' )
+                  ? 'is NULL'
+                  : "=$seqname_value";
+                push @sql,
 qq{update gene set $update_gene where seqname $eq_seqname and pid=$pid_value};
-                }
-                elsif ( @accnum_array && !$have_seqname ) {
-                    foreach (@accnum_array) {
-                        my $eq_accnum = ( $_ eq 'NULL' ) ? 'is NULL' : "=$_";
-                        push @sql,
+            }
+            elsif ( @accnum_array && !$have_seqname ) {
+                foreach (@accnum_array) {
+                    my $eq_accnum = ( $_ eq 'NULL' ) ? 'is NULL' : "=$_";
+                    push @sql,
 qq{update gene set $update_gene where accnum $eq_accnum and pid=$pid_value};
-                    }
                 }
-                elsif ( @accnum_array && $have_seqname ) {
-                    my $eq_seqname =
-                      ( $seqname_value eq 'NULL' )
-                      ? 'is NULL'
-                      : "=$seqname_value";
-                    foreach (@accnum_array) {
-                        my $eq_accnum = ( $_ eq 'NULL' ) ? 'is NULL' : "=$_";
-                        push @sql,
+            }
+            elsif ( @accnum_array && $have_seqname ) {
+                my $eq_seqname =
+                  ( $seqname_value eq 'NULL' )
+                  ? 'is NULL'
+                  : "=$seqname_value";
+                foreach (@accnum_array) {
+                    my $eq_accnum = ( $_ eq 'NULL' ) ? 'is NULL' : "=$_";
+                    push @sql,
 qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname and pid=$pid_value};
-                    }
                 }
             }
         }
@@ -504,12 +476,10 @@ qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname 
         foreach (@sql) { $dbh->do($_); }
     }
 
-    #my $clock1 = clock();
-
     if ( $outside_have_reporter && $replace_accnum ) {
 
-#warn "begin optimizing\n";
-# have to "optimize" because some of the deletes above were performed with "ignore" option
+        # have to "optimize" because some of the deletes above were performed
+        # with "ignore" option
         $dbh->do('optimize table annotates');
 
         # in case any gene records have been orphaned, delete them
@@ -517,11 +487,9 @@ qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname 
 'delete gene from gene left join annotates on gene.gid=annotates.gid where annotates.gid is NULL'
         );
 
-        #warn "end optimizing\n";
     }
     my $count_lines = @lines;
 
-#print $q->p(sprintf("%d lines processed in %g seconds", $count_lines, $clock1 - $clock0));
     print $q->p( sprintf( "%d lines processed.", $count_lines ) );
 
     #Flag the platform as being annotated.
@@ -575,12 +543,9 @@ sub form_uploadAnnot {
     }
     $sth->finish;
 
-    my %probe_fields;
-    my $probe_fields_t = tie( %probe_fields, 'Tie::IxHash' );
-    my %gene_fields;
-    my $gene_fields_t = tie( %gene_fields, 'Tie::IxHash' );
-
-    get_annot_fields( \%probe_fields, \%gene_fields );
+    my ($probe_fields_ref, $gene_fields_ref) = get_annot_fields();
+    my %probe_fields = %$probe_fields_ref;
+    my %gene_fields = %$gene_fields_ref;
 
     my @fieldlist =
       map {

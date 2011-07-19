@@ -1630,7 +1630,7 @@ sub build_menu {
         push @{ $menu{$upload} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . FORM . UPLOADANNOT,
+                -href  => $url_prefix . '?a=' . UPLOADANNOT,
                 -title => 'Upload Probe Annotations'
             },
             'Upload Annotation'
