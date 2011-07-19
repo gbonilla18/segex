@@ -105,13 +105,11 @@ resulting code on Github.
 platform dropdown box should be in the same relative position in both forms (at
 the top).
 
-*) Add "Add to Study:" option under "Add to Platform" in Upload Data to a new
-Experiment.
-
 *) Links in Manage Studies should direct user directly from an upload data form
 (to a new experiment) with the given study preselected.
 
-*) :TODO:07/07/2011 12:38:40:es: in TFSDisplay.pm
+*) :TODO:07/07/2011 12:38:40:es: in TFSDisplay.pm, SQL injection risk (need data
+validation).
 
 *) Make upload file headers optional in Upload Data to a new experiment
 
@@ -122,3 +120,7 @@ input.
 *) Instead of scattering calls to File::Temp throughout the application,
 consider centralizing temporary directory info in Config.pm either by relying on
 prefix from File::Temp or some other way.
+
+*) Eventually, we need at least two types of database users: segex_basic and
+segex_user. segex_user is granted UPDATE, INSERT, DELETE, and CREATE TEMPOARY
+privileges, while segex_basic is only granted SELECT.
