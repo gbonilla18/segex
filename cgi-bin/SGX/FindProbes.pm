@@ -287,7 +287,7 @@ sub createInsideTableQueryFromFile {
 
     #Command to create temp table.
     my $createTableStatement =
-      "CREATE TABLE $processID (searchField VARCHAR(200))";
+      "CREATE TEMPORARY TABLE $processID (searchField VARCHAR(200))";
 
     #This is the mysql command to suck in the file.
     my $inputStatement = <<"END_inputStatement";
@@ -384,13 +384,6 @@ END_ProbeReporterQuery
     $self->{_ProbeHash} = {};
 
     my $DataCount = @{ $self->{_Data} };
-
-  # For the situation where we created a temp table for the user input,
-  # we need to drop that temp table. This is the command to drop the temp table.
-    my $dropStatement = 'DROP TABLE ' . $self->{_TempTableID} . ';';
-
-    #Run the command to drop the temp table.
-    $self->{_dbh}->do($dropStatement);
 
     if ( $DataCount < 1 ) {
         $self->{_UserSession}->commit() if defined($self->{_UserSession});
