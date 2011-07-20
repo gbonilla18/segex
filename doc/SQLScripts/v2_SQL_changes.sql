@@ -48,3 +48,11 @@ REVOKE DROP ON segex_dev.* FROM segex_dev_user@localhost;
 
 -- no need for table `sample` anymore:
 DROP TABLE sample;
+
+-- Queries below move long annotation from seqname field to description (OK-ed by Dr. Waxman, 07/20/11)
+UPDATE gene SET description=seqname WHERE ISNULL(description) AND seqname REGEXP ' ';
+-- Query OK, 18 rows affected (0.53 sec)
+UPDATE gene SET seqname=NULL WHERE description=seqname AND seqname REGEXP ' ';
+-- Query OK, 403 rows affected (0.66 sec)
+UPDATE gene SET seqname=NULL WHERE seqname REGEXP ' ';
+-- Query OK, 9 rows affected (0.57 sec)

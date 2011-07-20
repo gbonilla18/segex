@@ -1,5 +1,15 @@
-YAHOO.util.Event.addListener(window, "load", init);
+YAHOO.util.Event.addListener(window, "load", function() {
+    updateForm();
+});
 YAHOO.util.Event.addListener(["opts", "graph"], "change", updateForm);
+YAHOO.util.Event.addListener("main_form", "submit", url_sanitize);
+function url_sanitize() {
+    var terms = document.getElementById("terms");
+    // remove white space from the left and from the right, then replace each
+    // internal group of spaces with a comma
+    terms.value = terms.value.replace(/^\s+/, "").replace(/\s+$/, "").replace(/[,\s]+/g, ",");
+    return true;
+}
 function updateForm() {
     //
     var opts = document.getElementById("opts");
@@ -28,7 +38,4 @@ function updateForm() {
             graph_option_values.style.display = "none";
         }
     }
-}
-function init() {
-    updateForm();
 }

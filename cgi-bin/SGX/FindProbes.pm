@@ -168,48 +168,43 @@ ORDER BY experiment.eid ASC
 END_ExperimentDataQuery
 }
 
-#######################################################################################
-sub set_SearchItems {
-    my ( $self, $mode ) = @_;
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my ($self) = @_;
 
-    # 'text' must always be set
-    my $text = $self->{_cgi}->param('terms');
+    my $q = $self->{_cgi};
 
-    #This will be the array that holds all the splitted items.
-    my @textSplit;
+    my $match =
+      ( defined $q->param('match') )
+      ? $q->param('match')
+      : 'full';
+    my $text = $q->param('terms');
 
-    #If we find a comma, split on that, otherwise we split on new lines.
-    if ( $text =~ m/,/ ) {
+    #Split the input on commas.
+    my @textSplit = split( /\,/, trim($text) );
 
-        #Split the input on commas.
-        @textSplit = split( /\,/, trim($text) );
-    }
-    else {
-
-        #Split the input on the new line.
-        @textSplit = split( /\r\n/, $text );
-    }
-
-    #Get the count of how many search terms were found.
-    my $searchesFound = @textSplit;
     my $qtext;
-    if ( $searchesFound < 2 ) {
-        my $match =
-          ( defined( $self->{_cgi}->param('match') ) )
-          ? $self->{_cgi}->param('match')
-          : 'full';
-        switch ($match) {
-            case 'full'   { $qtext = '^' . $textSplit[0] . '$' }
-            case 'prefix' { $qtext = '^' . $textSplit[0] }
-            case 'part'   { $qtext = $textSplit[0] }
-            else { croak "Invalid match value $match" }
+
+    switch ($match) {
+        case 'full' {
+            $qtext = '^(' . join( '|', map { trim($_) } @textSplit ) . ')$';
         }
-    }
-    else {
-        $qtext =
-          ( $mode == 0 )
-          ? join( '|', map { '^' . trim($_) . '$' } @textSplit )
-          : '^' . join( '|', map { trim($_) } @textSplit ) . '$';
+        case 'prefix' {
+            $qtext = join( '|', map { '^' . trim($_) } @textSplit );
+        }
+        case 'part' {
+            $qtext = join( '|', map { trim($_) } @textSplit );
+        }
+        else { croak "Invalid match value $match" }
     }
     $self->{_SearchItems} = $qtext;
     return;
@@ -220,7 +215,7 @@ sub set_SearchItems {
 #######################################################################################
 sub createInsideTableQuery {
     my $self = shift;
-    $self->set_SearchItems(0);
+    $self->init();
 
     # 'type' must always be set
     my $type = $self->{_cgi}->param('type');
@@ -819,6 +814,7 @@ sub getFormHTML {
     );
 
     return $q->start_form(
+        -id      => 'main_form',
         -method  => 'GET',
         -action  => $q->url( absolute => 1 ),
         -enctype => 'application/x-www-form-urlencoded'
@@ -1114,7 +1110,7 @@ END_ProbeQuery
 sub findProbes_js {
     my $self = shift;
 
-    $self->set_SearchItems(1);
+    $self->init();
     my $qtext = $self->{_SearchItems};
 
     # 'type' must always be set
