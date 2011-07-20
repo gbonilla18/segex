@@ -80,7 +80,7 @@ use Hash::Merge qw/merge/;
 use SGX::Exceptions;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -105,7 +105,7 @@ sub new {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  get_ByPlatform
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -120,7 +120,7 @@ sub get_ByPlatform {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  get_ByStudy
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -135,7 +135,7 @@ sub get_ByStudy {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  getPlatformFromStudy
 #   PARAMETERS:  stid
 #      RETURNS:  pid
@@ -149,8 +149,24 @@ sub getPlatformFromStudy {
     return $self->{_ByStudy}->{$stid}->{pid};
 }
 
+
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
+#       METHOD:  getPlatformNameFromPID
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getPlatformNameFromPID {
+    my ( $self, $pid ) = @_;
+    return $self->{_ByPlatform}->{$pid}->{name};
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  getPlatformStudyName
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -166,7 +182,7 @@ sub getPlatformStudyName {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  init
 #   PARAMETERS:
 #       platforms          => T/F - whether to add platform info such as
@@ -304,7 +320,7 @@ sub init {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  getPlatforms
 #   PARAMETERS:  extra => {
 #                   'all' => { name => '@All Platforms', species => undef },
@@ -406,7 +422,7 @@ END_PLATFORMQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  getPlatformStudy
 #   PARAMETERS:  extra => {
 #                    '' => { name => '@Unassigned' }
@@ -486,7 +502,7 @@ END_STUDYQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  getExperiments
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
@@ -541,7 +557,7 @@ END_EXPERIMENTQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::PlatformStudyExperiment
+#        CLASS:  PlatformStudyExperiment
 #       METHOD:  getStudyExperiment
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model

@@ -37,6 +37,7 @@ use File::Basename;
 use JSON::XS;
 use File::Temp;
 use SGX::Exceptions;
+use SGX::Model::PlatformStudyExperiment;
 
 use SGX::Util qw/trim/;
 use SGX::Debug qw/assert/;
@@ -48,29 +49,27 @@ sub new {
 
     my ( $dbh, $q, $s ) = @param{qw{dbh cgi user_session}};
     my $self = {
-        _dbh                 => $dbh,
-        _cgi                 => $q,
-        _UserSession         => $s,
-        _SearchType          => undef,
-        _SearchText          => undef,
-        _ProbeRecords        => '',
-        _ProbeCount          => 0,
-        _ProbeColNames       => '',
-        _ProbeData           => '',
-        _RecordsPlatform     => '',
-        _ProbeHash           => '',
-        _RowCountAll         => 0,
-        _ProbeExperimentHash => '',
-        _Data                => '',
-        _eids                => '',
-        _FullExperimentRec   => '',
-        _FullExperimentCount => 0,
-        _FullExperimentData  => '',
-        _InsideTableQuery    => '',
-        _SearchItems         => '',
-        _PlatformInfoQuery   => "SELECT pid, pname FROM platform",
-        _PlatformInfoHash    => '',
-        _ProbeQuery          => '',
+        _dbh                     => $dbh,
+        _cgi                     => $q,
+        _UserSession             => $s,
+        _SearchType              => undef,
+        _SearchText              => undef,
+        _ProbeRecords            => '',
+        _ProbeCount              => 0,
+        _ProbeColNames           => '',
+        _ProbeData               => '',
+        _RecordsPlatform         => '',
+        _ProbeHash               => '',
+        _RowCountAll             => 0,
+        _ProbeExperimentHash     => '',
+        _Data                    => '',
+        _eids                    => '',
+        _FullExperimentRec       => '',
+        _FullExperimentCount     => 0,
+        _FullExperimentData      => '',
+        _InsideTableQuery        => '',
+        _SearchItems             => '',
+        _ProbeQuery              => '',
         _ExperimentListHash      => '',
         _ExperimentStudyListHash => '',
         _TempTableID             => '',
@@ -336,35 +335,13 @@ sub getQueryTerms {
 }
 
 #######################################################################################
-#Fill a hash with platform name and ID so we print it for the seperators.
-#######################################################################################
-sub fillPlatformHash {
-    my $self = shift;
-
-    my $tempPlatformQuery = $self->{_PlatformInfoQuery};
-    my $platformRecords   = $self->{_dbh}->prepare($tempPlatformQuery);
-    my $platformCount     = $platformRecords->execute();
-    my $platformData      = $platformRecords->fetchall_arrayref;
-    $platformRecords->finish;
-
-    #Initialize our hash.
-    $self->{_PlatformInfoHash} = {};
-
-    #For each probe we get add an item to the hash.
-    my %PlatformInfoHash =
-      map { $_->[0] => $_->[1] } @{$platformData};
-    $self->{_PlatformInfoHash} = \%PlatformInfoHash;
-    return;
-}
-
-#######################################################################################
 #Get a list of the probes (Only the reporter field).
 #######################################################################################
 sub loadProbeReporterData {
     my ( $self, $qtext ) = @_;
 
     my $InsideTableQuery = $self->{_InsideTableQuery};
-    my $probeQuery = <<"END_ProbeReporterQuery";
+    my $probeQuery       = <<"END_ProbeReporterQuery";
 SELECT DISTINCT probe.rid
 FROM ( $InsideTableQuery ) as g0
 LEFT JOIN annotates USING(gid)
@@ -386,10 +363,11 @@ END_ProbeReporterQuery
     my $DataCount = @{ $self->{_Data} };
 
     if ( $DataCount < 1 ) {
-        $self->{_UserSession}->commit() if defined($self->{_UserSession});
-        my $cookie_array = (defined $self->{_UserSession})
-            ? $self->{_UserSession}->cookie_array()
-            : [];
+        $self->{_UserSession}->commit() if defined( $self->{_UserSession} );
+        my $cookie_array =
+          ( defined $self->{_UserSession} )
+          ? $self->{_UserSession}->cookie_array()
+          : [];
         print $self->{_cgi}->header(
             -type   => 'text/html',
             -cookie => $cookie_array
@@ -418,10 +396,11 @@ sub loadProbeData {
     $self->{_ProbeRecords}->finish;
 
     if ( scalar( @{ $self->{_Data} } ) < 1 ) {
-        $self->{_UserSession}->commit() if defined($self->{_UserSession});
-        my $cookie_array = (defined $self->{_UserSession})
-            ? $self->{_UserSession}->cookie_array()
-            : [];
+        $self->{_UserSession}->commit() if defined( $self->{_UserSession} );
+        my $cookie_array =
+          ( defined $self->{_UserSession} )
+          ? $self->{_UserSession}->cookie_array()
+          : [];
         print $self->{_cgi}->header(
             -type   => 'text/html',
             -cookie => $cookie_array
@@ -474,17 +453,18 @@ sub loadExperimentData {
 #}
 
     $self->build_ExperimentDataQuery();
-    my $sth   = $self->{_dbh}->prepare($self->{_ExperimentDataQuery});
+    my $sth = $self->{_dbh}->prepare( $self->{_ExperimentDataQuery} );
 
     foreach my $key ( keys %{ $self->{_ProbeHash} } ) {
-        my $rc    = $sth->execute($key);
+        my $rc  = $sth->execute($key);
         my $tmp = $sth->fetchall_arrayref;
 
         #We use a temp hash that gets added to the _ProbeExperimentHash.
         my %tempHash;
 
         #For each experiment
-        foreach ( @$tmp ) {
+        foreach (@$tmp) {
+
             # EID => [ratio, foldchange, pvalue, intensity1, intensity2]
             $tempHash{ $_->[0] } = [ @$_[ 1 .. 5 ] ];
 
@@ -515,10 +495,11 @@ sub printFindProbeCSV {
     my $currentPID = 0;
 
     #Clear our headers so all we get back is the CSV file.
-    $self->{_UserSession}->commit() if defined($self->{_UserSession});
-    my $cookie_array = (defined $self->{_UserSession}) 
-        ?  $self->{_UserSession}->cookie_array() 
-        : [];
+    $self->{_UserSession}->commit() if defined( $self->{_UserSession} );
+    my $cookie_array =
+      ( defined $self->{_UserSession} )
+      ? $self->{_UserSession}->cookie_array()
+      : [];
     print $self->{_cgi}->header(
         -type       => 'text/csv',
         -attachment => 'results.csv',
@@ -539,6 +520,11 @@ sub printFindProbeCSV {
     print 'Find Probes Report,' . localtime() . "\n";
     print "Generated by,$generatedByText\n";
     print "Working Project,$workingProjectText\n\n";
+
+    # initialize platform model
+    my $platforms =
+      SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
+    $platforms->init( platforms => 1 );
 
     #Sort the hash so the PID's are together.
     foreach my $key (
@@ -572,7 +558,9 @@ sub printFindProbeCSV {
         if ( $printHeaders == 1 ) {
 
             #Print the name of the current platform.
-            print "\"$self->{_PlatformInfoHash}->{$currentPID}\"\n";
+            my $currentPlattformName =
+              $platforms->getPlatformNameFromPID($currentPID);
+            print "\"$currentPlattformName\"\n";
             print
 "Experiment Number,Study Description, Experiment Heading,Experiment Description\n";
 
@@ -583,8 +571,10 @@ sub printFindProbeCSV {
             my $outLine = "";
 
  #Loop through the list of experiments and print out the ones for this platform.
-            foreach my $value ( sort { $a <=> $b }
-                keys %{ $self->{_ExperimentListHash} } )
+            foreach my $value (
+                sort { $a <=> $b }
+                keys %{ $self->{_ExperimentListHash} }
+              )
             {
                 if ( $self->{_ExperimentListHash}->{$value} == $currentPID ) {
                     my $currentLine = "";
@@ -647,21 +637,25 @@ sub printFindProbeCSV {
 "$row->[1],$row->[3],$geneName,$probeSequence,$geneDescription,$geneOntology,,";
 
 #For this reporter we print out a column for all the experiments that we have data for.
-        foreach my $EIDvalue ( sort { $a <=> $b }
-            keys %{ $self->{_ExperimentListHash} } )
+        foreach my $EIDvalue (
+            sort { $a <=> $b }
+            keys %{ $self->{_ExperimentListHash} }
+          )
         {
+
             #Only try to see the EID's for platform $currentPID.
             if ( $self->{_ExperimentListHash}->{$EIDvalue} == $currentPID ) {
 
                 # Add all the experiment data to the output string.
                 my $outputColumns =
                   $self->{_ProbeExperimentHash}->{$key}->{$EIDvalue};
-                my @outputColumns_array = (defined $outputColumns) 
-                                        ? @$outputColumns
-                                        : map {undef} 1..5;
-                $outRow .= join( ',', 
-                    map {(defined $_) ? $_ : ''} @outputColumns_array 
-                ) . ',,';
+                my @outputColumns_array =
+                  ( defined $outputColumns )
+                  ? @$outputColumns
+                  : map { undef } 1 .. 5;
+                $outRow .= join( ',',
+                    map { ( defined $_ ) ? $_ : '' } @outputColumns_array )
+                  . ',,';
             }
         }
 
@@ -799,9 +793,9 @@ sub getFormHTML {
     my %type_dropdown;
     my $type_dropdown_t = tie(
         %type_dropdown, 'Tie::IxHash',
-        'gene'       => 'Gene Symbols',
+        'gene'   => 'Gene Symbols',
         'accnum' => 'Accession Numbers',
-        'probe'      => 'Probes'
+        'probe'  => 'Probes'
     );
     my %match_dropdown;
     my $match_dropdown_t = tie(
@@ -830,8 +824,10 @@ sub getFormHTML {
         -enctype => 'application/x-www-form-urlencoded'
       ),
       $q->h2('Find Probes'),
-      $q->p('You can enter here a list of probes, accession numbers, or gene names. 
-          The results will contain probes that are related to the search terms.'),
+      $q->p(<<"END_H2P_TEXT"),
+You can enter here a list of probes, accession numbers, or gene names. 
+The results will contain probes that are related to the search terms.
+END_H2P_TEXT
       $q->dl(
         $q->dt( $q->label( { -for => 'terms' }, 'Search term(s):' ) ),
         $q->dd(
@@ -842,8 +838,10 @@ sub getFormHTML {
                 -columns  => 50,
                 -tabindex => 1
             ),
-            $q->p( { -style => 'color:#777' }, 'Multiple entries have to be
-                separated by commas or be on separate lines')
+            $q->p(
+                { -style => 'color:#777' },
+'Multiple entries have to be separated by commas or be on separate lines'
+            )
         ),
         $q->dt( $q->label( { -for => 'type' }, 'Search type:' ) ),
         $q->dd(
@@ -865,12 +863,12 @@ sub getFormHTML {
                 -values    => [ keys %match_dropdown ],
                 -labels    => \%match_dropdown
             ),
-            $q->p( { -style => 'color:#777' }, '* Example: "^cyp.b" (no
-                quotation marks) would retrieve all genes starting with cyp.b
-            where the period represents any one character (2, 3, 4, "a", etc.).
-            See <a
-            href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this
-            page</a> for more examples.')
+            $q->p( { -style => 'color:#777' }, <<"END_EXAMPLE_TEXT")
+* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with
+cyp.b where the period represents any one character (2, 3, 4, "a", etc.).  See
+<a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for
+more examples.
+END_EXAMPLE_TEXT
         ),
         $q->dt( $q->label( { -for => 'opts' }, 'Display options:' ) ),
         $q->dd(
@@ -883,8 +881,10 @@ sub getFormHTML {
                 -labels   => \%opts_dropdown
             )
         ),
-        $q->dt( { -id => 'graph_names' }, 
-                $q->label({-for => 'graph'}, 'Differential Expression Graphs:') ),
+        $q->dt(
+            { -id => 'graph_names' },
+            $q->label( { -for => 'graph' }, 'Differential Expression Graphs:' )
+        ),
         $q->dd(
             { -id => 'graph_values' },
             $q->checkbox(
@@ -894,9 +894,10 @@ sub getFormHTML {
                 -name     => 'graph',
                 -label    => ''
             ),
-            $q->span({-style=>'color:#777;'}, '(Works best with Firefox; SVG
-                support on Internet Explorer (IE) requires either IE 9 or Adobe
-                SVG plugin)')
+            $q->span( { -style => 'color:#777;' }, <<"END_BROWSER_NOTICE")
+(Works best with Firefox; SVG support on Internet Explorer (IE) requires either
+IE 9 or Adobe SVG plugin)
+END_BROWSER_NOTICE
         ),
         $q->dt( { -id => 'graph_option_names' }, "Response variable:" ),
         $q->dd(
@@ -944,9 +945,11 @@ sub build_InsideTableQuery {
       ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=%s"
       : 'WHERE %s REGEXP ?';
 
+    use Switch;
     switch ($type) {
         case 'probe' {
-            $self->{_InsideTableQuery} = sprintf(<<"END_InsideTableQuery_probe",
+            $self->{_InsideTableQuery} = sprintf(
+                <<"END_InsideTableQuery_probe",
 SELECT
     g1.rid, g1.reporter, g1.note, g1.probe_sequence, g1.pid, 
     gid,
@@ -970,7 +973,8 @@ END_InsideTableQuery_probe
             );
         }
         case 'gene' {
-            $self->{_InsideTableQuery} = sprintf(<<"END_InsideTableQuery_gene",
+            $self->{_InsideTableQuery} = sprintf(
+                <<"END_InsideTableQuery_gene",
 SELECT 
     NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid, 
     gid, 
@@ -991,7 +995,8 @@ END_InsideTableQuery_gene
             );
         }
         case 'accnum' {
-            $self->{_InsideTableQuery} = sprintf(<<"END_InsideTableQuery_accnum",
+            $self->{_InsideTableQuery} = sprintf(
+                <<"END_InsideTableQuery_accnum",
 SELECT 
     NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid, 
     gid, 
@@ -1012,9 +1017,8 @@ END_InsideTableQuery_accnum
             );
         }
         else {
-            SGX::Exception::User->throw( 
-                error => "Unknown request parameter value type=$type\n"
-            );
+            SGX::Exception::User->throw(
+                error => "Unknown request parameter value type=$type\n" );
         }
     }
     return 1;
@@ -1144,7 +1148,6 @@ sub findProbes_js {
         #$self->setInsideTableQuery($g0_sql);
         $self->loadProbeData($qtext);
         $self->loadExperimentData();
-        $self->fillPlatformHash();
         $self->getFullExperimentData();
         $self->printFindProbeCSV();
         exit;
@@ -1158,12 +1161,14 @@ sub findProbes_js {
         my $rowcount = $sth->execute($qtext);
 
         my $proj_name = $self->{_WorkingProjectName};
-        my $caption =
-            sprintf( <<"END_caption",
+        my $caption   = sprintf(
+            <<"END_caption",
 %sFound %d probe%s annotated with $type groups matching '$qtext' (${type}s grouped
 by gene symbol or accession number)
 END_caption
-            (defined($proj_name) and $proj_name ne '') ? "${proj_name}: " : '',
+            ( defined($proj_name) and $proj_name ne '' )
+            ? "${proj_name}: "
+            : '',
             $rowcount,
             ( $rowcount == 1 ) ? '' : 's'
         );
@@ -1194,7 +1199,7 @@ END_caption
         );
 
         my $print_graphs = $self->{_cgi}->param('graph');
-        my $out = sprintf(
+        my $out          = sprintf(
             <<"END_JSON_DATA",
 var probelist = %s;
 var url_prefix = "%s";
@@ -1206,8 +1211,8 @@ END_JSON_DATA
             encode_json( \%json_probelist ),
             $self->{_cgi}->url( -absolute => 1 ),
             $trans,
-            ( $print_graphs ) ? 'true' : 'false',
-            ( $opts > 1 )     ? 'true' : 'false',
+            ($print_graphs) ? 'true' : 'false',
+            ( $opts > 1 )   ? 'true' : 'false',
             $self->{_WorkingProject}
         );
 

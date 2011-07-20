@@ -41,7 +41,10 @@ REVOKE DROP ON segex_dev.* FROM segex_dev_user@localhost;
 
 -- after the above modifications, the current grants for segex_dev_user look 
 -- like this (note: password hash modified for security):
-SHOW GRANTS FOR segex_dev_user@localhost;
+--   SHOW GRANTS FOR segex_dev_user@localhost;
 -- Grants for segex_dev_user@localhost                                                                                   |
-GRANT USAGE ON *.* TO 'segex_dev_user'@'localhost' IDENTIFIED BY PASSWORD '*FD47988C0D40379E291810379ABDE31248655F1C' |
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON `segex_dev`.* TO 'segex_dev_user'@'localhost'        |
+--   GRANT USAGE ON *.* TO 'segex_dev_user'@'localhost' IDENTIFIED BY PASSWORD '*FD47988C0D40379E291810379ABDE31248655F1C' |
+--   GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON `segex_dev`.* TO 'segex_dev_user'@'localhost'        |
+
+-- no need for table `sample` anymore:
+DROP TABLE sample;

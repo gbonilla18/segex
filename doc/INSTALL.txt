@@ -4,10 +4,10 @@
 MySQL installation, the root password is empty (simply press enter to proceed).
 
   mysql -u root -p
-  > create database segex_dev;
-  > create user 'segex_dev_user'@'localhost' identified by 'b00g3yk1d';
-  > grant insert,delete,update,select,create,drop
-    on segex_dev.* to 'segex_dev_user'@'localhost';
+  > CREATE DATABASE segex_dev;
+  > CREATE USER 'segex_dev_user'@'localhost' IDENTIFIED BY 'b00g3yk1d';
+  > GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES
+    ON segex_dev.* TO 'segex_dev_user'@'localhost';
 
 2. Load database from backup
 
