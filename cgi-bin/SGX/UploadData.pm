@@ -454,13 +454,16 @@ sub uploadData {
         $dbh->{AutoCommit} = 0;
 
         # prepare SQL statements (all prepare errors are fatal)
-        my $sth_hash = $self->loadToDatabase_prepare($outputFileName);
+        my $sth_hash = $self->loadToDatabase_prepare();
 
         # execute SQL statements (catch some errors)
-        $recordsLoaded = eval { $self->loadToDatabase_execute($sth_hash) } || 0;
+        $recordsLoaded =
+          eval { $self->loadToDatabase_execute( $sth_hash, $outputFileName ) }
+          || 0;
 
         if ( my $exception = $@ ) {
             $dbh->rollback;
+            $self->loadToDatabase_finish($sth_hash);
 
             if ( $exception->isa('SGX::Exception::User') ) {
 
@@ -479,7 +482,7 @@ END_User_exception
                 # key record exceptions.
                 $self->{_error_message} = sprintf(
                     <<"END_DBI_STH_exception",
-Error loading data into the database. The database responded:\n\n%s\n
+Error loading data into the database. The database response was:\n\n%s\n
 No changes to the database were stored.
 END_DBI_STH_exception
                     $exception->error
@@ -493,10 +496,12 @@ END_DBI_STH_exception
         }
         elsif ( $recordsLoaded == 0 ) {
             $dbh->rollback;
+            $self->loadToDatabase_finish($sth_hash);
             $self->{_error_message} = 'Failed to add data to the database.';
         }
         else {
             $dbh->commit;
+            $self->loadToDatabase_finish($sth_hash);
 
             my $totalProbes = $self->probesPerPlatform();
             if ( $recordsLoaded == $totalProbes ) {
@@ -607,7 +612,7 @@ sub sanitizeUploadFile {
             \@lines,
             $OUTPUTTOSERVER,
             [
-                sub { shift =~ m/[^\s]/ },
+                sub { shift =~ m/^\S+$/ },
                 sub { looks_like_number(shift) },
                 sub { looks_like_number(shift) },
                 sub { looks_like_number(shift) },
@@ -615,7 +620,7 @@ sub sanitizeUploadFile {
                 sub { looks_like_number(shift) }
             ],
             input_header => 1,
-            csv_in_opts  => { sep_char => "\t" }
+            csv_in_opts  => { sep_char => "\t", allow_whitespace => 1 }
         );
     } || 0;
 
@@ -640,8 +645,6 @@ sub sanitizeUploadFile {
 #        CLASS:  UploadData
 #       METHOD:  loadToDatabase_prepare
 #   PARAMETERS:  $self           - object instance
-#                $outputFileName - Name of the sanitized file to use for database
-#                                  loading.
 #      RETURNS:  Hash reference containing prepared statements
 #  DESCRIPTION:  Prepare SQL statements used for loading data. We prepare these
 #                statements separately from where they are executed because we
@@ -654,7 +657,7 @@ sub sanitizeUploadFile {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub loadToDatabase_prepare {
-    my ( $self, $outputFileName ) = @_;
+    my ($self) = @_;
 
     my $dbh = $self->{_dbh};
 
@@ -674,10 +677,8 @@ CREATE TEMPORARY TABLE $temp_table (
 ) ENGINE=MEMORY
 END_createTable
 
-    $sth_hash->{loadData} ||= $dbh->prepare(
-        sprintf(
-            <<"END_loadData",
-LOAD DATA LOCAL INFILE %s
+    $sth_hash->{loadData} ||= $dbh->prepare(<<"END_loadData");
+LOAD DATA LOCAL INFILE ?
 INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n' STARTING BY '' (
@@ -689,9 +690,6 @@ LINES TERMINATED BY '\n' STARTING BY '' (
     intensity2
 )
 END_loadData
-            $dbh->quote($outputFileName),
-        )
-    );
 
     $sth_hash->{insertResponse} ||= $dbh->prepare(<<"END_insert");
 INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity1,intensity2)
@@ -732,6 +730,8 @@ END_insertExperiment
 #   PARAMETERS:  $self        - object instance
 #                $sth_hash    - reference to hash containing statement handles
 #                               to be executed
+#                $outputFileName - Name of the sanitized file to use for database
+#                                  loading.
 #      RETURNS:  Number of records inserted into the microarray table (also
 #                duplicated as _recordsInserted field). Fills _eid field
 #                (corresponds to the id of the added experiment).
@@ -742,7 +742,7 @@ END_insertExperiment
 #     SEE ALSO:  n/a
 #===============================================================================
 sub loadToDatabase_execute {
-    my ( $self, $sth_hash ) = @_;
+    my ( $self, $sth_hash, $outputFileName ) = @_;
 
     my ( $sth_createTable, $sth_loadData, $sth_insertExperiment,
         $sth_insertStudyExperiment, $sth_insertResponse )
@@ -777,7 +777,7 @@ sub loadToDatabase_execute {
       if defined($sth_insertStudyExperiment);
 
     # Suck in the data into the temporary table
-    my $rowsLoaded = $sth_loadData->execute();
+    my $rowsLoaded = $sth_loadData->execute($outputFileName);
 
     # If no rows were loaded, bail out ASAP
     if ( $rowsLoaded < 1 ) {
@@ -811,5 +811,27 @@ END_WRONGPLATFORM
     # Return the number of records inserted into the microarray/reposnse table
     return $recordsInserted;
 }
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadData
+#       METHOD:  loadToDatabase_finish
+#   PARAMETERS:  $self        - object instance
+#                $sth_hash    - reference to hash containing statement handles
+#                             to be executed
+#      RETURNS:  True on success
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub loadToDatabase_finish {
+    my ( $self, $sth_hash ) = @_;
+
+    for my $sth ( values %$sth_hash ) {
+        $sth->finish();
+    }
+
+    return 1;
+}
+
 
 1;

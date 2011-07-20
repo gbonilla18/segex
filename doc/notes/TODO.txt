@@ -124,3 +124,7 @@ prefix from File::Temp or some other way.
 *) Eventually, we need at least two types of database users: segex_basic and
 segex_user. segex_user is granted UPDATE, INSERT, DELETE, and CREATE TEMPOARY
 privileges, while segex_basic is only granted SELECT.
+
+*) Partial word matches in databases do not use indexes, so do not use REGEXP
+'^(word1|word2)$' for matching "word1" and "word2", and instead either use WHERE
+IN predicate or JOIN with a TEMPORARY table.
