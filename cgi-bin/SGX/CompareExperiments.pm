@@ -340,7 +340,7 @@ sub getResultsJS
         eval { $findProbes->createInsideTableQueryFromFile($fh); } 
         or close($fh) and croak $@;
 
-        $findProbes->loadProbeReporterData($findProbes->getQueryTerms());
+        $findProbes->loadProbeReporterData();
 
         # get list of probe record ids (rid)
         $probeList     = $findProbes->getProbeList();
@@ -356,7 +356,7 @@ sub getResultsJS
 
         $findProbes->createInsideTableQuery(); # followed by build_ProbeQuery
         $findProbes->build_ProbeQuery(extra_fields => 0);
-        $findProbes->loadProbeData($findProbes->getQueryTerms);
+        $findProbes->loadProbeData();
         $findProbes->setProbeList();
 
         # get list of probe record ids (rid)

@@ -52,27 +52,15 @@ sub new {
         _dbh                     => $dbh,
         _cgi                     => $q,
         _UserSession             => $s,
-        _SearchType              => undef,
-        _SearchText              => undef,
-        _ProbeRecords            => '',
-        _ProbeCount              => 0,
-        _ProbeColNames           => '',
-        _ProbeData               => '',
-        _RecordsPlatform         => '',
         _ProbeHash               => '',
-        _RowCountAll             => 0,
         _ProbeExperimentHash     => '',
         _Data                    => '',
-        _eids                    => '',
-        _FullExperimentRec       => '',
-        _FullExperimentCount     => 0,
         _FullExperimentData      => '',
         _InsideTableQuery        => '',
         _SearchItems             => '',
         _ProbeQuery              => '',
         _ExperimentListHash      => '',
         _ExperimentStudyListHash => '',
-        _TempTableID             => '',
         _ExperimentNameListHash  => '',
         _ExperimentDataQuery     => undef,
         _ReporterList            => undef
@@ -244,17 +232,11 @@ sub createInsideTableQueryFromFile {
     # We need to get the list from the user into SQL, We need to do some temp
     # table/file trickery for this.
 
-    #Get time to make our unique ID.
-    my $time = time();
-
     #Make idea with the time and ID of the running application.
-    my $processID = $time . '_' . getppid();
+    my $processID = time() . '_' . getppid();
 
     #Regex to strip quotes.
     my $regex_strip_quotes = qr/^("?)(.*)\1$/;
-
-    #Store the temp Table id so we can drop the table later.
-    $self->{_TempTableID} = $processID;
 
     #We need to create this output directory.
     my $tmp = File::Temp->new();
@@ -322,18 +304,10 @@ sub getInsideTableQuery {
 }
 
 #######################################################################################
-#Return the search terms used in the query.
-#######################################################################################
-sub getQueryTerms {
-    my $self = shift;
-    return $self->{_SearchItems};
-}
-
-#######################################################################################
 #Get a list of the probes (Only the reporter field).
 #######################################################################################
 sub loadProbeReporterData {
-    my ( $self, $qtext ) = @_;
+    my ($self) = @_;
 
     my $InsideTableQuery = $self->{_InsideTableQuery};
     my $probeQuery       = <<"END_ProbeReporterQuery";
@@ -346,12 +320,11 @@ END_ProbeReporterQuery
     #$probeQuery =~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
     #$probeQuery =~ s/\\//g;
 
-    $self->{_ProbeRecords}  = $self->{_dbh}->prepare($probeQuery);
-    $self->{_ProbeCount}    = $self->{_ProbeRecords}->execute();
-    $self->{_ProbeColNames} = @{ $self->{_ProbeRecords}->{NAME} };
-    $self->{_Data}          = $self->{_ProbeRecords}->fetchall_arrayref;
+    my $sth = $self->{_dbh}->prepare($probeQuery);
+    my $rc  = $sth->execute();
+    $self->{_Data} = $sth->fetchall_arrayref;
 
-    $self->{_ProbeRecords}->finish;
+    $sth->finish;
 
     $self->{_ProbeHash} = {};
 
@@ -382,13 +355,16 @@ END_ProbeReporterQuery
 #Get a list of the probes here so that we can get all experiment data for each probe in another query.
 #######################################################################################
 sub loadProbeData {
-    my ( $self, $qtext ) = @_;
+    my ($self) = @_;
 
-    $self->{_ProbeRecords}  = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
-    $self->{_ProbeCount}    = $self->{_ProbeRecords}->execute($qtext);
-    $self->{_ProbeColNames} = @{ $self->{_ProbeRecords}->{NAME} };
-    $self->{_Data}          = $self->{_ProbeRecords}->fetchall_arrayref;
-    $self->{_ProbeRecords}->finish;
+    my $sth = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
+    my $rc  = $sth->execute( $self->{_SearchItems} );
+
+    # Find the number of columns and subtract one to get the index of the last
+    # column This index value is needed for slicing of rows...
+    my $last_index = @{ $sth->{NAME} } - 1;
+    $self->{_Data} = $sth->fetchall_arrayref;
+    $sth->finish;
 
     if ( scalar( @{ $self->{_Data} } ) < 1 ) {
         $self->{_UserSession}->commit() if defined( $self->{_UserSession} );
@@ -404,10 +380,6 @@ sub loadProbeData {
 'No records found! Please click back on your browser and search again!';
         exit;
     }
-
-# Find the number of columns and subtract one to get the index of the last column
-# This index value is needed for slicing of rows...
-    my $last_index = scalar( @{ $self->{_ProbeRecords}->{NAME} } ) - 1;
 
 # From each row in _Data, create a key-value pair such that the first column
 # becomes the key and the rest of the columns are sliced off into an anonymous array
@@ -721,12 +693,11 @@ INNER JOIN study USING(stid)
 $whereSQL
 END_query_titles_element
 
-    $self->{_FullExperimentRec}   = $self->{_dbh}->prepare($query_titles);
-    $self->{_FullExperimentCount} = $self->{_FullExperimentRec}->execute();
-    $self->{_FullExperimentData} =
-      $self->{_FullExperimentRec}->fetchall_hashref('eid');
+    my $sth = $self->{_dbh}->prepare($query_titles);
+    my $rc  = $sth->execute();
+    $self->{_FullExperimentData} = $sth->fetchall_hashref('eid');
 
-    $self->{_FullExperimentRec}->finish;
+    $sth->finish;
     return;
 }
 
@@ -1098,12 +1069,13 @@ SELECT
 $sql_select_fields
 FROM ( $InsideTableQuery ) AS g0
 LEFT JOIN annotates USING(gid)
-INNER JOIN probe ON probe.rid=COALESCE(g0.rid, annotates.rid)
+INNER JOIN probe ON annotates.rid=probe.rid
 INNER JOIN platform ON platform.pid=COALESCE(probe.pid, g0.pid)
 $sql_subset_by_project
-GROUP BY COALESCE(g0.rid, annotates.rid)
+GROUP BY COALESCE(probe.rid, g0.rid)
 END_ProbeQuery
 
+    warn $self->{_ProbeQuery};
     return;
 }
 #######################################################################################
@@ -1111,7 +1083,6 @@ sub findProbes_js {
     my $self = shift;
 
     $self->init();
-    my $qtext = $self->{_SearchItems};
 
     # 'type' must always be set
     my $type = $self->{_cgi}->param('type');
@@ -1138,11 +1109,9 @@ sub findProbes_js {
         $self->{_UserSession}->commit();
 
 #print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-        $self->{_SearchType} = $type;
-        $self->{_SearchText} = $qtext;
 
         #$self->setInsideTableQuery($g0_sql);
-        $self->loadProbeData($qtext);
+        $self->loadProbeData();
         $self->loadExperimentData();
         $self->getFullExperimentData();
         $self->printFindProbeCSV();
@@ -1154,19 +1123,20 @@ sub findProbes_js {
     #  HTML output
     #---------------------------------------------------------------------------
         my $sth      = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
-        my $rowcount = $sth->execute($qtext);
+        my $rowcount = $sth->execute( $self->{_SearchItems} );
 
         my $proj_name = $self->{_WorkingProjectName};
         my $caption   = sprintf(
             <<"END_caption",
-%sFound %d probe%s annotated with $type groups matching '$qtext' (${type}s grouped
+%sFound %d probe%s annotated with $type groups matching '%s' (${type}s grouped
 by gene symbol or accession number)
 END_caption
             ( defined($proj_name) and $proj_name ne '' )
             ? "${proj_name}: "
             : '',
             $rowcount,
-            ( $rowcount == 1 ) ? '' : 's'
+            ( $rowcount == 1 ) ? '' : 's',
+            $self->{_SearchItems}
         );
 
         # cache the field name array; skip first two columns (probe.rid,
