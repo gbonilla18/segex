@@ -15,6 +15,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
         return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
     }
 
+    // Define a custom row formatter function
+    var myRowFormatter = function(elTr, oRecord) {
+        if (oRecord.getData(searchColumn).toLowerCase() in queriedItems ) {
+            YAHOO.util.Dom.addClass(elTr, 'mark');
+        }
+        return true;
+    };
+
     if (show_graphs) {
         graph_ul = YAHOO.util.Dom.get("graphs");
     }
@@ -61,91 +69,42 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var myDataSource = new YAHOO.util.DataSource(probelist.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
 
-    var myColumnList;
-    var myColumnDefs;
+    var myColumnList = ["0","1","2","3","4"];
+    var myColumnDefs = [
+        {key:"0", sortable:true, resizeable:true, 
+            label:probelist.headers[0], formatter:"formatProbe"},
+        {key:"1", sortable:true, resizeable:true, 
+            label:probelist.headers[1]},
+        {key:"2", sortable:true, resizeable:true, 
+            label:probelist.headers[2], formatter:"formatAccNum"}, 
+        {key:"3", sortable:true, resizeable:true, 
+            label:probelist.headers[3], formatter:"formatGene"},
+        {key:"4", sortable:true, resizeable:true, 
+            label:probelist.headers[4]}
+    ];
     if (extra_fields) {
-        function createCellEditor(postBackURL, postBackQueryParameters) {
-            return new YAHOO.widget.TextareaCellEditor({
-                disableBtns: false,
-                asyncSubmitter: function(callback, newValue) {
-                    var record = this.getRecord();
-                    //var column = this.getColumn();
-                    //var datatable = this.getDataTable();
-                    if (this.value === newValue) { callback(); }
-                    YAHOO.util.Connect.asyncRequest("POST", postBackURL, {
-                        success:function(o) {
-                            if(o.status === 200) {
-                                // HTTP 200 OK
-                                callback(true, newValue);
-                            } else {
-                                alert(o.statusText);
-                                //callback();
-                            }
-                        },
-                        failure:function(o) {
-                            alert(o.statusText);
-                            callback();
-                        },
-                        scope:this
-                    }, postBackQueryParameters(newValue, record));
-                }
-            });
-        }
-
-        myColumnList = ["0","1","2","3","4","5","6","7"];
-        myColumnDefs = [
-            {key:"0", sortable:true, resizeable:true, 
-                label:probelist.headers[0], formatter:"formatProbe"},
-            {key:"1", sortable:true, resizeable:true, 
-                label:probelist.headers[1]},
-            {key:"2", sortable:true, resizeable:true, 
-                label:probelist.headers[2], formatter:"formatAccNum"}, 
-            {key:"3", sortable:true, resizeable:true, 
-                label:probelist.headers[3], formatter:"formatGene"},
-            {key:"4", sortable:true, resizeable:true, 
-                label:probelist.headers[4]},
+        myColumnList.push("5","6","7");
+        myColumnDefs.push(
             {key:"5", sortable:true, resizeable:true, 
                 label:probelist.headers[5], formatter:"formatSequence"},
             {key:"6", sortable:true, resizeable:true, 
                 label:probelist.headers[6]},
             {key:"7", sortable:true, resizeable:true, 
-                label:probelist.headers[7], editor:createCellEditor(
-                    url_prefix + "?a=updateCell", 
-                    function(newValue, record) {
-                        return "type=gene&note=" + escape(newValue) 
-                             + "&pname=" + encodeURI(record.getData("1")) 
-                             + "&seqname=" + encodeURI(record.getData("3")) 
-                             + "&accnum=" + encodeURI(record.getData("2"));
-                    }
-                )
-            }
-        ];
-    } else {
-        myColumnList = ["0","1","2","3","4"];
-        myColumnDefs = [
-            {key:"0", sortable:true, resizeable:true, 
-                label:probelist.headers[0], formatter:"formatProbe"},
-            {key:"1", sortable:true, resizeable:true, 
-                label:probelist.headers[1]},
-            {key:"2", sortable:true, resizeable:true, 
-                label:probelist.headers[2], formatter:"formatAccNum"}, 
-            {key:"3", sortable:true, resizeable:true, 
-                label:probelist.headers[3], formatter:"formatGene"},
-            {key:"4", sortable:true, resizeable:true, 
-                label:probelist.headers[4]}
-        ];
+                label:probelist.headers[7]}
+        );
     }
     myDataSource.responseSchema = {
         fields: myColumnList
     };
     var myData_config = {
+        formatRow: myRowFormatter,
         paginator: new YAHOO.widget.Paginator({
-            rowsPerPage: 50 
+            rowsPerPage: 15 
         })
     };
 
     var myDataTable = new YAHOO.widget.DataTable(
-        "probetable", myColumnDefs, myDataSource, myData_config);
+    "probetable", myColumnDefs, myDataSource, myData_config);
 
     // Set up editing flow 
     var highlightEditableCell = function(oArgs) { 
@@ -156,7 +115,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     }; 
     myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
     myDataTable.subscribe("cellMouseoutEvent", 
-        myDataTable.onEventUnhighlightCell); 
+    myDataTable.onEventUnhighlightCell); 
     myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
 
     var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");

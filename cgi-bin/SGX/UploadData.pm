@@ -607,12 +607,16 @@ sub sanitizeUploadFile {
     # upload file should get deleted automatically on close
     close $uploadedFile;
 
+    # Regular expression for the first column (probe/reporter id) reads as
+    # follows: from beginning to end, match any character other than [space,
+    # forward/back slash, comma, equal or pound sign, opening or closing
+    # parentheses, double quotation mark] from 1 to 18 times.
     my $recordsValid = eval {
         SGX::CSV::csv_rewrite(
             \@lines,
             $OUTPUTTOSERVER,
             [
-                sub { shift =~ m/^\S+$/ },
+                sub { shift =~ m/^[^\s,\/\\=#()"]{1,18}$/ },
                 sub { looks_like_number(shift) },
                 sub { looks_like_number(shift) },
                 sub { looks_like_number(shift) },
@@ -668,7 +672,7 @@ sub loadToDatabase_prepare {
 
     $sth_hash->{createTable} ||= $dbh->prepare(<<"END_createTable");
 CREATE TEMPORARY TABLE $temp_table (
-    reporter VARCHAR(150) NOT NULL,
+    reporter CHAR(18) NOT NULL,
     ratio DOUBLE,
     foldchange DOUBLE,
     pvalue DOUBLE,

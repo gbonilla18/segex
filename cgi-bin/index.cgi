@@ -113,7 +113,7 @@ use constant SHOWSCHEMA         => 'showSchema';
 use constant HELP               => 'help';
 use constant ABOUT              => 'about';
 use constant COMPAREEXPERIMENTS => 'Compare';             # submit button text
-use constant FINDPROBES         => 'Search';              # submit button text
+use constant FINDPROBES         => 'findProbes';              # submit button text
 use constant UPDATECELL         => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
 use constant UPLOADDATA         => 'uploadData';
@@ -283,34 +283,11 @@ while ( defined($action) ) {
                 $action = FORM . LOGIN;
             }
         }
-        case FORM . FINDPROBES {
-            if ( $s->is_authorized('user') ) {
-                $title = 'Find Probes';
-                push @js_src_code, { -src => 'FormFindProbes.js' };
-                push @js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
-                $content = \&form_findProbes;
-                $action  = undef;                # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
         case FINDPROBES {
-            if ( $s->is_authorized('user') ) {
+            $loadModule = SGX::FindProbes->new(%controller_context);
+            if ( $loadModule->dispatch_js() ) {
                 $title = 'Find Probes';
-                my $findProbes = SGX::FindProbes->new(
-                    dbh          => $dbh,
-                    cgi          => $q,
-                    user_session => $s
-                );
-
-                # push YUI dependencies to @js_src_yui array
-                $findProbes->list_yui_deps( \@js_src_yui );
-
-                # push data + JS code to @js_src_code array
-                push @js_src_code, { -code => $findProbes->findProbes_js($s) };
-                push @js_src_code, { -src  => 'FindProbes.js' };
-                $content = \&findProbes;
+                $content = \&module_show_html;
                 $action  = undef;          # final state
             }
             else {
@@ -1281,50 +1258,6 @@ sub updateCell {
     assert( defined($type) );
 
     switch ($type) {
-        case 'probe' {
-            my $rc = $dbh->do(
-'update probe left join platform on platform.pid=probe.pid set note=? where reporter=? and pname=?',
-                undef,
-                $q->param('note'),
-                $q->param('reporter'),
-                $q->param('pname')
-            );
-            return $rc;
-        }
-        case 'gene' {
-
-            # tries to use gene symbol first as key field; if gene symbol is
-            # empty, switches to accession number.
-            my $seqname = $q->param('seqname');
-            my $pname   = $q->param('pname');
-            my $note    = $q->param('note');
-            if ( defined($seqname) && $seqname ne '' ) {
-                my $rc = $dbh->do(
-'update gene left join platform on platform.pid=gene.pid set gene_note=? where seqname=? and pname=?',
-                    undef, $note, $seqname, $pname
-                );
-                return $rc;
-            }
-            else {
-                my $accnum_count = 0;
-                my @accnum = split( / *, */, $q->param('accnum') );
-                foreach (@accnum) {
-                    if ( defined($_) && $_ ne '' ) {
-                        $accnum_count++;
-                        $dbh->do(
-'update gene left join platform on platform.pid=gene.pid set gene_note=? where accnum=? and pname=?',
-                            undef, $note, $_, $pname
-                        );
-                    }
-                }
-                if ( $accnum_count > 0 ) {
-                    return 1;
-                }
-                else {
-                    return 0;
-                }
-            }
-        }
         case 'study' {
             my $rc =
               $dbh->do( 'update study set description=?, pubmed=? where stid=?',
@@ -1354,18 +1287,6 @@ sub updateCell {
             croak "Unknown request type=$type\n";
         }
     }
-}
-#######################################################################################
-sub form_findProbes {
-    print SGX::FindProbes::getFormHTML( $q, FINDPROBES,
-        $s->{session_cookie}->{curr_proj} );
-    return 1;
-}
-
-#######################################################################################
-sub findProbes {
-    print SGX::FindProbes::getResultTableHTML($q);
-    return 1;
 }
 #######################################################################################
 sub schema {
@@ -1604,7 +1525,7 @@ sub build_menu {
         push @{ $menu{$view} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . FORM . FINDPROBES,
+                -href  => $url_prefix . '?a=' . FINDPROBES,
                 -title => 'Search for probes'
             },
             'Find Probes'

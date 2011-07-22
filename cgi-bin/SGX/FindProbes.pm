@@ -42,16 +42,47 @@ use SGX::Model::PlatformStudyExperiment;
 use SGX::Util qw/trim/;
 use SGX::Debug qw/assert/;
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  new
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub new {
-
-    # This is the constructor
     my ( $class, %param ) = @_;
 
-    my ( $dbh, $q, $s ) = @param{qw{dbh cgi user_session}};
+    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
+      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+
+    my %type_dropdown;
+    my $type_dropdown_t = tie(
+        %type_dropdown, 'Tie::IxHash',
+        'gene'   => 'Gene Symbols',
+        'accnum' => 'Accession Numbers',
+        'probe'  => 'Probes'
+    );
+    my %match_dropdown;
+    my $match_dropdown_t = tie(
+        %match_dropdown, 'Tie::IxHash',
+        'full'   => 'Full Word',
+        'prefix' => 'Prefix',
+        'part'   => 'Part of the Word / Regular Expression'
+    );
+
     my $self = {
-        _dbh                     => $dbh,
-        _cgi                     => $q,
-        _UserSession             => $s,
+        _dbh         => $dbh,
+        _cgi         => $q,
+        _UserSession => $s,
+        _js_src_yui  => $js_src_yui,
+        _js_src_code => $js_src_code,
+
+        _typeDesc  => \%type_dropdown,
+        _matchDesc => \%match_dropdown,
+
         _ProbeHash               => '',
         _ProbeExperimentHash     => '',
         _Data                    => '',
@@ -117,43 +148,85 @@ sub new {
     return $self;
 }
 
-#######################################################################################
-sub build_ExperimentDataQuery {
-    my $self = shift;
-    my $whereSQL;
-    my $curr_proj = $self->{_WorkingProject};
-    if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $curr_proj = $self->{_dbh}->quote($curr_proj);
-        $whereSQL  = <<"END_whereSQL";
-INNER JOIN ProjectStudy USING(stid)
-WHERE prid=$curr_proj AND rid=?
-END_whereSQL
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  dispatch_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch_js {
+    my ($self) = @_;
+    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
+    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+
+    my $action =
+      ( defined $q->param('b') )
+      ? $q->param('b')
+      : '';
+
+    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
+    switch ($action) {
+        case 'Search' {
+            return if not $s->is_authorized('user');
+            push @$js_src_yui,
+              (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'connection/connection-min.js',
+                'dragdrop/dragdrop-min.js',
+                'container/container-min.js',
+                'element/element-min.js',
+                'datasource/datasource-min.js',
+                'paginator/paginator-min.js',
+                'datatable/datatable-min.js',
+                'selector/selector-min.js'
+              );
+            $self->init();
+            push @$js_src_code, { -code => $self->findProbes_js($s) };
+            push @$js_src_code, { -src  => 'FindProbes.js' };
+        }
+        else {
+            return if not $s->is_authorized('user');
+            push @$js_src_code, { -src => 'FormFindProbes.js' };
+        }
     }
-    else {
-        $whereSQL = 'WHERE rid=?';
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  dispatch
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  executes appropriate method for the given action
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch {
+    my ($self) = @_;
+
+    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
+
+    my $action =
+      ( defined $q->param('b') )
+      ? $q->param('b')
+      : '';
+
+    switch ($action) {
+        case 'Search' {
+            print $self->getResultTableHTML();
+        }
+        else {
+
+            # default action: show form
+            print $self->getFormHTML();
+        }
     }
-    $self->{_ExperimentDataQuery} = <<"END_ExperimentDataQuery";
-SELECT
-    experiment.eid, 
-    microarray.ratio,
-    microarray.foldchange,
-    microarray.pvalue,
-    microarray.intensity1,
-    microarray.intensity2,
-    CONCAT(
-        GROUP_CONCAT(study.description SEPARATOR ','), ': ', 
-        experiment.sample2, '/', experiment.sample1
-    ) AS 'Name',
-    GROUP_CONCAT(study.stid SEPARATOR ','),
-    study.pid
-FROM microarray 
-INNER JOIN experiment USING(eid)
-INNER JOIN StudyExperiment USING(eid)
-INNER JOIN study USING(stid)
-$whereSQL
-GROUP BY experiment.eid
-ORDER BY experiment.eid ASC
-END_ExperimentDataQuery
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -202,6 +275,48 @@ sub init {
     $self->{_SearchItems} = $qtext;
     return;
 }
+
+#######################################################################################
+sub build_ExperimentDataQuery {
+    my $self = shift;
+    my $whereSQL;
+    my $curr_proj = $self->{_WorkingProject};
+    if ( defined($curr_proj) && $curr_proj ne '' ) {
+        $curr_proj = $self->{_dbh}->quote($curr_proj);
+        $whereSQL  = <<"END_whereSQL";
+INNER JOIN ProjectStudy USING(stid)
+WHERE prid=$curr_proj AND rid=?
+END_whereSQL
+    }
+    else {
+        $whereSQL = 'WHERE rid=?';
+    }
+    $self->{_ExperimentDataQuery} = <<"END_ExperimentDataQuery";
+SELECT
+    experiment.eid, 
+    microarray.ratio,
+    microarray.foldchange,
+    microarray.pvalue,
+    microarray.intensity1,
+    microarray.intensity2,
+    CONCAT(
+        GROUP_CONCAT(study.description SEPARATOR ','), ': ', 
+        experiment.sample2, '/', experiment.sample1
+    ) AS 'Name',
+    GROUP_CONCAT(study.stid SEPARATOR ','),
+    study.pid
+FROM microarray 
+INNER JOIN experiment USING(eid)
+INNER JOIN StudyExperiment USING(eid)
+INNER JOIN study USING(stid)
+$whereSQL
+GROUP BY experiment.eid
+ORDER BY experiment.eid ASC
+END_ExperimentDataQuery
+
+    return 1;
+}
+
 #######################################################################################
 #This is the code that generates part of the SQL statement.
 # Call to this function is always followed by a call to build_ProbeQuery()
@@ -267,15 +382,20 @@ sub createInsideTableQueryFromFile {
     #Now get the temp file into a temp MYSQL table.
 
     #Command to create temp table.
-    my $createTableStatement =
-      "CREATE TEMPORARY TABLE $processID (searchField VARCHAR(200))";
+    my $createTableStatement = <<"END_TEMP_TABLE_DEF";
+CREATE TEMPORARY TABLE $processID (
+    searchField CHAR(30) NOT NULL
+) ENGINE=MEMORY
+END_TEMP_TABLE_DEF
 
     #This is the mysql command to suck in the file.
     my $inputStatement = <<"END_inputStatement";
 LOAD DATA LOCAL INFILE ?
 INTO TABLE $processID
-LINES TERMINATED BY '\n'
-(searchField);
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
+    searchField
+)
 END_inputStatement
 
     #--------------------------------------------
@@ -706,20 +826,6 @@ END_query_titles_element
     return;
 }
 
-#######################################################################################
-sub list_yui_deps {
-    my ( $self, $list ) = @_;
-    push @$list,
-      (
-        'yahoo-dom-event/yahoo-dom-event.js', 'connection/connection-min.js',
-        'dragdrop/dragdrop-min.js',           'container/container-min.js',
-        'element/element-min.js',             'datasource/datasource-min.js',
-        'paginator/paginator-min.js',         'datatable/datatable-min.js',
-        'selector/selector-min.js'
-      );
-    return;
-}
-
 #===  FUNCTION  ================================================================
 #         NAME:  getResultTableHTML
 #      PURPOSE:  display results table for Find Probes
@@ -731,9 +837,22 @@ sub list_yui_deps {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getResultTableHTML {
-    my $q   = shift;
+    my $self = shift;
+
+    my $q    = $self->{_cgi};
+    my $type = $q->param('type');
+    my $match = $q->param('match');
+
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
+        $q->p(
+            { -id => 'subcaption' },
+            sprintf('Searched %s (%s): %s',
+              lc( $self->{_typeDesc}->{$type} ),
+              lc( $self->{_matchDesc}->{$match} ),
+              join( ', ', @{ $self->{_SearchItems} } )
+            )
+        ),
         $q->div(
             $q->a( { -id => 'probetable_astext' }, 'View as plain text' )
         ),
@@ -759,22 +878,13 @@ sub getResultTableHTML {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getFormHTML {
-    my ( $q, $action, $curr_proj ) = @_;
+    my ($self) = @_;
 
-    my %type_dropdown;
-    my $type_dropdown_t = tie(
-        %type_dropdown, 'Tie::IxHash',
-        'gene'   => 'Gene Symbols',
-        'accnum' => 'Accession Numbers',
-        'probe'  => 'Probes'
-    );
-    my %match_dropdown;
-    my $match_dropdown_t = tie(
-        %match_dropdown, 'Tie::IxHash',
-        'full'   => 'Full Word',
-        'prefix' => 'Prefix',
-        'part'   => 'Part of the Word / Regular Expression*'
-    );
+    my $q         = $self->{_cgi};
+    my $curr_proj = $self->{_UserSession}->{session_cookie}->{curr_proj};
+
+    # note: get $curr_proj from session
+
     my %opts_dropdown;
     my $opts_dropdown_t = tie(
         %opts_dropdown, 'Tie::IxHash',
@@ -821,8 +931,8 @@ END_H2P_TEXT
                 -name    => 'type',
                 -id      => 'type',
                 -default => 'gene',
-                -values  => [ keys %type_dropdown ],
-                -labels  => \%type_dropdown
+                -values  => [ keys %{ $self->{_typeDesc} } ],
+                -labels  => $self->{_typeDesc}
             )
         ),
         $q->dt('Pattern to match:'),
@@ -832,8 +942,8 @@ END_H2P_TEXT
                 -name      => 'match',
                 -linebreak => 'true',
                 -default   => 'full',
-                -values    => [ keys %match_dropdown ],
-                -labels    => \%match_dropdown
+                -values    => [ keys %{ $self->{_matchDesc} } ],
+                -labels    => $self->{_matchDesc}
             ),
             $q->p( { -style => 'color:#777' }, <<"END_EXAMPLE_TEXT")
 * Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with
@@ -886,11 +996,12 @@ END_BROWSER_NOTICE
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'proj', -value => $curr_proj ),
+            $q->hidden( -name => 'a',    -value => 'findProbes' ),
             $q->submit(
                 -tabindex => 6,
                 -class    => 'css3button',
-                -name     => 'a',
-                -value    => $action
+                -name     => 'b',
+                -value    => 'Search'
             )
         ),
       ),
@@ -1102,16 +1213,12 @@ sub findProbes_js {
 
         my $proj_name = $self->{_WorkingProjectName};
         my $caption   = sprintf(
-            <<"END_caption",
-%sFound %d probe%s annotated with $type groups matching '%s' (${type}s grouped
-by gene symbol or accession number)
-END_caption
+            '%sFound %d probe%s',
             ( defined($proj_name) and $proj_name ne '' )
             ? "${proj_name}: "
             : '',
             $rowcount,
             ( $rowcount == 1 ) ? '' : 's',
-            join( ',', @{ $self->{_SearchItems} } )
         );
 
         # cache the field name array; skip first two columns (probe.rid,
@@ -1126,12 +1233,18 @@ END_caption
         $sth->finish;
         foreach my $array_ref (@$data) {
 
-      # the below "trick" converts an array into a hash such that array elements
-      # become hash values and array indexes become hash keys
+            # the below "trick" converts an array into a hash such that array
+            # elements become hash values and array indexes become hash keys
             my $i = 0;
             my %row = map { $i++ => $_ } @$array_ref[ 2 .. $last_index ];
             push @json_records, \%row;
         }
+
+        my %type_to_column = (
+            'probe'  => '0',
+            'accnum' => '2',
+            'gene'   => '3'
+        );
 
         my %json_probelist = (
             caption => $caption,
@@ -1139,9 +1252,12 @@ END_caption
             headers => \@names
         );
 
+        my $match = $self->{_cgi}->param('match');
         my $print_graphs = $self->{_cgi}->param('graph');
         my $out          = sprintf(
             <<"END_JSON_DATA",
+var searchColumn = "%s";
+var queriedItems = %s;
 var probelist = %s;
 var url_prefix = "%s";
 var response_transform = "%s";
@@ -1149,6 +1265,12 @@ var show_graphs = %s;
 var extra_fields = %s;
 var project_id = "%s";
 END_JSON_DATA
+            $type_to_column{$type},
+            encode_json(
+                ( $match eq 'full' )
+                ? +{ map { lc($_) => undef } @{ $self->{_SearchItems} } }
+                : []
+            ),
             encode_json( \%json_probelist ),
             $self->{_cgi}->url( -absolute => 1 ),
             $trans,

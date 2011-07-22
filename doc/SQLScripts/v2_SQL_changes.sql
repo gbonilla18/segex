@@ -56,3 +56,16 @@ UPDATE gene SET seqname=NULL WHERE description=seqname AND seqname REGEXP ' ';
 -- Query OK, 403 rows affected (0.66 sec)
 UPDATE gene SET seqname=NULL WHERE seqname REGEXP ' ';
 -- Query OK, 9 rows affected (0.57 sec)
+
+UPDATE gene SET seqname='Tcte3' WHERE seqname='Tcte3///100041586///100041639';
+
+-- at this point, no valid seqname is longer than 24 characters
+alter table gene modify seqname char(30);
+alter table gene modify accnum char(30);
+alter table probe modify reporter char(18) not null;
+
+-- rebuild indexes
+drop index seqname on gene;
+drop index accnum on gene;
+create index seqname on gene (seqname);
+create index accnum on gene (accnum);

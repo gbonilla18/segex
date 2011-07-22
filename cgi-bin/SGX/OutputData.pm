@@ -60,34 +60,6 @@ sub new {
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
 
-        _ReportQuery => <<"END_ReportQuery",
-SELECT  
-    study.description     AS 'Study',
-    CONCAT(
-        experiment.sample1, ' / ', 
-        experiment.sample2
-    )                     AS 'Sample 1 / Sample 2',
-    probe.reporter        AS 'Reporter',
-    gene.accnum           AS 'Accession Number',
-    gene.seqname          AS 'Gene',
-    microarray.ratio      AS 'Ratio',
-    microarray.foldchange AS 'Fold Change',
-    microarray.pvalue     AS 'P-value',
-    microarray.intensity1 AS 'Intensity 1',
-    microarray.intensity2 AS 'Intensity 2'
-FROM experiment
-LEFT JOIN StudyExperiment USING(eid)
-LEFT JOIN study USING(stid)
-INNER JOIN microarray USING(eid)
-LEFT JOIN probe ON probe.rid = microarray.rid
-LEFT JOIN annotates ON annotates.rid = probe.rid
-LEFT JOIN gene ON gene.gid = annotates.gid
-WHERE experiment.eid IN (%s)
-GROUP BY experiment.eid, microarray.rid
-ORDER BY experiment.eid
-
-END_ReportQuery
-
         _Data            => '',
         _RecordsReturned => undef,
         _FieldNames      => '',
@@ -229,9 +201,34 @@ sub loadReportData {
     # cache database handle
     my $dbh = $self->{_dbh};
 
-    my $query_text = sprintf(
-        $self->{_ReportQuery},
-        join( ',', map { '?' } 1 .. scalar( @{ $self->{_eidList} } ) )
+    my $query_text = sprintf( <<"END_ReportQuery",
+SELECT  
+    study.description     AS 'Study',
+    CONCAT(
+        experiment.sample1, ' / ', 
+        experiment.sample2
+    )                     AS 'Sample 1 / Sample 2',
+    probe.reporter        AS 'Reporter',
+    gene.accnum           AS 'Accession Number',
+    gene.seqname          AS 'Gene',
+    microarray.ratio      AS 'Ratio',
+    microarray.foldchange AS 'Fold Change',
+    microarray.pvalue     AS 'P-value',
+    microarray.intensity1 AS 'Intensity 1',
+    microarray.intensity2 AS 'Intensity 2'
+FROM experiment
+LEFT JOIN StudyExperiment USING(eid)
+LEFT JOIN study USING(stid)
+INNER JOIN microarray USING(eid)
+LEFT JOIN probe ON probe.rid = microarray.rid
+LEFT JOIN annotates ON annotates.rid = probe.rid
+LEFT JOIN gene ON gene.gid = annotates.gid
+WHERE experiment.eid IN (%s)
+GROUP BY experiment.eid, microarray.rid
+ORDER BY experiment.eid
+
+END_ReportQuery
+        join( ',', map { '?' } @{ $self->{_eidList} } )
     );
 
     my $sth = $dbh->prepare($query_text);
