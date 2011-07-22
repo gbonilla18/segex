@@ -178,22 +178,27 @@ sub init {
     my $text = $q->param('terms');
 
     #Split the input on commas.
-    my @textSplit = split( /\,/, trim($text) );
+    my @textSplit = split( /[,\s]+/, trim($text) );
 
     my $qtext;
+    my $predicate;
 
     switch ($match) {
         case 'full' {
-            $qtext = '^(' . join( '|', map { trim($_) } @textSplit ) . ')$';
+            $predicate = 'IN (' . join( ',', map { '?' } @textSplit ) . ')';
+            $qtext = [@textSplit];
         }
         case 'prefix' {
-            $qtext = join( '|', map { '^' . trim($_) } @textSplit );
+            $predicate = 'REGEXP ?';
+            $qtext = [ join( '|', map { "^$_" } @textSplit ) ];
         }
         case 'part' {
-            $qtext = join( '|', map { trim($_) } @textSplit );
+            $predicate = 'REGEXP ?';
+            $qtext = [ join( '|', @textSplit ) ];
         }
         else { croak "Invalid match value $match" }
     }
+    $self->{_Predicate}   = $predicate;
     $self->{_SearchItems} = $qtext;
     return;
 }
@@ -291,7 +296,6 @@ END_inputStatement
     my $type = $self->{_cgi}->param('type');
 
     $self->build_InsideTableQuery( $type, tmp_table => $processID );
-    $self->{_SearchItems} = undef;
     return 1;
 }
 
@@ -358,7 +362,8 @@ sub loadProbeData {
     my ($self) = @_;
 
     my $sth = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
-    my $rc  = $sth->execute( $self->{_SearchItems} );
+    my $rc =
+      $sth->execute( @{ $self->{_SearchItems} }, @{ $self->{_SearchItems} } );
 
     # Find the number of columns and subtract one to get the index of the last
     # column This index value is needed for slicing of rows...
@@ -907,87 +912,56 @@ sub build_InsideTableQuery {
     my ( $self, $type, %optarg ) = @_;
 
     my $tmpTable = $optarg{tmp_table};
-    my $clause =
+    my $predicate =
       ( defined $tmpTable )
       ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=%s"
-      : 'WHERE %s REGEXP ?';
+      : 'WHERE %s ' . $self->{_Predicate};
 
-    use Switch;
-    switch ($type) {
-        case 'probe' {
-            $self->{_InsideTableQuery} = sprintf(
-                <<"END_InsideTableQuery_probe",
-SELECT
-    g1.rid, g1.reporter, g1.note, g1.probe_sequence, g1.pid, 
-    gid,
-    COALESCE(g1.accnum, gene.accnum) AS accnum, 
-    COALESCE(g1.seqname, gene.seqname) AS seqname, 
-    description, 
-    gene_note
-FROM ( SELECT probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid, 
-       accnum, seqname
-        FROM gene 
-        RIGHT JOIN annotates USING(gid)
-        RIGHT JOIN probe USING(rid)
-        $clause
-        GROUP BY accnum, seqname
-) AS g1
-LEFT JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
-GROUP BY gid
+    my $probe_spec_fields =
+      ( $type eq 'probe' )
+      ? 'rid, reporter, note, probe_sequence, g1.pid'
+      : 'NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid';
+
+    my %translate_fields = (
+        'probe'  => 'reporter',
+        'gene'   => 'seqname',
+        'accnum' => 'accnum'
+    );
+
+    $self->{_InsideTableQuery} = sprintf(
+        <<"END_InsideTableQuery_probe",
+select $probe_spec_fields,
+g2.gid, 
+g2.accnum,
+g2.seqname, 
+g2.description, 
+g2.gene_note 
+
+from gene g2 right join
+(select probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid,
+    accnum from probe left join annotates on annotates.rid=probe.rid left join
+gene on gene.gid=annotates.gid $predicate GROUP BY accnum) as g1
+on g2.accnum=g1.accnum where rid is not NULL
+
+union
+
+select rid, reporter, note, probe_sequence, g3.pid, 
+g4.gid, 
+g4.accnum,
+g4.seqname, 
+g4.description, 
+g4.gene_note 
+
+from gene g4 right join
+(select probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid,
+    seqname from probe left join annotates on annotates.rid=probe.rid left join
+    gene on gene.gid=annotates.gid $predicate GROUP BY seqname) as g3
+on g4.seqname=g3.seqname where rid is not NULL
 
 END_InsideTableQuery_probe
-                'reporter'
-            );
-        }
-        case 'gene' {
-            $self->{_InsideTableQuery} = sprintf(
-                <<"END_InsideTableQuery_gene",
-SELECT 
-    NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid, 
-    gid, 
-    COALESCE(g1.accnum, gene.accnum) AS accnum, 
-    COALESCE(g1.seqname, gene.seqname) AS seqname, 
-    description, 
-    gene_note
-FROM ( SELECT accnum, seqname
-        FROM gene 
-        $clause
-        GROUP BY accnum, seqname
-) AS g1
-LEFT JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
-GROUP BY gid
-
-END_InsideTableQuery_gene
-                'seqname'
-            );
-        }
-        case 'accnum' {
-            $self->{_InsideTableQuery} = sprintf(
-                <<"END_InsideTableQuery_accnum",
-SELECT 
-    NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid, 
-    gid, 
-    COALESCE(g1.accnum, gene.accnum) AS accnum, 
-    COALESCE(g1.seqname, gene.seqname) AS seqname, 
-    description, 
-    gene_note
-FROM ( SELECT accnum, seqname
-        FROM gene 
-        $clause
-        GROUP BY accnum, seqname
-) AS g1
-LEFT JOIN gene ON (g1.accnum=gene.accnum OR g1.seqname=gene.seqname)
-GROUP BY gid
-
-END_InsideTableQuery_accnum
-                'accnum'
-            );
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => "Unknown request parameter value type=$type\n" );
-        }
-    }
+        $translate_fields{$type},
+        $translate_fields{$type}
+    );
     return 1;
 }
 #######################################################################################
@@ -999,6 +973,7 @@ sub build_ProbeQuery {
 
     assert( defined( $p{extra_fields} ) );
 
+    use Switch;
     switch ( $p{extra_fields} ) {
         case 0 {
 
@@ -1075,7 +1050,6 @@ $sql_subset_by_project
 GROUP BY COALESCE(probe.rid, g0.rid)
 END_ProbeQuery
 
-    warn $self->{_ProbeQuery};
     return;
 }
 #######################################################################################
@@ -1123,7 +1097,8 @@ sub findProbes_js {
     #  HTML output
     #---------------------------------------------------------------------------
         my $sth      = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
-        my $rowcount = $sth->execute( $self->{_SearchItems} );
+        my $rowcount = $sth->execute( @{ $self->{_SearchItems} },
+            @{ $self->{_SearchItems} } );
 
         my $proj_name = $self->{_WorkingProjectName};
         my $caption   = sprintf(
@@ -1136,7 +1111,7 @@ END_caption
             : '',
             $rowcount,
             ( $rowcount == 1 ) ? '' : 's',
-            $self->{_SearchItems}
+            join( ',', @{ $self->{_SearchItems} } )
         );
 
         # cache the field name array; skip first two columns (probe.rid,
