@@ -267,6 +267,10 @@ performance when the same query is executed repeatedly with different input
 parameters). (12) consider using prepare_cached() DBI function instead of
 prepare(). (13) indexes on columns that may contain long text are suboptimal.
 
+Partial word matches in databases do not use indexes, so do not use REGEXP
+'^(word1|word2)$' for matching "word1" and "word2", and instead either use WHERE
+IN predicate or JOIN with a TEMPORARY table.
+
 VISUALIZATION
 
 Consider using g.Raphael Javascript framework for drawing graphs inside the

@@ -60,11 +60,6 @@ http://localhost/cgi-bin/segex/index.cgi?text=Cyp2b%0D%0ACyp4b&type=gene&match=p
 Need to rewrite text box content on submission of Find Probes form, to replace
 new lines with commas before anything is sent to the server.
 
-*) Why are some gene names so long (some gene names consist of entire
-sentences)? This may cause DB performance problems because gene name field is
-twice indexed. Example of long gene names:
-http://localhost/cgi-bin/segex/index.cgi?text=Transcribed&type=gene&match=prefix&opts=0&trans=fold&a=Search
-
 *) Project ID must be an URL parameter for the Compare Experiments module,
 otherwise execution and results will be state-dependent, which will cause
 problems when emailing links, for example.
@@ -79,8 +74,6 @@ is in Compare Experiments.
 page will appear. If the login is incorrect from the first try, the system will
 "forget" that it was supposed to verify email and proceeds to show the main
 SEGEX page. This is a bug.
-
-*)  :TODO:06/20/2011 22:46:11:es:  add key to sessions table
 
 *) Catch the exception that occurs on failure to connect to database (can test
 this easily by stopping MySQL daemon on Mac) and present the user with a page
@@ -125,6 +118,5 @@ prefix from File::Temp or some other way.
 segex_user. segex_user is granted UPDATE, INSERT, DELETE, and CREATE TEMPOARY
 privileges, while segex_basic is only granted SELECT.
 
-*) Partial word matches in databases do not use indexes, so do not use REGEXP
-'^(word1|word2)$' for matching "word1" and "word2", and instead either use WHERE
-IN predicate or JOIN with a TEMPORARY table.
+*) Investigate performance impact of full-length (30 characters) vs partial (18
+characters and less) indexes on accession number and gene symbol queries.

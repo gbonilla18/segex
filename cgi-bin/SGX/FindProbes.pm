@@ -83,7 +83,8 @@ sub new {
         _typeDesc  => \%type_dropdown,
         _matchDesc => \%match_dropdown,
 
-        _ProbeHash               => '',
+        _tempTableName => '',    # temporary table name, '' equivalent to undef
+        _ProbeHash     => '',
         _ProbeExperimentHash     => '',
         _Data                    => '',
         _FullExperimentData      => '',
@@ -240,7 +241,7 @@ sub dispatch {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub init {
-    my ($self) = @_;
+    my ( $self, $fh ) = @_;
 
     my $q = $self->{_cgi};
 
@@ -248,34 +249,61 @@ sub init {
       ( defined $q->param('match') )
       ? $q->param('match')
       : 'full';
-    my $text = $q->param('terms');
 
-    #Split the input on commas.
-    my @textSplit = split( /[,\s]+/, trim($text) );
+    my @textSplit;
+
+    if ( defined $fh ) {
+        @textSplit = split(
+            /[\s,]+/,
+            do { local $/ = <$fh> }
+        );
+    }
+    else {
+
+        #Split the input on commas and spaces
+        my $text = $q->param('terms');
+        @textSplit = split( /[,\s]+/, trim($text) );
+    }
+
+    return $self->setSearchPredicate( $match, \@textSplit );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  setSearchPredicate
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub setSearchPredicate {
+    my ( $self, $match, $items ) = @_;
 
     my $qtext;
     my $predicate;
 
     switch ($match) {
         case 'full' {
-            $predicate = 'IN (' . join( ',', map { '?' } @textSplit ) . ')';
-            $qtext = [@textSplit];
+            $predicate = 'IN (' . join( ',', map { '?' } @$items ) . ')';
+            $qtext = [@$items];
         }
         case 'prefix' {
             $predicate = 'REGEXP ?';
-            $qtext = [ join( '|', map { "^$_" } @textSplit ) ];
+            $qtext = [ join( '|', map { "^$_" } @$items ) ];
         }
         case 'part' {
             $predicate = 'REGEXP ?';
-            $qtext = [ join( '|', @textSplit ) ];
+            $qtext = [ join( '|', @$items ) ];
         }
         else { croak "Invalid match value $match" }
     }
+
     $self->{_Predicate}   = $predicate;
     $self->{_SearchItems} = $qtext;
-    return;
+    return 1;
 }
-
 #######################################################################################
 sub build_ExperimentDataQuery {
     my $self = shift;
@@ -318,116 +346,6 @@ END_ExperimentDataQuery
 }
 
 #######################################################################################
-#This is the code that generates part of the SQL statement.
-# Call to this function is always followed by a call to build_ProbeQuery()
-#######################################################################################
-sub createInsideTableQuery {
-    my $self = shift;
-    $self->init();
-
-    # 'type' must always be set
-    my $type = $self->{_cgi}->param('type');
-
-    $self->build_InsideTableQuery($type);
-    return;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  createInsideTableQueryFromFile
-#   PARAMETERS:  $self - current instance
-#                $fh - file handle (usually to uploaded file)
-#      RETURNS:  ????
-#  DESCRIPTION:  generates part of the SQL statement (From a file instead of a
-#  list of genes).
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub createInsideTableQueryFromFile {
-
-    #Get the probe object.
-    my ( $self, $fh ) = @_;
-
-    # We need to get the list from the user into SQL, We need to do some temp
-    # table/file trickery for this.
-
-    #Make idea with the time and ID of the running application.
-    my $processID = time() . '_' . getppid();
-
-    #Regex to strip quotes.
-    my $regex_strip_quotes = qr/^("?)(.*)\1$/;
-
-    #We need to create this output directory.
-    my $tmp = File::Temp->new();
-
-    #This is where we put the temp file we will import.
-    my $outputFileName = $tmp->filename();
-
-    #Open file we are writing to server.
-    open my $outputToServer, '>', $outputFileName
-      or croak "Could not open $outputFileName for writing: $!";
-
-    #Each line is an item to search on.
-    while (<$fh>) {
-
-#Grab the current line (Or Whole file if file is using Mac line endings).
-#Replace all carriage returns, or carriage returns and line feed with just a line feed.
-        $_ =~ s/(\r\n|\r)/\n/g;
-        print {$outputToServer} $_;
-    }
-    close($outputToServer);
-
-    #--------------------------------------------
-    #Now get the temp file into a temp MYSQL table.
-
-    #Command to create temp table.
-    my $createTableStatement = <<"END_TEMP_TABLE_DEF";
-CREATE TEMPORARY TABLE $processID (
-    searchField CHAR(30) NOT NULL
-) ENGINE=MEMORY
-END_TEMP_TABLE_DEF
-
-    #This is the mysql command to suck in the file.
-    my $inputStatement = <<"END_inputStatement";
-LOAD DATA LOCAL INFILE ?
-INTO TABLE $processID
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n' STARTING BY '' (
-    searchField
-)
-END_inputStatement
-
-    #--------------------------------------------
-
-    #When using the file from the user we join on the temp table we create.
-    #---------------------------------------------
-    #Run the command to create the temp table.
-    $self->{_dbh}->do($createTableStatement);
-
-    #Run the command to suck in the data.
-    $self->{_dbh}->do( $inputStatement, undef, $outputFileName );
-
-    # Delete the temporary file we created:
-    #unlink($outputFileName);
-    #--------------------------------------------
-
-    #This is the type of search. 'type' must always be set
-    my $type = $self->{_cgi}->param('type');
-
-    $self->build_InsideTableQuery( $type, tmp_table => $processID );
-    return 1;
-}
-
-#######################################################################################
-#Return the inside table query.
-#######################################################################################
-sub getInsideTableQuery {
-    my $self = shift;
-    return $self->{_InsideTableQuery};
-}
-
-#######################################################################################
 #Get a list of the probes (Only the reporter field).
 #######################################################################################
 sub loadProbeReporterData {
@@ -445,10 +363,14 @@ END_ProbeReporterQuery
     #$probeQuery =~ s/\\//g;
 
     my $sth = $self->{_dbh}->prepare($probeQuery);
-    my $rc  = $sth->execute();
+    my $rc =
+      $sth->execute( @{ $self->{_SearchItems} }, @{ $self->{_SearchItems} } );
     $self->{_Data} = $sth->fetchall_arrayref;
-
     $sth->finish;
+
+    if ( $self->{_tempTableName} ne '' ) {
+        $self->{_tempTableName} = '';
+    }
 
     $self->{_ProbeHash} = {};
 
@@ -470,7 +392,7 @@ END_ProbeReporterQuery
     }
 
     my $dbh = $self->{_dbh};
-    $self->{_ReporterList} = join( ',', map { $_->[0] } @{ $self->{_Data} } );
+    $self->{_ReporterList} = [ map { $_->[0] } @{ $self->{_Data} } ];
 
     return;
 }
@@ -710,7 +632,7 @@ sub printFindProbeCSV {
 
             #Print header line for probe rows.
             print
-"Reporter ID,Accession Number, Gene Name,Probe Sequence,Gene Description,Gene Ontology,$outLine\n";
+"Probe ID,Accession Number,Gene,Probe Sequence,Official Gene Name,Gene Ontology,$outLine\n";
         }
 
       #Trim any commas out of the Gene Name, Gene Description, and Gene Ontology
@@ -763,7 +685,7 @@ sub setProbeList {
     my $self = shift;
 
     my $dbh = $self->{_dbh};
-    $self->{_ReporterList} = join( ',', keys %{ $self->{_ProbeHash} } );
+    $self->{_ReporterList} = [ keys %{ $self->{_ProbeHash} } ];
     return;
 }
 
@@ -772,7 +694,7 @@ sub setProbeList {
 #######################################################################################
 sub getProbeList {
     my $self = shift;
-    return $self->{_ReporterList};
+    return join( ',', @{ $self->{_ReporterList} } );
 }
 #######################################################################################
 #Loop through the list of experiments we are displaying and get the information on each.
@@ -839,18 +761,19 @@ END_query_titles_element
 sub getResultTableHTML {
     my $self = shift;
 
-    my $q    = $self->{_cgi};
-    my $type = $q->param('type');
+    my $q     = $self->{_cgi};
+    my $type  = $q->param('type');
     my $match = $q->param('match');
 
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
         $q->p(
             { -id => 'subcaption' },
-            sprintf('Searched %s (%s): %s',
-              lc( $self->{_typeDesc}->{$type} ),
-              lc( $self->{_matchDesc}->{$match} ),
-              join( ', ', @{ $self->{_SearchItems} } )
+            sprintf(
+                'Searched %s (%s): %s',
+                lc( $self->{_typeDesc}->{$type} ),
+                lc( $self->{_matchDesc}->{$match} ),
+                join( ', ', @{ $self->{_SearchItems} } )
             )
         ),
         $q->div(
@@ -930,7 +853,7 @@ END_H2P_TEXT
             $q->popup_menu(
                 -name    => 'type',
                 -id      => 'type',
-                -default => 'gene',
+                -default => 'probe',
                 -values  => [ keys %{ $self->{_typeDesc} } ],
                 -labels  => $self->{_typeDesc}
             )
@@ -959,7 +882,7 @@ END_EXAMPLE_TEXT
                 -name     => 'opts',
                 -id       => 'opts',
                 -values   => [ keys %opts_dropdown ],
-                -default  => '1',
+                -default  => '2',
                 -labels   => \%opts_dropdown
             )
         ),
@@ -1020,17 +943,15 @@ END_BROWSER_NOTICE
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_InsideTableQuery {
-    my ( $self, $type, %optarg ) = @_;
+    my ( $self, %optarg ) = @_;
 
-    my $tmpTable = $optarg{tmp_table};
-    my $predicate =
-      ( defined $tmpTable )
-      ? "INNER JOIN $tmpTable tmpTable ON tmpTable.searchField=%s"
-      : 'WHERE %s ' . $self->{_Predicate};
+    my $type = $self->{_cgi}->param('type');
+
+    my $predicate = 'WHERE %s ' . $self->{_Predicate};
 
     my $probe_spec_fields =
       ( $type eq 'probe' )
-      ? 'rid, reporter, note, probe_sequence, g1.pid'
+      ? 'rid, reporter, note, probe_sequence, pid'
       : 'NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid';
 
     my %translate_fields = (
@@ -1056,7 +977,7 @@ on g2.accnum=g1.accnum where rid is not NULL
 
 union
 
-select rid, reporter, note, probe_sequence, g3.pid, 
+select $probe_spec_fields,
 g4.gid, 
 g4.accnum,
 g4.seqname, 
@@ -1073,6 +994,26 @@ END_InsideTableQuery_probe
         $translate_fields{$type},
         $translate_fields{$type}
     );
+
+#    $self->{_InsideTableQuery} = sprintf(
+#        <<"END_InsideTableQuery_probe",
+#select $probe_spec_fields,
+#g2.gid,
+#g2.accnum,
+#g2.seqname,
+#g2.description,
+#g2.gene_note
+#
+#from gene g2 right join
+#(select probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid,
+#    accnum, seqname from probe left join annotates on annotates.rid=probe.rid left join
+#gene on gene.gid=annotates.gid $predicate GROUP BY accnum, seqname) as g1
+#on (g2.accnum=g1.accnum OR g2.seqname=g1.seqname) AND rid is not NULL
+#
+#END_InsideTableQuery_probe
+#        $translate_fields{$type}
+#    );
+
     return 1;
 }
 #######################################################################################
@@ -1096,8 +1037,8 @@ COALESCE(probe.reporter, g0.reporter) AS reporter,
 GROUP_CONCAT(DISTINCT IF(ISNULL(g0.accnum),'NONE',g0.accnum) ORDER BY g0.seqname ASC separator ' # ') AS 'Accession',
 IF(ISNULL(g0.seqname),'NONE',g0.seqname) AS 'Gene',
 probe.probe_sequence AS 'Probe Sequence',
-GROUP_CONCAT(DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; ') AS 'Gene Description',
-GROUP_CONCAT(DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR '; ') AS 'Gene Ontology - Comment'
+GROUP_CONCAT(DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; ') AS 'Official Gene Name',
+GROUP_CONCAT(DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR '; ') AS 'Gene Ontology'
 END_select_fields_rid
         }
         case 1 {
@@ -1106,7 +1047,7 @@ END_select_fields_rid
             $sql_select_fields = <<"END_select_fields_basic";
 probe.rid AS ID,
 platform.pid AS PID,
-COALESCE(probe.reporter, g0.reporter) AS Probe, 
+COALESCE(probe.reporter, g0.reporter) AS 'Probe ID',
 platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
@@ -1122,7 +1063,7 @@ END_select_fields_basic
             $sql_select_fields = <<"END_select_fields_extras";
 probe.rid AS ID,
 platform.pid AS PID,
-COALESCE(probe.reporter, g0.reporter) AS Probe, 
+COALESCE(probe.reporter, g0.reporter) AS 'Probe ID', 
 platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
@@ -1133,10 +1074,10 @@ platform.species AS 'Species',
 probe.probe_sequence AS 'Probe Sequence',
 GROUP_CONCAT(
     DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; '
-) AS 'Gene Description',
+) AS 'Official Gene Name',
 GROUP_CONCAT(
     DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR '; '
-) AS 'Gene Ontology - Comment'
+) AS 'Gene Ontology'
 END_select_fields_extras
         }
     }
@@ -1169,11 +1110,8 @@ sub findProbes_js {
 
     $self->init();
 
-    # 'type' must always be set
-    my $type = $self->{_cgi}->param('type');
-
     # call to build_InsideTableQuery() followed by one to build_ProbeQuery()
-    $self->build_InsideTableQuery($type);
+    $self->build_InsideTableQuery();
 
     my $opts =
       ( defined( $self->{_cgi}->param('opts') ) )
@@ -1252,7 +1190,8 @@ sub findProbes_js {
             headers => \@names
         );
 
-        my $match = $self->{_cgi}->param('match');
+        my $type         = $self->{_cgi}->param('type');
+        my $match        = $self->{_cgi}->param('match');
         my $print_graphs = $self->{_cgi}->param('graph');
         my $out          = sprintf(
             <<"END_JSON_DATA",
