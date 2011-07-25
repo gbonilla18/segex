@@ -51,6 +51,7 @@ use strict;
 use warnings;
 
 use Text::CSV;
+use SGX::Util qw/all_match/;
 use SGX::Exceptions;
 
 #===  FUNCTION  ================================================================
@@ -89,8 +90,7 @@ use SGX::Exceptions;
 #     SEE ALSO:  perldoc Text::CSV
 #                http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm
 #===============================================================================
-sub csv_rewrite
-{
+sub csv_rewrite {
     my ( $in, $out, $is_valid, %param ) = @_;
 
     # whether input file contains a header
@@ -128,11 +128,23 @@ sub csv_rewrite
     # require as many fields as have validating functions
     my $req_fields = @$is_valid;
 
-    for ( my $line_num = 1 ; $csv_in->parse( shift(@$in) ) ; $line_num++ ) {
+    # Generate a custom function that will check whether array consists of
+    # elements we consider to be empty. When "allow_whitespace" is set during
+    # parsing, white space will be stripped off automatically from value bounds
+    # by Text::CSV, in which case we define "empty" to mean empty string. When
+    # "allow_whitespace" is not set, we define "empty" to mean any combination
+    # of space characters *or* an empty string. In addition, we ignore undefined
+    # values (they are equivalent to empty fields).
+    my $is_empty =
+      ( $csv_in_opts{allow_whitespace} )
+      ? all_match(qr/^$/, ignore_undef => 1)
+      : all_match(qr/^\s*$/, ignore_undef => 1);
+
+    for ( my $line_num = 1 ; $csv_in->parse( shift @$in ) ; $line_num++ ) {
         my @fields = $csv_in->fields();
 
         # skip blank lines
-        next if all_empty(@fields);
+        next if $is_empty->(@fields);
 
         # skip header if requested to
         $record_num++;
@@ -167,18 +179,5 @@ sub csv_rewrite
     # return number of records written
     return $record_num;
 }
-
-#===  FUNCTION  ================================================================
-#         NAME:  all_empty
-#      PURPOSE:  Checks whether array (or scalar) consists entirely of
-#                empty-space characters.
-#   PARAMETERS:  Array of scalar to check
-#      RETURNS:  True/False
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  Returns true when run on a zero-length array (of no elements)
-#     SEE ALSO:  n/a
-#===============================================================================
-sub all_empty { m/^\s*$/ || return for @_; return 1 }
 
 1;

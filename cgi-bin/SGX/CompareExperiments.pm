@@ -290,7 +290,7 @@ sub getFormHTML {
                 $q->filefield( -name => 'upload_file', -id => 'upload_file' ),
                 $q->p(
                     { -style => 'color:#777;' },
-'File must be in plain-text format with one search term per line'
+'File must be in tab-delimited format, without a header, and with search terms in the first column'
                 )
             )
         )

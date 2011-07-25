@@ -6,8 +6,48 @@ use base qw/Exporter/;
 
 use List::Util qw/min max/;
 
-our @EXPORT_OK =
-  qw/trim max min bounds label_format replace/;
+our @EXPORT_OK = qw/trim max min bounds label_format replace all_match/;
+
+#===  FUNCTION  ================================================================
+#         NAME:  all_empty
+#      PURPOSE:  Generates a function that checks whether all element of an
+#                array conform to some predefined regular expression.
+#   PARAMETERS:  REQUIRED
+#                qr//               
+#                   regular expression in precompiled form
+#                OPTIONAL
+#                ignore_undef => T/F  
+#                   (default: false). If true, the resulting function will not
+#                   check undefined values for a match to the provided regex
+#                   (undefined values have no effect); if false, will the
+#                   resulting function will return false when it encounters such
+#                   values.
+#      RETURNS:  True/False
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  This is a higher-order function. Returns true when run on a
+#                zero-length array (of no elements).
+#
+#                # Example usage:
+#                my $foo = all_match(qr/^\s*$/);
+#                $foo->();                       # true
+#                $foo->('', ' ', "\n");          # true
+#                $foo->('', 'foo');              # false
+#                $foo->('', undef);              # false
+#
+#                my $bar = all_match(qr/^\s*$/, ignore_undef => 1);
+#                $bar->();                       # true
+#                $bar->('', undef);              # true
+#                $bar->('', 'foo');              # false
+#                
+#     SEE ALSO:  n/a
+#===============================================================================
+sub all_match {
+    my ( $regex, %args ) = @_;
+    return ($args{ignore_undef})
+      ? sub { !defined || m/$regex/ || return for @_; return 1 }
+      : sub { (defined && m/$regex/) || return for @_; return 1 };
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  replace
@@ -73,20 +113,24 @@ sub label_format {
 
     # choose "nice" numbers:
     if ( $fig < 3 ) {
+
         # do nothing here
         # 0 => 0
         # 1 => 1
         # 2 => 2
     }
     elsif ( $fig < 4 ) {
+
         # 3 => 2
         $fig = 2;
     }
     elsif ( $fig < 8 ) {
+
         # 4, 5, 6, 7 => 5
         $fig = 5;
     }
     else {
+
         # 8, 9 => 10
         $fig = 10;
     }
@@ -103,13 +147,12 @@ sub label_format {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub trim
-{
+sub trim {
     my $string = shift;
-    
+
     $string =~ s/^\s*//;
     $string =~ s/\s*$//;
-    
+
     return $string;
 }
 

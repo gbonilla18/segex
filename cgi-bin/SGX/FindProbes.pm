@@ -38,6 +38,7 @@ use JSON::XS;
 use File::Temp;
 use SGX::Exceptions;
 use List::Util qw/min/;
+use SGX::Util qw/all_match/;
 use SGX::Model::PlatformStudyExperiment;
 
 use SGX::Util qw/trim/;
@@ -210,10 +211,29 @@ sub init {
     my @textSplit;
 
     if ( defined $fh ) {
-        @textSplit = split(
-            /[\s,]+/,
+        my @lines = split(
+            /\r\n|\n|\r/,
             do { local $/ = <$fh> }
         );
+        my $csv_in =
+          Text::CSV->new( { sep_char => "\t", allow_whitespace => 1 } );
+
+        # Generate a custom function that matches all members of an array to see
+        # if they all are empty strings.
+        my $is_empty = all_match( qr/^$/, ignore_undef => 1 );
+        while ( $csv_in->parse( shift @lines ) ) {
+
+            # grab first field of each row
+            my @fields = $csv_in->fields();
+            my $term   = shift @fields;
+            next if $is_empty->($term);
+            push @textSplit, $term;
+        }
+
+        # check for errors
+        if ( my $error = $csv_in->error_diag() ) {
+            SGX::Exception::User->throw($error);
+        }
     }
     else {
 

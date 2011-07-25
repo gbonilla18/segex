@@ -97,10 +97,10 @@ sub new {
 sub loadTFSData {
     my $self = shift;
 
- # The $output_format parameter is either 'html' or 'text';
- # The $self->{_fs} parameter is the flagsum for which the data will be filtered
- # If the $self->{_fs} is zero or undefined, all data will be output
- #
+    # The $output_format parameter is either 'html' or 'text'; The $self->{_fs}
+    # parameter is the flagsum for which the data will be filtered If the
+    # $self->{_fs} is zero or undefined, all data will be output
+    #
     my $regex_split_on_commas = qr/ *, */;
     my @eidsArray =
       split( $regex_split_on_commas, $self->{_cgi}->param('eid') );
@@ -148,7 +148,7 @@ sub loadTFSData {
         $probeListQuery = " WHERE rid IN (" . $self->{_searchFilters} . ") ";
     }
 
-    my $i          = 1;
+    my $i = 1;
 
     my @query_proj;
     my @query_join;
@@ -186,7 +186,8 @@ sub loadTFSData {
             push @query_proj, "m$i.pvalue AS \'$i: P\'";
         }
 
-        push @query_join, "LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID";
+        push @query_join,
+          "LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID";
 
         #This is part of the query when we are including all probes.
         push @query_body, ($allProbes)
@@ -239,19 +240,20 @@ END_query_titles
     $self->{_headerRecords} = $self->{_headerTitles}->fetchall_hashref('eid');
     $self->{_headerTitles}->finish;
 
-    my $d1SubQuery = join(' UNION ALL ', @query_body);
+    my $d1SubQuery = join( ' UNION ALL ', @query_body );
 
     if ( $self->{_opts} > 1 ) {
         $self->{_numStart} += 3;
-        unshift @query_proj, (
+        unshift @query_proj,
+          (
             'probe.probe_sequence AS \'Probe Sequence\'',
-            'GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\'',
+'GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\'',
             'platform.species AS \'Species\''
-        );
+          );
     }
 
-    my $selectSQL = join(',', @query_proj);
-    my $predicateSQL = join("\n", @query_join);
+    my $selectSQL    = join( ',',  @query_proj );
+    my $predicateSQL = join( "\n", @query_join );
 
     # pad TFS decimal portion with the correct number of zeroes
     my $query = <<"END_query";
@@ -299,16 +301,17 @@ sub getPlatformData {
 
     my @eidList;
     foreach ( @{ $self->{_eids} } ) {
+
         #The EID is actually STID|EID. We need to split the string on '|'.
-        my ($currentSTID, $currentEID) = split /\|/;
+        my ( $currentSTID, $currentEID ) = split /\|/;
         push @eidList, $currentEID;
     }
 
-    my $placeholders = join(',', map { '?' } @eidList);
+    my $placeholders = join( ',', map { '?' } @eidList );
 
- # :TODO:07/25/2011 02:39:05:es: Since experiments from different platforms
- # cannot be comoared using Compare Experiments, this query is a little bit too
- # fat for what we need.
+  # :TODO:07/25/2011 02:39:05:es: Since experiments from different platforms
+  # cannot be comoared using Compare Experiments, this query is a little bit too
+  # fat for what we need.
     my $singleItemQuery = <<"END_LoadQuery";
 SELECT 
     platform.pname, 
