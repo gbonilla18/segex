@@ -573,7 +573,7 @@ END_query_fs
 
             my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
             my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
-            my ( $currentSTID3, $currentEID3 ) = split( /\|/, $eids[1] );
+            my ( $currentSTID3, $currentEID3 ) = split( /\|/, $eids[2] );
 
             # scale must be equal to the area of the largest circle
             my $scale = max( $A, $B, $C );

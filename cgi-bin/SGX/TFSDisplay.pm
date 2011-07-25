@@ -67,36 +67,7 @@ sub new {
         _numStart        => 0,
         _opts            => '',
         _allProbes       => '',
-        _searchFilters   => '',
-        _LoadQuery       => <<"END_LoadQuery"
-SELECT DISTINCT platform.pname, 
-    platform.def_f_cutoff, 
-    platform.def_p_cutoff, 
-    platform.species,
-    IF(isAnnotated, 'Y', 'N') AS 'Is Annotated',
-    COUNT(probe.rid) AS 'ProbeCount',
-    SUM(IF(IFNULL(probe.probe_sequence,'') <> '' ,1,0)) AS 'Sequences Loaded',
-    SUM(IF(IFNULL(annotates.gid,'') <> '',1,0)) AS 'Accession Number IDs',
-    SUM(IF(IFNULL(gene.seqname,'') <> '',1,0)) AS 'Gene Names',
-    SUM(IF(IFNULL(gene.description,'') <> '',1,0)) AS 'Gene Description'    
-FROM platform
-INNER JOIN probe         ON probe.pid = platform.pid
-LEFT JOIN annotates     ON annotates.rid = probe.rid
-LEFT JOIN gene             ON gene.gid = annotates.gid
-WHERE platform.pid IN (
-    SELECT DISTINCT study.pid 
-    FROM study 
-    NATURAL JOIN StudyExperiment 
-    NATURAL JOIN experiment 
-    WHERE experiment.eid IN ({0})
-)
-GROUP BY pname, 
-def_f_cutoff, 
-def_p_cutoff, 
-species,
-platform.pid,
-isAnnotated;
-END_LoadQuery
+        _searchFilters   => ''
     };
 
     # find out what the current project is set to
@@ -177,12 +148,13 @@ sub loadTFSData {
         $probeListQuery = " WHERE rid IN (" . $self->{_searchFilters} . ") ";
     }
 
-    my $query_body = '';
-    my $query_proj = '';
-    my $query_join = '';
     my $i          = 1;
 
+    my @query_proj;
+    my @query_join;
+    my @query_body;
     my @query_titles;
+    my $allProbes = $self->{_allProbes};
     foreach my $eid ( @{ $self->{_eids} } ) {
 
         #The EID is actually STID|EID. We need to split the string on '|' and
@@ -197,33 +169,48 @@ sub loadTFSData {
         my $abs_flag = 1 << $i - 1;
         my $dir_flag =
           ( $self->{_reverses}[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
-        $query_proj .=
+        push @query_proj,
           ( $self->{_reverses}[ $i - 1 ] )
-          ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue, "
-          : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue,";
+          ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue"
+          : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue";
 
         if ( $self->{_opts} > 0 ) {
-            $query_proj .=
+            push @query_proj,
               ( $self->{_reverses}[ $i - 1 ] )
-              ? "-m$i.foldchange AS \'$i: Fold Change\', "
-              : "m$i.foldchange AS \'$i: Fold Change\', ";
-            $query_proj .=
+              ? "-m$i.foldchange AS \'$i: Fold Change\'"
+              : "m$i.foldchange AS \'$i: Fold Change\'";
+            push @query_proj,
               ( $self->{_reverses}[ $i - 1 ] )
-              ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\', "
-              : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\', ";
-            $query_proj .= "m$i.pvalue AS \'$i: P\', ";
+              ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
+              : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'";
+            push @query_proj, "m$i.pvalue AS \'$i: P\'";
         }
 
-        $query_body .=
-" SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
-        $query_join .=
-" LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID ";
+        push @query_join, "LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID";
 
         #This is part of the query when we are including all probes.
-        if ( $self->{_allProbes} eq "1" ) {
-            $query_body .=
-"SELECT rid, 0 AS abs_flag,0 AS dir_flag FROM microarray WHERE eid=$currentEID AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange) > $fc) UNION ALL ";
-        }
+        push @query_body, ($allProbes)
+          ? <<"END_yes_allProbes"
+SELECT
+    rid, 
+    IF(pvalue < $pval AND ABS(foldchange) > $fc, $abs_flag, 0) AS abs_flag,
+    IF(pvalue < $pval AND ABS(foldchange) > $fc, 
+       IF(foldchange > 0, $dir_flag), 
+       0
+    ) AS dir_flag
+FROM microarray i
+WHERE eid=$currentEID
+END_yes_allProbes
+          : <<"END_no_allProbes";
+SELECT
+    rid, 
+    $abs_flag AS abs_flag,
+    IF(foldchange > 0, $dir_flag) AS dir_flag
+FROM microarray 
+WHERE eid = $currentEID 
+  AND pvalue < $pval 
+  AND ABS(foldchange) > $fc
+END_no_allProbes
 
         # account for sample order when building title query
         my $title =
@@ -252,18 +239,19 @@ END_query_titles
     $self->{_headerRecords} = $self->{_headerTitles}->fetchall_hashref('eid');
     $self->{_headerTitles}->finish;
 
-    # strip trailing 'UNION ALL' plus any trailing white space
-    $query_body =~ s/UNION ALL\s*$//i;
-
-    # strip trailing comma plus any trailing white space from ratio projection
-    $query_proj =~ s/,\s*$//;
+    my $d1SubQuery = join(' UNION ALL ', @query_body);
 
     if ( $self->{_opts} > 1 ) {
         $self->{_numStart} += 3;
-        $query_proj =
-'probe.probe_sequence AS \'Probe Sequence\', GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\', platform.species AS \'Species\', '
-          . $query_proj;
+        unshift @query_proj, (
+            'probe.probe_sequence AS \'Probe Sequence\'',
+            'GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\'',
+            'platform.species AS \'Species\''
+        );
     }
+
+    my $selectSQL = join(',', @query_proj);
+    my $predicateSQL = join("\n", @query_join);
 
     # pad TFS decimal portion with the correct number of zeroes
     my $query = <<"END_query";
@@ -272,16 +260,16 @@ SELECT     abs_fs,
     probe.reporter AS Probe, 
     GROUP_CONCAT(DISTINCT accnum SEPARATOR '+') AS 'Accession Number', 
     GROUP_CONCAT(DISTINCT seqname SEPARATOR '+') AS Gene, 
-    $query_proj
+    $selectSQL
 FROM (
     SELECT rid, 
            BIT_OR(abs_flag) AS abs_fs, 
            BIT_OR(dir_flag) AS dir_fs 
-    FROM ($query_body) AS d1 
+    FROM ($d1SubQuery) AS d1 
     $probeListQuery
     GROUP BY rid $having
 ) AS d2
-$query_join
+$predicateSQL
 LEFT JOIN probe     ON d2.rid        = probe.rid
 LEFT JOIN annotates ON d2.rid        = annotates.rid
 LEFT JOIN gene      ON annotates.gid = gene.gid
@@ -309,26 +297,41 @@ END_query
 sub getPlatformData {
     my $self = shift;
 
-    my $eidList = '';
-
-    foreach my $eid ( @{ $self->{_eids} } ) {
-
-  #The EID is actually STID|EID. We need to split the string on '|' and extract.
-        my @IDSplit = split( /\|/, $eid );
-        my $currentEID = $IDSplit[1];
-
-        $eidList .= $currentEID . ",";
+    my @eidList;
+    foreach ( @{ $self->{_eids} } ) {
+        #The EID is actually STID|EID. We need to split the string on '|'.
+        my ($currentSTID, $currentEID) = split /\|/;
+        push @eidList, $currentEID;
     }
 
-    $eidList =~ s/,\s*$//;
+    my $placeholders = join(',', map { '?' } @eidList);
 
-    #
-    my $singleItemQuery = $self->{_LoadQuery};
-    $singleItemQuery =~ s/\{0\}/\Q$eidList\E/;
-    $singleItemQuery =~ s/\\\,/\,/g;
+ # :TODO:07/25/2011 02:39:05:es: Since experiments from different platforms
+ # cannot be comoared using Compare Experiments, this query is a little bit too
+ # fat for what we need.
+    my $singleItemQuery = <<"END_LoadQuery";
+SELECT 
+    platform.pname, 
+    platform.def_f_cutoff, 
+    platform.def_p_cutoff, 
+    platform.species,
+    IF(isAnnotated, 'Y', 'N')                           AS 'Is Annotated',
+    COUNT(probe.rid)                                    AS 'ProbeCount',
+    SUM(IF(IFNULL(probe.probe_sequence,'') <> '',1,0))  AS 'Sequences Loaded',
+    SUM(IF(IFNULL(annotates.gid,'') <> '',1,0))         AS 'Accession Number IDs',
+    SUM(IF(IFNULL(gene.seqname,'') <> '',1,0))          AS 'Gene Names',
+    SUM(IF(IFNULL(gene.description,'') <> '',1,0))      AS 'Gene Description'    
+FROM platform
+INNER JOIN probe      ON probe.pid = platform.pid
+INNER JOIN experiment ON platform.pid = experiment.pid
+LEFT JOIN annotates   ON annotates.rid = probe.rid
+LEFT JOIN gene        ON gene.gid = annotates.gid
+WHERE experiment.eid  IN ($placeholders)
+GROUP BY platform.pid
+END_LoadQuery
 
     $self->{_RecordsPlatform} = $self->{_dbh}->prepare($singleItemQuery);
-    $self->{_PlatformCount}   = $self->{_RecordsPlatform}->execute;
+    $self->{_PlatformCount}   = $self->{_RecordsPlatform}->execute(@eidList);
     $self->{_FieldNames}      = $self->{_RecordsPlatform}->{NAME};
     $self->{_DataPlatform}    = $self->{_RecordsPlatform}->fetchall_arrayref;
     $self->{_RecordsPlatform}->finish;
