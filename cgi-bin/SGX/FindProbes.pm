@@ -37,6 +37,7 @@ use File::Basename;
 use JSON::XS;
 use File::Temp;
 use SGX::Exceptions;
+use List::Util qw/min/;
 use SGX::Model::PlatformStudyExperiment;
 
 use SGX::Util qw/trim/;
@@ -83,10 +84,10 @@ sub new {
         _typeDesc  => \%type_dropdown,
         _matchDesc => \%match_dropdown,
 
-        _tempTableName => '',    # temporary table name, '' equivalent to undef
-        _ProbeHash     => '',
+        _ProbeHash               => undef,
+        _Names                   => undef,
+        _ProbeCount              => undef,
         _ProbeExperimentHash     => '',
-        _Data                    => '',
         _FullExperimentData      => '',
         _InsideTableQuery        => '',
         _SearchItems             => '',
@@ -95,53 +96,7 @@ sub new {
         _ExperimentStudyListHash => '',
         _ExperimentNameListHash  => '',
         _ExperimentDataQuery     => undef,
-        _ReporterList            => undef
     };
-
-    # find out what the current project is set to
-    if ( defined($s) ) {
-        $self->{_UserFullName} = $s->{session_cookie}->{full_name};
-    }
-
-  # :TRICKY:06/28/2011 13:47:09:es: We implement the following behavior: if, in
-  # the URI option string, "proj" is set to some value (e.g. "proj=32") or to an
-  # empty string (e.g. "proj="), we set the data field _WorkingProject to that
-  # value; if the "proj" option is missing from the URI, we use the value of
-  # "curr_proj" from session data. This allows us to have all portions of the
-  # data accessible via a REST-style interface regardless of current user
-  # preferences.
-    my $cgi_proj = $q->param('proj');
-    if ( defined($cgi_proj) ) {
-        $self->{_WorkingProject} = $cgi_proj;
-        if ( $cgi_proj ne '' ) {
-
-            # now need to obtain project name from the database
-            my $sth =
-              $dbh->prepare(qq{SELECT prname FROM project WHERE prid=?});
-            my $rc = $sth->execute($cgi_proj);
-            if ( $rc != 0 ) {
-
-                # name exists
-                my $result = $sth->fetchrow_arrayref;
-                $self->{_WorkingProject} = $cgi_proj;
-                ( $self->{_WorkingProjectName} ) = @$result;
-            }
-            else {
-
-                # name doesn't exist
-                $self->{_WorkingProject}     = '';
-                $self->{_WorkingProjectName} = undef;
-            }
-            $sth->finish;
-        }
-        else {
-            $self->{_WorkingProjectName} = undef;
-        }
-    }
-    elsif ( defined($s) ) {
-        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
-        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
-    }
 
 #Reporter,Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}
 
@@ -186,11 +141,13 @@ sub dispatch_js {
                 'selector/selector-min.js'
               );
             $self->init();
+            $self->getSessionOverrideCGI();
             push @$js_src_code, { -code => $self->findProbes_js($s) };
             push @$js_src_code, { -src  => 'FindProbes.js' };
         }
         else {
             return if not $s->is_authorized('user');
+            $self->getSessionOverrideCGI();
             push @$js_src_code, { -src => 'FormFindProbes.js' };
         }
     }
@@ -265,12 +222,82 @@ sub init {
         @textSplit = split( /[,\s]+/, trim($text) );
     }
 
-    return $self->setSearchPredicate( $match, \@textSplit );
+    return $self->_setSearchPredicate( $match, \@textSplit );
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  setSearchPredicate
+#       METHOD:  getSessionOverrideCGI
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Gets full user name from session and full project name from CGI
+#                parameters or session in that order. Also sets project id.
+#       THROWS:  SGX::Exception::Internal, Class::Exception::DBI
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getSessionOverrideCGI {
+    my ($self) = @_;
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+
+    # For user name, just look it up from the session
+    $self->{_UserFullName} =
+      ( defined $s )
+      ? $s->{session_cookie}->{full_name}
+      : '';
+
+    # :TRICKY:06/28/2011 13:47:09:es: We implement the following behavior: if,
+    # in the URI option string, "proj" is set to some value (e.g. "proj=32") or
+    # to an empty string (e.g. "proj="), we set the data field _WorkingProject
+    # to that value; if the "proj" option is missing from the URI, we use the
+    # value of "curr_proj" from session data. This allows us to have all
+    # portions of the data accessible via a REST-style interface regardless of
+    # current user preferences.
+    if ( defined( my $cgi_proj = $q->param('proj') ) ) {
+        $self->{_WorkingProject} = $cgi_proj;
+        if ( $cgi_proj ne '' ) {
+
+            # now need to obtain project name from the database
+            my $sth =
+              $dbh->prepare(qq{SELECT prname FROM project WHERE prid=?});
+            my $rc = $sth->execute($cgi_proj);
+            if ( $rc == 1 ) {
+
+                # project exists in the database
+                $self->{_WorkingProject} = $cgi_proj;
+                ( $self->{_WorkingProjectName} ) = $sth->fetchrow_array;
+            }
+            elsif ( $rc < 1 ) {
+
+                # project doesn't exist in the database
+                $self->{_WorkingProject}     = '';
+                $self->{_WorkingProjectName} = '';
+            }
+            else {
+                SGX::Exception::Internal->throw( error =>
+"More than one result returned where unique was expected\n"
+                );
+            }
+            $sth->finish;
+        }
+        else {
+            $self->{_WorkingProjectName} = '';
+        }
+    }
+    elsif ( defined $s ) {
+        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
+        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
+    }
+    else {
+        $self->{_WorkingProject}     = '';
+        $self->{_WorkingProjectName} = '';
+    }
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  _setSearchPredicate
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -278,7 +305,7 @@ sub init {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub setSearchPredicate {
+sub _setSearchPredicate {
     my ( $self, $match, $items ) = @_;
 
     my $qtext;
@@ -305,7 +332,11 @@ sub setSearchPredicate {
     return 1;
 }
 #######################################################################################
+
 sub build_ExperimentDataQuery {
+
+    # :TODO:07/24/2011 10:56:30:es: Move this function to a separate
+    # class in SGX::Model namespace.
     my $self = shift;
     my $whereSQL;
     my $curr_proj = $self->{_WorkingProject};
@@ -346,95 +377,34 @@ END_ExperimentDataQuery
 }
 
 #######################################################################################
-#Get a list of the probes (Only the reporter field).
-#######################################################################################
-sub loadProbeReporterData {
-    my ($self) = @_;
-
-    my $InsideTableQuery = $self->{_InsideTableQuery};
-    my $probeQuery       = <<"END_ProbeReporterQuery";
-SELECT DISTINCT probe.rid
-FROM ( $InsideTableQuery ) as g0
-LEFT JOIN annotates USING(gid)
-INNER JOIN probe ON probe.rid=COALESCE(g0.rid, annotates.rid)
-END_ProbeReporterQuery
-
-    #$probeQuery =~ s/\{0\}/\Q$self->{_InsideTableQuery}\E/;
-    #$probeQuery =~ s/\\//g;
-
-    my $sth = $self->{_dbh}->prepare($probeQuery);
-    my $rc =
-      $sth->execute( @{ $self->{_SearchItems} }, @{ $self->{_SearchItems} } );
-    $self->{_Data} = $sth->fetchall_arrayref;
-    $sth->finish;
-
-    if ( $self->{_tempTableName} ne '' ) {
-        $self->{_tempTableName} = '';
-    }
-
-    $self->{_ProbeHash} = {};
-
-    my $DataCount = @{ $self->{_Data} };
-
-    if ( $DataCount < 1 ) {
-        $self->{_UserSession}->commit() if defined( $self->{_UserSession} );
-        my $cookie_array =
-          ( defined $self->{_UserSession} )
-          ? $self->{_UserSession}->cookie_array()
-          : [];
-        print $self->{_cgi}->header(
-            -type   => 'text/html',
-            -cookie => $cookie_array
-        );
-        print
-'No records found! Please click back on your browser and search again!';
-        exit;
-    }
-
-    my $dbh = $self->{_dbh};
-    $self->{_ReporterList} = [ map { $_->[0] } @{ $self->{_Data} } ];
-
-    return;
-}
-
-#######################################################################################
-#Get a list of the probes here so that we can get all experiment data for each probe in another query.
+# Get a list of the probes here so that we can get all experiment data for each
+# probe in another query.
 #######################################################################################
 sub loadProbeData {
     my ($self) = @_;
 
-    my $sth = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
-    my $rc =
-      $sth->execute( @{ $self->{_SearchItems} }, @{ $self->{_SearchItems} } );
+    my $dbh         = $self->{_dbh};
+    my $searchItems = $self->{_SearchItems};
+    my $sth         = $dbh->prepare( $self->{_ProbeQuery} );
+    my $rc          = $sth->execute( @$searchItems, @$searchItems );
+    $self->{_ProbeCount} = $rc;
 
-    # Find the number of columns and subtract one to get the index of the last
-    # column This index value is needed for slicing of rows...
-    my $last_index = @{ $sth->{NAME} } - 1;
-    $self->{_Data} = $sth->fetchall_arrayref;
+    # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
+    # after any data were fetched. The line below splices off all
+    # elements of the NAME array but the first two.
+
+    $self->{_Names} =
+      [ splice( @{ $sth->{NAME} }, min( 2, scalar( @{ $sth->{NAME} } ) ) ) ];
+    my $result = $sth->fetchall_arrayref;
+
     $sth->finish;
 
-    if ( scalar( @{ $self->{_Data} } ) < 1 ) {
-        $self->{_UserSession}->commit() if defined( $self->{_UserSession} );
-        my $cookie_array =
-          ( defined $self->{_UserSession} )
-          ? $self->{_UserSession}->cookie_array()
-          : [];
-        print $self->{_cgi}->header(
-            -type   => 'text/html',
-            -cookie => $cookie_array
-        );
-        print
-'No records found! Please click back on your browser and search again!';
-        exit;
-    }
+    # From each row in the result, create a key-value pair such that the first
+    # column becomes the key and the rest of the columns are sliced off into an
+    # anonymous array.
+    $self->{_ProbeHash} = +{ map { ( shift @$_ ) => $_ } @$result };
 
-# From each row in _Data, create a key-value pair such that the first column
-# becomes the key and the rest of the columns are sliced off into an anonymous array
-    my %trans_hash =
-      map { $_->[0] => [ @$_[ 1 .. $last_index ] ] } @{ $self->{_Data} };
-    $self->{_ProbeHash} = \%trans_hash;
-
-    return;
+    return 1;
 }
 
 #######################################################################################
@@ -540,7 +510,7 @@ sub printFindProbeCSV {
       SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
     $platforms->init( platforms => 1 );
 
-    #Sort the hash so the PID's are together.
+    # Sort the hash so the PID's are together.
     foreach my $key (
         sort {
             $self->{_ProbeHash}->{$a}->[0] cmp $self->{_ProbeHash}->{$b}->[0]
@@ -571,51 +541,55 @@ sub printFindProbeCSV {
 
         if ( $printHeaders == 1 ) {
 
-            #Print the name of the current platform.
+            # Print the name of the current platform.
             my $currentPlattformName =
               $platforms->getPlatformNameFromPID($currentPID);
             print "\"$currentPlattformName\"\n";
             print
 "Experiment Number,Study Description, Experiment Heading,Experiment Description\n";
 
-            #String representing the list of experiment names.
+            # String representing the list of experiment names.
             my $experimentList = ",,,,,,,";
 
-  #Temporarily hold the string we are to output so we can trim the trailing ",".
+            # Temporarily hold the string we are to output so we can trim the
+            # trailing ",".
             my $outLine = "";
 
- #Loop through the list of experiments and print out the ones for this platform.
+            # Loop through the list of experiments and print out the ones for
+            # this platform.
             foreach my $value (
                 sort { $a <=> $b }
                 keys %{ $self->{_ExperimentListHash} }
               )
             {
                 if ( $self->{_ExperimentListHash}->{$value} == $currentPID ) {
-                    my $currentLine = "";
 
-                    $currentLine .= $value . ",";
-                    $currentLine .=
-                      $self->{_FullExperimentData}->{$value}->{description}
-                      . ",";
-                    $currentLine .=
-                      $self->{_FullExperimentData}->{$value}
-                      ->{experimentHeading} . ",";
-                    $currentLine .=
-                      $self->{_FullExperimentData}->{$value}
-                      ->{ExperimentDescription};
+                    #Experiment Number, Study Description, Experiment
+                    #Heading, Experiment Description
+                    my $fullExperimentDataValue =
+                      $self->{_FullExperimentData}->{$value};
+                    print join(
+                        ',',
+                        (
+                            $value,
+                            $fullExperimentDataValue->{description},
+                            $fullExperimentDataValue->{experimentHeading},
+                            $fullExperimentDataValue->{ExperimentDescription}
+                        )
+                      ),
+                      "\n";
 
                     #Current experiment name.
                     my $currentExperimentName =
                       $self->{_ExperimentNameListHash}->{$value};
                     $currentExperimentName =~ s/\,//g;
 
- #Experiment Number,Study Description, Experiment Heading,Experiment Description
-                    print "$currentLine\n";
-
-  #The list of experiments goes with the Ratio line for each block of 5 columns.
+                    # The list of experiments goes with the Ratio line for each
+                    # block of 5 columns.
                     $experimentList .= "$value : $currentExperimentName,,,,,,";
 
-#Form the line that goes above the data. Each experiment gets a set of 5 columns.
+                    # Form the line that goes above the data. Each experiment
+                    # gets a set of 5 columns.
                     $outLine .=
 ",$value:Ratio,$value:FC,$value:P-Val,$value:Intensity1,$value:Intensity2,";
                 }
@@ -635,7 +609,8 @@ sub printFindProbeCSV {
 "Probe ID,Accession Number,Gene,Probe Sequence,Official Gene Name,Gene Ontology,$outLine\n";
         }
 
-      #Trim any commas out of the Gene Name, Gene Description, and Gene Ontology
+        # Trim any commas out of the Gene Name, Gene Description, and Gene
+        # Ontology
         my $geneName = ( defined( $row->[4] ) ) ? $row->[4] : '';
         $geneName =~ s/\,//g;
         my $probeSequence = ( defined( $row->[6] ) ) ? $row->[6] : '';
@@ -645,19 +620,20 @@ sub printFindProbeCSV {
         my $geneOntology = ( defined( $row->[8] ) ) ? $row->[8] : '';
         $geneOntology =~ s/\,//g;
 
-# Print the probe info:
-# Reporter ID,Accession,Gene Name, Probe Sequence, Gene description, Gene Ontology
+        # Print the probe info: Reporter ID, Accession, Gene Name, Probe
+        # Sequence, Gene description, Gene Ontology
         my $outRow =
 "$row->[1],$row->[3],$geneName,$probeSequence,$geneDescription,$geneOntology,,";
 
-#For this reporter we print out a column for all the experiments that we have data for.
+        # For this reporter we print out a column for all the experiments that
+        # we have data for.
         foreach my $EIDvalue (
             sort { $a <=> $b }
             keys %{ $self->{_ExperimentListHash} }
           )
         {
 
-            #Only try to see the EID's for platform $currentPID.
+            # Only try to see the EID's for platform $currentPID.
             if ( $self->{_ExperimentListHash}->{$EIDvalue} == $currentPID ) {
 
                 # Add all the experiment data to the output string.
@@ -681,20 +657,9 @@ sub printFindProbeCSV {
 #######################################################################################
 #Loop through the list of Reporters we are filtering on and create a list.
 #######################################################################################
-sub setProbeList {
-    my $self = shift;
-
-    my $dbh = $self->{_dbh};
-    $self->{_ReporterList} = [ keys %{ $self->{_ProbeHash} } ];
-    return;
-}
-
-#######################################################################################
-#Loop through the list of Reporters we are filtering on and create a list.
-#######################################################################################
 sub getProbeList {
     my $self = shift;
-    return join( ',', @{ $self->{_ReporterList} } );
+    return join( ',', keys %{ $self->{_ProbeHash} } );
 }
 #######################################################################################
 #Loop through the list of experiments we are displaying and get the information on each.
@@ -804,7 +769,7 @@ sub getFormHTML {
     my ($self) = @_;
 
     my $q         = $self->{_cgi};
-    my $curr_proj = $self->{_UserSession}->{session_cookie}->{curr_proj};
+    my $curr_proj = $self->{_WorkingProject};
 
     # note: get $curr_proj from session
 
@@ -995,59 +960,52 @@ END_InsideTableQuery_probe
         $translate_fields{$type}
     );
 
-#    $self->{_InsideTableQuery} = sprintf(
-#        <<"END_InsideTableQuery_probe",
-#select $probe_spec_fields,
-#g2.gid,
-#g2.accnum,
-#g2.seqname,
-#g2.description,
-#g2.gene_note
-#
-#from gene g2 right join
-#(select probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid,
-#    accnum, seqname from probe left join annotates on annotates.rid=probe.rid left join
-#gene on gene.gid=annotates.gid $predicate GROUP BY accnum, seqname) as g1
-#on (g2.accnum=g1.accnum OR g2.seqname=g1.seqname) AND rid is not NULL
-#
-#END_InsideTableQuery_probe
-#        $translate_fields{$type}
-#    );
+    return 1;
+}
+#######################################################################################
+sub build_SimpleProbeQuery {
+    my ($self) = @_;
+
+    my $InsideTableQuery = $self->{_InsideTableQuery};
+
+    # only return results for platforms that belong to the current working
+    # project (as determined through looking up studies linked to the current
+    # project).
+    my $curr_proj             = $self->{_WorkingProject};
+    my $sql_subset_by_project = '';
+    if ( defined($curr_proj) && $curr_proj ne '' ) {
+        $curr_proj             = $self->{_dbh}->quote($curr_proj);
+        $sql_subset_by_project = <<"END_sql_subset_by_project"
+INNER JOIN study ON study.pid=platform.pid
+INNER JOIN ProjectStudy USING(stid) 
+WHERE prid=$curr_proj 
+END_sql_subset_by_project
+    }
+
+    $self->{_ProbeQuery} = <<"END_ProbeReporterQuery";
+SELECT DISTINCT probe.rid
+FROM ( $InsideTableQuery ) as g0
+LEFT JOIN annotates USING(gid)
+INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
+$sql_subset_by_project
+END_ProbeReporterQuery
 
     return 1;
 }
 #######################################################################################
 sub build_ProbeQuery {
     my ( $self, %p ) = @_;
-    my $sql_select_fields     = '';
-    my $sql_subset_by_project = '';
-    my $curr_proj             = $self->{_WorkingProject};
+    my $sql_select_fields = '';
 
     assert( defined( $p{extra_fields} ) );
 
-    use Switch;
-    switch ( $p{extra_fields} ) {
-        case 0 {
+    if ( $p{extra_fields} == 1 ) {
 
-            # only probe ids (rid)
-            $sql_select_fields = <<"END_select_fields_rid";
+        # basic output
+        $sql_select_fields = <<"END_select_fields_basic";
 probe.rid,
 platform.pid,
-COALESCE(probe.reporter, g0.reporter) AS reporter,
-GROUP_CONCAT(DISTINCT IF(ISNULL(g0.accnum),'NONE',g0.accnum) ORDER BY g0.seqname ASC separator ' # ') AS 'Accession',
-IF(ISNULL(g0.seqname),'NONE',g0.seqname) AS 'Gene',
-probe.probe_sequence AS 'Probe Sequence',
-GROUP_CONCAT(DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; ') AS 'Official Gene Name',
-GROUP_CONCAT(DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR '; ') AS 'Gene Ontology'
-END_select_fields_rid
-        }
-        case 1 {
-
-            # basic
-            $sql_select_fields = <<"END_select_fields_basic";
-probe.rid AS ID,
-platform.pid AS PID,
-COALESCE(probe.reporter, g0.reporter) AS 'Probe ID',
+probe.reporter AS 'Probe ID',
 platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
@@ -1056,14 +1014,14 @@ GROUP_CONCAT(
 IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
 platform.species AS 'Species' 
 END_select_fields_basic
-        }
-        else {
+    }
+    else {
 
-            # with extras
-            $sql_select_fields = <<"END_select_fields_extras";
-probe.rid AS ID,
-platform.pid AS PID,
-COALESCE(probe.reporter, g0.reporter) AS 'Probe ID', 
+        # extra fields in output
+        $sql_select_fields = <<"END_select_fields_extras";
+probe.rid,
+platform.pid,
+probe.reporter AS 'Probe ID', 
 platform.pname AS Platform,
 GROUP_CONCAT(
     DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
@@ -1079,9 +1037,13 @@ GROUP_CONCAT(
     DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR '; '
 ) AS 'Gene Ontology'
 END_select_fields_extras
-        }
     }
 
+    # only return results for platforms that belong to the current working
+    # project (as determined through looking up studies linked to the current
+    # project).
+    my $curr_proj             = $self->{_WorkingProject};
+    my $sql_subset_by_project = '';
     if ( defined($curr_proj) && $curr_proj ne '' ) {
         $curr_proj             = $self->{_dbh}->quote($curr_proj);
         $sql_subset_by_project = <<"END_sql_subset_by_project"
@@ -1096,19 +1058,17 @@ SELECT
 $sql_select_fields
 FROM ( $InsideTableQuery ) AS g0
 LEFT JOIN annotates USING(gid)
-INNER JOIN probe ON annotates.rid=probe.rid
-INNER JOIN platform ON platform.pid=COALESCE(probe.pid, g0.pid)
+INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
+INNER JOIN platform ON probe.pid
 $sql_subset_by_project
-GROUP BY COALESCE(probe.rid, g0.rid)
+GROUP BY probe.rid
 END_ProbeQuery
 
-    return;
+    return 1;
 }
 #######################################################################################
 sub findProbes_js {
     my $self = shift;
-
-    $self->init();
 
     # call to build_InsideTableQuery() followed by one to build_ProbeQuery()
     $self->build_InsideTableQuery();
@@ -1130,10 +1090,6 @@ sub findProbes_js {
     #  CSV output
     #---------------------------------------------------------------------------
         $self->{_UserSession}->commit();
-
-#print $self->{_cgi}->header(-type=>'text/html', -cookie=>\@SGX::Cookie::cookies);
-
-        #$self->setInsideTableQuery($g0_sql);
         $self->loadProbeData();
         $self->loadExperimentData();
         $self->getFullExperimentData();
@@ -1145,10 +1101,8 @@ sub findProbes_js {
     #---------------------------------------------------------------------------
     #  HTML output
     #---------------------------------------------------------------------------
-        my $sth      = $self->{_dbh}->prepare( $self->{_ProbeQuery} );
-        my $rowcount = $sth->execute( @{ $self->{_SearchItems} },
-            @{ $self->{_SearchItems} } );
-
+        $self->loadProbeData();
+        my $rowcount  = $self->{_ProbeCount};
         my $proj_name = $self->{_WorkingProjectName};
         my $caption   = sprintf(
             '%sFound %d probe%s',
@@ -1159,23 +1113,15 @@ sub findProbes_js {
             ( $rowcount == 1 ) ? '' : 's',
         );
 
-        # cache the field name array; skip first two columns (probe.rid,
-        # platform.pid)
-        my $all_names  = $sth->{NAME};
-        my $last_index = scalar(@$all_names) - 1;
-        my @names      = @$all_names[ 2 .. $last_index ];
-
-        # data are sent as a JSON object plus Javascript code
         my @json_records;
-        my $data = $sth->fetchall_arrayref;
-        $sth->finish;
-        foreach my $array_ref (@$data) {
+        foreach my $row ( values %{ $self->{_ProbeHash} } ) {
 
             # the below "trick" converts an array into a hash such that array
             # elements become hash values and array indexes become hash keys
-            my $i = 0;
-            my %row = map { $i++ => $_ } @$array_ref[ 2 .. $last_index ];
-            push @json_records, \%row;
+            #
+            # Skipping the first value in the array (it's platform ID)
+            push @json_records,
+              +{ map { ( $_ - 1 ) => $row->[$_] } 1 .. ( @$row - 1 ) };
         }
 
         my %type_to_column = (
@@ -1187,7 +1133,7 @@ sub findProbes_js {
         my %json_probelist = (
             caption => $caption,
             records => \@json_records,
-            headers => \@names
+            headers => $self->{_Names}
         );
 
         my $type         = $self->{_cgi}->param('type');

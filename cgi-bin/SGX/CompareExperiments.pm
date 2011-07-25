@@ -252,21 +252,14 @@ sub getFormHTML {
       ),
       $q->dl(
         $q->dt(
-            $q->label(
-                { -for => 'chkAllProbes' },
-                'Include all probes in output:'
-            )
+                'Include not significant probes:'
         ),
         $q->dd(
             $q->checkbox(
                 -name  => 'chkAllProbes',
                 -id    => 'chkAllProbes',
                 -value => '1',
-                -label => ''
-            ),
-            $q->p(
-                { -style => 'color:#777;' },
-                'Probes without a TFS will be labeled \'TFS 0\''
+                -label => 'Label probes not significant in all experiments \'TFS 0\''
             )
         ),
         $q->dt('Filter on:'),
@@ -355,37 +348,25 @@ sub getResultsJS {
     my $dbh  = $self->{_dbh};
 
     #This flag tells us whether or not to ignore the thresholds.
-    my $allProbes = '';
-    $allProbes = ( $q->param('chkAllProbes') )
-      if defined( $q->param('chkAllProbes') );
+    my $allProbes = $q->param('chkAllProbes');
 
-    my $searchFilter = '';
-    $searchFilter = ( $q->param('chkUseGeneList') )
-      if defined( $q->param('chkUseGeneList') );
-
-    my $filterType = '';
-    $filterType = ( $q->param('geneFilter') )
-      if defined( $q->param('geneFilter') );
-
-    my $probeListQuery = '';
-    my $probeList      = '';
-
-    my $curr_proj = $s->{session_cookie}->{curr_proj};
+    my $probeListPredicate = '';
+    my $probeList          = '';
 
     if ( $q->param('upload_file') ) {
 
        # if $q->param('upload_file') is not set, all other fields in Upload File
        # subsection don't matter
         assert( !$q->param('terms') );
-        my $findProbes = SGX::FindProbes->new( dbh => $dbh, cgi => $q );
-        $findProbes->{_WorkingProject} = $curr_proj;
+        my $findProbes = SGX::FindProbes->new(
+            dbh          => $dbh,
+            cgi          => $q,
+            user_session => $s
+        );
 
         # parse uploaded file (highly likely to fail!)
         my $fh = $q->upload('upload_file');
 
-        # call to createInsideTableQueryFromFile() is followed by
-        # loadProbeReporterData() which uses _ProbeReporterQuery (similar to
-        # query called by build_ProbeQuery()
         if ( not eval { $findProbes->init($fh) }
             or ( my $exception = $@ ) )
         {
@@ -394,44 +375,47 @@ sub getResultsJS {
         }
         close $fh;
 
+        $findProbes->getSessionOverrideCGI();
         $findProbes->build_InsideTableQuery();
+        $findProbes->build_SimpleProbeQuery();
 
         #my $t0 = Benchmark->new;
-        $findProbes->loadProbeReporterData();
+        $findProbes->loadProbeData();
+
         #my $t1 = Benchmark->new;
         #my $td = timediff( $t1, $t0 );
         #warn "the code took:", timestr($td), "\n";
 
         # get list of probe record ids (rid)
-        $probeList      = $findProbes->getProbeList();
-        $probeListQuery = " WHERE rid IN ($probeList) ";
+        $probeList          = $findProbes->getProbeList();
+        $probeListPredicate = " WHERE rid IN ($probeList) ";
     }
     elsif ( $q->param('terms') ) {
 
         # if $q->param('terms') is not set, all other fields in Filter List
         # subsection don't matter
         assert( !$q->param('upload_file') );
-        my $findProbes = SGX::FindProbes->new( dbh => $dbh, cgi => $q );
-        $findProbes->{_WorkingProject} = $curr_proj;
+        my $findProbes = SGX::FindProbes->new(
+            dbh          => $dbh,
+            cgi          => $q,
+            user_session => $s
+        );
 
         $findProbes->init();    # followed by build_ProbeQuery
+        $findProbes->getSessionOverrideCGI();
         $findProbes->build_InsideTableQuery();
-        $findProbes->build_ProbeQuery( extra_fields => 0 );
+        $findProbes->build_SimpleProbeQuery();
         $findProbes->loadProbeData();
-        $findProbes->setProbeList();
 
         # get list of probe record ids (rid)
-        $probeList      = $findProbes->getProbeList();
-        $probeListQuery = " WHERE rid IN ($probeList) ";
+        $probeList          = $findProbes->getProbeList();
+        $probeListPredicate = " WHERE rid IN ($probeList) ";
     }
 
     #If we are filtering, generate the SQL statement for the rid's.
-    my $thresholdQuery = '';
-    my $query_titles   = '';
-    my $query_fs =
-      'SELECT fs, COUNT(*) as c FROM (SELECT BIT_OR(flag) AS fs FROM (';
-    my $query_fs_body = '';
-    my ( @eids, @reverses, @fcs, @pvals );
+    my @query_titles;
+    my @query_fs_body;
+    my ( @eids, @reverses, @fcs, @pvals, @true_eids );
 
     my $i;
     for ( $i = 1 ; defined( $q->param("eid_$i") ) ; $i++ ) {
@@ -445,25 +429,24 @@ sub getResultsJS {
         push @fcs,      $fc;
         push @pvals,    $pval;
 
-        my @IDSplit = split( /\|/, $eid );
+        my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
 
-        my $currentSTID = $IDSplit[0];
-        my $currentEID  = $IDSplit[1];
+        push @true_eids, $currentEID;
 
         #Flagsum breakdown query
         my $flag = 1 << $i - 1;
 
-        #This is the normal threshold.
-        $thresholdQuery = " AND pvalue < $pval AND ABS(foldchange)  > $fc ";
-
-        $query_fs_body .=
-"SELECT rid, $flag AS flag FROM microarray WHERE eid=$currentEID $thresholdQuery UNION ALL ";
-
-        #This is part of the query when we are including all probes.
-        if ( $allProbes eq "1" ) {
-            $query_fs_body .=
-"SELECT rid, 0 AS flag FROM microarray WHERE eid=$currentEID AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$currentEID $thresholdQuery) UNION ALL ";
-        }
+        push @query_fs_body, ($allProbes)
+          ? <<"END_part_all"
+SELECT rid, IF(pvalue < $pval AND ABS(foldchange)  > $fc, $flag, 0) AS flag
+FROM microarray 
+WHERE eid=$currentEID
+END_part_all
+          : <<"END_part_significant";
+SELECT rid, $flag AS flag 
+FROM microarray
+WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange)  > $fc
+END_part_significant
 
         # account for sample order when building title query
         my $title =
@@ -471,28 +454,37 @@ sub getResultsJS {
           ? "experiment.sample1, ' / ', experiment.sample2"
           : "experiment.sample2, ' / ', experiment.sample1";
 
-        $query_titles .=
-" SELECT eid, CONCAT(study.description, ': ', $title) AS title FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$currentEID AND StudyExperiment.stid=$currentSTID UNION ALL ";
+        push @query_titles, <<"END_query_titles";
+SELECT eid, CONCAT(study.description, ': ', $title) AS title 
+FROM experiment 
+INNER JOIN StudyExperiment USING(eid)
+INNER JOIN study USING(stid)
+WHERE eid=$currentEID AND StudyExperiment.stid=$currentSTID
+END_query_titles
     }
 
     my $exp_count = $i - 1;    # number of experiments being compared
+    my $d1SubQuery = join( ' UNION ALL ', @query_fs_body );
 
-    # strip trailing 'UNION ALL' plus any trailing white space
-    $query_fs_body =~ s/UNION ALL\s*$//i;
-    $query_fs =
-        sprintf( $query_fs, $exp_count )
-      . $query_fs_body
-      . ") AS d1 $probeListQuery GROUP BY rid) AS d2 GROUP BY fs";
+    my $query_fs = <<"END_query_fs";
+SELECT fs, COUNT(*) AS c 
+FROM (
+    SELECT BIT_OR(flag) AS fs
+    FROM ($d1SubQuery) AS d1
+    $probeListPredicate
+    GROUP BY rid
+) AS d2
+GROUP BY fs
+
+END_query_fs
 
     #Run the Flag Sum Query.
-    my $sth_fs      = $dbh->prepare(qq{$query_fs});
+    my $sth_fs      = $dbh->prepare($query_fs);
     my $rowcount_fs = $sth_fs->execute();
     my $h           = $sth_fs->fetchall_hashref('fs');
     $sth_fs->finish;
 
-    # strip trailing 'UNION ALL' plus any trailing white space
-    $query_titles =~ s/UNION ALL\s*$//i;
-    my $sth_titles      = $dbh->prepare(qq{$query_titles});
+    my $sth_titles = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
     my $rowcount_titles = $sth_titles->execute();
 
     assert( $rowcount_titles == $exp_count );
@@ -540,11 +532,8 @@ sub getResultsJS {
             assert( $A == $c[0] + $AB );
             assert( $B == $c[1] + $AB );
 
-            my @IDSplit1 = split( /\|/, $eids[0] );
-            my @IDSplit2 = split( /\|/, $eids[1] );
-
-            my $currentEID1 = $IDSplit1[1];
-            my $currentEID2 = $IDSplit2[1];
+            my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
+            my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
 
             # scale must be equal to the area of the largest circle
             my $scale = max( $A, $B );
@@ -555,8 +544,9 @@ sub getResultsJS {
               . '&amp;chds=0,'
               . $scale
               . '&amp;chs=750x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='
-              . uri_escape( '1. ' . $ht->{$currentEID1}->{title} ) . '|'
-              . uri_escape( '2. ' . $ht->{$currentEID2}->{title} );
+              . uri_escape( "$currentEID1. " . $ht->{$currentEID1}->{title} )
+              . '|'
+              . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
 
             $out .=
 "var venn = '<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />';\n";
@@ -581,13 +571,9 @@ sub getResultsJS {
             assert( $B == $c[1] + $c[2] + $c[5] + $ABC );
             assert( $C == $c[3] + $c[4] + $c[5] + $ABC );
 
-            my @IDSplit1 = split( /\|/, $eids[0] );
-            my @IDSplit2 = split( /\|/, $eids[1] );
-            my @IDSplit3 = split( /\|/, $eids[2] );
-
-            my $currentEID1 = $IDSplit1[1];
-            my $currentEID2 = $IDSplit2[1];
-            my $currentEID3 = $IDSplit3[1];
+            my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
+            my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
+            my ( $currentSTID3, $currentEID3 ) = split( /\|/, $eids[1] );
 
             # scale must be equal to the area of the largest circle
             my $scale = max( $A, $B, $C );
@@ -598,9 +584,11 @@ sub getResultsJS {
               . '&amp;chds=0,'
               . $scale
               . '&amp;chs=750x300&chtt=Significant+Probes+(Approx.)&amp;chco=ff0000,00ff00,0000ff&amp;chdl='
-              . uri_escape( '1. ' . $ht->{$currentEID1}->{title} ) . '|'
-              . uri_escape( '2. ' . $ht->{$currentEID2}->{title} ) . '|'
-              . uri_escape( '3. ' . $ht->{$currentEID3}->{title} );
+              . uri_escape( "$currentEID1. " . $ht->{$currentEID1}->{title} )
+              . '|'
+              . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} )
+              . '|'
+              . uri_escape( "$currentEID3. " . $ht->{$currentEID3}->{title} );
 
             $out .=
 "var venn = '<img src=\"http://chart.apis.google.com/chart?$qstring\" />';\n";
@@ -617,7 +605,7 @@ var eid="' . join( ',', @eids ) . '";
 var rev="' . join( ',', @reverses ) . '";
 var fc="' . join( ',', @fcs ) . '";
 var pval="' . join( ',', @pvals ) . '";
-var allProbes = "' . $allProbes . '";
+var allProbes = "' . ( ( defined $allProbes ) ? $allProbes : '' ) . '";
 var searchFilter = "' . $probeList . '";
 
 var summary = {
@@ -631,7 +619,7 @@ records:
 
         push @tmpArray,
           {
-            0 => ( $i + 1 ),
+            0 => $true_eids[$i],
             1 => $ht->{$currentEID}->{title},
             2 => $fcs[$i],
             3 => $pvals[$i],
@@ -646,9 +634,10 @@ records:
     my $tfs_defs =
 "{key:\"0\", sortable:true, resizeable:false, label:\"FS\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
     my $tfs_response_fields = "{key:\"0\", parser:\"number\"},\n";
-    for ( $i = 1 ; $i <= $exp_count ; $i++ ) {
+    for ( $i = 1 ; $i <= @true_eids ; $i++ ) {
+        my $true_eid = $true_eids[ $i - 1 ];
         $tfs_defs .=
-"{key:\"$i\", sortable:true, resizeable:false, label:\"$i\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
+"{key:\"$i\", sortable:true, resizeable:false, label:\"$true_eid\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
         $tfs_response_fields .= "{key:\"$i\"},\n";
     }
     $tfs_defs .=
@@ -661,7 +650,7 @@ records:
 
     $out .= '
 var tfs = {
-caption: "View data for reporters significant in unique experiment combinations",
+caption: "Probes grouped by significance in different experiment combinations",
 records: 
 ';
 
@@ -715,10 +704,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.innerHTML = "<input class=\"plaintext\" type=\"submit\" name=\"get\" value=\"TFS: " + fs + "\" />&nbsp;&nbsp;&nbsp;<input class=\"plaintext\" type=\"submit\" name=\"CSV\" value=\"(TFS: " + fs + " CSV)\" />";
     }
     Dom.get("tfs_caption").innerHTML = tfs.caption;
-    Dom.get("tfs_all_dt").innerHTML = "View probes significant in at least one experiment:";
-    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"'
-      . $rep_count
-      . ' significant probes\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
+    Dom.get("tfs_all_dt").innerHTML = "View data for ' . $rep_count . ' probes:";
+    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"' . $rep_count . ' significant probes\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
     var tfs_table_defs = [
 ' . $tfs_defs . '
     ];

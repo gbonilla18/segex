@@ -219,7 +219,7 @@ for ( my $i = 0 ; $i < @y ; $i++ ) {
     }
     else {
         $lab_class = 'xAxisLabel xNALabel';
-        $leg_class = 'legendLabel xNALabel';
+        $leg_class = 'legendLabel legendNALabel';
         $yvalue    = 0;
     }
     my $top       = $xaxisy - $scale * $yvalue;
@@ -387,7 +387,7 @@ print qq{<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
 	stroke: #0f0;
 	stroke-width: 1.5px;
 }
-.legendLabel, .xAxisLabel, .yAxisLabel, .xNALabel {
+.legendLabel, .xAxisLabel, .yAxisLabel, .xNALabel, .legendNALabel {
 	fill: #000;
 	font-size: 12px;
 	font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
@@ -396,7 +396,7 @@ print qq{<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
 .xAxisLabel, .yAxisLabel, .xNALabel {
 	text-anchor: end;
 }
-.xNALabel {
+.xNALabel, .legendNALabel {
 	fill: #00f;
 }
 .fill1, .fill2, .fill3 {
