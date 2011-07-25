@@ -68,30 +68,35 @@ sub new {
         _opts            => '',
         _allProbes       => '',
         _searchFilters   => '',
-        _LoadQuery       => 'select 		DISTINCT platform.pname, 
-								platform.def_f_cutoff, 
-								platform.def_p_cutoff, 
-								platform.species,
-								CASE 
-									WHEN isAnnotated THEN \'Y\' 
-									ELSE \'N\' 
-								END AS \'Is Annotated\',
-								COUNT(probe.rid) AS \'ProbeCount\',
-								SUM(IF(IFNULL(probe.probe_sequence,\'\') <> \'\' ,1,0)) AS \'Sequences Loaded\',
-								SUM(IF(IFNULL(annotates.gid,\'\') <> \'\',1,0)) AS \'Accession Number IDs\',
-								SUM(IF(IFNULL(gene.seqname,\'\') <> \'\',1,0)) AS \'Gene Names\',
-								SUM(IF(IFNULL(gene.description,\'\') <> \'\',1,0)) AS \'Gene Description\'	
-							FROM platform
-							INNER JOIN probe 		ON probe.pid = platform.pid
-							LEFT JOIN annotates 	ON annotates.rid = probe.rid
-							LEFT JOIN gene 			ON gene.gid = annotates.gid
-							WHERE platform.pid IN (SELECT DISTINCT study.pid FROM study NATURAL JOIN StudyExperiment NATURAL JOIN experiment WHERE experiment.eid IN ({0}))
-							GROUP BY pname, 
-							def_f_cutoff, 
-							def_p_cutoff, 
-							species,
-							platform.pid,
-							isAnnotated;'
+        _LoadQuery       => <<"END_LoadQuery"
+SELECT DISTINCT platform.pname, 
+    platform.def_f_cutoff, 
+    platform.def_p_cutoff, 
+    platform.species,
+    IF(isAnnotated, 'Y', 'N') AS 'Is Annotated',
+    COUNT(probe.rid) AS 'ProbeCount',
+    SUM(IF(IFNULL(probe.probe_sequence,'') <> '' ,1,0)) AS 'Sequences Loaded',
+    SUM(IF(IFNULL(annotates.gid,'') <> '',1,0)) AS 'Accession Number IDs',
+    SUM(IF(IFNULL(gene.seqname,'') <> '',1,0)) AS 'Gene Names',
+    SUM(IF(IFNULL(gene.description,'') <> '',1,0)) AS 'Gene Description'    
+FROM platform
+INNER JOIN probe         ON probe.pid = platform.pid
+LEFT JOIN annotates     ON annotates.rid = probe.rid
+LEFT JOIN gene             ON gene.gid = annotates.gid
+WHERE platform.pid IN (
+    SELECT DISTINCT study.pid 
+    FROM study 
+    NATURAL JOIN StudyExperiment 
+    NATURAL JOIN experiment 
+    WHERE experiment.eid IN ({0})
+)
+GROUP BY pname, 
+def_f_cutoff, 
+def_p_cutoff, 
+species,
+platform.pid,
+isAnnotated;
+END_LoadQuery
     };
 
     # find out what the current project is set to
@@ -145,7 +150,7 @@ sub loadTFSData {
     $self->{_outType}       = $self->{_cgi}->param('outType');
     $self->{_opts}          = $self->{_cgi}->param('opts');
 
-    if ( $self->{_fs} =~ m/^\d+ significant probes$/i ) {
+    if ( $self->{_fs} =~ m/^HTML-formatted$/i ) {
         undef $self->{_fs};
     }
     else {
@@ -155,19 +160,10 @@ sub loadTFSData {
     # Build the SQL query that does the TFS calculation
     my $having =
       ( defined( $self->{_fs} ) ) ? "HAVING abs_fs=$self->{_fs}" : '';
-    $self->{_numStart} = 5
-      ; # index of the column that is the beginning of the "numeric" half of the table (required for table sorting)
-    my $query = '   
-	SELECT 	abs_fs, 
-	dir_fs, 
-	probe.reporter AS Probe, 
-	GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS \'Accession Number\', 
-	GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
-	%s 
-	FROM (SELECT	rid, 
-			BIT_OR(abs_flag) AS abs_fs, 
-			BIT_OR(dir_flag) AS dir_fs FROM (
-';
+
+    # index of the column that is the beginning of the "numeric" half of the
+    # table (required for table sorting)
+    $self->{_numStart} = 5;
 
     #If we got a list to filter on, build the string.
     my $probeListQuery = '';
@@ -181,21 +177,22 @@ sub loadTFSData {
         $probeListQuery = " WHERE rid IN (" . $self->{_searchFilters} . ") ";
     }
 
-    my $query_body   = '';
-    my $query_proj   = '';
-    my $query_join   = '';
-    my $query_titles = '';
-    my $i            = 1;
+    my $query_body = '';
+    my $query_proj = '';
+    my $query_join = '';
+    my $i          = 1;
 
+    my @query_titles;
     foreach my $eid ( @{ $self->{_eids} } ) {
 
-#The EID is actually STID|EID. We need to split the string on '|' and extract the app
+        #The EID is actually STID|EID. We need to split the string on '|' and
+        #extract the app
         my @IDSplit     = split( /\|/, $eid );
         my $currentSTID = $IDSplit[0];
         my $currentEID  = $IDSplit[1];
 
         my ( $fc, $pval ) =
-          ( ${ $self->{_fcs} }[ $i - 1 ], ${ $self->{_pvals} }[ $i - 1 ] );
+          ( $self->{_fcs}->[ $i - 1 ], $self->{_pvals}->[ $i - 1 ] );
 
         my $abs_flag = 1 << $i - 1;
         my $dir_flag =
@@ -234,26 +231,24 @@ sub loadTFSData {
           ? "experiment.sample1, ' / ', experiment.sample2"
           : "experiment.sample2, ' / ', experiment.sample1";
 
-        $query_titles .= " SELECT 	experiment.eid, 
-									CONCAT(study.description, ': ', $title) AS title, 
-									CONCAT($title) AS experimentHeading,
-									study.description,
-									experiment.ExperimentDescription 
-							FROM experiment 
-							NATURAL JOIN StudyExperiment 
-							NATURAL JOIN study 
-							WHERE eid=$currentEID AND study.stid = $currentSTID UNION ALL ";
+        push @query_titles, <<"END_query_titles";
+SELECT experiment.eid, 
+       CONCAT(study.description, ': ', $title) AS title, 
+       CONCAT($title) AS experimentHeading,
+       study.description,
+       experiment.ExperimentDescription 
+FROM experiment 
+NATURAL JOIN StudyExperiment 
+NATURAL JOIN study 
+WHERE eid=$currentEID AND study.stid = $currentSTID
+END_query_titles
 
         $i++;
     }
 
-    # strip trailing 'UNION ALL' plus any trailing white space
-    $query_titles =~ s/UNION ALL\s*$//i;
-
-    $self->{_headerTitles} = $self->{_dbh}->prepare(qq{$query_titles})
-      or die $self->{_dbh}->errstr;
-    $self->{_headerCount} = $self->{_headerTitles}->execute
-      or die $self->{_dbh}->errstr;
+    $self->{_headerTitles} =
+      $self->{_dbh}->prepare( join( ' UNION ALL ', @query_titles ) );
+    $self->{_headerCount}   = $self->{_headerTitles}->execute;
     $self->{_headerRecords} = $self->{_headerTitles}->fetchall_hashref('eid');
     $self->{_headerTitles}->finish;
 
@@ -271,28 +266,34 @@ sub loadTFSData {
     }
 
     # pad TFS decimal portion with the correct number of zeroes
-    $query = sprintf( $query, $query_proj ) . $query_body . "
-) AS d1 
-
-$probeListQuery
-
-GROUP BY rid $having
-
+    my $query = <<"END_query";
+SELECT     abs_fs, 
+    dir_fs, 
+    probe.reporter AS Probe, 
+    GROUP_CONCAT(DISTINCT accnum SEPARATOR '+') AS 'Accession Number', 
+    GROUP_CONCAT(DISTINCT seqname SEPARATOR '+') AS Gene, 
+    $query_proj
+FROM (
+    SELECT rid, 
+           BIT_OR(abs_flag) AS abs_fs, 
+           BIT_OR(dir_flag) AS dir_fs 
+    FROM ($query_body) AS d1 
+    $probeListQuery
+    GROUP BY rid $having
 ) AS d2
 $query_join
-LEFT JOIN probe 	ON d2.rid		= probe.rid
-LEFT JOIN annotates ON d2.rid		= annotates.rid
-LEFT JOIN gene 		ON annotates.gid= gene.gid
-LEFT JOIN platform 	ON platform.pid = probe.pid
+LEFT JOIN probe     ON d2.rid        = probe.rid
+LEFT JOIN annotates ON d2.rid        = annotates.rid
+LEFT JOIN gene      ON annotates.gid = gene.gid
+LEFT JOIN platform  ON platform.pid  = probe.pid
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
-";
+END_query
 
-    $self->{_Records} = $self->{_dbh}->prepare(qq{$query})
-      or die $self->{_dbh}->errstr;
-    $self->{_RowCountAll} = $self->{_Records}->execute
-      or die $self->{_dbh}->errstr;
+    $self->{_Records}     = $self->{_dbh}->prepare($query);
+    $self->{_RowCountAll} = $self->{_Records}->execute;
 
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -326,14 +327,13 @@ sub getPlatformData {
     $singleItemQuery =~ s/\{0\}/\Q$eidList\E/;
     $singleItemQuery =~ s/\\\,/\,/g;
 
-    $self->{_RecordsPlatform} = $self->{_dbh}->prepare($singleItemQuery)
-      or die $self->{_dbh}->errstr;
-    $self->{_PlatformCount} = $self->{_RecordsPlatform}->execute
-      or die $self->{_dbh}->errstr;
-    $self->{_FieldNames}   = $self->{_RecordsPlatform}->{NAME};
-    $self->{_DataPlatform} = $self->{_RecordsPlatform}->fetchall_arrayref;
+    $self->{_RecordsPlatform} = $self->{_dbh}->prepare($singleItemQuery);
+    $self->{_PlatformCount}   = $self->{_RecordsPlatform}->execute;
+    $self->{_FieldNames}      = $self->{_RecordsPlatform}->{NAME};
+    $self->{_DataPlatform}    = $self->{_RecordsPlatform}->fetchall_arrayref;
     $self->{_RecordsPlatform}->finish;
 
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -371,6 +371,7 @@ sub loadDataFromSubmission {
     $self->{_allProbes}     = $self->{_cgi}->param('allProbes');
     $self->{_searchFilters} = $self->{_cgi}->param('searchFilter');
 
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -387,7 +388,7 @@ sub loadAllData {
     my $self = shift;
 
     if ( defined( $self->{_fs} ) ) {
-        if ( $self->{_fs} =~ m/^\d+ significant probes$/i ) {
+        if ( $self->{_fs} =~ m/^HTML-formatted$/i ) {
             undef $self->{_fs};
         }
         else {
@@ -408,16 +409,16 @@ sub loadAllData {
 
     #This is the query for the experiment data.
     my $query = '   
-		SELECT 	abs_fs, 
-			dir_fs, 
-			probe.reporter AS Probe, 
-			GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS \'Accession Number\', 
-			GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
-			%s 
-			FROM (SELECT	rid, 
-					BIT_OR(abs_flag) AS abs_fs, 
-					BIT_OR(dir_flag) AS dir_fs FROM (
-				';
+        SELECT     abs_fs, 
+            dir_fs, 
+            probe.reporter AS Probe, 
+            GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS \'Accession Number\', 
+            GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
+            %s 
+            FROM (SELECT    rid, 
+                    BIT_OR(abs_flag) AS abs_fs, 
+                    BIT_OR(dir_flag) AS dir_fs FROM (
+                ';
 
     #This is the different parts of the experiment and titles query.
     my $query_body     = '';
@@ -503,33 +504,30 @@ sub loadAllData {
 
     # pad TFS decimal portion with the correct number of zeroes
     $query = sprintf( $query, $query_proj ) . $query_body . "
-	) AS d1 
-	$probeListQuery
-	GROUP BY rid $having) AS d2
-	$query_join
-	LEFT JOIN probe 	ON d2.rid		= probe.rid
-	LEFT JOIN annotates ON d2.rid		= annotates.rid
-	LEFT JOIN gene 		ON annotates.gid= gene.gid
-	LEFT JOIN platform 	ON platform.pid = probe.pid
-	GROUP BY probe.rid
-	ORDER BY abs_fs DESC
-	";
+    ) AS d1 
+    $probeListQuery
+    GROUP BY rid $having) AS d2
+    $query_join
+    LEFT JOIN probe     ON d2.rid        = probe.rid
+    LEFT JOIN annotates ON d2.rid        = annotates.rid
+    LEFT JOIN gene         ON annotates.gid= gene.gid
+    LEFT JOIN platform     ON platform.pid = probe.pid
+    GROUP BY probe.rid
+    ORDER BY abs_fs DESC
+    ";
 
     #Run the query for the experiment headers.
-    $self->{_headerTitles} = $self->{_dbh}->prepare(qq{$query_titles})
-      or die $self->{_dbh}->errstr;
-    $self->{_headerCount} = $self->{_headerTitles}->execute
-      or die $self->{_dbh}->errstr;
+    $self->{_headerTitles}  = $self->{_dbh}->prepare($query_titles);
+    $self->{_headerCount}   = $self->{_headerTitles}->execute;
     $self->{_headerRecords} = $self->{_headerTitles}->fetchall_hashref('eid');
     $self->{_headerTitles}->finish;
 
     #Run the query for the actual data records.
-    $self->{_Records} = $self->{_dbh}->prepare(qq{$query})
-      or die $self->{_dbh}->errstr;
-    $self->{_RowCountAll} = $self->{_Records}->execute
-      or die $self->{_dbh}->errstr;
-    $self->{_Data} = $self->{_Records}->fetchall_arrayref;
+    $self->{_Records}     = $self->{_dbh}->prepare($query);
+    $self->{_RowCountAll} = $self->{_Records}->execute;
+    $self->{_Data}        = $self->{_Records}->fetchall_arrayref;
 
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -683,11 +681,11 @@ sub displayTFSInfoCSV {
     #Experiment Data header.
     my @currentLine = (
         'TFS',
-        'Reporter ID',
+        'Probe ID',
         'Accession Number',
-        'Gene Name',
+        'Gene',
         'Probe Sequence',
-        'Gene Description',
+        'Gene Name',
         'Gene Ontology',
         'Species'
     );
@@ -728,8 +726,7 @@ sub displayTFSInfoCSV {
                 )
             )
         );
-        print
-          "$TFS,", join(
+        print "$TFS,", join(
             ',',
             map {
                 if (defined) { s/,//g; $_ }
@@ -866,10 +863,10 @@ records:
     $out .= '
 var tfs = {
 caption: "Your selection includes ' . $self->{_RowCountAll} . ' probes",
-headers: ["TFS", 		"' . join( '","', @table_header ) . '" ],
-parsers: ["string", 	"' . join( '","', @table_parser ) . '" ],
+headers: ["TFS",         "' . join( '","', @table_header ) . '" ],
+parsers: ["string",     "' . join( '","', @table_parser ) . '" ],
 formats: ["formatText", "' . join( '","', @table_format ) . '" ],
-frm_tpl: ["", 			"' . join( '","', @format_template ) . '" ],
+frm_tpl: ["",             "' . join( '","', @format_template ) . '" ],
 records: 
 ';
 
@@ -904,61 +901,61 @@ records:
 YAHOO.util.Event.addListener("summ_astext", "click", export_table, summary, true);
 YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
 YAHOO.util.Event.addListener(window, "load", function() {
-	var Dom = YAHOO.util.Dom;
-	var Formatter = YAHOO.widget.DataTable.Formatter;
-	var lang = YAHOO.lang;
+    var Dom = YAHOO.util.Dom;
+    var Formatter = YAHOO.widget.DataTable.Formatter;
+    var lang = YAHOO.lang;
 
-	Dom.get("summary_caption").innerHTML = summary.caption;
-	var summary_table_defs = [];
-	var summary_schema_fields = [];
-	for (var i=0, sh = summary.headers, sp = summary.parsers, al=sh.length; i<al; i++) {
-		summary_table_defs.push({key:String(i), sortable:true, label:sh[i]});
-		summary_schema_fields.push({key:String(i), parser:sp[i]});
-	}
-	var summary_data = new YAHOO.util.DataSource(summary.records);
-	summary_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	summary_data.responseSchema = { fields: summary_schema_fields };
-	var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
+    Dom.get("summary_caption").innerHTML = summary.caption;
+    var summary_table_defs = [];
+    var summary_schema_fields = [];
+    for (var i=0, sh = summary.headers, sp = summary.parsers, al=sh.length; i<al; i++) {
+        summary_table_defs.push({key:String(i), sortable:true, label:sh[i]});
+        summary_schema_fields.push({key:String(i), parser:sp[i]});
+    }
+    var summary_data = new YAHOO.util.DataSource(summary.records);
+    summary_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+    summary_data.responseSchema = { fields: summary_schema_fields };
+    var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 
-	var template_probe = tfs.frm_tpl[1];
-	var template_accnum = tfs.frm_tpl[2];
-	var template_gene = tfs.frm_tpl[3];
-	var template_probeseq = tfs.frm_tpl[4];
-	Formatter.formatProbe = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_probe, {"0":oData});
-	}
-	Formatter.formatAccNum = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_accnum, {"0":oData});
-	}
-	Formatter.formatGene = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(template_gene, {"0":oData});
-	}
-	Formatter.formatProbeSequence = function (elCell, oRecord, oColumn, oData) {
-		elCell.innerHTML = lang.substitute(lang.substitute(template_probeseq, {"0":oData}),{"1":oRecord.getData("6")});
+    var template_probe = tfs.frm_tpl[1];
+    var template_accnum = tfs.frm_tpl[2];
+    var template_gene = tfs.frm_tpl[3];
+    var template_probeseq = tfs.frm_tpl[4];
+    Formatter.formatProbe = function (elCell, oRecord, oColumn, oData) {
+        elCell.innerHTML = lang.substitute(template_probe, {"0":oData});
+    }
+    Formatter.formatAccNum = function (elCell, oRecord, oColumn, oData) {
+        elCell.innerHTML = lang.substitute(template_accnum, {"0":oData});
+    }
+    Formatter.formatGene = function (elCell, oRecord, oColumn, oData) {
+        elCell.innerHTML = lang.substitute(template_gene, {"0":oData});
+    }
+    Formatter.formatProbeSequence = function (elCell, oRecord, oColumn, oData) {
+        elCell.innerHTML = lang.substitute(lang.substitute(template_probeseq, {"0":oData}),{"1":oRecord.getData("6")});
 
-	}
-	Formatter.formatNumber = function(elCell, oRecord, oColumn, oData) {
-		// Overrides the built-in formatter
+    }
+    Formatter.formatNumber = function(elCell, oRecord, oColumn, oData) {
+        // Overrides the built-in formatter
         if (oData !== null) {
             elCell.innerHTML = oData.toPrecision(3);
         }
-	}
-	Dom.get("tfs_caption").innerHTML = tfs.caption;
-	var tfs_table_defs = [];
-	var tfs_schema_fields = [];
-	for (var i=0, th = tfs.headers, tp = tfs.parsers, tf=tfs.formats, al=th.length; i<al; i++) {
-		tfs_table_defs.push({key:String(i), sortable:true, label:th[i], formatter:tf[i]});
-		tfs_schema_fields.push({key:String(i), parser:tp[i]});
-	}
-	var tfs_config = {
-		paginator: new YAHOO.widget.Paginator({
-			rowsPerPage: 500 
-		})
-	};
-	var tfs_data = new YAHOO.util.DataSource(tfs.records);
-	tfs_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	tfs_data.responseSchema = { fields: tfs_schema_fields };
-	var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
+    }
+    Dom.get("tfs_caption").innerHTML = tfs.caption;
+    var tfs_table_defs = [];
+    var tfs_schema_fields = [];
+    for (var i=0, th = tfs.headers, tp = tfs.parsers, tf=tfs.formats, al=th.length; i<al; i++) {
+        tfs_table_defs.push({key:String(i), sortable:true, label:th[i], formatter:tf[i]});
+        tfs_schema_fields.push({key:String(i), parser:tp[i]});
+    }
+    var tfs_config = {
+        paginator: new YAHOO.widget.Paginator({
+            rowsPerPage: 500 
+        })
+    };
+    var tfs_data = new YAHOO.util.DataSource(tfs.records);
+    tfs_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+    tfs_data.responseSchema = { fields: tfs_schema_fields };
+    var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
 });
 ';
     $out;

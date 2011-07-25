@@ -208,7 +208,7 @@ SELECT
         experiment.sample1, ' / ', 
         experiment.sample2
     )                     AS 'Sample 1 / Sample 2',
-    probe.reporter        AS 'Reporter',
+    probe.reporter        AS 'Probe ID',
     gene.accnum           AS 'Accession Number',
     gene.seqname          AS 'Gene',
     microarray.ratio      AS 'Ratio',

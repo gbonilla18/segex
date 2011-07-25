@@ -169,7 +169,7 @@ sub get_annot_fields {
 
     my %probe_fields;
     my $probe_fields_t = tie(%probe_fields, 'Tie::IxHash',
-        'Reporter ID'     => 'reporter',
+        'Probe ID'     => 'reporter',
         'Probe Sequence'  => 'probe_sequence',
         'Note From Probe' => 'note'
     );
@@ -254,7 +254,7 @@ sub uploadAnnot {
     }
 
     # delete core fields from field hash
-    delete $probe_fields{'Reporter ID'};
+    delete $probe_fields{'Probe ID'};
     delete @gene_fields{ ( 'Accession Number', 'Gene Symbol' ) };
 
     # create two slices of specified fields, one for each table
@@ -524,7 +524,7 @@ sub form_uploadAnnot {
     my %core_fields;
     my $core_fields_t = tie(
         %core_fields, 'Tie::IxHash',
-        'Reporter ID'      => 1,
+        'Probe ID'      => 1,
         'Accession Number' => 1,
         'Gene Symbol'      => 1
     );

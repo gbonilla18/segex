@@ -98,7 +98,7 @@ sub new {
         _ExperimentDataQuery     => undef,
     };
 
-#Reporter,Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}
+#Probe ID, Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}
 
     bless $self, $class;
     return $self;
@@ -620,7 +620,7 @@ sub printFindProbeCSV {
         my $geneOntology = ( defined( $row->[8] ) ) ? $row->[8] : '';
         $geneOntology =~ s/\,//g;
 
-        # Print the probe info: Reporter ID, Accession, Gene Name, Probe
+        # Print the probe info: Probe ID, Accession, Gene Name, Probe
         # Sequence, Gene description, Gene Ontology
         my $outRow =
 "$row->[1],$row->[3],$geneName,$probeSequence,$geneDescription,$geneOntology,,";
@@ -655,7 +655,7 @@ sub printFindProbeCSV {
 }
 
 #######################################################################################
-#Loop through the list of Reporters we are filtering on and create a list.
+#Loop through the list of probes we are filtering on and create a list.
 #######################################################################################
 sub getProbeList {
     my $self = shift;
@@ -982,13 +982,13 @@ WHERE prid=$curr_proj
 END_sql_subset_by_project
     }
 
-    $self->{_ProbeQuery} = <<"END_ProbeReporterQuery";
+    $self->{_ProbeQuery} = <<"END_ProbeQuery";
 SELECT DISTINCT probe.rid
 FROM ( $InsideTableQuery ) as g0
 LEFT JOIN annotates USING(gid)
 INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
 $sql_subset_by_project
-END_ProbeReporterQuery
+END_ProbeQuery
 
     return 1;
 }

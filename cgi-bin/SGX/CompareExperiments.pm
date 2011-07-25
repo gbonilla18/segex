@@ -637,11 +637,11 @@ records:
     for ( $i = 1 ; $i <= @true_eids ; $i++ ) {
         my $true_eid = $true_eids[ $i - 1 ];
         $tfs_defs .=
-"{key:\"$i\", sortable:true, resizeable:false, label:\"$true_eid\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
+"{key:\"$i\", sortable:true, resizeable:false, label:\"#$true_eid\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
         $tfs_response_fields .= "{key:\"$i\"},\n";
     }
     $tfs_defs .=
-"{key:\"$i\", sortable:true, resizeable:true, label:\"Reporters\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},
+"{key:\"$i\", sortable:true, resizeable:true, label:\"Probe Count\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},
 {key:\""
       . ( $i + 1 )
       . "\", sortable:false, resizeable:true, label:\"View probes\", formatter:\"formatDownload\"}\n";
@@ -682,11 +682,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
     Dom.get("venn").innerHTML = venn;
     Dom.get("summary_caption").innerHTML = summary.caption;
     var summary_table_defs = [
-        {key:"0", sortable:true, resizeable:false, label:"&nbsp;"},
+        {key:"0", sortable:true, resizeable:false, label:"#"},
         {key:"1", sortable:true, resizeable:true, label:"Experiment"},
         {key:"2", sortable:true, resizeable:false, label:"&#124;Fold Change&#124; &gt;"}, 
         {key:"3", sortable:true, resizeable:false, label:"P &lt;"},
-        {key:"4", sortable:true, resizeable:false, label:"Reporters"}
+        {key:"4", sortable:true, resizeable:false, label:"Probe Count"}
     ];
     var summary_data = new YAHOO.util.DataSource(summary.records);
     summary_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
@@ -705,7 +705,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     }
     Dom.get("tfs_caption").innerHTML = tfs.caption;
     Dom.get("tfs_all_dt").innerHTML = "View data for ' . $rep_count . ' probes:";
-    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"' . $rep_count . ' significant probes\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
+    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"HTML-formatted\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
     var tfs_table_defs = [
 ' . $tfs_defs . '
     ];
