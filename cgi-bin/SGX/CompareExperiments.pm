@@ -259,7 +259,7 @@ sub getFormHTML {
                 -name  => 'chkAllProbes',
                 -id    => 'chkAllProbes',
                 -value => '1',
-                -label => 'Label probes not significant in all experiments \'TFS 0\''
+                -label => '(probes not significant in all experiments labeled \'TFS 0\')'
             )
         ),
         $q->dt('Filter on:'),

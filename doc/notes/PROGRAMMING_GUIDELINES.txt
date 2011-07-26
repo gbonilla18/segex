@@ -103,6 +103,23 @@ typo, for example, Perl will let us know about it right away. Similarly,
 JSON::XS ensures that the Perl data structure is encoded as valid Javascript
 without needing to backslash double quotes manually.
 
+Note 1: The pattern discussed above is basically the Two-Step View pattern from
+Martin Fowler's book:
+http://martinfowler.com/eaaCatalog/twoStepView.html
+
+Note 2: Another commonly-used pattern in web applications is Template View. Our
+current architecture actually discourages the use of Template View, and for a
+good reason: forming AJAX data on the server and then filling them into view
+using Javascript and element IDs actually gives us better guarantees about view
+correctness than filling in placeholders into an HTML template on the server and
+then sending it to the client. This is so for two reasons: (1) we use CGI.pm to
+first form an abstract representation of the HTML view using native Perl data
+structures which ensures that different types of HTML (HTML, XHTML, etc) can be
+formed correctly, (2) Filling in values using Javascript and element IDs
+requires correct DOM tree to begin with and is therefore more robust than
+filling in placeholders in a text-blob template.
+
+
 CONTROLLER
 
 CONTROLLER - General

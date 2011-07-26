@@ -137,16 +137,16 @@ sub loadTFSData {
     $self->{_numStart} = 5;
 
     #If we got a list to filter on, build the string.
-    my $probeListQuery = '';
-
+    #
     # :TODO:07/07/2011 12:38:40:es: SQL injection risk: no validation done
     # one _searchFilters before being inserted into WHERE statement.
     # Fix this by writing a validate_numeric_list function which will take
     # a string of comma-delimited numbers, split it, make sure every member
     # is a number, and concatenate it again.
-    if ( defined( $self->{_searchFilters} ) && $self->{_searchFilters} ne '' ) {
-        $probeListQuery = " WHERE rid IN (" . $self->{_searchFilters} . ") ";
-    }
+    my $probeListQuery =
+      ( defined( $self->{_searchFilters} ) && $self->{_searchFilters} ne '' )
+      ? " WHERE rid IN (" . $self->{_searchFilters} . ") "
+      : '';
 
     my $i = 1;
 
@@ -199,7 +199,7 @@ SELECT
        IF(foldchange > 0, $dir_flag), 
        0
     ) AS dir_flag
-FROM microarray i
+FROM microarray
 WHERE eid=$currentEID
 END_yes_allProbes
           : <<"END_no_allProbes";
@@ -220,11 +220,12 @@ END_no_allProbes
           : "experiment.sample2, ' / ', experiment.sample1";
 
         push @query_titles, <<"END_query_titles";
-SELECT experiment.eid, 
-       CONCAT(study.description, ': ', $title) AS title, 
-       CONCAT($title) AS experimentHeading,
-       study.description,
-       experiment.ExperimentDescription 
+SELECT 
+    experiment.eid, 
+    CONCAT(study.description, ': ', $title) AS title, 
+    CONCAT($title) AS experimentHeading,
+    study.description,
+    experiment.ExperimentDescription 
 FROM experiment 
 NATURAL JOIN StudyExperiment 
 NATURAL JOIN study 
@@ -240,33 +241,34 @@ END_query_titles
     $self->{_headerRecords} = $self->{_headerTitles}->fetchall_hashref('eid');
     $self->{_headerTitles}->finish;
 
-    my $d1SubQuery = join( ' UNION ALL ', @query_body );
-
     if ( $self->{_opts} > 1 ) {
         $self->{_numStart} += 3;
         unshift @query_proj,
           (
-            'probe.probe_sequence AS \'Probe Sequence\'',
-'GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\'',
-            'platform.species AS \'Species\''
+            qq{probe.probe_sequence AS 'Probe Sequence'},
+qq{GROUP_CONCAT(DISTINCT IF(gene.description='', NULL, gene.description) SEPARATOR '; ') AS 'Gene Description'},
+            qq{platform.species AS 'Species'}
           );
     }
 
-    my $selectSQL    = join( ',',  @query_proj );
-    my $predicateSQL = join( "\n", @query_join );
+    my $d1SubQuery   = join( ' UNION ALL ', @query_body );
+    my $selectSQL    = join( ',',           @query_proj );
+    my $predicateSQL = join( "\n",          @query_join );
 
     # pad TFS decimal portion with the correct number of zeroes
     my $query = <<"END_query";
-SELECT     abs_fs, 
+SELECT
+    abs_fs, 
     dir_fs, 
     probe.reporter AS Probe, 
     GROUP_CONCAT(DISTINCT accnum SEPARATOR '+') AS 'Accession Number', 
-    GROUP_CONCAT(DISTINCT seqname SEPARATOR '+') AS Gene, 
+    GROUP_CONCAT(DISTINCT seqname SEPARATOR '+') AS 'Gene', 
     $selectSQL
 FROM (
-    SELECT rid, 
-           BIT_OR(abs_flag) AS abs_fs, 
-           BIT_OR(dir_flag) AS dir_fs 
+    SELECT 
+        rid, 
+        BIT_OR(abs_flag) AS abs_fs, 
+        BIT_OR(dir_flag) AS dir_fs 
     FROM ($d1SubQuery) AS d1 
     $probeListQuery
     GROUP BY rid $having
@@ -355,27 +357,27 @@ END_LoadQuery
 sub loadDataFromSubmission {
     my $self = shift;
 
- # The $self->{_fs} parameter is the flagsum for which the data will be filtered
- # If the $self->{_fs} is zero or undefined, all data will be output
-    my $regex_split_on_commas = qr/ *, */;
-    my @eidsArray =
-      split( $regex_split_on_commas, $self->{_cgi}->param('eid') );
-    my @reversesArray =
-      split( $regex_split_on_commas, $self->{_cgi}->param('rev') );
-    my @fcsArray = split( $regex_split_on_commas, $self->{_cgi}->param('fc') );
-    my @pvalArray =
-      split( $regex_split_on_commas, $self->{_cgi}->param('pval') );
+    my $q = $self->{_cgi};
+
+    # The $self->{_fs} parameter is the flagsum for which the data will be
+    # filtered If the $self->{_fs} is zero or undefined, all data will be
+    # output.
+    my $split_on_commas = qr/\s*,\s*/;
+    my @eidsArray       = split( $split_on_commas, $q->param('eid') );
+    my @reversesArray   = split( $split_on_commas, $q->param('rev') );
+    my @fcsArray        = split( $split_on_commas, $q->param('fc') );
+    my @pvalArray       = split( $split_on_commas, $q->param('pval') );
 
     $self->{_eids}     = \@eidsArray;
     $self->{_reverses} = \@reversesArray;
     $self->{_fcs}      = \@fcsArray;
     $self->{_pvals}    = \@pvalArray;
 
-    $self->{_fs}            = $self->{_cgi}->param('get');
-    $self->{_outType}       = $self->{_cgi}->param('outType');
-    $self->{_opts}          = $self->{_cgi}->param('opts');
-    $self->{_allProbes}     = $self->{_cgi}->param('allProbes');
-    $self->{_searchFilters} = $self->{_cgi}->param('searchFilter');
+    $self->{_fs}            = $q->param('get');
+    $self->{_outType}       = $q->param('outType');
+    $self->{_opts}          = $q->param('opts');
+    $self->{_allProbes}     = $q->param('allProbes');
+    $self->{_searchFilters} = $q->param('searchFilter');
 
     return 1;
 }
@@ -413,30 +415,17 @@ sub loadAllData {
         }
     }
 
-    #This is the query for the experiment data.
-    my $query = '   
-        SELECT     abs_fs, 
-            dir_fs, 
-            probe.reporter AS Probe, 
-            GROUP_CONCAT(DISTINCT accnum SEPARATOR \'+\') AS \'Accession Number\', 
-            GROUP_CONCAT(DISTINCT seqname SEPARATOR \'+\') AS Gene, 
-            %s 
-            FROM (SELECT    rid, 
-                    BIT_OR(abs_flag) AS abs_fs, 
-                    BIT_OR(dir_flag) AS dir_fs FROM (
-                ';
-
     #This is the different parts of the experiment and titles query.
-    my $query_body     = '';
-    my $query_proj     = '';
-    my $query_join     = '';
-    my $query_titles   = '';
-    my $probeListQuery = '';
+    my @query_body;
+    my @query_proj;
+    my @query_join;
+    my @query_titles;
 
     #If we got a list to filter on, build the string.
-    if ( defined( $self->{_searchFilters} ) && $self->{_searchFilters} ne '' ) {
-        $probeListQuery = " WHERE rid IN (" . $self->{_searchFilters} . ") ";
-    }
+    my $probeListQuery =
+      ( defined( $self->{_searchFilters} ) && $self->{_searchFilters} ne '' )
+      ? " WHERE rid IN (" . $self->{_searchFilters} . ") "
+      : '';
 
     my $i = 1;
 
@@ -452,30 +441,45 @@ sub loadAllData {
         my $dir_flag =
           ( $self->{_reverses}[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
 
-        $query_proj .=
+        push @query_proj,
           ( $self->{_reverses}[ $i - 1 ] )
-          ? "1/m$i.ratio AS \'$i: Ratio\', "
-          : "m$i.ratio AS \'$i: Ratio\', ";
-        $query_proj .=
-          ( $self->{_reverses}[ $i - 1 ] )
-          ? "-m$i.foldchange AS \'$i: Fold Change\', "
-          : "m$i.foldchange AS \'$i: Fold Change\', ";
-        $query_proj .=
-          ( $self->{_reverses}[ $i - 1 ] )
-          ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\', "
-          : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\', ";
-        $query_proj .= "m$i.pvalue AS \'$i: P\', ";
+          ? "1/m$i.ratio AS \'$i: Ratio\'"
+          : "m$i.ratio AS \'$i: Ratio\'";
 
-        $query_body .=
-" SELECT rid, $abs_flag AS abs_flag, if(foldchange>0,$dir_flag) AS dir_flag FROM microarray WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange) > $fc UNION ALL ";
-        $query_join .=
-" LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID ";
+        push @query_proj,
+          ( $self->{_reverses}[ $i - 1 ] )
+          ? "-m$i.foldchange AS \'$i: Fold Change\'"
+          : "m$i.foldchange AS \'$i: Fold Change\'";
 
-        #This is part of the query when we are including all probes.
-        if ( $self->{_allProbes} eq "1" ) {
-            $query_body .=
-"SELECT rid, 0 AS abs_flag,0 AS dir_flag FROM microarray WHERE eid=$currentEID AND rid NOT IN (SELECT RID FROM microarray WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange) > $fc) UNION ALL ";
-        }
+        push @query_proj,
+          ( $self->{_reverses}[ $i - 1 ] )
+          ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
+          : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'";
+
+        push @query_proj, "m$i.pvalue AS \'$i: P\'";
+
+        push @query_join,
+          "LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID";
+
+        push @query_body, ( $self->{_allProbes} )
+          ? <<"END_yes_allProbesCSV"
+SELECT
+    rid,
+    IF(pvalue < $pval AND ABS(foldchange) > $fc, $abs_flag, 0) AS abs_flag,
+    IF(pvalue < $pval AND ABS(foldchange) > $fc, IF(foldchange > 0, $dir_flag), 0) AS dir_flag
+FROM microarray
+WHERE eid=$currentEID
+END_yes_allProbesCSV
+          : <<"END_no_allProbesCSV";
+SELECT
+    rid, 
+    $abs_flag AS abs_flag,
+    IF(foldchange > 0, $dir_flag) AS dir_flag
+FROM microarray 
+WHERE eid = $currentEID 
+  AND pvalue < $pval 
+  AND ABS(foldchange) > $fc
+END_no_allProbesCSV
 
         # account for sample order when building title query
         my $title =
@@ -483,20 +487,21 @@ sub loadAllData {
           ? "experiment.sample1, ' / ', experiment.sample2"
           : "experiment.sample2, ' / ', experiment.sample1";
 
-        $query_titles .=
-" SELECT experiment.eid, CONCAT(study.description, ': ', $title) AS title, CONCAT($title) AS experimentHeading,study.description,experiment.ExperimentDescription FROM experiment NATURAL JOIN StudyExperiment NATURAL JOIN study WHERE eid=$currentEID AND study.stid = $currentSTID UNION ALL ";
+        push @query_titles, <<"END_query_titlesCSV";
+SELECT
+    experiment.eid,
+    CONCAT(study.description, ': ', $title) AS title,
+    CONCAT($title) AS experimentHeading,
+    study.description,
+    experiment.ExperimentDescription 
+FROM experiment 
+NATURAL JOIN StudyExperiment 
+NATURAL JOIN study 
+WHERE eid=$currentEID AND study.stid = $currentSTID
+END_query_titlesCSV
 
         $i++;
     }
-
-    #Strip trailing 'UNION ALL' plus any trailing white space
-    $query_titles =~ s/UNION ALL\s*$//i;
-
-    #strip trailing 'UNION ALL' plus any trailing white space
-    $query_body =~ s/UNION ALL\s*$//i;
-
-    # strip trailing comma plus any trailing white space from ratio projection
-    $query_proj =~ s/,\s*$//;
 
     #This is the having part of the data query.
     my $having =
@@ -504,26 +509,48 @@ sub loadAllData {
       ? "HAVING abs_fs=$self->{_fs}"
       : '';
 
-    $query_proj =
-'probe.probe_sequence AS \'Probe Sequence\', GROUP_CONCAT(DISTINCT IF(gene.description=\'\',NULL,gene.description) SEPARATOR \'; \') AS \'Gene Description\',group_concat(distinct gene_note order by seqname asc separator\'; \') AS \'Gene Ontology - Comment\', platform.species AS \'Species\', '
-      . $query_proj;
+    unshift @query_proj,
+      (
+        qq{probe.probe_sequence AS 'Probe Sequence'},
+qq{GROUP_CONCAT(DISTINCT IF(gene.description='', NULL, gene.description) SEPARATOR '; ') AS 'Gene Description'},
+qq{GROUP_CONCAT(DISTINCT gene_note ORDER BY seqname ASC SEPARATOR '; ') AS 'Gene Ontology'},
+        qq{platform.species AS 'Species'}
+      );
+
+    my $d1SubQuery   = join( ' UNION ALL ', @query_body );
+    my $selectSQL    = join( ',',           @query_proj );
+    my $predicateSQL = join( "\n",          @query_join );
 
     # pad TFS decimal portion with the correct number of zeroes
-    $query = sprintf( $query, $query_proj ) . $query_body . "
-    ) AS d1 
+    my $query = <<"END_queryCSV";
+SELECT
+    abs_fs, 
+    dir_fs, 
+    probe.reporter AS Probe, 
+    GROUP_CONCAT(DISTINCT accnum SEPARATOR '+') AS 'Accession Number', 
+    GROUP_CONCAT(DISTINCT seqname SEPARATOR '+') AS 'Gene', 
+    $selectSQL
+FROM (
+    SELECT
+       rid, 
+       BIT_OR(abs_flag) AS abs_fs, 
+       BIT_OR(dir_flag) AS dir_fs 
+    FROM ($d1SubQuery) AS d1 
     $probeListQuery
-    GROUP BY rid $having) AS d2
-    $query_join
-    LEFT JOIN probe     ON d2.rid        = probe.rid
-    LEFT JOIN annotates ON d2.rid        = annotates.rid
-    LEFT JOIN gene         ON annotates.gid= gene.gid
-    LEFT JOIN platform     ON platform.pid = probe.pid
-    GROUP BY probe.rid
-    ORDER BY abs_fs DESC
-    ";
+    GROUP BY rid $having
+) AS d2
+$predicateSQL
+LEFT JOIN probe     ON d2.rid        = probe.rid
+LEFT JOIN annotates ON d2.rid        = annotates.rid
+LEFT JOIN gene      ON annotates.gid = gene.gid
+LEFT JOIN platform  ON platform.pid  = probe.pid
+GROUP BY probe.rid
+ORDER BY abs_fs DESC
+END_queryCSV
 
     #Run the query for the experiment headers.
-    $self->{_headerTitles}  = $self->{_dbh}->prepare($query_titles);
+    $self->{_headerTitles} =
+      $self->{_dbh}->prepare( join( ' UNION ALL ', @query_titles ) );
     $self->{_headerCount}   = $self->{_headerTitles}->execute;
     $self->{_headerRecords} = $self->{_headerTitles}->fetchall_hashref('eid');
     $self->{_headerTitles}->finish;
@@ -580,7 +607,7 @@ sub displayTFSInfoCSV {
 
     #Print Platform header.
     print
-"pname,def_f_cutoff,def_p_cutoff,species,Is Annotated, Probe Count, Sequences Loaded, Accession Number IDs, Gene Names, Gene Description\n";
+"Platform, FC-cutoff, P-cutoff, Species, Is Annotated, Probe Count, Sequences Loaded, Accession Numbers, Gene Symbols, Gene Names\n";
 
     #Print Platform info.
     foreach my $row ( @{ $self->{_DataPlatform} } ) {
@@ -637,14 +664,15 @@ sub displayTFSInfoCSV {
     #Print TFS list along with distinct counts.
     my %TFSCounts;
 
- #Loop through data and create a hash entry for each TFS, increment the counter.
+    # Loop through data and create a hash entry for each TFS, increment the
+    # counter.
     foreach my $row ( @{ $self->{_Data} } ) {
         my $abs_fs = $row->[0];
         my $dir_fs = $row->[1];
 
- # Math::BigInt->badd(x,y) is used to add two very large numbers x and y
- # actually Math::BigInt library is supposed to overload Perl addition operator,
- # but if fails to do so for some reason in this CGI program.
+        # Math::BigInt->badd(x,y) is used to add two very large numbers x and y
+        # actually Math::BigInt library is supposed to overload Perl addition
+        # operator, but if fails to do so for some reason in this CGI program.
         my $currentTFS = sprintf(
             "$abs_fs.%0" . @{ $self->{_eids} } . 's',
             Math::BigInt->badd(
@@ -716,9 +744,9 @@ sub displayTFSInfoCSV {
         # $dir_fs)
         my ( $abs_fs, $dir_fs ) = splice @$row, 0, 2;
 
- # Math::BigInt->badd(x,y) is used to add two very large numbers x and y
- # actually Math::BigInt library is supposed to overload Perl addition operator,
- # but if fails to do so for some reason in this CGI program.
+        # Math::BigInt->badd(x,y) is used to add two very large numbers x and y
+        # actually Math::BigInt library is supposed to overload Perl addition
+        # operator, but if fails to do so for some reason in this CGI program.
         my $TFS = sprintf(
             "$abs_fs.%0" . @{ $self->{_eids} } . 's',
             Math::BigInt->badd(

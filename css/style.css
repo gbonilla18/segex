@@ -333,28 +333,7 @@ td.yui-dt-col-5 .yui-dt-liner {
 /* override overly tiny font size in YUI radio buttons */
 .yui-skin-sam .yui-button button,.yui-skin-sam .yui-button a,.yui-skin-sam .yui-button a:visited{font-size:1em;}
 
-/* Class for marked rows */
-/* http://developer.yahoo.com/yui/examples/datatable/dt_row_coloring.html */
-.yui-skin-sam .yui-dt tr.mark.yui-dt-odd {
-    /* odd rows are darker */
-    background-color: #fec;
+.highlight {
+	background-color: #ff0;
+	font-style:italic;
 }
-.yui-skin-sam .yui-dt tr.mark.yui-dt-odd td.yui-dt-asc,
-.yui-skin-sam .yui-dt tr.mark.yui-dt-odd td.yui-dt-desc,
-.yui-skin-sam .yui-dt tr.mark.yui-dt-odd td.yui-dt-asc,
-.yui-skin-sam .yui-dt tr.mark.yui-dt-odd td.yui-dt-desc {
-    /* sorted column: darken a notch */
-    background-color: #edb;
-}
-.yui-skin-sam .yui-dt tr.mark.yui-dt-even {
-    /* even rows are lighter */
-    background-color: #ffd;
-}
-.yui-skin-sam .yui-dt tr.mark.yui-dt-even td.yui-dt-asc,
-.yui-skin-sam .yui-dt tr.mark.yui-dt-even td.yui-dt-desc,
-.yui-skin-sam .yui-dt tr.mark.yui-dt-even td.yui-dt-asc,
-.yui-skin-sam .yui-dt tr.mark.yui-dt-even td.yui-dt-desc {
-    /* sorted column: darken a notch */
-    background-color: #eec;
-}
-

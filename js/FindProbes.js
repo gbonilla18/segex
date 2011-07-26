@@ -15,14 +15,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
         return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
     }
 
-    // Define a custom row formatter function
-    var myRowFormatter = function(elTr, oRecord) {
-        if (oRecord.getData(searchColumn).toLowerCase() in queriedItems ) {
-            YAHOO.util.Dom.addClass(elTr, 'mark');
-        }
-        return true;
-    };
-
     if (show_graphs) {
         graph_ul = YAHOO.util.Dom.get("graphs");
     }
@@ -30,34 +22,49 @@ YAHOO.util.Event.addListener(window, "load", function() {
     YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
 
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
+        var hClass = (searchColumn === oColumn.key && (oData.toLowerCase() in queriedItems))
+            ? 'class="highlight"' 
+            : '';
         var i = oRecord.getCount();
         if (show_graphs) {
             graph_content += "<li id=\"reporter_" + i + "\">" + buildSVGElement(project_id, oData, response_transform) + "</li>";
-            elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
+            elCell.innerHTML = "<div id=\"container" + i + "\"><a " + hClass + " title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
         } else {
-            elCell.innerHTML = "<div id=\"container" + i + "\"><a title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
+            elCell.innerHTML = "<div id=\"container" + i + "\"><a " + hClass + " title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
         }
     };
 
     YAHOO.widget.DataTable.Formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
-        var a = oData.split(/ *, */);
-        var out = "";
+        var a = oData.split(/\s+/);
+        var out = [];
         for (var i=0, al=a.length; i < al; i++) {
             var b = a[i];
+            var hClass = (searchColumn === oColumn.key && (b.toLowerCase() in queriedItems))
+                ? 'class="highlight"' 
+                : '';
             if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
-                out += "<a title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>, ";
+                out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
             } else {
-                out += "<a title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>, ";
+                out.push("<a " + hClass + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>");
             }
         }
-        elCell.innerHTML = out.replace(/,\s*$/, "");
+        elCell.innerHTML = out.join(', ');
     };
     YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
-        if (oData.match(/^ENS[A-Z]{4}\d{11}/i)) {
-            elCell.innerHTML = "<a title=\"Search Ensembl for " + oData + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + oData + "\">" + oData + "</a>";
-        } else {
-            elCell.innerHTML = "<a title=\"Search NCBI Gene for " + oData + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("4") + "[ORGN]+AND+" + oData + "\">" + oData + "</a>";
+        var a = oData.split(/\s+/);
+        var out = [];
+        for (var i=0, al=a.length; i < al; i++) {
+            var b = a[i];
+            var hClass = (searchColumn === oColumn.key && (b.toLowerCase() in queriedItems))
+                ? 'class="highlight"' 
+                : '';
+            if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
+                out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
+            } else {
+                out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "\">" + b + "</a>");
+            }
         }
+        elCell.innerHTML = out.join(', ');
     };
     YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
@@ -97,7 +104,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
         fields: myColumnList
     };
     var myData_config = {
-        formatRow: myRowFormatter,
         paginator: new YAHOO.widget.Paginator({
             rowsPerPage: 15 
         })

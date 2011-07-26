@@ -936,8 +936,8 @@ sub build_InsideTableQuery {
 
     my $probe_spec_fields =
       ( $type eq 'probe' )
-      ? 'rid, reporter, note, probe_sequence, pid'
-      : 'NULL AS rid, NULL AS reporter, NULL AS note, NULL AS probe_sequence, NULL AS pid';
+      ? 'rid, reporter, probe_sequence, pid'
+      : 'NULL AS rid, NULL AS reporter, NULL AS probe_sequence, NULL AS pid';
 
     my %translate_fields = (
         'probe'  => 'reporter',
@@ -955,7 +955,7 @@ g2.description,
 g2.gene_note 
 
 from gene g2 right join
-(select probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid,
+(select probe.rid, probe.reporter, probe.probe_sequence, probe.pid,
     accnum from probe left join annotates on annotates.rid=probe.rid left join
 gene on gene.gid=annotates.gid $predicate GROUP BY accnum) as g1
 on g2.accnum=g1.accnum where rid is not NULL
@@ -970,7 +970,7 @@ g4.description,
 g4.gene_note 
 
 from gene g4 right join
-(select probe.rid, probe.reporter, probe.note, probe.probe_sequence, probe.pid,
+(select probe.rid, probe.reporter, probe.probe_sequence, probe.pid,
     seqname from probe left join annotates on annotates.rid=probe.rid left join
     gene on gene.gid=annotates.gid $predicate GROUP BY seqname) as g3
 on g4.seqname=g3.seqname where rid is not NULL
@@ -1025,14 +1025,17 @@ sub build_ProbeQuery {
         $sql_select_fields = <<"END_select_fields_basic";
 probe.rid,
 platform.pid,
-probe.reporter AS 'Probe ID',
-platform.pname AS Platform,
+probe.reporter                          AS 'Probe ID',
+platform.pname                          AS 'Platform',
 GROUP_CONCAT(
-    DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
-    ORDER BY g0.seqname ASC SEPARATOR ','
-) AS 'Accession No.', 
-IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
-platform.species AS 'Species' 
+    DISTINCT COALESCE(g0.accnum, '')
+    ORDER BY g0.seqname ASC SEPARATOR ' '
+)                                       AS 'Accession No.', 
+GROUP_CONCAT(
+    DISTINCT COALESCE(g0.seqname, '')
+    ORDER BY g0.seqname ASC SEPARATOR ' '
+)                                       AS 'Gene Symb.',
+platform.species                        AS 'Species' 
 END_select_fields_basic
     }
     else {
@@ -1041,21 +1044,24 @@ END_select_fields_basic
         $sql_select_fields = <<"END_select_fields_extras";
 probe.rid,
 platform.pid,
-probe.reporter AS 'Probe ID', 
-platform.pname AS Platform,
+probe.reporter                          AS 'Probe ID', 
+platform.pname                          AS 'Platform',
 GROUP_CONCAT(
-    DISTINCT IF(ISNULL(g0.accnum), '', g0.accnum) 
-    ORDER BY g0.seqname ASC SEPARATOR ','
-) AS 'Accession No.', 
-IF(ISNULL(g0.seqname), '', g0.seqname) AS 'Gene',
-platform.species AS 'Species', 
-probe.probe_sequence AS 'Probe Sequence',
+    DISTINCT COALESCE(g0.accnum, '')
+    ORDER BY g0.seqname ASC SEPARATOR ' '
+)                                       AS 'Accession No.', 
+GROUP_CONCAT(
+    DISTINCT COALESCE(g0.seqname, '')
+    ORDER BY g0.seqname ASC SEPARATOR ' '
+)                                       AS 'Gene Symb.', 
+platform.species                        AS 'Species', 
+probe.probe_sequence                    AS 'Probe Sequence',
 GROUP_CONCAT(
     DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; '
-) AS 'Official Gene Name',
+)                                       AS 'Offic. Gene Name',
 GROUP_CONCAT(
     DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR '; '
-) AS 'Gene Ontology'
+)                                       AS 'Gene Ontology'
 END_select_fields_extras
     }
 
@@ -1079,7 +1085,7 @@ $sql_select_fields
 FROM ( $InsideTableQuery ) AS g0
 LEFT JOIN annotates USING(gid)
 INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
-INNER JOIN platform ON probe.pid
+INNER JOIN platform ON platform.pid=probe.pid
 $sql_subset_by_project
 GROUP BY probe.rid
 END_ProbeQuery

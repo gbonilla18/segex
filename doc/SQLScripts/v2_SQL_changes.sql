@@ -69,3 +69,6 @@ drop index seqname on gene;
 drop index accnum on gene;
 create index seqname on gene (seqname);
 create index accnum on gene (accnum);
+
+-- remove 'note' field from probes
+alter table probe drop column note;

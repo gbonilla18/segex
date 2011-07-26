@@ -118,5 +118,6 @@ prefix from File::Temp or some other way.
 segex_user. segex_user is granted UPDATE, INSERT, DELETE, and CREATE TEMPOARY
 privileges, while segex_basic is only granted SELECT.
 
-*) Investigate performance impact of full-length (30 characters) vs partial (18
-characters and less) indexes on accession number and gene symbol queries.
+*) use better names for CSV output (replace "results.csv" with some kind of
+coding, e.g. results-61-37.csv where 61 and 37 are experiment ids being
+compared).

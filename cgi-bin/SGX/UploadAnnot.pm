@@ -170,8 +170,7 @@ sub get_annot_fields {
     my %probe_fields;
     my $probe_fields_t = tie(%probe_fields, 'Tie::IxHash',
         'Probe ID'     => 'reporter',
-        'Probe Sequence'  => 'probe_sequence',
-        'Note From Probe' => 'note'
+        'Probe Sequence'  => 'probe_sequence'
     );
 
 # get fields from Gene table (except pid, gid)
