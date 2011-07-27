@@ -28,7 +28,7 @@ use SGX::Config;    # all configuration for our project goes here
 #use SGX::Util qw/trim max/;
 use SGX::User 0.07;       # user authentication, sessions and cookies
 use SGX::Session 0.08;    # email verification
-use SGX::ManageMicroarrayPlatforms;
+use SGX::ManagePlatforms;
 use SGX::ManageProjects;
 use SGX::ManageStudies;
 use SGX::ManageExperiments;
@@ -1361,7 +1361,7 @@ sub show_tfs {
 }
 #######################################################################################
 sub managePlatforms {
-    my $managePlatform = SGX::ManageMicroarrayPlatforms->new( $dbh, $q );
+    my $managePlatform = SGX::ManagePlatforms->new( $dbh, $q );
     $managePlatform->dispatch( $q->url_param('b') );
     return;
 }
