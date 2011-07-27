@@ -838,7 +838,7 @@ END_H2P_TEXT
             $q->popup_menu(
                 -name    => 'type',
                 -id      => 'type',
-                -default => 'probe',
+                -default => 'gene',
                 -values  => [ keys %{ $self->{_typeDesc} } ],
                 -labels  => $self->{_typeDesc}
             )
@@ -1180,7 +1180,7 @@ END_JSON_DATA
             encode_json(
                 ( $match eq 'full' )
                 ? +{ map { lc($_) => undef } @{ $self->{_SearchItems} } }
-                : []
+                : $self->{_SearchItems}
             ),
             encode_json( \%json_probelist ),
             $self->{_cgi}->url( -absolute => 1 ),

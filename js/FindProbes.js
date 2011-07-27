@@ -8,6 +8,34 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var graph_ul;
     var graph_content;
 
+    var matchesQuery = (function() {
+        // first see if we have an array
+        if (YAHOO.lang.isArray(queriedItems)) {
+            var regexes = [];
+            for (var i = 0, len = queriedItems.length; i < len; i++) {
+                regexes.push(new RegExp(queriedItems[i], 'i'));
+            }
+            // for each item in the list, check if the given argument matches
+            // formed regulat expression.
+            return function(x) {
+                for (var j = 0, len = regexes.length; j < len; j++) {
+                    if (x.match(regexes[j])) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+        }
+        // then check if we are dealing with an object
+        else if (YAHOO.lang.isObject(queriedItems)) {
+            return function(x) { return (x.toLowerCase() in queriedItems); };
+        }
+        // fail otherwise
+        else {
+            throw new TypeError("Type of queriedItems must be an Object");
+        }
+    })();
+
     function buildSVGElement(project_id, reporter, transform) {
         var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + reporter + "&trans=" + transform;
         var width = 1200;
@@ -22,7 +50,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
 
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
-        var hClass = (searchColumn === oColumn.key && (oData.toLowerCase() in queriedItems))
+        var hClass = (searchColumn === oColumn.key && matchesQuery(oData))
             ? 'class="highlight"' 
             : '';
         var i = oRecord.getCount();
@@ -39,7 +67,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         var out = [];
         for (var i=0, al=a.length; i < al; i++) {
             var b = a[i];
-            var hClass = (searchColumn === oColumn.key && (b.toLowerCase() in queriedItems))
+            var hClass = (searchColumn === oColumn.key && matchesQuery(b))
                 ? 'class="highlight"' 
                 : '';
             if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
@@ -55,7 +83,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         var out = [];
         for (var i=0, al=a.length; i < al; i++) {
             var b = a[i];
-            var hClass = (searchColumn === oColumn.key && (b.toLowerCase() in queriedItems))
+            var hClass = (searchColumn === oColumn.key && matchesQuery(b))
                 ? 'class="highlight"' 
                 : '';
             if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {

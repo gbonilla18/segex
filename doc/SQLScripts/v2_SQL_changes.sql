@@ -72,3 +72,55 @@ create index accnum on gene (accnum);
 
 -- remove 'note' field from probes
 alter table probe drop column note;
+
+-- 07/26/2011
+
+-- add temporary column to `gene`
+alter table gene add column location varchar(100) default null;
+
+-- add location data to gene.location
+update gene
+   set location = source
+ where source like 'chr%'
+   and isnull(location);
+
+update gene
+   set location = gene_note
+ where gene_note like 'chr%'
+   and isnull(location);
+
+-- clear gene.source values that were copied to gene.location, that are empty or
+-- that contain 'Matt_Merck'
+update gene
+   set source         = NULL
+ where location       = source
+    or length(source) = 0
+    or source         = 'Matt_Merck';
+
+-- clear gene.gene_note values that were copied to gene.location or that are
+-- empty
+update gene
+   set gene_note         = NULL
+ where location          = gene_note
+    or length(gene_note) = 0;
+
+-- move remaining data (GO annotations) from gene.source to gene_note
+update gene
+   set gene_note = source
+ where isnull(gene_note);
+
+-- delete now-empty gene.source column
+alter table gene drop column source;
+
+-- move location data from `gene` to `probe`
+alter table probe add column location varchar(100) default null;
+
+update probe
+ inner join annotates
+ using (rid)
+ inner join gene
+ using (gid)
+   set probe.location = gene.location;
+
+-- drop temporary column gene.location
+alter table gene drop column location;

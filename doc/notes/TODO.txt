@@ -121,3 +121,6 @@ privileges, while segex_basic is only granted SELECT.
 *) use better names for CSV output (replace "results.csv" with some kind of
 coding, e.g. results-61-37.csv where 61 and 37 are experiment ids being
 compared).
+
+*) Use GO database as an example of how data could be set up:
+http://archive.geneontology.org/latest-full/README
