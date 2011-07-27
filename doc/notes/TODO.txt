@@ -124,3 +124,5 @@ compared).
 
 *) Use GO database as an example of how data could be set up:
 http://archive.geneontology.org/latest-full/README
+(Note that we will be using InnoDB and we will have foreign keys which may
+complicate setup).
