@@ -203,21 +203,9 @@ while ( defined($action) ) {
             }
         }
         case MANAGEPLATFORMS {
-            if ( $s->is_authorized('user') ) {
-                push @js_src_yui,
-                  (
-                    'yahoo-dom-event/yahoo-dom-event.js',
-                    'connection/connection-min.js',
-                    'dragdrop/dragdrop-min.js',
-                    'container/container-min.js',
-                    'element/element-min.js',
-                    'datasource/datasource-min.js',
-                    'paginator/paginator-min.js',
-                    'datatable/datatable-min.js',
-                    'selector/selector-min.js'
-                  );
-
-                $content = \&managePlatforms;
+            $loadModule = SGX::ManagePlatforms->new(%controller_context);
+            if ( $loadModule->dispatch_js() ) {
+                $content = \&module_show_html;
                 $title   = 'Platforms';
                 $action  = undef;               # final state
             }
@@ -1265,17 +1253,6 @@ sub updateCell {
                 $q->param('stid') );
             return $rc;
         }
-        case 'platform' {
-            my $rc = $dbh->do(
-'update platform set pname=?, def_f_cutoff=?, def_p_cutoff=? where pid=?',
-                undef,
-                $q->param('pname'),
-                $q->param('fold'),
-                $q->param('pvalue'),
-                $q->param('pid')
-            );
-            return $rc;
-        }
         case 'project' {
             my $rc =
               $dbh->do( 'update project set prname=?, prdesc=? where prname=?',
@@ -1357,18 +1334,6 @@ sub show_tfs {
     print '<h2 id="tfs_caption"></h2>';
     print '<div><a id="tfs_astext">View as plain text</a></div>';
     print '<div id="tfs_table" class="table_cont"></div>';
-    return;
-}
-#######################################################################################
-sub managePlatforms {
-    my $managePlatform = SGX::ManagePlatforms->new( $dbh, $q );
-    $managePlatform->dispatch( $q->url_param('b') );
-    return;
-}
-#######################################################################################
-sub manageStudies {
-    my $ms = SGX::ManageStudies->new( $dbh, $q, JS_DIR );
-    $ms->dispatch( $q->url_param('b') );
     return;
 }
 #######################################################################################

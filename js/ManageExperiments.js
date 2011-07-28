@@ -1,40 +1,11 @@
-/* createCellEditor(PostBackURL, makePostBackQuery) 
-* -- generic function
-*/
-function createCellEditor(PostBackURL, makePostBackQuery) {
-    return new YAHOO.widget.TextareaCellEditor({
-        disableBtns: false,
-        asyncSubmitter: function(callback, newValue) {
-            var record = this.getRecord();
-            //var column = this.getColumn();
-            //var datatable = this.getDataTable();
-            if (this.value === newValue) { callback(); }
-            YAHOO.util.Connect.asyncRequest("POST", PostBackURL, {
-                success:function(o) {
-                    if(o.status === 200) {
-                        // HTTP 200 OK
-                        callback(true, newValue);
-                    } else {
-                        alert(o.statusText);
-                        //callback();
-                    }
-                },
-                failure:function(o) {
-                    alert(o.statusText);
-                    callback();
-                },
-                scope:this
-            }, makePostBackQuery(newValue, record));
-        }
-    });
-}
 
-/* curry createCellEditor on PostBackURL */
-function createMyCellEditor(makePostBackQuery) {
-    return createCellEditor(
-        url_prefix + "?a=manageExperiments",
-        makePostBackQuery
-    );
+function createExperimentCellUpdater(field) {
+    /*
+     * this functions makes a hammer after it first builds a factory in the
+     * neighborhood that makes hammers using the hammer construction factory
+     * spec sheet in CellUpdater.js 
+     */
+    return createCellUpdater(field, url_prefix + "?a=manageExperiments", "3");
 }
 
 if (typeof(JSStudyList) !== 'undefined') {
@@ -49,13 +20,13 @@ YAHOO.util.Event.addListener(window, "load", function() {
         function(elCell, oRecord, oColumn, oData) {
             if(oRecord.getData("9") == '') {
                 elCell.innerHTML = '<a title="Delete this experiment and \
-                    its associated data from the database" onclick="return deleteConfirmation();" \
-                    target="_self" href="' + deleteURL + oData + '">Delete</a>';
+its associated data from the database" onclick="return deleteConfirmation();" \
+target="_self" href="' + deleteURL + oData + '">Delete</a>';
             } else {
                 elCell.innerHTML = '<a title="Unassign this experiment \
-                    from all studies" onclick="return deleteConfirmation(\
+from all studies" onclick="return deleteConfirmation(\
 { itemName: \\"experiment\\" });" target="_self" href="' + deleteURL + oData + 
-                    "&deleteFrom=" + encodeURI(oRecord.getData("9")) + '\">Unassign</a>';
+"&deleteFrom=" + encodeURI(oRecord.getData("9")) + '\">Unassign</a>';
             }
         };
 
@@ -72,52 +43,15 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
         YAHOO.util.Dom.get("caption").innerHTML = caption;
         var myColumnDefs = [
-            {key:"3", sortable:true, resizeable:true, 
-                label:"No."},
-                {key:"0", sortable:true, resizeable:true, 
-                    label:"Sample 1", editor:createMyCellEditor(
-                        function(newValue, record) {
-                            return "b=update&field=sample1"
-                            + "&value=" + escape(newValue) 
-                            + "&id=" + encodeURI(record.getData("3"));
-                        }
-                    )
-                },
-                {key:"1", sortable:true, resizeable:true, 
-                    label:"Sample 2",editor:createMyCellEditor(
-                        function(newValue, record) {
-                            return "b=update&field=sample2"
-                            + "&value=" + escape(newValue) 
-                            + "&id=" + encodeURI(record.getData("3"));
-                        }
-                    )
-                },
-                {key:"2", sortable:true, resizeable:true, 
-                    label:"Probe Count"},
-                    {key:"5", sortable:false, resizeable:true, 
-                        label:"Experiment",editor:createMyCellEditor(
-                            function(newValue, record) {
-                                return "b=update&field=ExperimentDescription"
-                                + "&value=" + escape(newValue) 
-                                + "&id=" + encodeURI(record.getData("3"));
-                            }
-                        )
-                    },
-                    {key:"6", sortable:false, resizeable:true, 
-                        label:"Experiment: Additional Info",editor:createMyCellEditor(
-                            function(newValue, record) {
-                                return "b=update&field=AdditionalInformation"
-                                + "&value=" + escape(newValue) 
-                                + "&id=" + encodeURI(record.getData("3"));
-                            }
-                        )
-                    },
-                    {key:"3", sortable:false, resizeable:true, 
-                        label:"Unassign\/Delete",formatter:"formatExperimentDeleteLink"},
-                        {key:"7", sortable:true, resizeable:true, 
-                            label:"Study"},
-                            {key:"8", sortable:true, resizeable:true, 
-                                label:"Platform"}
+            {key:"3", sortable:true, resizeable:true, label:"No."},
+            {key:"0", sortable:true, resizeable:true, label:"Sample 1", editor:createExperimentCellUpdater("sample1")},
+            {key:"1", sortable:true, resizeable:true, label:"Sample 2", editor:createExperimentCellUpdater("sample2")},
+            {key:"2", sortable:true, resizeable:true, label:"Probe Count"},
+            {key:"5", sortable:false, resizeable:true, label:"Experiment", editor:createExperimentCellUpdater("ExperimentDescription")},
+            {key:"6", sortable:false, resizeable:true, label:"Experiment: Additional Info", editor:createExperimentCellUpdater("AdditionalInformation")},
+            {key:"3", sortable:false, resizeable:true, label:"Unassign\/Delete", formatter:"formatExperimentDeleteLink"},
+            {key:"7", sortable:true, resizeable:true, label:"Study"},
+            {key:"8", sortable:true, resizeable:true, label:"Platform"}
         ];
 
         var myDataSource = new YAHOO.util.DataSource(JSStudyList.records);

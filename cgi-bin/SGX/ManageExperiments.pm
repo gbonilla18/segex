@@ -147,27 +147,6 @@ ORDER BY experiment.eid ASC
 
 END_LoadAllExperimentsQuery
 
-        #        _LoadSingleQuery => <<"END_LoadSingleQuery",
-        #SELECT eid,
-        #    sample1,
-        #    sample2,
-        #    ExperimentDescription,
-        #    AdditionalInformation
-        #FROM experiment
-        #NATURAL JOIN StudyExperiment
-        #NATURAL JOIN study
-        #WHERE experiment.eid = {0}
-        #
-        #END_LoadSingleQuery
-
-        #        _UpdateQuery => <<"END_UpdateQuery",
-        #UPDATE experiment
-        #SET ExperimentDescription = '{0}',
-        #    AdditionalInformation = '{1}',
-        #    sample1 = '{2}',
-        #    sample2 = '{3}'
-        #WHERE eid = {4}
-        #END_UpdateQuery
 
         _DeleteQueries => [
             'DELETE FROM microarray WHERE eid = ?',
@@ -209,26 +188,7 @@ sub dispatch {
       ? $q->param('b')
       : '';
 
-    switch ($action) {
-        case 'delete' {
-
-            # redirect if we know where to...
-            if ( defined $q->url_param('destination') ) {
-                print "<br />Record removed - Redirecting...<br />";
-
-                my $destination =
-                  $q->url( -base => 1 )
-                  . uri_unescape( $q->url_param('destination') );
-                print
-"<script type=\"text/javascript\">window.location = \"$destination\"</script>";
-            }
-        }
-        else {
-
-            # default action: show experiments form
-            print $self->showExperiments();
-        }
-    }
+    print $self->getHTML();
     return 1;
 }
 
@@ -270,66 +230,29 @@ sub dispatch_js {
                 id         => $q->param('id'),
                 deleteFrom => $q->param('deleteFrom')
             );
+            # redirect if we know where to... will send a redirect header, so
+            # commit the session to data store now
+            my $redirectURI = (defined $q->url_param('destination')) 
+                ? $q->url( -base => 1 ) . uri_unescape( $q->url_param('destination') )
+                : $q->url( -absolute => 1 ) . '?a=manageExperiments';
+
+            $s->commit(); 
+            print $q->redirect(
+                -uri    => $redirectURI,
+                -status => 302,           # 302 Found
+                -cookie => $s->cookie_array()
+            );
         }
         case 'update' {
 
-            # This is a *very generic* method handling AJAX request --
-            # basically update a key-value pair in a specified row in the table
-            # # :TODO:07/04/2011 16:48:45:es: Abstract out this method into a
-            # base class for SGX modules.
-            #
-            my %valid_fields;
-            @valid_fields{
-                qw{sample1 sample2 ExperimentDescription AdditionalInformation}}
-              = ();
-
-            if ( !$s->is_authorized('user') ) {
-
-                # Send 401 Unauthorized header
-                print $q->header( -status => 401 );
-                exit(0);
-            }
-            my $field = $q->param('field');
-            if ( not defined($field) or not exists( $valid_fields{$field} ) ) {
-
-                # Send 400 Bad Request header
-                print $q->header( -status => 400 );
-                exit(0);
-            }
-
-            # after field name has been checked against %valid_fields hash, it
-            # is safe to fill it in directly:
-            my $query = "update experiment set $field=? where eid=?";
-
-            # Note that when $q->param('value') is undefined, DBI should fill in
-            # NULL into the corresponding placeholder.
-            my $rc = eval {
-                $dbh->do( $query, undef, $q->param('value'), $q->param('id') );
-            } or 0;
-
-            if ($rc) {
-
-                # Some rows were updated:
-                # Send 200 OK header
-                print $q->header( -status => 200 );
-                exit(1);
-            }
-            else {
-                if ( !$@ ) {
-
-                    # Normal condition -- no rows updated:
-                    # Send 404 Not Found header
-                    print $q->header( -status => 404 );
-                    exit(0);
-                }
-                else {
-
-                    # Error condition -- no rows updated:
-                    # Send 400 Bad Request header
-                    print $q->header( -status => 400 );
-                    $@->throw();
-                }
-            }
+            # ajax_update takes care of authorization...
+            $self->ajax_update(
+                valid_fields => [
+                    qw{sample1 sample2 ExperimentDescription AdditionalInformation}
+                ],
+                table => 'experiment',
+                key   => 'eid'
+            );
         }
         case 'Load' {
             if ( !$s->is_authorized('user') ) { return; }
@@ -349,6 +272,7 @@ sub dispatch_js {
             $self->loadAllExperimentsFromStudy();
 
             # load experiments
+            push @$js_src_code, { -src  => 'CellUpdater.js' };
             push @$js_src_code, { -code => $self->showExperiments_js() };
             push @$js_src_code, { -src  => 'ManageExperiments.js' };
 
@@ -404,6 +328,89 @@ sub init {
         $self->{_pid} = ( defined $pid ) ? $pid : $q->param('pid');
     }
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  ajax_update
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Update part of CRUD operations. This is a *very generic* method
+#                handling AJAX request -- basically update a key-value pair in a
+#                specified row in the table.
+#       THROWS:  no exceptions
+#     COMMENTS:  :TODO:07/04/2011 16:48:45:es: Abstract out this method into a
+#                base class for SGX modules.
+#                :TODO:07/28/2011 00:38:55:es: Abstract out the model part of
+#                this method into the model composable of the abstract class.
+#     SEE ALSO:  n/a
+#===============================================================================
+sub ajax_update {
+
+    my ( $self, %args ) = @_;
+
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+
+    my $valid_fields = $args{valid_fields};
+    my $table        = $args{table};
+    my $column       = $args{key};
+
+    my %is_valid_field = map { $_ => 1 } @$valid_fields;
+
+    if ( !$s->is_authorized('user') ) {
+
+        # Send 401 Unauthorized header
+        print $q->header( -status => 401 );
+        $s->commit;    # must commit session before exit
+        exit(0);
+    }
+    my $field = $q->param('field');
+    if ( !defined($field) || $field eq '' || !$is_valid_field{$field} ) {
+
+        # Send 400 Bad Request header
+        print $q->header( -status => 400 );
+        $s->commit;    # must commit session before exit
+        exit(0);
+    }
+
+    # after field name has been checked against %valid_fields hash, it
+    # is safe to fill it in directly:
+    my $query = "update $table set $field=? where $column=?";
+
+    # :TODO:07/27/2011 23:42:00:es: implement transactional updates. Separate
+    # statement preparation from execution.
+
+    # Note that when $q->param('value') is undefined, DBI should fill in
+    # NULL into the corresponding placeholder.
+    my $rc =
+      eval { $dbh->do( $query, undef, $q->param('value'), $q->param('id') ); }
+      || 0;
+
+    if ( $rc > 0 ) {
+
+        # Normal condition -- at least some rows were updated:
+        # Send 200 OK header
+        print $q->header( -status => 200 );
+        $s->commit;    # must commit session before exit
+        exit(1);
+    }
+    elsif ( my $exception = $@ ) {
+
+        # Error condition -- no rows updated:
+        # Send 400 Bad Request header
+        print $q->header( -status => 400 );
+        $s->commit;    # must commit session before exit
+        $exception->throw();
+    }
+    else {
+
+        # Normal condition -- no rows updated:
+        # Send 404 Not Found header
+        print $q->header( -status => 404 );
+        $s->commit;    # must commit session before exit
+        exit(0);
+    }
+    $s->commit;        # must commit session before exit
 }
 
 #===  CLASS METHOD  ============================================================
@@ -543,7 +550,7 @@ sub loadAllExperimentsFromStudy {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
-#       METHOD:  showExperiments
+#       METHOD:  getHTML
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Draw the HTML for the experiment table
@@ -551,7 +558,7 @@ sub loadAllExperimentsFromStudy {
 #     COMMENTS:  n/a
 #     SEE ALSO:  n/a
 #===============================================================================
-sub showExperiments {
+sub getHTML {
     my $self = shift;
     my $q    = $self->{_cgi};
 
