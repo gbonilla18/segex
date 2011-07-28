@@ -31,7 +31,6 @@ use strict;
 use warnings;
 
 use Switch;
-use SGX::DrawingJavaScript;
 use JSON::XS;
 
 #===  CLASS METHOD  ============================================================
@@ -533,12 +532,12 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     editor:createPlatformCellUpdater("species")},
         {key:"5", sortable:true, resizeable:true, label:"$names->[5]"},
         {key:"4", sortable:false, resizeable:true, label:"Delete Platform",formatter:"formatPlatformDeleteLink"},
-        {key:"6", sortable:false, resizeable:true, label:"Probe Count"},
-        {key:"7", sortable:false, resizeable:true, label:"Probe Sequences"},
-        {key:"8", sortable:false, resizeable:true, label:"Probe Locations"},
-        {key:"9", sortable:false, resizeable:true, label:"Probes with Annotations"},
-        {key:"10", sortable:false, resizeable:true, label:"Gene Symbols"},
-        {key:"11", sortable:false, resizeable:true, label:"Gene Names"}
+        {key:"6", sortable:true, resizeable:true, label:"Probe Count"},
+        {key:"7", sortable:true, resizeable:true, label:"Probe Sequences"},
+        {key:"8", sortable:true, resizeable:true, label:"Probe Locations"},
+        {key:"9", sortable:true, resizeable:true, label:"Probes with Annotations"},
+        {key:"10", sortable:true, resizeable:true, label:"Gene Symbols"},
+        {key:"11", sortable:true, resizeable:true, label:"Gene Names"}
     ];
     
         YAHOO.util.Dom.get("caption").innerHTML = JSPlatformList.caption;
