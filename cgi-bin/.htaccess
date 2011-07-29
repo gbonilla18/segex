@@ -4,4 +4,4 @@ Options -Indexes +ExecCGI +FollowSymLinks
 SetHandler cgi-script
 
 RewriteEngine on
-RewriteRule ^$ /cgi-bin/segex/index.cgi
+RewriteRule ^$ /cgi-bin/segex_dev/index.cgi
