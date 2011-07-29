@@ -80,6 +80,8 @@ and DOCUMENTS_ROOT. Create the subtree containing css/, images/, and js/
 directories under DOCUMENTS_ROOT and the subtree corresponding to cgi-bin under
 CGI_ROOT.
 
+4. <Directory "/Library/WebServer/CGI-Executables">
+    AllowOverride Options FileInfo
 
 ==== B. Mac OS X ====
 
@@ -215,3 +217,6 @@ file for both CGI_ROOT and DOCUMENTS_ROOT directories.
 
    # /segex_dev/js
    sudo cp -R ~/segex/js .
+
+5. <Directory "/Library/WebServer/CGI-Executables">
+    AllowOverride Options FileInfo

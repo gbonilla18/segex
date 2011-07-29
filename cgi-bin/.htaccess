@@ -1,0 +1,7 @@
+Options -Indexes +ExecCGI +FollowSymLinks
+
+# treat all files as CGI scripts
+SetHandler cgi-script
+
+RewriteEngine on
+RewriteRule ^$ /cgi-bin/segex/index.cgi
