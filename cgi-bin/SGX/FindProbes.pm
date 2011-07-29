@@ -996,7 +996,7 @@ sub build_SimpleProbeQuery {
     if ( defined($curr_proj) && $curr_proj ne '' ) {
         $curr_proj             = $self->{_dbh}->quote($curr_proj);
         $sql_subset_by_project = <<"END_sql_subset_by_project"
-INNER JOIN study ON study.pid=platform.pid
+INNER JOIN study ON study.pid=probe.pid
 INNER JOIN ProjectStudy USING(stid) 
 WHERE prid=$curr_proj 
 END_sql_subset_by_project
