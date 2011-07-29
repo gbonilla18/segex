@@ -589,7 +589,7 @@ sub sanitizeUploadFile {
     # The is the file handle of the uploaded file.
     my $uploadedFile = $q->upload('file')
       or
-      SGX::Exception::User->throw( error => "Failed to upload input file.\n" );
+      SGX::Exception::User->throw( error => "Failed to upload file.\n" );
 
     #Open file we are writing to server.
     open my $OUTPUTTOSERVER, '>', $outputFileName

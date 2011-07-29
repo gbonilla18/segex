@@ -28,6 +28,9 @@ use Tie::IxHash;
 use SGX::Debug qw/assert/;
 use SGX::FindProbes;
 use List::Util qw/max/;
+use Data::Dumper;
+use SGX::Util qw/declare_js_var/;
+use SGX::Exceptions;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments
@@ -251,15 +254,14 @@ sub getFormHTML {
         -action => $q->url( absolute => 1 ) . '?a=' . $submit_action
       ),
       $q->dl(
-        $q->dt(
-                'Include not significant probes:'
-        ),
+        $q->dt('Include not significant probes:'),
         $q->dd(
             $q->checkbox(
                 -name  => 'chkAllProbes',
                 -id    => 'chkAllProbes',
                 -value => '1',
-                -label => '(probes not significant in all experiments labeled \'TFS 0\')'
+                -label =>
+'(probes not significant in all experiments labeled \'TFS 0\')'
             )
         ),
         $q->dt('Filter on:'),
@@ -357,7 +359,7 @@ sub getResultsJS {
 
        # if $q->param('upload_file') is not set, all other fields in Upload File
        # subsection don't matter
-        assert( !$q->param('terms') );
+       #assert( !$q->param('terms') );
         my $findProbes = SGX::FindProbes->new(
             dbh          => $dbh,
             cgi          => $q,
@@ -365,13 +367,15 @@ sub getResultsJS {
         );
 
         # parse uploaded file (highly likely to fail!)
-        my $fh = $q->upload('upload_file');
+        my $fh = $q->upload('upload_file')
+          or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
 
-        if ( not eval { $findProbes->init($fh) }
-            or ( my $exception = $@ ) )
-        {
+        my $ok = eval { $findProbes->init($fh) } || 0;
+
+ # :TODO:07/29/2011 16:59:31:es: test zero-length upload files here
+        if ( ( my $exception = $@ ) || !$ok ) {
             close $fh;
-            croak $exception;
+            $exception->throw();
         }
         close $fh;
 
@@ -492,11 +496,9 @@ END_query_fs
     $sth_titles->finish;
 
     my $rep_count = 0;
-    my %hc;
 
-    # initialize a hash using a slice:
-    #for ($i = 0; $i < $exp_count; $i++) { $hc{$i} = 0 }
-    @hc{ 0 .. ( $exp_count - 1 ) } = 0;
+    # initialize the hash
+    my %hc = map { $_ => 0 } ( 0 .. ( $exp_count - 1 ) );
     foreach my $value ( values %$h ) {
         for ( $i = 0 ; $i < $exp_count ; $i++ ) {
 
@@ -548,8 +550,12 @@ END_query_fs
               . '|'
               . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
 
-            $out .=
-"var venn = '<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />';\n";
+            $out .= declare_js_var(
+                {
+                    venn =>
+"<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
+                }
+            );
         }
         case 3 {
 
@@ -590,45 +596,57 @@ END_query_fs
               . '|'
               . uri_escape( "$currentEID3. " . $ht->{$currentEID3}->{title} );
 
-            $out .=
-"var venn = '<img src=\"http://chart.apis.google.com/chart?$qstring\" />';\n";
+            $out .= declare_js_var(
+                {
+                    venn =>
+"<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
+                }
+            );
         }
         else {
-            $out .= "var venn = '';\n";
+            $out .= declare_js_var(
+                {
+                    venn => ''
+                }
+            );
         }
     }
 
     # Summary table -------------------------------------
-    $out .= '
-var rep_count="' . $rep_count . '";
-var eid="' . join( ',', @eids ) . '";
-var rev="' . join( ',', @reverses ) . '";
-var fc="' . join( ',', @fcs ) . '";
-var pval="' . join( ',', @pvals ) . '";
-var allProbes = "' . ( ( defined $allProbes ) ? $allProbes : '' ) . '";
-var searchFilter = "' . $probeList . '";
-
-var summary = {
-caption: "Experiments compared",
-records: 
-';
-
     my @tmpArray;
     for ( $i = 0 ; $i < @eids ; $i++ ) {
         my ( $currentSTID, $currentEID ) = split( /\|/, $eids[$i] );
 
+        my $j = 0;
         push @tmpArray,
-          {
-            0 => $true_eids[$i],
-            1 => $ht->{$currentEID}->{title},
-            2 => $fcs[$i],
-            3 => $pvals[$i],
-            4 => $hc{$i}
+          +{
+            map { $j++ => $_ } (
+                $true_eids[$i], $ht->{$currentEID}->{title},
+                $fcs[$i],       $pvals[$i],
+                $hc{$i}
+            )
           };
     }
-    $out .= encode_json( \@tmpArray ) . '
-};
-';
+
+    $out .= declare_js_var(
+        {
+            rep_count => $rep_count,
+            eid       => join( ',', @eids ),
+            rev       => join( ',', @reverses ),
+            fc        => join( ',', @fcs ),
+            pval      => join( ',', @pvals ),
+            allProbes => (
+                ( defined $allProbes )
+                ? $allProbes
+                : ''
+            ),
+            searchFilter => $probeList,
+            summary      => {
+                caption => 'Experiments compared',
+                records => \@tmpArray
+            }
+        }
+    );
 
     # TFS breakdown table ------------------------------
     my $tfs_defs =
@@ -648,16 +666,10 @@ records:
     $tfs_response_fields .= "{key:\"$i\", parser:\"number\"},
 {key:\"" . ( $i + 1 ) . "\", parser:\"number\"}\n";
 
-    $out .= '
-var tfs = {
-caption: "Probes grouped by significance in different experiment combinations",
-records: 
-';
-
     my @tfsBreakdown;
-
-    # numerical sort on hash value
     foreach my $key ( sort { $h->{$b}->{fs} <=> $h->{$a}->{fs} } keys %$h ) {
+
+        # numerical sort on hash value
         push @tfsBreakdown,
           {
             0 => $key,
@@ -668,8 +680,16 @@ records:
             ( $exp_count + 1 ) => $h->{$key}->{c}
           };
     }
-    $out .= encode_json( \@tfsBreakdown ) . '
-};
+    $out .= declare_js_var(
+        {
+            tfs => {
+                caption =>
+'Probes grouped by significance in different experiment combinations',
+                records => \@tfsBreakdown
+            }
+        }
+      )
+      . '
 
 YAHOO.util.Event.addListener(window, "load", function() {
     var Dom = YAHOO.util.Dom;
@@ -704,7 +724,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.innerHTML = "<input class=\"plaintext\" type=\"submit\" name=\"get\" value=\"TFS: " + fs + "\" />&nbsp;&nbsp;&nbsp;<input class=\"plaintext\" type=\"submit\" name=\"CSV\" value=\"(TFS: " + fs + " CSV)\" />";
     }
     Dom.get("tfs_caption").innerHTML = tfs.caption;
-    Dom.get("tfs_all_dt").innerHTML = "View data for ' . $rep_count . ' probes:";
+    Dom.get("tfs_all_dt").innerHTML = "View data for '
+      . $rep_count . ' probes:";
     Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"HTML-formatted\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
     var tfs_table_defs = [
 ' . $tfs_defs . '

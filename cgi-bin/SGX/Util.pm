@@ -5,18 +5,86 @@ use warnings;
 use base qw/Exporter/;
 
 use List::Util qw/min max/;
+use URI::Escape;
+use JSON;
+use SGX::Exceptions;
+use Scalar::Util qw/looks_like_number/;
 
-our @EXPORT_OK = qw/trim max min bounds label_format replace all_match/;
+our @EXPORT_OK =
+  qw/trim max min bounds label_format replace all_match declare_js_var/;
+
+#===  FUNCTION  ================================================================
+#         NAME:  declare_js_var
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  :TODO:07/29/2011 15:23:00:es: use either a closure or
+#                object-oriented interface to initialize a JSON object at the
+#                beginning and then reuse it during calls. Also allow setting
+#                options such as whether to insert new line characters, for
+#                example.
+#     SEE ALSO:  n/a
+#===============================================================================
+sub declare_js_var {
+    my ($href) = @_;
+    my @ret;
+
+    my $json = JSON->new->allow_nonref;
+    while ( my ( $key, $value ) = each %$href ) {
+
+# check all keys for ECMA 262 validity -- whether they can be used as
+# valid Javascript variable names:
+# http://stackoverflow.com/questions/1661197/valid-characters-for-javascript-variable-names
+        if ( $key !~ m/^[a-zA-Z_\$][0-9a-zA-Z_\$]*$/ ) {
+            SGX::Exception::Internal->throw( error =>
+"Cannot form Javascript: Variable name $key does not comply with ECMA 262\n"
+            );
+        }
+        my $value_reftype = ref $value;
+        my $encoded_value;
+        if ( $value_reftype eq '' ) {
+
+            # direct scalar
+            $encoded_value =
+              ( looks_like_number($value) )
+              ? trim($value)
+              : ( ( defined $value ) ? $json->encode($value) : 'undefined' );
+        }
+        elsif ( $value_reftype eq 'SCALAR' ) {
+
+            # referenced scalar
+            $encoded_value =
+              ( looks_like_number($$value) )
+              ? trim($$value)
+              : ( ( defined $$value ) ? $json->encode($$value) : 'undefined' );
+        }
+        elsif ( $value_reftype eq 'ARRAY' or $value_reftype eq 'HASH' ) {
+
+            # array or hash reference
+            $encoded_value = $json->encode($value);
+        }
+        else {
+            SGX::Exception::Internal->throw( error =>
+"Cannot form Javascript: do not know how to handle Perl literals having ref eq $value_reftype\n"
+            );
+        }
+        push @ret, sprintf( 'var %s=%s;', $key, $encoded_value );
+    }
+
+    return join( "\n", @ret ) . "\n";
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
 #      PURPOSE:  Generates a function that checks whether all element of an
 #                array conform to some predefined regular expression.
 #   PARAMETERS:  REQUIRED
-#                qr//               
+#                qr//
 #                   regular expression in precompiled form
 #                OPTIONAL
-#                ignore_undef => T/F  
+#                ignore_undef => T/F
 #                   (default: false). If true, the resulting function will not
 #                   check undefined values for a match to the provided regex
 #                   (undefined values have no effect); if false, will the
@@ -39,14 +107,14 @@ our @EXPORT_OK = qw/trim max min bounds label_format replace all_match/;
 #                $bar->();                       # true
 #                $bar->('', undef);              # true
 #                $bar->('', 'foo');              # false
-#                
+#
 #     SEE ALSO:  n/a
 #===============================================================================
 sub all_match {
     my ( $regex, %args ) = @_;
-    return ($args{ignore_undef})
+    return ( $args{ignore_undef} )
       ? sub { !defined || m/$regex/ || return for @_; return 1 }
-      : sub { (defined && m/$regex/) || return for @_; return 1 };
+      : sub { ( defined && m/$regex/ ) || return for @_; return 1 };
 }
 
 #===  FUNCTION  ================================================================

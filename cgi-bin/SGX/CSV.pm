@@ -173,7 +173,7 @@ sub csv_rewrite {
 
     # check for errors
     if ( my $error = $csv_in->error_diag() ) {
-        SGX::Exception::User->throw($error);
+        SGX::Exception::User->throw(error => $error);
     }
 
     # return number of records written
