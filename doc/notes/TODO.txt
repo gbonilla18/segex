@@ -126,3 +126,6 @@ compared).
 http://archive.geneontology.org/latest-full/README
 (Note that we will be using InnoDB and we will have foreign keys which may
 complicate setup).
+
+*) Compare Experiments main result page should list platform and species in HTML
+output.

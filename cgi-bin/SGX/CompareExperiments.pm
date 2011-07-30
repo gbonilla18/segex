@@ -788,7 +788,7 @@ sub getResultsHTML {
       $q->h2( { -id => 'summary_caption' }, '' ),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->start_form(
-        -method  => 'GET',
+        -method  => 'POST',
         -action  => $q->url( -absolute => 1 ) . "?a=" . $action,
         -target  => '_blank',
         -class   => 'getTFS',
