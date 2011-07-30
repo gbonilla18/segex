@@ -223,7 +223,7 @@ sub authenticate {
 
     if ( $row_count != 1 ) {
          # :TODO:07/09/2011 23:58:04:es: Consider using
-         # SGX::Exception::User::Login to send the error message
+         # SGX::Abstract::Exception::User::Login to send the error message
          #
         # user not found in the database
         $sth->finish;

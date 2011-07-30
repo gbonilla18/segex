@@ -36,7 +36,7 @@ use Data::Dumper;
 use File::Basename;
 use JSON::XS;
 use File::Temp;
-use SGX::Exceptions;
+use SGX::Abstract::Exception;
 use List::Util qw/min/;
 use SGX::Util qw/all_match/;
 use SGX::Model::PlatformStudyExperiment;
@@ -232,7 +232,7 @@ sub init {
 
         # check for errors
         if ( my $error = $csv_in->error_diag() ) {
-            SGX::Exception::User->throw(error => $error);
+            SGX::Abstract::Exception::User->throw(error => $error);
         }
     }
     else {
@@ -252,7 +252,7 @@ sub init {
 #      RETURNS:  ????
 #  DESCRIPTION:  Gets full user name from session and full project name from CGI
 #                parameters or session in that order. Also sets project id.
-#       THROWS:  SGX::Exception::Internal, Class::Exception::DBI
+#       THROWS:  SGX::Abstract::Exception::Internal, Class::Exception::DBI
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -294,7 +294,7 @@ sub getSessionOverrideCGI {
                 $self->{_WorkingProjectName} = '';
             }
             else {
-                SGX::Exception::Internal->throw( error =>
+                SGX::Abstract::Exception::Internal->throw( error =>
 "More than one result returned where unique was expected\n"
                 );
             }
@@ -923,7 +923,7 @@ END_BROWSER_NOTICE
 #                tmp_table => $tmpTable - uploaded table to join on
 #      RETURNS:  true value
 #  DESCRIPTION:  Fills _InsideTableQuery field
-#       THROWS:  SGX::Exception::User
+#       THROWS:  SGX::Abstract::Exception::User
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================

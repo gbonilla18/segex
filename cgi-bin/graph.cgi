@@ -183,7 +183,7 @@ my $golden_ratio =
   1.61803399;    # space between bars is wider than the bars by golden ratio
 my $bar_width =
   $body_width / ( @y * ( 1 + $golden_ratio ) + $golden_ratio );    # bar width
-my ( $min_data, $max_data ) = bounds( \@y );
+my ( $min_data, $max_data ) = bounds( @y );
 $max_data = ( $max_data > $cutoff )  ? $max_data : $cutoff;
 $min_data = ( $min_data < -$cutoff ) ? $min_data : -$cutoff;
 my $spread = $max_data - $min_data;

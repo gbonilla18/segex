@@ -52,7 +52,7 @@ use warnings;
 
 use Text::CSV;
 use SGX::Util qw/all_match/;
-use SGX::Exceptions;
+use SGX::Abstract::Exception;
 
 #===  FUNCTION  ================================================================
 #         NAME:  csv_rewrite
@@ -84,7 +84,7 @@ use SGX::Exceptions;
 #                   FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 #                   LINES TERMINATED BY '\n' STARTING BY ''
 #
-#       THROWS:  SGX::Exception::User
+#       THROWS:  SGX::Abstract::Exception::User
 #     COMMENTS:  n/a
 #
 #     SEE ALSO:  perldoc Text::CSV
@@ -152,7 +152,7 @@ sub csv_rewrite {
 
         # check total number of fields present
         if ( ( my $fc = @fields ) < $req_fields ) {
-            SGX::Exception::User->throw( error =>
+            SGX::Abstract::Exception::User->throw( error =>
 "Only $fc field(s) found ($req_fields required) at line $line_num\n"
             );
         }
@@ -161,7 +161,7 @@ sub csv_rewrite {
         foreach ( 0 .. ( $req_fields - 1 ) ) {
             if ( !$is_valid->[$_]->( $fields[$_] ) ) {
                 my $col_num = $_ + 1;
-                SGX::Exception::User->throw( error =>
+                SGX::Abstract::Exception::User->throw( error =>
                       "Invalid formatting at line $line_num column $col_num\n"
                 );
             }
@@ -173,7 +173,7 @@ sub csv_rewrite {
 
     # check for errors
     if ( my $error = $csv_in->error_diag() ) {
-        SGX::Exception::User->throw(error => $error);
+        SGX::Abstract::Exception::User->throw(error => $error);
     }
 
     # return number of records written

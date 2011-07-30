@@ -33,7 +33,7 @@ use warnings;
 use SGX::Debug;
 use SGX::DropDownData;
 use SGX::DrawingJavaScript;
-use SGX::Exceptions;
+use SGX::Abstract::Exception;
 
 use Switch;
 use Data::Dumper;
@@ -205,7 +205,7 @@ sub dispatch {
  # :TODO:07/08/2011 13:00:37:es: 
  # :TRICKY:07/08/2011 13:00:29:es: 
  #  Throwing descriptive errors from DBI may be insecure. Consider throwing
- #  custon SGX::Exception::User instead when no records where inserted.
+ #  custon SGX::Abstract::Exception::User instead when no records where inserted.
                     # only catching statement errors. Typical error: duplicate
                     # record is being inserted.
                     $msg .= $q->pre( $exception->error );
@@ -246,7 +246,7 @@ sub dispatch {
             print $self->showProjects();
         }
         else {
-            SGX::Exception::User->throw( error => "Unknown action $action\n" );
+            SGX::Abstract::Exception::User->throw( error => "Unknown action $action\n" );
         }
     }
     if ( $action eq 'delete' || $action eq 'editSubmit' ) {
@@ -474,11 +474,11 @@ sub loadSingleProject {
     my $rc  = $sth->execute( $self->{_prid} );
 
     if ( $rc < 1 ) {
-        SGX::Exception::User->throw(
+        SGX::Abstract::Exception::User->throw(
             error => "No project found with id = $self->{_prid}\n" );
     }
     elsif ( $rc > 1 ) {
-        SGX::Exception::Internal->throw(
+        SGX::Abstract::Exception::Internal->throw(
             error => "Cannot have $rc projects sharing the same id.\n" );
     }
 
@@ -984,7 +984,7 @@ sub addExistingStudy {
         # Exception::Class::DBI::STH handler. In case that fails, or in the
         # crazy case where no primary key was defined in the database, we throw
         # an exception here signaling an internal error:
-        SGX::Exception::Internal->throw(
+        SGX::Abstract::Exception::Internal->throw(
             error => "$rc records were modified though one was expected\n" );
     }
     return $rc;

@@ -27,10 +27,10 @@ use JSON::XS;
 use Tie::IxHash;
 use SGX::Debug qw/assert/;
 use SGX::FindProbes;
-use List::Util qw/max/;
 use Data::Dumper;
-use SGX::Util qw/declare_js_var/;
-use SGX::Exceptions;
+use SGX::Abstract::Exception;
+use SGX::Abstract::JSEmitter;
+use SGX::Util qw/count_gtzero max/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments
@@ -368,11 +368,12 @@ sub getResultsJS {
 
         # parse uploaded file (highly likely to fail!)
         my $fh = $q->upload('upload_file')
-          or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
+          or SGX::Abstract::Exception::User->throw(
+            error => "Failed to upload file.\n" );
 
         my $ok = eval { $findProbes->init($fh) } || 0;
 
- # :TODO:07/29/2011 16:59:31:es: test zero-length upload files here
+        # :TODO:07/29/2011 16:59:31:es: test zero-length upload files here
         if ( ( my $exception = $@ ) || !$ok ) {
             close $fh;
             $exception->throw();
@@ -515,6 +516,8 @@ END_query_fs
     # http://code.google.com/apis/chart/formats.html#data_scaling
     #
     my $out = '';
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+
     switch ($exp_count) {
         case 2 {
 
@@ -526,13 +529,10 @@ END_query_fs
                 push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
             }
             my $AB = $c[2];
-            my $A  = $hc{0};
-            my $B  = $hc{1};
+            my ( $A, $B ) = ( $hc{0}, $hc{1} );
 
-            #assert(defined($A));
-            #assert(defined($B));
-            assert( $A == $c[0] + $AB );
-            assert( $B == $c[1] + $AB );
+            #assert( $A == $c[0] + $AB );
+            #assert( $B == $c[1] + $AB );
 
             my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
             my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
@@ -550,11 +550,12 @@ END_query_fs
               . '|'
               . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
 
-            $out .= declare_js_var(
+            $out .= $js->define(
                 {
                     venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
-                }
+                },
+                declare => 1
             );
         }
         case 3 {
@@ -570,12 +571,16 @@ END_query_fs
             my $AB  = $c[2] + $ABC;
             my $AC  = $c[4] + $ABC;
             my $BC  = $c[5] + $ABC;
-            my $A   = $hc{0};
-            my $B   = $hc{1};
-            my $C   = $hc{2};
-            assert( $A == $c[0] + $c[2] + $c[4] + $ABC );
-            assert( $B == $c[1] + $c[2] + $c[5] + $ABC );
-            assert( $C == $c[3] + $c[4] + $c[5] + $ABC );
+            my ( $A, $B, $C ) = ( $hc{0}, $hc{1}, $hc{2} );
+
+            my $chart_title =
+              ( count_gtzero( $A, $B, $C ) > 2 )
+              ? 'Significant+Probes+(Approx.)'
+              : 'Significant+Probes';
+
+            #assert( $A == $c[0] + $c[2] + $c[4] + $ABC );
+            #assert( $B == $c[1] + $c[2] + $c[5] + $ABC );
+            #assert( $C == $c[3] + $c[4] + $c[5] + $ABC );
 
             my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
             my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
@@ -589,25 +594,33 @@ END_query_fs
               . join( ',', @nums )
               . '&amp;chds=0,'
               . $scale
-              . '&amp;chs=750x300&chtt=Significant+Probes+(Approx.)&amp;chco=ff0000,00ff00,0000ff&amp;chdl='
-              . uri_escape( "$currentEID1. " . $ht->{$currentEID1}->{title} )
+              . "&amp;chs=750x300&chtt=$chart_title&amp;chco=ff0000,00ff00,0000ff&amp;chdl="
+              . uri_escape(
+                sprintf( '%d. %s', $currentEID1, $ht->{$currentEID1}->{title} )
+              )
               . '|'
-              . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} )
+              . uri_escape(
+                sprintf( '%d. %s', $currentEID2, $ht->{$currentEID2}->{title} )
+              )
               . '|'
-              . uri_escape( "$currentEID3. " . $ht->{$currentEID3}->{title} );
+              . uri_escape(
+                sprintf( '%d. %s', $currentEID3, $ht->{$currentEID3}->{title} )
+              );
 
-            $out .= declare_js_var(
+            $out .= $js->define(
                 {
                     venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
-                }
+                },
+                declare => 1
             );
         }
         else {
-            $out .= declare_js_var(
+            $out .= $js->define(
                 {
                     venn => ''
-                }
+                },
+                declare => 1
             );
         }
     }
@@ -628,7 +641,7 @@ END_query_fs
           };
     }
 
-    $out .= declare_js_var(
+    $out .= $js->define(
         {
             rep_count => $rep_count,
             eid       => join( ',', @eids ),
@@ -645,7 +658,8 @@ END_query_fs
                 caption => 'Experiments compared',
                 records => \@tmpArray
             }
-        }
+        },
+        declare => 1
     );
 
     # TFS breakdown table ------------------------------
@@ -680,14 +694,15 @@ END_query_fs
             ( $exp_count + 1 ) => $h->{$key}->{c}
           };
     }
-    $out .= declare_js_var(
+    $out .= $js->define(
         {
             tfs => {
                 caption =>
 'Probes grouped by significance in different experiment combinations',
                 records => \@tfsBreakdown
             }
-        }
+        },
+        declare => 1
       )
       . '
 

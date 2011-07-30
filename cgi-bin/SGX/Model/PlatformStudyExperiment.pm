@@ -77,7 +77,7 @@ use warnings;
 #use SGX::Debug qw/assert/;
 use Data::Dumper;
 use Hash::Merge qw/merge/;
-use SGX::Exceptions;
+use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  PlatformStudyExperiment
