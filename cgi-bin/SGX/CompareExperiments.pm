@@ -47,26 +47,122 @@ sub new {
     # This is the constructor
     my ( $class, %param ) = @_;
 
+    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
+      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+
     my $self = {
-        _dbh          => $param{dbh},
-        _cgi          => $param{cgi},
-        _UserSession  => $param{user_session},
-        _FormAction   => $param{form_action},
-        _SubmitAction => $param{submit_action}
+        _dbh         => $dbh,
+        _cgi         => $q,
+        _UserSession => $s,
+        _js_src_yui  => $js_src_yui,
+        _js_src_code => $js_src_code
     };
 
     # find out what the current project is set to
-    if ( defined( $self->{_UserSession} ) ) {
-        $self->{_WorkingProject} =
-          $self->{_UserSession}->{session_cookie}->{curr_proj};
-        $self->{_WorkingProjectName} =
-          $self->{_UserSession}->{session_cookie}->{proj_name};
-        $self->{_UserFullName} =
-          $self->{_UserSession}->{session_cookie}->{full_name};
+    if ( defined $s ) {
+        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
+        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
+        $self->{_UserFullName}       = $s->{session_cookie}->{full_name};
     }
 
     bless $self, $class;
     return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  dispatch_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch_js {
+    my ($self) = @_;
+    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
+    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+
+    my $action =
+      ( defined $q->param('b') )
+      ? $q->param('b')
+      : '';
+
+    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
+    switch ($action) {
+        case 'Compare' {
+
+            # process form and display results
+            return unless $s->is_authorized('user');
+            push @$js_src_yui,
+              (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'element/element-min.js',
+                'paginator/paginator-min.js',
+                'datasource/datasource-min.js',
+                'datatable/datatable-min.js'
+              );
+            push @$js_src_code, { -code => $self->getResultsJS() };
+        }
+        else {
+
+            # show form
+            return unless $s->is_authorized('user');
+            push @$js_src_yui,
+              (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'element/element-min.js',
+                'button/button-min.js'
+              );
+            push @$js_src_code,
+              (
+                +{ -code => $self->getFormJS() },
+                +{ -src  => 'FormCompareExperiments.js' }
+              );
+        }
+    }
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  dispatch
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  executes appropriate method for the given action
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch {
+    my ($self) = @_;
+
+    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
+
+    my $action =
+      ( defined $q->param('b') )
+      ? $q->param('b')
+      : '';
+
+    switch ($action) {
+        case 'Compare' {
+
+            # show results
+            print $self->getResultsHTML();
+
+            #print SGX::CompareExperiments::getResultsHTML( $q, DOWNLOADTFS );
+        }
+        else {
+
+            # default action: show form
+            print $self->getFormHTML();
+
+            #print SGX::CompareExperiments::getFormHTML( $q, FORM .
+            #    COMPAREEXPERIMENTS, COMPAREEXPERIMENTS );
+        }
+    }
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -200,7 +296,7 @@ var form = "%s";
 var platform = %s;
 var study = %s;
 END_form_compareExperiments_js
-        $self->{_FormAction},
+        'form_compareExperiments',
         encode_json( \%json_platform ),
         encode_json( \%json_study )
     );
@@ -217,7 +313,10 @@ END_form_compareExperiments_js
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getFormHTML {
-    my ( $q, $form_action, $submit_action ) = @_;
+
+    #my ( $q, $form_action, $submit_action ) = @_;
+    my ($self) = @_;
+    my $q = $self->{_cgi};
 
     my %gene_dropdown;
     my $gene_dropdown_t = tie(
@@ -250,8 +349,8 @@ sub getFormHTML {
       ),
       $q->start_form(
         -method => 'POST',
-        -id     => $form_action,
-        -action => $q->url( absolute => 1 ) . '?a=' . $submit_action
+        -id     => 'form_compareExperiments',
+        -action => $q->url( absolute => 1 ) . '?a=compareExperiments'
       ),
       $q->dl(
         $q->dt('Include not significant probes:'),
@@ -324,9 +423,9 @@ sub getFormHTML {
         $q->dt('&nbsp;'),
         $q->dd(
             $q->submit(
-                -name  => 'a',
+                -name  => 'b',
                 -class => 'css3button',
-                -value => $submit_action
+                -value => 'Compare'
             )
         )
       ),
@@ -773,7 +872,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getResultsHTML {
-    my ( $q, $action ) = @_;
+    my ($self) = @_;
+
+    my $q = $self->{_cgi};
 
     my %opts_dropdown;
     my $opts_dropdown_t = tie(
@@ -789,12 +890,11 @@ sub getResultsHTML {
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->start_form(
         -method  => 'POST',
-        -action  => $q->url( -absolute => 1 ) . "?a=" . $action,
+        -action  => $q->url( -absolute => 1 ) . '?a=getTFS',
         -target  => '_blank',
         -class   => 'getTFS',
         -enctype => 'application/x-www-form-urlencoded'
       ),
-      $q->hidden( -name => 'a', -value => $action, -override => 1 ),
       $q->hidden( -name => 'eid',          -id => 'eid' ),
       $q->hidden( -name => 'rev',          -id => 'rev' ),
       $q->hidden( -name => 'fc',           -id => 'fc' ),

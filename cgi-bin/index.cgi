@@ -42,7 +42,7 @@ use SGX::UploadAnnot;
 #---------------------------------------------------------------------------
 #  User Authentication
 #---------------------------------------------------------------------------
-my $softwareVersion = '0.2.3';
+my $softwareVersion = '0.2.4';
 
 my $dbh = sgx_db_connect();
 my $s   = SGX::Session::User->new(
@@ -110,8 +110,8 @@ use constant DOWNLOADTFS        => 'getTFS';
 use constant SHOWSCHEMA         => 'showSchema';
 use constant HELP               => 'help';
 use constant ABOUT              => 'about';
-use constant COMPAREEXPERIMENTS => 'Compare';       # submit button text
-use constant FINDPROBES         => 'findProbes';    # submit button text
+use constant COMPAREEXPERIMENTS => 'compareExperiments';    # submit button text
+use constant FINDPROBES         => 'findProbes';            # submit button text
 use constant UPDATECELL         => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
 use constant UPLOADDATA         => 'uploadData';
@@ -345,54 +345,15 @@ while ( defined($action) ) {
             $content = \&about;
             $action  = undef;                   # final state
         }
-        case FORM . COMPAREEXPERIMENTS {
-            if ( $s->is_authorized('user') ) {
-                $title = 'Compare Experiments';
-                my $compExp = SGX::CompareExperiments->new(
-                    dbh           => $dbh,
-                    cgi           => $q,
-                    user_session  => $s,
-                    form_action   => FORM . COMPAREEXPERIMENTS,
-                    submit_action => COMPAREEXPERIMENTS
-                );
-                push @js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
-                push @js_src_yui, 'element/element-min.js';
-                push @js_src_yui, 'button/button-min.js';
-                push @js_src_code, { -code => $compExp->getFormJS() };
-                push @js_src_code, { -src  => 'FormCompareExperiments.js' };
-                $content = \&form_compareExperiments;
-                $action  = undef;                       # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
         case COMPAREEXPERIMENTS {
-            if ( $s->is_authorized('user') ) {
-                $title = 'Compare Experiments';
-
-                push @js_src_yui,
-                  (
-                    'yahoo-dom-event/yahoo-dom-event.js',
-                    'element/element-min.js',
-                    'paginator/paginator-min.js',
-                    'datasource/datasource-min.js',
-                    'datatable/datatable-min.js'
-                  );
-                my $compExp = SGX::CompareExperiments->new(
-                    dbh           => $dbh,
-                    cgi           => $q,
-                    user_session  => $s,
-                    form_action   => FORM . COMPAREEXPERIMENTS,
-                    submit_action => COMPAREEXPERIMENTS
-                );
-                push @js_src_code, { -code => $compExp->getResultsJS() };
-
-                $content = \&compare_experiments;
-                $action  = undef;                   # final state
+            $loadModule = SGX::CompareExperiments->new(%controller_context);
+            if ( $loadModule->dispatch_js() ) {
+                $title   = 'Compare Experiments';
+                $content = \&module_show_html;
+                $action  = undef;
             }
             else {
-                $action = FORM . LOGIN;
+                $action = FORM . LOGIN;         # final state
             }
         }
         case FORM . LOGIN {
@@ -402,7 +363,7 @@ while ( defined($action) ) {
             else {
                 $title   = 'Login';
                 $content = \&form_login;
-                $action  = undef;          # final state
+                $action  = undef;               # final state
             }
         }
         case LOGIN {
@@ -804,17 +765,6 @@ sub cgi_start_html {
     );
 }
 #######################################################################################
-sub compare_experiments {
-    print SGX::CompareExperiments::getResultsHTML( $q, DOWNLOADTFS );
-    return 1;
-}
-#######################################################################################
-sub form_compareExperiments {
-    print SGX::CompareExperiments::getFormHTML( $q, FORM . COMPAREEXPERIMENTS,
-        COMPAREEXPERIMENTS );
-    return 1;
-}
-#######################################################################################
 sub cgi_end_html {
 
     return $q->end_html;
@@ -925,6 +875,12 @@ sub form_resetPassword {
             )
         )
       ) . $q->end_form;
+    return;
+}
+#######################################################################################
+sub manageStudies {
+    my $ms = SGX::ManageStudies->new( $dbh, $q, JS_DIR );
+    $ms->dispatch( $q->url_param('b') );
     return;
 }
 #######################################################################################
@@ -1477,7 +1433,7 @@ sub build_menu {
         push @{ $menu{$view} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . FORM . COMPAREEXPERIMENTS,
+                -href  => $url_prefix . '?a=' . COMPAREEXPERIMENTS,
                 -title => 'Select samples to compare'
             },
             'Compare Experiments'
