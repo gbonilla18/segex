@@ -12,12 +12,12 @@ use SGX::Debug;
 
 use SGX::Config;
 use SGX::Util qw/label_format bounds/;
-use SGX::User 0.07;    # user authentication, sessions and cookies
+use SGX::Session::User 0.07;    # user authentication, sessions and cookies
 
 # dbi and sql statement to get the fold changes for all experiments based on the accnum annotation for this reporter
 
 my $dbh = sgx_db_connect();
-my $s   = SGX::User->new(
+my $s   = SGX::Session::User->new(
     dbh       => $dbh,
     expire_in => 3600,    # expire in 3600 seconds (1 hour)
     check_ip  => 1

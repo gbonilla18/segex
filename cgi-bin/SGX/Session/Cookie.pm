@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SGX::Cookie
+SGX::Session::Cookie
 
 =head1 SYNOPSIS
 
@@ -11,8 +11,8 @@ Create an instance:
 (3) check_ip determines whether user IP is verified,
 (4) cookie_name can be anything
 
-    use SGX::Cookie;
-    my $s = SGX::Cookie->new(
+    use SGX::Session::Cookie;
+    my $s = SGX::Session::Cookie->new(
         dbh     => $dbh, 
         expire_in   => 3600,
         check_ip    => 1
@@ -29,7 +29,7 @@ To make a cookie and flush session data:
 
 You can set another cookie by opening another session like this:
 
-    my $t = SGX::Cookie->new(
+    my $t = SGX::Session::Cookie->new(
         dbh      => $dbh, 
         expire_in   => 3600*48, 
         check_ip    => 0
@@ -38,17 +38,18 @@ You can set another cookie by opening another session like this:
     if (!$t->restore) $t->start;
     $t->commit;
 
-You can create several instances of this class at the same time. The 
-@SGX::Cookie::cookies array will contain the cookies created by all instances
-of the SGX::User or SGX::Cookie classes. If the array reference is sent to CGI::header, for 
-example, as many cookies will be created as there are members in the array.
+You can create several instances of this class at the same time. The
+@SGX::Session::Cookie::cookies array will contain the cookies created by all
+instances of the SGX::Session::User or SGX::Session::Cookie classes. If the
+array reference is sent to CGI::header, for example, as many cookies will be
+created as there are members in the array.
 
 To send a cookie to the user:
 
     $q = CGI->new();
     print $q->header(
         -type=>'text/html',
-        -cookie=>\@SGX::Cookie::cookies
+        -cookie=>\@SGX::Session::Cookie::cookies
     );
 
 =head1 DESCRIPTION
@@ -83,7 +84,7 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 
 =cut
 
-package SGX::Cookie;
+package SGX::Session::Cookie;
 
 use strict;
 use warnings;
@@ -92,7 +93,7 @@ use vars qw($VERSION);
 
 $VERSION = '0.11';
 
-use base qw/SGX::Session/;
+use base qw/SGX::Session::Session/;
 use CGI::Cookie;
 use File::Basename;
 
@@ -112,7 +113,7 @@ my $SID_FIELD    = 'sid';
 our @cookies;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Cookie
 #       METHOD:  session_cookie_store
 #   PARAMETERS:  Variable-length list of arbitrary key-value pairs to be
 #                stored in the session cookie
@@ -135,7 +136,7 @@ sub session_cookie_store {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Cookie
+#        CLASS:  SGX::Session::Cookie
 #       METHOD:  restore
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -162,13 +163,13 @@ sub restore {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Cookie
+#        CLASS:  SGX::Session::Cookie
 #       METHOD:  cookie_array
 #   PARAMETERS:  n/a
 #      RETURNS:  reference to the @cookies array
-#  DESCRIPTION:  This is a getter method for the @cookies array.
-#                Because the @cookies array is shared among all instances, one
-#                can also call this funciton as SGX::Cookies::cookie_array()
+#  DESCRIPTION:  This is a getter method for the @cookies array.  Because the
+#                @cookies array is shared among all instances, one can also call
+#                this funciton as SGX::Session::Cookie::cookie_array()
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -178,7 +179,7 @@ sub cookie_array {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Cookie
+#        CLASS:  SGX::Session::Cookie
 #       METHOD:  add_cookie
 #   PARAMETERS:  key-value pairs to initialize CGI::Cookie (at the moment)
 #      RETURNS:  n/a
@@ -205,7 +206,7 @@ sub add_cookie {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Cookie
+#        CLASS:  SGX::Session::Cookie
 #       METHOD:  commit
 #   PARAMETERS:  ????
 #      RETURNS:  session id on success (session data stored in remote database)

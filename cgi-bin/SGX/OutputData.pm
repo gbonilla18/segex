@@ -99,7 +99,7 @@ sub dispatch_js {
     push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     switch ($action) {
         case 'Load' {
-            return if not $s->is_authorized('user');
+            return unless $s->is_authorized('user');
             push @$js_src_yui,
               (
                 'yahoo-dom-event/yahoo-dom-event.js',
@@ -113,7 +113,7 @@ sub dispatch_js {
             push @$js_src_code, { -code => $self->runReport_js() };
         }
         else {
-            return if not $s->is_authorized('user');
+            return unless $s->is_authorized('user');
             $self->{_PlatformStudyExperiment}->init(
                 platforms   => 1,
                 studies     => 1,

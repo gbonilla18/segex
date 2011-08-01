@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SGX::User
+SGX::Session::User
 
 =head1 SYNOPSIS
 
@@ -11,8 +11,8 @@ To create an instance:
 (3) check_ip determines whether user IP is verified
 (4) cookie_name can be anything
 
-    use SGX::User;
-    my $s = SGX::User -> new (
+    use SGX::Session::User;
+    my $s = SGX::Session::User->new (
         dbh      => $dbh, 
         expire_in   => 3600,
         check_ip    => 1,
@@ -36,17 +36,17 @@ To make a cookie and flush session data:
     $s->commit;
 
 You can create several instances of this class at the same time. The
-@SGX::Cookie::cookies array will contain the cookies created by all instances of
-the SGX::User or SGX::Cookie classes. If the array reference is sent to
-CGI::header, for example, as many cookies will be created as there are members
-in the array.
+@SGX::Session::Cookie::cookies array will contain the cookies created by all
+instances of the SGX::Session::User or SGX::Session::Cookie classes. If the
+array reference is sent to CGI::header, for example, as many cookies will be
+created as there are members in the array.
 
 To send a cookie to the user:
 
     $q = new CGI;
     print $q->header(
         -type=>'text/html',
-        -cookie=>\@SGX::Cookie::cookies
+        -cookie=>\@SGX::Session::Cookie::cookies
     );
 
 Note: is_authorized('admin') checks whether the session user has the credential
@@ -133,7 +133,7 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 
 =cut
 
-package SGX::User;
+package SGX::Session::User;
 
 use strict;
 use warnings;
@@ -142,16 +142,16 @@ use vars qw($VERSION);
 
 $VERSION = '0.11';
 
-use base qw/SGX::Cookie/;
+use base qw/SGX::Session::Cookie/;
 use CGI::Carp qw/croak/;
 use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
 use SGX::Debug;
-use SGX::Session;    # for email confirmation
+use SGX::Session::Session;    # for email confirmation
 use Data::Dumper;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  commit
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success (session data stored in remote database) or 0 on
@@ -166,9 +166,9 @@ use Data::Dumper;
 sub commit {
     my $self = shift;
     if ( $self->SUPER::commit() ) {
-        return 1 if not $self->{perm_cookie_modified};
+        return 1 unless $self->{perm_cookie_modified};
         my $username = $self->{session_stash}->{username};
-        return if not defined($username);
+        return unless defined($username);
         $self->add_cookie(
             -name    => sha1_hex($username),
             -value   => $self->{perm_cookie},
@@ -180,7 +180,7 @@ sub commit {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  authenticate
 #   PARAMETERS:  $self - reference to object instance
 #                $username - user name string
@@ -268,7 +268,7 @@ sub authenticate {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  reset_password
 #   PARAMETERS:  $self - reference to object instance
 #                $username
@@ -365,7 +365,7 @@ END_RESET_PWD_MSG
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  reset_password_text
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -383,7 +383,7 @@ END_reset_password_text
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  change_password
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success, 0 on failure
@@ -443,7 +443,7 @@ sub change_password {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  change_email
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success, 0 on failure
@@ -515,7 +515,7 @@ END_noEmailChangeMsg
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  change_email_text
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -534,7 +534,7 @@ END_change_email_text
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  register_user
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success, 0 on failure
@@ -620,7 +620,7 @@ sub register_user {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  register_user_text
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -641,7 +641,7 @@ END_register_user_text
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  send_verify_email
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -658,7 +658,7 @@ sub send_verify_email {
 
     my $hours_to_expire = 48;
 
-    my $s = SGX::Session->new(
+    my $s = SGX::Session::Session->new(
         dbh    => $self->{dbh},
         expire_in => 3600 * $hours_to_expire,
         check_ip  => 0
@@ -703,7 +703,7 @@ END_CONFIRM_EMAIL_MSG
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  verify_email
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -726,7 +726,7 @@ sub verify_email {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::User
 #       METHOD:  perm_cookie_store
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -748,7 +748,7 @@ sub perm_cookie_store {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  read_perm_cookie
 #   PARAMETERS:  OPTIONAL:
 #                username => $username
@@ -766,7 +766,7 @@ sub read_perm_cookie {
     # try to get the username from the parameter list first; if no username
     # given then turn to session data.
     my $username = $param{username};
-    $username = $self->{session_stash}->{username} if not defined($username);
+    $username = $self->{session_stash}->{username} unless defined($username);
 
     my $cookie_name = sha1_hex($username);
     my $cookies_ref = $self->{fetched_cookies};
@@ -791,7 +791,7 @@ sub read_perm_cookie {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::User
+#        CLASS:  SGX::Session::User
 #       METHOD:  is_authorized
 #   PARAMETERS:  $self - reference to object instance
 #                $req_user_level - required credential level

@@ -136,7 +136,7 @@ sub new {
 #===============================================================================
 sub dispatch {
     my ( $self, $action ) = @_;
-    $action = '' if not defined($action);
+    $action = '' unless defined($action);
     switch ($action) {
         case 'add' {
             $self->loadFromForm();
@@ -470,9 +470,10 @@ sub printJSRecords {
     #Loop through data and load into JavaScript array.
     foreach ( sort { $a->[3] cmp $b->[3] } @{ $self->{_Data} } ) {
         foreach (@$_) {
-            $_ = '' if !defined $_;
-            $_ =~ s/"//g
-              ; # strip all double quotes (JSON data are bracketed with double quotes)
+            # strip all double quotes (JSON data are bracketed with double
+            # quotes)
+            $_ = '' unless defined;
+            s/"//g; 
         }
 
         #stid,description,pubmed,platform.pid,platform.pname,platform.species
@@ -820,9 +821,10 @@ sub printJSExperimentRecords {
     #Loop through data and load into JavaScript array.
     foreach ( @{ $self->{_ExpData} } ) {
         foreach (@$_) {
-            $_ = '' if !defined $_;
-            $_ =~ s/"//g
-              ; # strip all double quotes (JSON data are bracketed with double quotes)
+            # strip all double quotes (JSON data are bracketed with double
+            # quotes)
+            $_ = '' unless defined;
+            s/"//g; 
         }
 
         #eid,pid,sample1,sample2,count(1),ExperimentDescription,AdditionalInfo

@@ -40,7 +40,7 @@ use SGX::Model::PlatformStudyExperiment;
 #       METHOD:  new
 #   PARAMETERS:  dbh => $dbh        - DBI database handle
 #                cgi => $q          - reference to CGI.pm object instance
-#                user_session => $s - SGX::User instance reference
+#                user_session => $s - SGX::Session::User instance reference
 #      RETURNS:  ????
 #  DESCRIPTION:  This is the constructor
 #       THROWS:  no exceptions

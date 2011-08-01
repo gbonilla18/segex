@@ -72,7 +72,7 @@ sub new {
 #===============================================================================
 sub dispatch {
     my ( $self, $action ) = @_;
-    $action = '' if not defined($action);
+    $action = '' unless defined($action);
     #switch ($action) {
     #    case 'change' {
     #        $self->changeProject();
@@ -120,7 +120,7 @@ sub loadProjectData {
 sub lookupProjectName
 {
     my $self = shift;
-    return undef if not defined($self->{_curr_proj});
+    return unless defined($self->{_curr_proj});
     #DBI->trace( 1 );
     my $sth = $self->{_dbh}->prepare($self->{_LookupProjectQuery})
         or croak $self->{_dbh}->errstr;

@@ -104,7 +104,7 @@ sub dispatch_js {
       ? $q->param('b')
       : '';
 
-    return if not $s->is_authorized('user');
+    return unless $s->is_authorized('user');
 
     push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
@@ -555,7 +555,7 @@ END_PARTIAL_SUCCESS
 #===============================================================================
 sub probesPerPlatform {
     my ( $self, $pid ) = @_;
-    $pid = $self->{_pid} if !defined($pid);
+    $pid = $self->{_pid} unless defined($pid);
 
     my $dbh = $self->{_dbh};
 

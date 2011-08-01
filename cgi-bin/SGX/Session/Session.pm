@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SGX::Session
+SGX::Session::Session
 
 =head1 SYNOPSIS
 
@@ -11,8 +11,8 @@ Create an instance:
 (3) check_ip determines whether user IP is verified,
 (4) id is old session id (either from a cookie or from a query string).
 
-    use SGX::Session;
-    my $s = SGX::Session->new(
+    use SGX::Session::Session;
+    my $s = SGX::Session::Session->new(
         dbh    => $dbh, 
         expire_in => 3600,
         check_ip  => 1
@@ -59,7 +59,7 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 
 =cut
 
-package SGX::Session;
+package SGX::Session::Session;
 
 use strict;
 use warnings;
@@ -77,7 +77,7 @@ use Data::Dumper;
 #use Data::Dumper;    # for debugging
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  new
 #   PARAMETERS:  dbh    - DBI handle
 #                expire_in - if new session is started, it will given this
@@ -101,13 +101,13 @@ use Data::Dumper;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my $class = shift;
+    my ( $class, %args ) = @_;
 
     # set defaults first
     my %param = (
         expire_in => 3600,    # default: one hour
         check_ip  => 1,       # default: true
-        @_
+        %args
     );
 
     my $self = {
@@ -122,7 +122,7 @@ sub new {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  session_is_tied
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -153,7 +153,7 @@ sub session_is_tied {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  tie_session
 #   PARAMETERS:  ????
 #      RETURNS:  returns 1 if a new session was started or an old one restored *by
@@ -191,7 +191,7 @@ sub tie_session {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  session_store
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -211,7 +211,7 @@ sub session_store {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  expire_session
 #   PARAMETERS:  ????
 #      RETURNS:  1 if session was non-expired, 0 otherwise
@@ -234,7 +234,7 @@ sub expire_session {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  checkin
 #   PARAMETERS:  $required_session_id - (optional) require that session being
 #                checked into has the given id.
@@ -296,7 +296,7 @@ sub checkin {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  stash_session
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -321,7 +321,7 @@ sub stash_session {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  get_session_id
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -343,7 +343,7 @@ sub get_session_id {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  recover
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -376,7 +376,7 @@ sub recover {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  start
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -402,7 +402,7 @@ sub start {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  init_session
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -455,7 +455,7 @@ sub now {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  commit
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success (session data stored in remote database) or 0 on
@@ -477,7 +477,7 @@ sub commit {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  unset
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -493,7 +493,7 @@ sub unset {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session
+#        CLASS:  SGX::Session::Session
 #       METHOD:  destroy
 #   PARAMETERS:  ????
 #      RETURNS:  ????

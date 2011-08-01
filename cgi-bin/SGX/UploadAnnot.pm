@@ -87,14 +87,14 @@ sub dispatch_js {
 
     switch ($action) {
         case 'Upload' {
-            return if not $s->is_authorized('user');
+            return unless $s->is_authorized('user');
             my @eids = $self->{_cgi}->param('eids');
             $self->{_eidList} = \@eids;
             $self->loadReportData();
             push @$js_src_code, { -code => $self->runReport_js() };
         }
         else {
-            return if not $s->is_authorized('user');
+            return unless $s->is_authorized('user');
             push @$js_src_yui,
               (
                 'yahoo-dom-event/yahoo-dom-event.js',

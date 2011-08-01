@@ -26,8 +26,8 @@ use SGX::Debug;     # all debugging code goes here
 use SGX::Config;    # all configuration for our project goes here
 
 #use SGX::Util qw/trim max/;
-use SGX::User 0.07;       # user authentication, sessions and cookies
-use SGX::Session 0.08;    # email verification
+use SGX::Session::User 0.07;       # user authentication, sessions and cookies
+use SGX::Session::Session 0.08;    # email verification
 use SGX::ManagePlatforms;
 use SGX::ManageProjects;
 use SGX::ManageStudies;
@@ -46,7 +46,7 @@ use SGX::UploadAnnot;
 my $softwareVersion = '0.2.3';
 
 my $dbh = sgx_db_connect();
-my $s   = SGX::User->new(
+my $s   = SGX::Session::User->new(
     dbh       => $dbh,
     expire_in => 3600,    # expire in 3600 seconds (1 hour)
     check_ip  => 1
@@ -113,7 +113,7 @@ use constant SHOWSCHEMA         => 'showSchema';
 use constant HELP               => 'help';
 use constant ABOUT              => 'about';
 use constant COMPAREEXPERIMENTS => 'Compare';             # submit button text
-use constant FINDPROBES         => 'findProbes';              # submit button text
+use constant FINDPROBES         => 'findProbes';          # submit button text
 use constant UPDATECELL         => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
 use constant UPLOADDATA         => 'uploadData';
@@ -207,7 +207,7 @@ while ( defined($action) ) {
             if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
                 $title   = 'Platforms';
-                $action  = undef;               # final state
+                $action  = undef;                # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -274,9 +274,9 @@ while ( defined($action) ) {
         case FINDPROBES {
             $loadModule = SGX::FindProbes->new(%controller_context);
             if ( $loadModule->dispatch_js() ) {
-                $title = 'Find Probes';
+                $title   = 'Find Probes';
                 $content = \&module_show_html;
-                $action  = undef;          # final state
+                $action  = undef;                # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -641,7 +641,7 @@ while ( defined($action) ) {
         }
         case VERIFYEMAIL {
             if ( $s->is_authorized('unauth') ) {
-                my $t = SGX::Session->new(
+                my $t = SGX::Session::Session->new(
                     dbh       => $dbh,
                     expire_in => 3600 * 48,
                     check_ip  => 0
@@ -694,8 +694,8 @@ $s->commit();
 # Normally we can set more than one cookie like this:
 # print header(-type=>'text/html',-cookie=>[$cookie1,$cookie2]);
 # But because the session object takes over the array, have to do it this way:
-#   push @SGX::User::cookies, $cookie2;
-# ... and then send the \@SGX::User::cookies array reference to CGI::header() for example.
+#   push @SGX::Session::User::cookies, $cookie2;
+# ... and then send the \@SGX::Session::User::cookies array reference to CGI::header() for example.
 
 my $menu_links = build_menu();
 
@@ -1219,7 +1219,8 @@ sub form_registerUser {
                 'Back'
             )
         )
-      ), $q->end_form;
+      ),
+      $q->end_form;
     return;
 }
 #######################################################################################
@@ -1296,7 +1297,7 @@ sub dump_table {
 
         # NULL elements become undefined -- replace those,
         # otherwise the error_log will overfill with warnings
-        foreach (@$row) { $_ = '' if !defined $_ }
+        foreach (@$row) { $_ = '' unless defined; s/\t/ /; }
         print join( "\t", @$row ), "\n";
     }
     $sth->finish;

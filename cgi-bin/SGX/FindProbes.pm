@@ -128,7 +128,7 @@ sub dispatch_js {
     push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     switch ($action) {
         case 'Search' {
-            return if not $s->is_authorized('user');
+            return unless $s->is_authorized('user');
             push @$js_src_yui,
               (
                 'yahoo-dom-event/yahoo-dom-event.js',
@@ -147,7 +147,7 @@ sub dispatch_js {
             push @$js_src_code, { -src  => 'FindProbes.js' };
         }
         else {
-            return if not $s->is_authorized('user');
+            return unless $s->is_authorized('user');
             $self->getSessionOverrideCGI();
             push @$js_src_code, { -src => 'FormFindProbes.js' };
         }
