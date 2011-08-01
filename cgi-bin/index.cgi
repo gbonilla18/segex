@@ -25,7 +25,6 @@ use lib qw/./;
 use SGX::Debug;     # all debugging code goes here
 use SGX::Config;    # all configuration for our project goes here
 
-#use SGX::Util qw/trim max/;
 use SGX::Session::User 0.07;       # user authentication, sessions and cookies
 use SGX::Session::Session 0.08;    # email verification
 use SGX::ManagePlatforms;
@@ -70,8 +69,6 @@ my $css = [
 ];
 
 my @js_src_yui;
-
-#my @js_src_code = ({-src=>'prototype.js'}, {-src=>'form.js'});
 my @js_src_code = ( { -src => 'form.js' } );
 
 my %controller_context = (
@@ -82,38 +79,39 @@ my %controller_context = (
     js_src_code  => \@js_src_code
 );
 
-my $content
-  ;    # this will be a reference to a subroutine that displays the main content
+# this will be a reference to a subroutine that displays the main content
+my $content;
 
 # Action constants can evaluate to anything, but must be different from already defined actions.
 # One can also use an enum structure to formally declare the input alphabet of all possible actions,
 # but then the URIs would not be human-readable anymore.
 # ===== User Management ==================================
-use constant FORM => 'form_'
-  ; # this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
-use constant LOGIN              => 'login';
-use constant LOGOUT             => 'logout';
-use constant DEFAULT_ACTION     => 'mainPage';
-use constant UPDATEPROFILE      => 'updateProfile';
-use constant MANAGEPLATFORMS    => 'managePlatforms';
-use constant MANAGEPROJECTS     => 'manageProjects';
-use constant MANAGESTUDIES      => 'manageStudies';
-use constant MANAGEEXPERIMENTS  => 'manageExperiments';
-use constant OUTPUTDATA         => 'outputData';
-use constant CHANGEPASSWORD     => 'changePassword';
-use constant CHANGEEMAIL        => 'changeEmail';
-use constant CHOOSEPROJECT      => 'chooseProject';
-use constant RESETPASSWORD      => 'resetPassword';
-use constant REGISTERUSER       => 'registerUser';
-use constant VERIFYEMAIL        => 'verifyEmail';
-use constant QUIT               => 'quit';
-use constant DUMP               => 'dump';
+# this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
+use constant FORM              => 'form_';
+use constant LOGIN             => 'login';
+use constant LOGOUT            => 'logout';
+use constant DEFAULT_ACTION    => 'mainPage';
+use constant UPDATEPROFILE     => 'updateProfile';
+use constant MANAGEPLATFORMS   => 'managePlatforms';
+use constant MANAGEPROJECTS    => 'manageProjects';
+use constant MANAGESTUDIES     => 'manageStudies';
+use constant MANAGEEXPERIMENTS => 'manageExperiments';
+use constant OUTPUTDATA        => 'outputData';
+use constant CHANGEPASSWORD    => 'changePassword';
+use constant CHANGEEMAIL       => 'changeEmail';
+use constant CHOOSEPROJECT     => 'chooseProject';
+use constant RESETPASSWORD     => 'resetPassword';
+use constant REGISTERUSER      => 'registerUser';
+use constant VERIFYEMAIL       => 'verifyEmail';
+use constant QUIT              => 'quit';
+
+#use constant DUMP               => 'dump';
 use constant DOWNLOADTFS        => 'getTFS';
 use constant SHOWSCHEMA         => 'showSchema';
 use constant HELP               => 'help';
 use constant ABOUT              => 'about';
-use constant COMPAREEXPERIMENTS => 'Compare';             # submit button text
-use constant FINDPROBES         => 'findProbes';          # submit button text
+use constant COMPAREEXPERIMENTS => 'Compare';       # submit button text
+use constant FINDPROBES         => 'findProbes';    # submit button text
 use constant UPDATECELL         => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
 use constant UPLOADDATA         => 'uploadData';
@@ -144,11 +142,10 @@ while ( defined($action) ) {
         case UPLOADDATA {
             $loadModule = SGX::UploadData->new(%controller_context);
 
-            #if ($s->is_authorized('user')) {
             if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
                 $title   = 'Upload Data';
-                $action  = undef;                # final state
+                $action  = undef;                  # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -158,7 +155,7 @@ while ( defined($action) ) {
             if ( $s->is_authorized('user') ) {
                 $title   = 'Change Project';
                 $content = \&chooseProject;
-                $action  = undef;                # final state
+                $action  = undef;                  # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -282,23 +279,24 @@ while ( defined($action) ) {
                 $action = FORM . LOGIN;
             }
         }
-        case DUMP {
-            if ( $s->is_authorized('user') ) {
-                my $table = $q->param('table');
 
-                #show data as a tab-delimited text file
-                $s->commit();
-                print $q->header(
-                    -type   => 'text/plain',
-                    -cookie => $s->cookie_array()
-                );
-                dump_table($table);
-                $action = QUIT;
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
+        #case DUMP {
+        #    if ( $s->is_authorized('user') ) {
+        #        my $table = $q->param('table');
+
+        #        #show data as a tab-delimited text file
+        #        $s->commit();
+        #        print $q->header(
+        #            -type   => 'text/plain',
+        #            -cookie => $s->cookie_array()
+        #        );
+        #        dump_table($table);
+        #        $action = QUIT;
+        #    }
+        #    else {
+        #        $action = FORM . LOGIN;
+        #    }
+        #}
         case DOWNLOADTFS {
             if ( $s->is_authorized('user') ) {
                 $title = 'View Slice';
@@ -334,7 +332,6 @@ while ( defined($action) ) {
         case HELP {
 
             # will send a redirect header, so commit the session to data store
-            # now
             $s->commit();
             print $q->redirect(
                 -uri    => $q->url( -base => 1 ) . './html/wiki/',
@@ -346,7 +343,7 @@ while ( defined($action) ) {
         case ABOUT {
             $title   = 'About';
             $content = \&about;
-            $action  = undef;     # final state
+            $action  = undef;                   # final state
         }
         case FORM . COMPAREEXPERIMENTS {
             if ( $s->is_authorized('user') ) {
@@ -820,7 +817,6 @@ sub form_compareExperiments {
 #######################################################################################
 sub cgi_end_html {
 
-    #print projectInfo();
     return $q->end_html;
 }
 #######################################################################################
@@ -1281,28 +1277,28 @@ sub schema {
 }
 
 #######################################################################################
-sub dump_table {
-
-    # prints out the entire table in tab-delimited format
-    #
-    my $table    = shift;
-    my $sth      = $dbh->prepare(qq{SELECT * FROM $table});
-    my $rowcount = $sth->execute();
-
-    # print the table head (fieldnames)
-    print join( "\t", @{ $sth->{NAME} } ), "\n";
-
-    # print the data itself
-    while ( my $row = $sth->fetchrow_arrayref ) {
-
-        # NULL elements become undefined -- replace those,
-        # otherwise the error_log will overfill with warnings
-        foreach (@$row) { $_ = '' unless defined; s/\t/ /; }
-        print join( "\t", @$row ), "\n";
-    }
-    $sth->finish;
-    return;
-}
+#sub dump_table {
+#
+#    # prints out the entire table in tab-delimited format
+#    #
+#    my $table    = shift;
+#    my $sth      = $dbh->prepare(qq{SELECT * FROM $table});
+#    my $rowcount = $sth->execute();
+#
+#    # print the table head (fieldnames)
+#    print join( "\t", @{ $sth->{NAME} } ), "\n";
+#
+#    # print the data itself
+#    while ( my $row = $sth->fetchrow_arrayref ) {
+#
+#        # NULL elements become undefined -- replace those,
+#        # otherwise the error_log will overfill with warnings
+#        foreach (@$row) { $_ = '' unless defined; s/\t/ /; }
+#        print join( "\t", @$row ), "\n";
+#    }
+#    $sth->finish;
+#    return;
+#}
 #######################################################################################
 
 sub show_tfs_js {
@@ -1328,8 +1324,6 @@ sub show_tfs_js {
 
 sub show_tfs {
     print '<h2 id="summary_caption"></h2>';
-
-#print    '<a href="' . $q->url(-query=>1) . '&CSV=1" target = "_blank">Output all data in CSV</a><br /><br />';
     print '<div><a id="summ_astext">View as plain text</a></div>';
     print '<div id="summary_table" class="table_cont"></div>';
     print '<h2 id="tfs_caption"></h2>';
