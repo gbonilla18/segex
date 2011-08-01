@@ -588,8 +588,8 @@ sub sanitizeUploadFile {
 
     # The is the file handle of the uploaded file.
     my $uploadedFile = $q->upload('file')
-      or
-      SGX::Abstract::Exception::User->throw( error => "Failed to upload file.\n" );
+      or SGX::Abstract::Exception::User->throw(
+        error => "Failed to upload file.\n" );
 
     #Open file we are writing to server.
     open my $OUTPUTTOSERVER, '>', $outputFileName
@@ -611,17 +611,39 @@ sub sanitizeUploadFile {
     # follows: from beginning to end, match any character other than [space,
     # forward/back slash, comma, equal or pound sign, opening or closing
     # parentheses, double quotation mark] from 1 to 18 times.
+
+    # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
+
+    # Note: expression 'my ($x) = shift =~ /(.*)/' untaints input value and
+    # assigns it to $x (untainting is important when perl -T option is used).
     my $recordsValid = eval {
         SGX::CSV::csv_rewrite(
             \@lines,
             $OUTPUTTOSERVER,
             [
-                sub { shift =~ m/^[^\s,\/\\=#()"]{1,18}$/ },
-                sub { looks_like_number(shift) },
-                sub { looks_like_number(shift) },
-                sub { looks_like_number(shift) },
-                sub { looks_like_number(shift) },
-                sub { looks_like_number(shift) }
+                sub {
+                    ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) ? $1 : undef;
+                },
+                sub {
+                    my ($x) = shift =~ /(.*)/;
+                    looks_like_number($x) ? $x : undef;
+                },
+                sub {
+                    my ($x) = shift =~ /(.*)/;
+                    looks_like_number($x) ? $x : undef;
+                },
+                sub {
+                    my ($x) = shift =~ /(.*)/;
+                    looks_like_number($x) ? $x : undef;
+                },
+                sub {
+                    my ($x) = shift =~ /(.*)/;
+                    looks_like_number($x) ? $x : undef;
+                },
+                sub {
+                    my ($x) = shift =~ /(.*)/;
+                    looks_like_number($x) ? $x : undef;
+                  }
             ],
             input_header => 1,
             csv_in_opts  => { sep_char => "\t", allow_whitespace => 1 }
@@ -754,6 +776,10 @@ sub loadToDatabase_execute {
         qw(createTable loadData insertExperiment insertStudyExperiment insertResponse)
       };
 
+    SGX::Abstract::Exception::User->throw(
+        error => "Sample 1 name is the same as that of sample 2\n" )
+      if ( $self->{_sample1} eq $self->{_sample2} );
+
     my $dbh = $self->{_dbh};
 
     # Create temporary table
@@ -815,6 +841,7 @@ END_WRONGPLATFORM
     # Return the number of records inserted into the microarray/reposnse table
     return $recordsInserted;
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
 #       METHOD:  loadToDatabase_finish
@@ -836,6 +863,5 @@ sub loadToDatabase_finish {
 
     return 1;
 }
-
 
 1;

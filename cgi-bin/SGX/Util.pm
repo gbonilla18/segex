@@ -5,8 +5,6 @@ use warnings;
 use base qw/Exporter/;
 
 use List::Util qw/min max/;
-use JSON;
-use SGX::Abstract::Exception;
 use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK =

@@ -13,7 +13,7 @@ To create an instance:
 
     use SGX::Session::User;
     my $s = SGX::Session::User->new (
-        dbh      => $dbh, 
+        dbh         => $dbh, 
         expire_in   => 3600,
         check_ip    => 1,
     );
@@ -95,7 +95,7 @@ The table `sessions' is created as follows:
     CREATE TABLE sessions (
         id CHAR(32) NOT NULL UNIQUE,
         a_session TEXT NOT NULL
-    );
+    ) ENGINE=InnoDB;
 
 The table `users' is created as follows:
 
@@ -111,7 +111,7 @@ The table `users' is created as follows:
         `email_confirmed` tinyint(1) default '0',
         PRIMARY KEY  (`uid`),
         UNIQUE KEY `uname` (`uname`)
-    ) ENGINE=InnoDB
+    ) ENGINE=InnoDB;
 
 =head1 AUTHORS
 
@@ -135,6 +135,10 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 
 package SGX::Session::User;
 
+# :TODO:07/31/2011 15:38:04:es: scan this module for error handling mechanisms
+# that involve calling assert() or setting $$error dereferenced variable.
+# Replace all those cases with exceptions.
+#
 use strict;
 use warnings;
 
@@ -143,12 +147,13 @@ use vars qw($VERSION);
 $VERSION = '0.11';
 
 use base qw/SGX::Session::Cookie/;
-use CGI::Carp qw/croak/;
 use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
 use SGX::Debug;
+use SGX::Abstract::Exception;
 use SGX::Session::Session;    # for email confirmation
 use Data::Dumper;
+use Email::Address;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
@@ -218,13 +223,14 @@ sub authenticate {
 
     my $sth =
       $self->{dbh}
-      ->prepare( 'select level,full_name from users where uname=? and pwd=?' );
+      ->prepare('select level,full_name from users where uname=? and pwd=?');
     my $row_count = $sth->execute( $username, sha1_hex($password) );
 
     if ( $row_count != 1 ) {
-         # :TODO:07/09/2011 23:58:04:es: Consider using
-         # SGX::Abstract::Exception::User::Login to send the error message
-         #
+
+        # :TODO:07/09/2011 23:58:04:es: Consider using
+        # SGX::Abstract::Exception::User::Login to send the error message
+        #
         # user not found in the database
         $sth->finish;
         $$error = 'Login incorrect';
@@ -280,7 +286,7 @@ sub authenticate {
 #  DESCRIPTION:  Issues a new password and emails it to the user's email address.
 #                The email address must be marked as "confirmed" in the "users"
 #                table in the dataase.
-#       THROWS:  DBI::errstr, Mail::Send::close failure
+#       THROWS:  Exception::Class::DBI, SGX::Abstract::Exception::Internal::Mail
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -288,38 +294,55 @@ sub reset_password {
 
     my ( $self, %param ) = @_;
 
-    my ( $username, $project_name, $login_uri, $error ) = 
-        @param{qw{username project_name login_uri error}};
+    my ( $username, $project_name, $login_uri, $error ) =
+      @param{qw{username project_name login_uri error}};
 
     if ( !defined($username) || $username eq '' ) {
         $$error = 'No username specified';
         return;
     }
 
-    my $sth =
-      $self->{dbh}->prepare(
+    my $dbh = $self->{dbh};
+    my $sth = $dbh->prepare(
         'select full_name, email from users where uname=? and email_confirmed=1'
-      );
-    my $row_count = $sth->execute($username);
+    );
+    my $rows_found = $sth->execute($username);
+    if ( $rows_found == 0 ) {
 
-    if ( $row_count == 1 ) {
-
-        # user found in the database
-        my $u = $sth->fetchrow_hashref;
+        # user not found in the database
         $sth->finish;
+        $$error =
+'The user does not exist in the database or user email address has not been verified';
+        return;
+    }
+    elsif ( $rows_found != 1 ) {
 
-      # generate a 40-character string using hash on user IP and rand() function
-        my $new_pwd = sha1_hex( $ENV{REMOTE_ADDR} . rand );
+        # should never happen
+        $sth->finish;
+        SGX::Abstract::Exception::Internal::Duplicate->throw( error =>
+              "Expected one user record but encountered $rows_found.\n" );
+    }
 
-        # email the password
-        my $msg = Mail::Send->new(
-            Subject => "Your New $project_name Password",
-            To      => $u->{email}
-        );
-        $msg->add( 'From', ('NOREPLY') );
-        my $fh             = $msg->open;
-        my $user_full_name = $u->{full_name};
-        print $fh <<"END_RESET_PWD_MSG";
+    # single user found in the database
+    my ( $user_full_name, $user_email ) = $sth->fetchrow_array;
+    $sth->finish;
+
+    # generate a 40-character string using hash on user IP and rand() function
+    my $new_pwd = sha1_hex( $ENV{REMOTE_ADDR} . rand );
+
+    #---------------------------------------------------------------------------
+    #  email the password
+    #---------------------------------------------------------------------------
+
+    my $msg = Mail::Send->new(
+        Subject => "Your New $project_name Password",
+        To      => $user_email
+    );
+    $msg->add( 'From', ('NOREPLY') );
+    my $fh = $msg->open()
+      or SGX::Abstract::Exception::Internal::Mail->throw(
+        error => 'Failed to open default mailer' );
+    print $fh <<"END_RESET_PWD_MSG";
 Hi $user_full_name,
 
 This is your new $project_name password:
@@ -337,31 +360,18 @@ please notify the $project_name administrator.
 - $project_name automatic mailer
 
 END_RESET_PWD_MSG
-        $fh->close or croak 'Could not send email';
+    $fh->close
+      or SGX::Abstract::Exception::Internal::Mail->throw(
+        error => 'Failed to send email message' );
 
-        # update the database
-        my $rows_affected =
-          $self->{dbh}->do( 'update users set pwd=? where uname=?',
-            undef, sha1_hex($new_pwd), $username );
+ # :TODO:07/31/2011 15:18:30:es: consider using commit/rollback transaction here
+    my $rows_affected = $dbh->do( 'update users set pwd=? where uname=?',
+        undef, sha1_hex($new_pwd), $username );
 
-        assert( $rows_affected == 1 );
+    assert( $rows_affected == 1 );
 
-        #if ($rows_affected == 1) {
-        #    $self->{dbh}->commit;
-        #} else {
-        #    $self->{dbh}->rollback;
-        #}
+    return 1;
 
-        return 1;
-    }
-    else {
-
-        # user not found in the database
-        $sth->finish;
-        $$error =
-'The user does not exist in the database or user email address has not been verified';
-        return;
-    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -396,7 +406,7 @@ sub change_password {
     my ( $self, %param ) = @_;
 
     my ( $old_password, $new_password1, $new_password2, $error ) =
-        @param{qw{old_password new_password1 new_password2 error}};
+      @param{qw{old_password new_password1 new_password2 error}};
 
     if ( !defined($old_password) || $old_password eq '' ) {
         $$error = 'Old password not specified';
@@ -475,19 +485,26 @@ sub change_email {
         $$error = 'Email and its confirmation do not match';
         return;
     }
+
+    # Parsing email address with Email::Address->parse() has the side effect of
+    # untainting user-entered email (applicable when CGI script is run in taint
+    # mode with -T switch).
+    my ($email_handle) = Email::Address->parse($email1);
+    if ( !defined($email_handle) ) {
+        $$error = 'Email address provided is not in valid format';
+        return;
+    }
+    my $email_address = $email_handle->address;
+
     $password = sha1_hex($password);
     my $username = $self->{session_stash}->{username};
-    assert($username);
+    assert( defined($username) );
 
     my $full_name = $self->{session_cookie}->{full_name};
 
     my $rows_affected = $self->{dbh}->do(
 'update users set email=?, email_confirmed=0 where uname=? and pwd=? and email != ?',
-        undef,
-        $email1,
-        $username,
-        $password,
-        $email1
+        undef, $email_address, $username, $password, $email_address
     );
 
     if ( $rows_affected == 1 ) {
@@ -495,7 +512,7 @@ sub change_email {
             project_name => $project_name,
             full_name    => $full_name,
             username     => $username,
-            email        => $email1,
+            email        => $email_address,
             login_uri    => $login_uri
         );
         return 1;
@@ -510,7 +527,8 @@ END_noEmailChangeMsg
     else {
 
         # should never happen
-        croak 'Internal error occurred';
+        SGX::Abstract::Exception::Internal::Duplicate->throw( error =>
+              "Expected one user record but encountered $rows_affected.\n" );
     }
 }
 
@@ -571,6 +589,10 @@ sub register_user {
         $$error = 'Password and its confirmation do not match';
         return;
     }
+    if ( !defined($full_name) || $full_name eq '' ) {
+        $$error = 'Full name not specified';
+        return;
+    }
     if ( !defined($email1) || $email1 eq '' ) {
         $$error = 'Email not specified';
         return;
@@ -583,14 +605,21 @@ sub register_user {
         $$error = 'Email and its confirmation do not match';
         return;
     }
-    if ( !defined($full_name) || $full_name eq '' ) {
-        $$error = 'Full name not specified';
+
+    # Parsing email address with Email::Address->parse() has the side effect of
+    # untainting user-entered email (applicable when CGI script is run in taint
+    # mode with -T switch).
+    my ($email_handle) = Email::Address->parse($email1);
+    if ( !defined($email_handle) ) {
+        $$error = 'Email address provided is not in valid format';
         return;
     }
+    my $email_address = $email_handle->address;
+
     my $sth = $self->{dbh}->prepare('select count(*) from users where uname=?');
     my $row_count = $sth->execute($username);
     assert( $row_count == 1 );
-    my $user_found = $sth->fetchrow_array();
+    my ($user_found) = $sth->fetchrow_array;
     $sth->finish();
     if ($user_found) {
         $$error = "The user $username already exists in the database";
@@ -602,18 +631,19 @@ sub register_user {
         undef,
         $username,
         sha1_hex($password1),
-        $email1,
+        $email_address,
         $full_name,
         $address,
         $phone
     );
 
     assert( $rows_affected == 1 );
+
     $self->send_verify_email(
         project_name => $project_name,
         full_name    => $full_name,
         username     => $username,
-        email        => $email1,
+        email        => $email_address,
         login_uri    => $login_uri
     );
     return 1;
@@ -659,7 +689,7 @@ sub send_verify_email {
     my $hours_to_expire = 48;
 
     my $s = SGX::Session::Session->new(
-        dbh    => $self->{dbh},
+        dbh       => $self->{dbh},
         expire_in => 3600 * $hours_to_expire,
         check_ip  => 0
     );
@@ -669,18 +699,22 @@ sub send_verify_email {
     # make the session object store the username
     $s->session_store( username => $username );
 
-    if ( $s->commit() ) {
+    return unless $s->commit();
 
-        # email the confirmation link
-        my $msg = Mail::Send->new(
-            Subject => "Please confirm your email address with $project_name",
-            To      => $email
-        );
-        $msg->add( 'From', ('NOREPLY') );
-        my $fh = $msg->open()
-          or croak 'Failed to open default mailer';
-        my $session_id = $s->get_session_id();
-        print $fh <<"END_CONFIRM_EMAIL_MSG";
+#---------------------------------------------------------------------------
+#  email the confirmation link
+#---------------------------------------------------------------------------
+        
+    my $msg = Mail::Send->new(
+        Subject => "Please confirm your email address with $project_name",
+        To      => $email
+    );
+    $msg->add( 'From', ('NOREPLY') );
+    my $fh = $msg->open()
+      or SGX::Abstract::Exception::Internal::Mail->throw(
+        error => 'Failed to open default mailer' );
+    my $session_id = $s->get_session_id();
+    print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $full_name,
 
 You have recently applied for user access to $project_name. Please click on the
@@ -697,9 +731,11 @@ the $project_name administrator if you keep receiving it.
 - $project_name automatic mailer
 
 END_CONFIRM_EMAIL_MSG
-        $fh->close or croak 'Could not send email';
-    }
-    return;
+    $fh->close
+      or SGX::Abstract::Exception::Internal::Mail->throw(
+        error => 'Failed to send email message' );
+
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -785,6 +821,7 @@ sub read_perm_cookie {
         return 1;
     }
     else {
+
         # hash is empty
         return;
     }

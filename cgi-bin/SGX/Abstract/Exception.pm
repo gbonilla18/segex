@@ -5,7 +5,7 @@
 #
 #  DESCRIPTION:
 #
-#  Here we declare our exception hierarchy.
+#  Here we declare our exception hierarchy zoo.
 #
 #  For now, the top two branches in the hierarchy are
 #  SGX::Abstract::Exception::User and SGX::Abstract::Exception::Internal. They
@@ -33,10 +33,10 @@
 #     REVISION:  ---
 #===============================================================================
 
+package SGX::Abstract::Exception;
+
 use strict;
 use warnings;
-
-package SGX::Abstract::Exception;
 
 # User exceptions are messages to user; Internal exceptions are messages for
 # internal development puprposes. Showing internal exceptions to user may pose a
@@ -52,6 +52,18 @@ use Exception::Class (
     'SGX::Abstract::Exception::Internal::JS' => {
         isa         => 'SGX::Abstract::Exception::Internal',
         description => 'Cannot form Javascript'
+    },
+    'SGX::Abstract::Exception::Internal::Mail' => {
+        isa         => 'SGX::Abstract::Exception::Internal',
+        description => 'Mailer error'
+    },
+    'SGX::Abstract::Exception::Internal::Session' => {
+        isa         => 'SGX::Abstract::Exception::Internal',
+        description => 'Session-related error'
+    },
+    'SGX::Abstract::Exception::Internal::Duplicate' => {
+        isa         => 'SGX::Abstract::Exception::Internal',
+        description => 'Two or more records encountered where one was expected'
     }
 );
 

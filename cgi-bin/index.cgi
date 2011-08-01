@@ -6,7 +6,7 @@ use warnings;
 # CGI options: -nosticky option prevents CGI.pm from printing hidden .cgifields
 # inside a form. We do not add qw/:standard/ because we use object-oriented
 # style.
-use CGI 2.47 qw/-nosticky/;
+use CGI 2.47 qw/-nosticky -private_tempfiles/;
 
 #use CGI::Pretty 2.47 qw/-nosticky/;
 use Switch;

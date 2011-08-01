@@ -63,7 +63,7 @@ use SGX::Abstract::Exception;
 #   PARAMETERS:  Required:
 #                    $in  - ARRAY reference to input file contents split by lines
 #                    $out - output file handle
-#                    $is_valid - array of functions to validate input fields
+#                    $parse - array of functions to validate input fields
 #
 #                Optional (named) with default values:
 #                    input_header => 0  - whether input contains a header
@@ -91,7 +91,7 @@ use SGX::Abstract::Exception;
 #                http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm
 #===============================================================================
 sub csv_rewrite {
-    my ( $in, $out, $is_valid, %param ) = @_;
+    my ( $in, $out, $parse, %param ) = @_;
 
     # whether input file contains a header
     my $input_header =
@@ -126,7 +126,7 @@ sub csv_rewrite {
     my $record_num = 0;    # record is a non-empty line
 
     # require as many fields as have validating functions
-    my $req_fields = @$is_valid;
+    my $req_fields = @$parse;
 
     # Generate a custom function that will check whether array consists of
     # elements we consider to be empty. When "allow_whitespace" is set during
@@ -137,8 +137,8 @@ sub csv_rewrite {
     # values (they are equivalent to empty fields).
     my $is_empty =
       ( $csv_in_opts{allow_whitespace} )
-      ? all_match(qr/^$/, ignore_undef => 1)
-      : all_match(qr/^\s*$/, ignore_undef => 1);
+      ? all_match( qr/^$/,    ignore_undef => 1 )
+      : all_match( qr/^\s*$/, ignore_undef => 1 );
 
     for ( my $line_num = 1 ; $csv_in->parse( shift @$in ) ; $line_num++ ) {
         my @fields = $csv_in->fields();
@@ -158,22 +158,25 @@ sub csv_rewrite {
         }
 
         # perform validation on each column
+        my @out_fields;
         foreach ( 0 .. ( $req_fields - 1 ) ) {
-            if ( !$is_valid->[$_]->( $fields[$_] ) ) {
-                my $col_num = $_ + 1;
-                SGX::Abstract::Exception::User->throw( error =>
-                      "Invalid formatting at line $line_num column $col_num\n"
-                );
+            my $parsed_value = $parse->[$_]->( shift @fields );
+            unless ( defined $parsed_value ) {
+                SGX::Abstract::Exception::User->throw(
+                        error => "Cannot parse value at line $line_num column "
+                      . ( $_ + 1 )
+                      . "\n" );
             }
+            push @out_fields, $parsed_value;
         }
 
         # write to output
-        $csv_out->print( $out, \@fields );
+        $csv_out->print( $out, \@out_fields );
     }
 
     # check for errors
     if ( my $error = $csv_in->error_diag() ) {
-        SGX::Abstract::Exception::User->throw(error => $error);
+        SGX::Abstract::Exception::User->throw( error => $error );
     }
 
     # return number of records written

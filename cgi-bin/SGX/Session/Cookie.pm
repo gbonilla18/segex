@@ -62,7 +62,7 @@ The table `sessions' is created as follows:
     CREATE TABLE sessions (
         id CHAR(32) NOT NULL UNIQUE,
         a_session TEXT NOT NULL
-    );
+    ) ENGINE=InnoDB;
 
 =head1 AUTHORS
 

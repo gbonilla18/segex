@@ -37,7 +37,7 @@ The table `sessions' is created as follows:
     CREATE TABLE sessions (
         id CHAR(32) NOT NULL UNIQUE,
         a_session TEXT NOT NULL
-    );
+    ) ENGINE=InnoDB;
 
 =head1 AUTHORS
 
@@ -71,8 +71,8 @@ $VERSION = '0.11';
 use Apache::Session::MySQL;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Debug;
-use Carp;
 use Data::Dumper;
+use SGX::Abstract::Exception;
 
 #use Data::Dumper;    # for debugging
 
@@ -159,17 +159,17 @@ sub session_is_tied {
 #      RETURNS:  returns 1 if a new session was started or an old one restored *by
 #                this subroutine*, 0 otherwise
 #  DESCRIPTION:
-#       THROWS:  croak() if active session present
-#     COMMENTS:  Deals with sessio_obj only
+#       THROWS:  SGX::Abstract::Exception::Internal::Session
+#     COMMENTS:  Deals with session_obj only
 #     SEE ALSO:  n/a
 #===============================================================================
 sub tie_session {
     my ( $self, $id ) = @_;
 
-    # throw exception -- failure here means user error -- attempting to tie a
-    # session to a hash that's currently occupied
+    # throw exception -- attempting to tie a session to a hash that's currently
+    # occupied
     if ( $self->session_is_tied() ) {
-        croak 'Cannot tie to session hash: another session is currently active';
+        SGX::Abstract::Exception::Internal::Session->throw( error => 'Cannot tie to session hash: another session is currently active');
     }
 
     # Tie session_obj. Catch exceptions -- failure here is normal.
@@ -244,7 +244,7 @@ sub expire_session {
 #                matches the argument), and that the IP field matches the
 #                current IP if check_ip is true.
 #
-#       THROWS:  User error in case no session is tied. That a session is tied
+#       THROWS:  Internal error in case no session is tied. That a session is tied
 #                is important because even if the session_obj field passes all
 #                checks, it has to be upated and stored in the database (namely
 #                the tla and ttl subfields are update).
@@ -256,8 +256,8 @@ sub checkin {
 
     if ( !$self->session_is_tied() ) {
 
-        # User error -- no session tied
-        croak 'No session attached: cannot checkin';
+        # Internal error -- no session tied
+        SGX::Abstract::Exception::Internal::Session->throw( error => 'No session attached: cannot checkin');
     }
 
     my $curr_time = now();
@@ -348,7 +348,7 @@ sub get_session_id {
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Attempt to attach to a session. On fail, return false.
-#       THROWS:  no exceptions
+#       THROWS:  SGX::Abstract::Exception::Internal::Session
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -356,7 +356,7 @@ sub recover {
     my ( $self, $id ) = @_;
 
     if ( !defined($id) ) {
-        croak 'Cannot recover session from unspecified id';
+        SGX::Abstract::Exception::Internal::Session->throw( error => 'Cannot recover session from unspecified id');
     }
 
     if ( !$self->tie_session($id) ) {
@@ -407,7 +407,7 @@ sub start {
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Initialize a freshly tied session object with values
-#       THROWS:  no exceptions
+#       THROWS:  SGX::Abstract::Exception::Internal::Session
 #     COMMENTS:  Call after opening a new session. After initialization,
 #                checkin(), if called, must return true.
 #     SEE ALSO:  n/a
@@ -416,10 +416,10 @@ sub init_session {
     my $self = shift;
 
     if ( !defined( $self->{session_obj}->{_session_id} ) ) {
-        croak 'Session hash does not contain required field _session_id';
+        SGX::Abstract::Exception::Internal::Session->throw( error => 'Session hash does not contain required field _session_id');
     }
     if ( !$self->session_is_tied() ) {
-        croak 'Cannot initialize untied session hash';
+        SGX::Abstract::Exception::Internal::Session->throw( error => 'Cannot initialize untied session hash');
     }
 
     # New session has been started. Store remote user IP address if

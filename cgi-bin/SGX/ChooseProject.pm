@@ -116,7 +116,7 @@ sub loadProjectData {
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  Empty string means 'All projects'
+#     COMMENTS:  We choose empty string to mean 'All projects'
 #     SEE ALSO:  n/a
 #===============================================================================
 sub lookupProjectName {

@@ -1,7 +1,15 @@
 Options -Indexes +ExecCGI +FollowSymLinks
 
-# treat all files as CGI scripts
+# SetEnv not working with my current setup for some reason, even with
+# AllowOverride set to 'All'
+#
+#SetEnv SERVER_ADMIN escherba@gmail.com
+
+# treat all files in current subtree as CGI scripts
 SetHandler cgi-script
 
+<IfModule mod_rewrite.c>
 RewriteEngine on
+RewriteBase /
 RewriteRule ^$ /cgi-bin/segex_dev/index.cgi
+</IfModule>
