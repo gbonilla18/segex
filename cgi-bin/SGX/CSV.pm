@@ -163,7 +163,7 @@ sub csv_rewrite {
             my $parsed_value = $parse->[$_]->( shift @fields );
             unless ( defined $parsed_value ) {
                 SGX::Abstract::Exception::User->throw(
-                        error => "Cannot parse value at line $line_num column "
+                        error => "Cannot parse input value at line $line_num column "
                       . ( $_ + 1 )
                       . "\n" );
             }

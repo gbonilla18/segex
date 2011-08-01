@@ -141,25 +141,29 @@ contains relative paths of Javascript files to load; after top-level dispatch is
 complete, it is transformed to convert relative paths to absolute and is sent to
 CGI.pm.
 
-CONTROLLER - SGX::Manager abstract class
+CONTROLLER - SGX::CRUD abstract class
 
-Define an abstract class supporting typical manage operations (update one field,
-delete record) as AJAX requests and some less frequent manage operations (enter
-new record / update a number of fields simultaneously) as typical CGI requests.
-Currently, the module expressing similar functionality most closely is
-SGX::ManageExperiments. It should be renamed to SGX::ExperimentManager. The
-following inheritance hierarchy will be implemented
+Define an abstract class supporting typical CRUD operations (create, read,
+update, delete) as AJAX or regular requests.  Currently, the module expressing
+similar functionality most closely is SGX::ManageExperiments. It should be
+renamed to SGX::CRUD::Experiment. The following inheritance hierarchy will be
+implemented
 
-                      SGX::Manager
+                      SGX::CRUD
                   /   |             \               \
                 /     |              |                \
-SGX::UserManager SGX::ProjectManager SGX::StudyManager SGX::ExperimentManager
-
+SGX::CRUD:User SGX::CRUD::Project SGX::CRUD::Study SGX::CRUD::Experiment
 
 When passing arguments to module constructors, prefer named arguments. For
 example: my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q, session
-=> $s).
+=> $s). (Note: this was replaced with %controller_context hash).
 
+The SGX::CRUD abstract class will be a composite class, containint controller,
+model, and basic view methods (though those methods could be abstracted away
+into their own MVC classes).
+
+See CatalystX::CRUD perldoc for an example of how we want this to be:
+http://search.cpan.org/search?query=crud+catalystx
 
 VIEW - The "right" way
 

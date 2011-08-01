@@ -49,7 +49,7 @@ cpan executable before installing the packages on which SEGEX depends:
   > install JSON
   > install Text::CSV
   > install Exception::Class::DBI
-
+  > install Email::Address
  
 3. Copy files. Note: symlinks can be created instead of copying, however that
 would require FollowSymLinks directive to be set in the Apache configuration
