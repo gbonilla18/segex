@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -wT
 
 use strict;
 use warnings;
@@ -20,7 +20,7 @@ use Data::Dumper;
 #---------------------------------------------------------------------------
 # Custom modules in SGX directory
 #---------------------------------------------------------------------------
-use lib 'SGX';
+use lib qw/./;
 
 use SGX::Debug;     # all debugging code goes here
 use SGX::Config;    # all configuration for our project goes here

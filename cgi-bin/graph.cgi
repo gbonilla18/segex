@@ -1,15 +1,14 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -wT
 
 use strict;
 use warnings;
+
+use lib qw/./;
+
 use CGI;
 use Switch;
-
-#use URI::Escape;
-# debug includes
 use Data::Dumper;
 use SGX::Debug;
-
 use SGX::Config;
 use SGX::Util qw/label_format bounds/;
 use SGX::Session::User 0.07;    # user authentication, sessions and cookies
