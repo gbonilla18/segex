@@ -9,12 +9,6 @@ from a separate, "public" study (can be a virtual link).
 
 *) Write tests?
 
-*) ManageStudies: a) why does _LoadQueryPID do an inner join by annotated
-platform?  What doesn't it just list all studies (left join on platform)?  b)
-_ExistingUnassignedStudyQuery --  why do a natural join with "microarray" table?
-Seems like a very roundabout way to get a list of experiments for a given
-platform
-
 *) Concern about concepts used in SEGEX -- will these concepts be defined in a
 similar way in labs run by other researchers? Discuss this with Dr. Waxman.
 Example:
@@ -136,3 +130,13 @@ inefficient, (b) prevents us from using RESTful queries for getTFS slices. Need
 to have code that "knows" the shortest way to request the necessary information
 from getTFS. It should "remember" that user queried for Kcne prefix and use that
 query if probe list is too long (longer than original query).
+
+*) Would be very nice if the code that generates experiment table in Manage
+Experiments would also generate table in ManageStudies (or vice versa).
+
+*) For Manage Studies, use YUI buttons for switching between forms for (a)
+editing study fields, (b) assigning existing experiment, (c) adding new
+experiment.
+
+*) Two more modules remaining to refactor for use with %controller_context:
+ChooseProject.pm and TFSDisplay.pm

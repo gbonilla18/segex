@@ -1,4 +1,6 @@
-SEPARATING MODEL AND VIEW - Model
+1. Model-View-Controller Pattern
+
+1.1 SEPARATING MODEL AND VIEW - Model
 
 Separation of concerns is achieved by minimizing the number of points of contact
 between two functionally different parts of code (decoupling), which in turn is
@@ -120,9 +122,11 @@ requires correct DOM tree to begin with and is therefore more robust than
 filling in placeholders in a text-blob template.
 
 
-CONTROLLER
 
-CONTROLLER - General
+
+1.2 CONTROLLER
+
+1.2.1 CONTROLLER - General
 
 Considering the use of CGI::Application to handle dispatching of requests. If
 initial trial/validation succeeds, this will be the recommended framework.
@@ -141,7 +145,7 @@ contains relative paths of Javascript files to load; after top-level dispatch is
 complete, it is transformed to convert relative paths to absolute and is sent to
 CGI.pm.
 
-CONTROLLER - SGX::CRUD abstract class
+1.2.2 CONTROLLER - SGX::CRUD abstract class
 
 Define an abstract class supporting typical CRUD operations (create, read,
 update, delete) as AJAX or regular requests.  Currently, the module expressing
@@ -158,14 +162,18 @@ When passing arguments to module constructors, prefer named arguments. For
 example: my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q, session
 => $s). (Note: this was replaced with %controller_context hash).
 
-The SGX::CRUD abstract class will be a composite class, containint controller,
+The SGX::CRUD abstract class will be a composite class, containing controller,
 model, and basic view methods (though those methods could be abstracted away
 into their own MVC classes).
 
 See CatalystX::CRUD perldoc for an example of how we want this to be:
 http://search.cpan.org/search?query=crud+catalystx
 
-VIEW - The "right" way
+
+
+1.3 VIEW
+
+1.3.1 VIEW - The "right" way
 
 The "right" way to deal with View, according to some CGI::Application
 documentation, is to use HTML::Template. Right now I am leaning strongly against
@@ -197,45 +205,201 @@ setting a small switch at the construction/initialization of the CGI object.
 To conclude, it appears that we will be using CGI::Application with CGI.pm and
 custom classes for model.
 
-
-REST ARCHITECTURE
-
-Except for special cases (for example when file upload control is present), all
-forms should be sent as GET requests instead of POST. Whenever a form uses GET
-method, its enctype property must be set to "application/x-www-form-urlencoded"
-("multipart/form-data" creates a binary stream which doubles the traffic).  The
-URLs should be short enough and human readable enough that they could be
-modified by the user. Care should be taken that, in case a link is shared via
-email, the resulting page looks the same regardless of who the user is or what
-computer he or she uses. To achieve this goal, all state information should be
-expressly specified in the form of URL parameters in the GET request.
-
-HTML
+1.3.2. HTML
 
 Generated HTML should be valid. Since most pages being worked on are private, it
 is cumbersome to validate their source using the W3C service. This can be worked
 around by using Total Validator Firefox plugin and the accompanying Mac or
 Windows application.
 
-PERL
+
+1.3.3 Dynamic elements
+
+Avoid using 'onclick' and 'onchange' attributes of DOM elements. Instead, use
+the addListener function from the YUI library and place corresponding code in
+the <HEAD> element.
+
+1.3.4 Data visualization
+
+Consider using g.Raphael Javascript framework for drawing graphs inside the
+client browser window from JSON data obtained from the server (as opposed to
+generating SVG files on the server as it is set up currently).
+https://github.com/mobz/g.raphael
+https://github.com/alexyoung/ico
+
+
+
+
+
+2. REST ARCHITECTURE
+
+2.1 REST: GET vs POST
+
+Except for special cases (for example when file upload control is present), all
+forms should be sent as GET requests instead of POST. Whenever a form uses GET
+method, its 'enctype' attribute must be set to
+"application/x-www-form-urlencoded" ("multipart/form-data" which is default in
+CGI.pm creates a binary stream which doubles the traffic). Because URL
+parameters in the 'action' attribute of a form element may interfere with form
+input fields, instead of doing action="?x=blah" we should instead create a
+hidden field in the form that stores the desired value of "x". The above applies
+for GET forms only -- for POST forms, it is okay to specify URL parameters in
+the 'action' attribute directly as long as they are read with url_param on
+processing. 
+
+The above entails that top-level and second-level "resources" should be read
+using CGI::url_param() while all other non-RESTful state information should be
+read using CGI::param(). Correct use of url_param and param would reflect the
+conceptual separation between "resource" and "state".
+
+Alternative approach is possible: use 'action' attribute for URL parameters that
+identify unique and relatively permanent resources that are accessed more or
+less often. Such resources are, for example, first-level branches ('a='
+parameter) and ids of items in a collection.
+
+Plain URLs *must not* be used to affect resource states.  The following is a
+very short reason why: any plain link should be crawlable, regardless of whether
+it is behind password protection (one day, for specific reources, or even by
+accident, password protection may be removed, and we *really, really* do not
+want a web crawler to delete every resource on the site that has a delete link.
+
+Instead of creating "Delete" and "Remove" links, we should be
+create forms with textual submit buttons. Alternatively, we could submit an AJAX
+POST request to delete these resources from the table. This would be in
+agreement with the "RESTful Web Services Cookbook" (pp. 13-15): "Use GET for
+safe and idempotent information retrieval. ... Use POST ... To create a new
+resource ... To modify one or more resources via a controller resource ... To
+run queries with large inputs ... To perform any unsafe or nonidempotent
+operation when no other HTTP method seems appropriate".
+
+The URLs should be short enough and human readable enough
+that they could be modified by the user. Care should be taken that, in case a
+link is shared via email, the resulting page looks the same regardless of who
+the user is or what computer he or she uses. To achieve this goal, all state
+information should be expressly specified in the form of hidden fields in the
+form performing the GET request.
+
+"The REST cookbook –- a fantastic write-up which I do strongly recommend –-
+suggests to identify commonly used search criteria and expose those queries as
+separate resources."
+http://nicksda.apotomo.de/2011/06/rails-misapprehensions-query-parameters-are-restful/
+
+"[Speaking of POST...] The param() method will always return the contents of the
+POSTed fill-out form, ignoring the URL's query string. To retrieve URL
+parameters, call the url_param() method. ... The main difference is that
+url_param() allows you to read the parameters, but not set them. ... If you try
+to mix a URL query string with a form submitted with the GET method, the results
+will not be what you expect."
+http://perldoc.perl.org/CGI.html#MIXING-POST-AND-URL-PARAMETERS
+
+Perl documentation suggests that for GET forms, URL query string in the 'action'
+attribute should not contain URL parameters because they may interfere with
+input field names present in the form. For POST names, those parameters are
+guaranteed not to interfere with field names because of the url_param/param
+separation.
+
+"If the form was submitted with GET, both param() and url_param() return the
+parameters from the URL. If the form was submitted with POST but also had URL
+parameters thrown in too, then param() returns only the POSTed parameters and
+url_param() returns only the URL ones."
+http://www.garayed.com/perl/75096-cgi-pm-distinguish-between-post-get-3.html#post335175
+
+2.2 REST - Error Codes
+
+For reference on HTTP error codes, see REST cookbook, pp. 71-72.
+
+
+
+
+
+
+4. Perl
+
+4.1 Perl - General
 
 Perl::Critic and Perl::Tidy are recommended. Vim plugin "perl-support" (see Vim
 site for download) lets one run Perl::Critic and Perl::Tidy on current source
-with onlyn a few keystrokes (\rc and \ry respectively). Additional nicety of
+with only a few keystrokes (\rc and \ry respectively). Additional nicety of
 perl-support is that it lets one quickly generate "framed" comments (\cfr),
 module method headers (\cm), function headers (\cfu) and so on. Equivalent
 plugin is available for C (called "c-support"), with most key mappings being the
 same.
 
-JAVASCRIPT
+4.2 Object-Oriented Programming
 
-Avoid using onclick and onchange properties of DOM elements. Instead, use the
-addListener function from the YUI library and place corresponding code in the
-<HEAD> element.
+Perl doesn't have attribute inheritance, and even if it did (via some CPAN
+package), it would "introduce a tremendous amount of coupling between an
+inherited class and a derived class" (Advanced Perl Programming, O'Reilly,
+section 8.3.1).
 
-SQL
+Therefore, if we want to use inheritance, we should avoid introducing
+specialization into attributes. For example, when we have two classes that
+interact with two similar database tables and one of them (the class that
+interacts with the larger of the two tables) inherits from another, we do not
+want to store SQL queries as attributes because that way they cannot be
+overridden during inheritance. On the other hand, Perl allows for method
+inheritance, so all SQL queries should be declared and used directly inside
+methods (if there is a need to separate the declaration/preparation from
+execution, then create two different methods).
 
-SQL - General
+
+4.3. Exceptions
+
+Use SGX::Exceptions. 
+
+User exceptions (SGX::Exception::User) are messages to user; internal exceptions
+(SGX::Exception::Internal) are messages for internal development purposes.
+Showing internal exceptions to user may pose a security risk.
+
+Because we use Class::Exception::DBI module, DBI exceptions have the same
+interface. When you need to communicate a DBI error (e.g. duplicate record) to
+user, do not show DBI exception to user directly -- instead re-throw it as User
+exception with a custom message.
+
+4.4 I/O
+
+CSV format should be supported in addition to tab-delimited. The idea is that
+the same formats that are supported for output should also be supported for
+input.
+
+4.5 DEFAULT ARGUMENTS TO PERL SUBROUTINES
+
+The following snippet is from the constructor to File::Temp in default Perl
+installation. It shows an example of how default arguments could be used by a
+subroutine. We should not be converting to uppercase unless special behavior is
+desired, but the example below shows how it could be done when needed. Note that
+exists() is used instead of defined() to set defaults. This allows the user to
+use the following: my $tmp = File::Temp->new(UNLINK => undef); to set UNLINK to
+false.  Since undefined value evaluates to false, we should allow for the use of
+undef in such situations. We may not want to delete argument from argument
+lists, however, since it may result in ambiguity. For example, $args{UNLINK}
+evaluates to false after UNLINK has been deleted from the argument list.
+
+  # read arguments and convert keys to upper case
+  my %args = @_;
+  #%args = map { uc($_), $args{$_} } keys %args;
+
+  # see if they are unlinking (defaulting to "yes")
+  my $unlink = (exists $args{UNLINK} ? $args{UNLINK} : 1 );
+  #delete $args{UNLINK};
+
+If the named argument defaulted to "no", we could simply assign it:
+
+  my $unlink = $args{UNLINK};
+
+
+
+6. SQL
+
+6.1. SQL - Design issues - Views
+
+Avoid repeating data. For example, if columns A and B are combined to produce
+some value over large number of rows, do not cache the result in column C -- use
+SQL views instead. A specific example where SQL views are needed is the
+corrected P-value column in the main data/response table.
+
+
+6.2 SQL - Graph traversal
 
 In Find Probe, we attempt to retrieve all probes related to each other through
 gene symbols or accession numbers. The probe table joined with the annotation
@@ -264,92 +428,41 @@ then combine it using UNION statement with a JOIN of Table A and q.
 
 http://explainextended.com/2009/09/24/adjacency-list-vs-nested-sets-postgresql/
 
-SQL - Performance
+6.3 SQL - Performance
 
-With Perl code, performance should not be the main consideration, but it is the
-main consideration with SQL, trumping readability (and nearly everything else).
-Strategies for best database performance: (1) joins are the most expensive
-operations; try to reduce the number of joins if possible; (2) LEFT and RIGHT
-joins are usually more expensive than INNER joins (3) try to minimize the number
-of rows searched early on, using subqueries or INNER joins, (4) benchmark all
-queries, (5) try to rewrite a slow query in several alternative ways (for
-example, using RIGHT joins instead of LEFT etc.) and then benchmark all of them,
-(6) ensure that all commonly performed JOINS operate on indexed columns or
-combinations of columns; create necessary indexes otherwise, (7) use query
-optimizer (EXPLAIN statement) to decide which columns should be indexed and to
-track the progress of the query and the number of rows it operates on. (8) avoid
-using NATURAL joins (this is more of a maintainability issue but may affect
-performance because it obscures what really happens in the query), (9) avoid
-using DISTINCT modifier (prefer GROUP BY clause instead, since it allows you to
-enter specific column names on which to perform grouping; preference should go
-to those columns that are indexed keys). (10) use DBI::Profile to monitor
-performance, (11) use DBI placeholders (more of a security issue but may affect
-performance when the same query is executed repeatedly with different input
-parameters). (12) consider using prepare_cached() DBI function instead of
+While with Perl code, performance should not be the main consideration, but it
+is the main consideration with SQL, trumping readability (and nearly everything
+else).  Strategies for best database performance: (1) joins are the most
+expensive operations; try to reduce the number of joins if possible; (2) LEFT
+and RIGHT joins are usually more expensive than INNER joins (3) try to minimize
+the number of rows searched early on, using subqueries or INNER joins, (4)
+benchmark all queries, (5) try to rewrite a slow query in several alternative
+ways (for example, using RIGHT joins instead of LEFT etc.) and then benchmark
+all of them, (6) ensure that all commonly performed JOINS operate on indexed
+columns or combinations of columns; create necessary indexes otherwise, (7) use
+query optimizer (EXPLAIN statement) to decide which columns should be indexed
+and to track the progress of the query and the number of rows it operates on.
+(8) avoid using NATURAL joins (this is more of a maintainability issue but may
+affect performance because it obscures what really happens in the query), (9)
+avoid using DISTINCT modifier (prefer GROUP BY clause instead, since it allows
+you to enter specific column names on which to perform grouping; preference
+should go to those columns that are indexed keys). (10) use DBI::Profile to
+monitor performance, (11) use DBI placeholders (more of a security issue but may
+affect performance when the same query is executed repeatedly with different
+input parameters). (12) consider using prepare_cached() DBI function instead of
 prepare(). (13) indexes on columns that may contain long text are suboptimal.
 
 Partial word matches in databases do not use indexes, so do not use REGEXP
 '^(word1|word2)$' for matching "word1" and "word2", and instead either use WHERE
 IN predicate or JOIN with a TEMPORARY table.
 
-VISUALIZATION
+6 THEORY
 
-Consider using g.Raphael Javascript framework for drawing graphs inside the
-client browser window from JSON data obtained from the server (as opposed to
-generating SVG files on the server as it is set up currently).
-https://github.com/mobz/g.raphael
-https://github.com/alexyoung/ico
-
-THEORY
-
-THEORY - Compare Experiments
+6.1 THEORY - Compare Experiments
 
 Compare Experiments produces a list of significant probes in the selected
 experiments. A probe is called significant if it satisfies P<0.05 and
 |foldchange|>x in at least one of the selected experiments.
 
 
-EXCEPTIONS
-
-Use SGX::Exceptions. 
-
-User exceptions (SGX::Exception::User) are messages to user; internal exceptions
-(SGX::Exception::Internal) are messages for internal development purposes.
-Showing internal exceptions to user may pose a security risk.
-
-Because we use Class::Exception::DBI module, DBI exceptions have the same
-interface. When you need to communicate a DBI error (e.g. duplicate record) to
-user, do not show DBI exception to user directly -- instead re-throw it as User
-exception with a custom message.
-
-I/O
-
-CSV format should be supported in addition to tab-delimited. The idea is that
-the same formats that are supported for output should also be supported for
-input.
-
-DEFAULT ARGUMENTS TO PERL SUBROUTINES
-
-The following snippet is from the constructor to File::Temp in default Perl
-installation. It shows an example of how default arguments could be used by a
-subroutine. We should not be converting to uppercase unless special behavior is
-desired, but the example below shows how it could be done when needed. Note that
-exists() is used instead of defined() to set defaults. This allows the user to
-use the following: my $tmp = File::Temp->new(UNLINK => undef); to set UNLINK to
-false.  Since undefined value evaluates to false, we should allow for the use of
-undef in such situations. We may not want to delete argument from argument
-lists, however, since it may result in ambiguity. For example, $args{UNLINK}
-evaluates to false after UNLINK has been deleted from the argument list.
-
-  # read arguments and convert keys to upper case
-  my %args = @_;
-  #%args = map { uc($_), $args{$_} } keys %args;
-
-  # see if they are unlinking (defaulting to "yes")
-  my $unlink = (exists $args{UNLINK} ? $args{UNLINK} : 1 );
-  #delete $args{UNLINK};
-
-If the named argument defaulted to "no", we could simply assign it:
-
-  my $unlink = $args{UNLINK};
 

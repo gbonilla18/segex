@@ -123,40 +123,16 @@ sub dispatch_js {
 
     switch ($action) {
         case 'Add' {
+            return unless $s->is_authorized('user');
             $self->init();
             $self->insertNewPlatform();
-
-            # redirect if we know where to... will send a redirect header, so
-            # commit the session to data store now
-            my $redirectURI =
-              ( defined $q->url_param('destination') )
-              ? $q->url( -base => 1 )
-              . uri_unescape( $q->url_param('destination') )
-              : $q->url( -absolute => 1 ) . '?a=managePlatforms';
-            $s->commit();
-            print $q->redirect(
-                -uri    => $redirectURI,
-                -status => 302,                 # 302 Found
-                -cookie => $s->cookie_array()
-            );
+            $self->redirectInternal('?a=managePlatforms');
         }
         case 'delete' {
-            if ( !$s->is_authorized('user') ) { return; }
-            $self->deletePlatform( id => $q->param('id') );
-
-            # redirect if we know where to... will send a redirect header, so
-            # commit the session to data store now
-            my $redirectURI =
-              ( defined $q->url_param('destination') )
-              ? $q->url( -base => 1 )
-              . uri_unescape( $q->url_param('destination') )
-              : $q->url( -absolute => 1 ) . '?a=managePlatforms';
-            $s->commit();
-            print $q->redirect(
-                -uri    => $redirectURI,
-                -status => 302,                 # 302 Found
-                -cookie => $s->cookie_array()
-            );
+            return unless $s->is_authorized('user');
+            $self->init();
+            $self->deletePlatform();
+            $self->redirectInternal('?a=managePlatforms');
         }
         case 'update' {
 
@@ -166,13 +142,13 @@ sub dispatch_js {
    # 1].
    # ajax_update takes care of authorization...
             $self->ajax_update(
-                valid_fields => [ qw{pname def_f_cutoff def_p_cutoff species} ],
+                valid_fields => [qw{pname def_f_cutoff def_p_cutoff species}],
                 table        => 'platform',
                 key          => 'pid'
             );
         }
         else {
-            if ( !$s->is_authorized('user') ) { return; }
+            return unless $s->is_authorized('user');
 
             $self->init();
             $self->loadAllPlatforms();
@@ -182,6 +158,36 @@ sub dispatch_js {
             push @$js_src_code, { -code => $self->getTableJS() };
         }
     }
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  redirectInternal
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub redirectInternal {
+    my ( $self, $query ) = @_;
+    my ( $q,    $s )     = @$self{qw{_cgi _UserSession}};
+
+    # redirect if we know where to... will send a redirect header, so
+    # commit the session to data store now
+    my $redirectURI =
+      ( defined $q->url_param('destination') )
+      ? $q->url( -base     => 1 ) . uri_unescape( $q->url_param('destination') )
+      : $q->url( -absolute => 1 ) . $query;
+
+    $s->commit();
+    print $q->redirect(
+        -uri    => $redirectURI,
+        -status => 302,                 # 302 Found
+        -cookie => $s->cookie_array()
+    );
     return 1;
 }
 
@@ -242,41 +248,39 @@ END_LoadQuery
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub loadSinglePlatform {
-
-    #Grab object and id from URL.
-    my $self = shift;
-    my $q    = $self->{_cgi};
-    my $dbh  = $self->{_dbh};
-
-    $self->{_pid} = $q->url_param('id');
-
-    #Run the SQL and get the data into the object.
-    my $sth = $dbh->prepare(<<"END_LoadSingleQuery");
-select 
-    pname, 
-    def_f_cutoff, 
-    def_p_cutoff, 
-    species,
-    pid,
-    CASE WHEN isAnnotated THEN 'Y' ELSE 'N' END AS 'Is Annotated' 
-from platform 
-WHERE pid=?
-END_LoadSingleQuery
-
-    my $rc = $sth->execute( $self->{_pid} );
-    $self->{_Data} = $sth->fetchall_arrayref;
-
-    foreach ( @{ $self->{_Data} } ) {
-        $self->{_PName}        = $_->[0];
-        $self->{_def_f_cutoff} = $_->[1];
-        $self->{_def_p_cutoff} = $_->[2];
-        $self->{_Species}      = $_->[3];
-    }
-
-    $sth->finish;
-    return 1;
-}
+#sub loadSinglePlatform {
+#
+#    #Grab object and id from URL.
+#    my $self = shift;
+#    my $q    = $self->{_cgi};
+#    my $dbh  = $self->{_dbh};
+#
+#    #Run the SQL and get the data into the object.
+#    my $sth = $dbh->prepare(<<"END_LoadSingleQuery");
+#select 
+#    pname, 
+#    def_f_cutoff, 
+#    def_p_cutoff, 
+#    species,
+#    pid,
+#    CASE WHEN isAnnotated THEN 'Y' ELSE 'N' END AS 'Is Annotated' 
+#from platform 
+#WHERE pid=?
+#END_LoadSingleQuery
+#
+#    my $rc = $sth->execute( $self->{_pid} );
+#    $self->{_Data} = $sth->fetchall_arrayref;
+#
+#    foreach ( @{ $self->{_Data} } ) {
+#        $self->{_PName}        = $_->[0];
+#        $self->{_def_f_cutoff} = $_->[1];
+#        $self->{_def_p_cutoff} = $_->[2];
+#        $self->{_Species}      = $_->[3];
+#    }
+#
+#    $sth->finish;
+#    return 1;
+#}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
@@ -296,7 +300,10 @@ sub init {
     $self->{_def_f_cutoff} = $q->param('def_f_cutoff');
     $self->{_def_p_cutoff} = $q->param('def_p_cutoff');
     $self->{_Species}      = $q->param('species');
-    $self->{_pid}          = $q->url_param('id');
+
+    # try to get platform id first from POST parameters, second from the URL
+    $self->{_pid}          = $q->param('id');
+    $self->{_pid}          = $q->url_param('id') if not defined $self->{_pid};
 
     return 1;
 }
@@ -397,15 +404,16 @@ sub ajax_update {
 sub getPlatformList {
     my $self = shift;
 
-    my @JSPlatformList;
+    my $data     = $self->{_Data};    # data source
+    my $sort_col = 3;                 # column to sort on
 
-    #Loop through data and load into JavaScript array.
-    foreach my $row ( sort { $a->[3] cmp $b->[3] } @{ $self->{_Data} } ) {
+    my @tmp;
+    foreach my $row ( sort { $a->[$sort_col] cmp $b->[$sort_col] } @$data ) {
         my $i = 0;
-        push @JSPlatformList, +{ map { $i++ => $_ } @$row };
+        push @tmp, +{ map { $i++ => $_ } @$row };
     }
 
-    return \@JSPlatformList;
+    return \@tmp;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -607,9 +615,9 @@ END_InsertQuery
 #     SEE ALSO:  n/a
 #===============================================================================
 sub deletePlatform {
-    my ( $self, %args ) = @_;
+    my ($self) = @_;
 
-    my $pid = $args{id};
+    my $pid = $self->{_pid};
 
     my $dbh = $self->{_dbh};
 

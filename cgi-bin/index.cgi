@@ -118,6 +118,8 @@ use constant UPLOADDATA         => 'uploadData';
 
 my $loadModule;
 
+ # :TRICKY:08/02/2011 13:10:53:es: need to use url_param instead of param here
+ # for successful login -- why?
 my $action =
   ( defined( $q->url_param('a') ) ) ? $q->url_param('a') : DEFAULT_ACTION;
 
@@ -211,9 +213,8 @@ while ( defined($action) ) {
             }
         }
         case MANAGEPROJECTS {
-            if ( $s->is_authorized('user') ) {
-                $loadModule = SGX::ManageProjects->new( $dbh, $q );
-                $loadModule->dispatch_js( \@js_src_yui, \@js_src_code );
+            $loadModule = SGX::ManageProjects->new(%controller_context);
+            if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
                 $title   = 'Projects';
                 $action  = undef;                # final state
@@ -223,22 +224,9 @@ while ( defined($action) ) {
             }
         }
         case MANAGESTUDIES {
-            if ( $s->is_authorized('user') ) {
-                push @js_src_yui,
-                  (
-                    'yahoo-dom-event/yahoo-dom-event.js',
-                    'connection/connection-min.js',
-                    'dragdrop/dragdrop-min.js',
-                    'container/container-min.js',
-                    'element/element-min.js',
-                    'datasource/datasource-min.js',
-                    'paginator/paginator-min.js',
-                    'datatable/datatable-min.js',
-                    'selector/selector-min.js'
-                  );
-
-                $content = \&manageStudies;
-
+            $loadModule = SGX::ManageStudies->new(%controller_context);
+            if ( $loadModule->dispatch_js() ) {
+                $content = \&module_show_html;
                 $title  = 'Studies';
                 $action = undef;       # final state
             }
@@ -875,12 +863,6 @@ sub form_resetPassword {
             )
         )
       ) . $q->end_form;
-    return;
-}
-#######################################################################################
-sub manageStudies {
-    my $ms = SGX::ManageStudies->new( $dbh, $q, JS_DIR );
-    $ms->dispatch( $q->url_param('b') );
     return;
 }
 #######################################################################################

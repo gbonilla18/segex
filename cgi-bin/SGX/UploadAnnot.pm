@@ -168,9 +168,10 @@ sub get_annot_fields {
 #$sth->finish;
 
     my %probe_fields;
-    my $probe_fields_t = tie(%probe_fields, 'Tie::IxHash',
-        'Probe ID'     => 'reporter',
-        'Probe Sequence'  => 'probe_sequence'
+    my $probe_fields_t = tie(
+        %probe_fields, 'Tie::IxHash',
+        'Probe ID'       => 'reporter',
+        'Probe Sequence' => 'probe_sequence'
     );
 
 # get fields from Gene table (except pid, gid)
@@ -182,7 +183,8 @@ sub get_annot_fields {
 #$sth->finish;
 
     my %gene_fields;
-    my $gene_fields_t = tie(%gene_fields, 'Tie::IxHash', 
+    my $gene_fields_t = tie(
+        %gene_fields, 'Tie::IxHash',
         'Gene Symbol'      => 'seqname',
         'Accession Number' => 'accnum',
         'Gene Name'        => 'description',
@@ -190,7 +192,7 @@ sub get_annot_fields {
         'Gene Note'        => 'gene_note'
     );
 
-    return (\%probe_fields, \%gene_fields);
+    return ( \%probe_fields, \%gene_fields );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -225,9 +227,9 @@ sub uploadAnnot {
 
     #Create two hashes that hold hash{Long Name} = DBName
 
-    my ($probe_fields_ref, $gene_fields_ref) = get_annot_fields();
+    my ( $probe_fields_ref, $gene_fields_ref ) = get_annot_fields();
     my %probe_fields = %$probe_fields_ref;
-    my %gene_fields = %$gene_fields_ref;
+    my %gene_fields  = %$gene_fields_ref;
 
     my $i = 0;
 
@@ -518,12 +520,14 @@ sub form_uploadAnnot {
 
     #If we have a newpid in the querystring, default the dropdown list.
     my $newpid =
-      defined( $q->url_param('newpid') ) ? $q->url_param('newpid') : '';
+      defined( $q->param('newpid') )
+      ? $q->param('newpid')
+      : ( ( defined $q->url_param('newpid') ) ? $q->url_param('newpid') : '' );
 
     my %core_fields;
     my $core_fields_t = tie(
         %core_fields, 'Tie::IxHash',
-        'Probe ID'      => 1,
+        'Probe ID'         => 1,
         'Accession Number' => 1,
         'Gene Symbol'      => 1
     );
@@ -542,9 +546,9 @@ sub form_uploadAnnot {
     }
     $sth->finish;
 
-    my ($probe_fields_ref, $gene_fields_ref) = get_annot_fields();
+    my ( $probe_fields_ref, $gene_fields_ref ) = get_annot_fields();
     my %probe_fields = %$probe_fields_ref;
-    my %gene_fields = %$gene_fields_ref;
+    my %gene_fields  = %$gene_fields_ref;
 
     my @fieldlist =
       map {

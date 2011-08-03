@@ -31,9 +31,9 @@ use warnings;
 
 use Data::Dumper;
 use Switch;
-use JSON::XS;
 use URI::Escape;
 use SGX::Model::PlatformStudyExperiment;
+use SGX::Abstract::JSEmitter;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
@@ -147,7 +147,6 @@ ORDER BY experiment.eid ASC
 
 END_LoadAllExperimentsQuery
 
-
         _DeleteQueries => [
             'DELETE FROM microarray WHERE eid = ?',
             'DELETE FROM StudyExperiment WHERE eid = ?',
@@ -225,23 +224,12 @@ sub dispatch_js {
 
     switch ($action) {
         case 'delete' {
-            if ( !$s->is_authorized('user') ) { return; }
+            return unless $s->is_authorized('user');
             $self->deleteExperiment(
                 id         => $q->param('id'),
                 deleteFrom => $q->param('deleteFrom')
             );
-            # redirect if we know where to... will send a redirect header, so
-            # commit the session to data store now
-            my $redirectURI = (defined $q->url_param('destination')) 
-                ? $q->url( -base => 1 ) . uri_unescape( $q->url_param('destination') )
-                : $q->url( -absolute => 1 ) . '?a=manageExperiments';
-
-            $s->commit(); 
-            print $q->redirect(
-                -uri    => $redirectURI,
-                -status => 302,           # 302 Found
-                -cookie => $s->cookie_array()
-            );
+            $self->redirectInternal('?a=manageExperiments');
         }
         case 'update' {
 
@@ -255,18 +243,14 @@ sub dispatch_js {
             );
         }
         case 'Load' {
-            if ( !$s->is_authorized('user') ) { return; }
+            return unless $s->is_authorized('user');
 
             $self->{_PlatformStudyExperiment}->init(
                 platforms         => 1,
                 studies           => 1,
                 experiments       => 1,
                 platform_by_study => 1,
-                extra_studies     => {
-                    'all' => {
-                        name => '@All Experiments'
-                    }
-                }
+                extra_studies     => { 'all' => { name => '@All Experiments' } }
             );
             $self->init();
             $self->loadAllExperimentsFromStudy();
@@ -281,7 +265,7 @@ sub dispatch_js {
             push @$js_src_code, { -code => $self->getDropDownJS() };
         }
         else {
-            if ( !$s->is_authorized('user') ) { return; }
+            return unless $s->is_authorized('user');
 
             # platform drop down
             $self->{_PlatformStudyExperiment}->init(
@@ -289,16 +273,42 @@ sub dispatch_js {
                 studies           => 1,
                 experiments       => 1,
                 platform_by_study => 1,
-                extra_studies     => {
-                    'all' => {
-                        name => '@All Experiments'
-                    }
-                }
+                extra_studies     => { 'all' => { name => '@All Experiments' } }
             );
             push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
             push @$js_src_code, { -code => $self->getDropDownJS() };
         }
     }
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  redirectInternal
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub redirectInternal {
+    my ( $self, $query ) = @_;
+    my ( $q,    $s )     = @$self{qw{_cgi _UserSession}};
+
+    # redirect if we know where to... will send a redirect header, so
+    # commit the session to data store now
+    my $redirectURI =
+      ( defined $q->url_param('destination') )
+      ? $q->url( -base     => 1 ) . uri_unescape( $q->url_param('destination') )
+      : $q->url( -absolute => 1 ) . $query;
+
+    $s->commit();
+    print $q->redirect(
+        -uri    => $redirectURI,
+        -status => 302,                 # 302 Found
+        -cookie => $s->cookie_array()
+    );
     return 1;
 }
 
@@ -425,18 +435,36 @@ sub ajax_update {
 #===============================================================================
 sub showExperiments_js {
     my ($self) = @_;
+
+    #my @names = @{ $self->{_FieldNames} };
     my $q = $self->{_cgi};
 
-    return sprintf(
-        "var JSStudyList = %s;\n",
-        encode_json(
-            {
+    # set 'destination' URL parameter -- encoded URL to get back to the page we
+    # were at.
+    my $destination =
+      ( defined $q->url_param('destination') )
+      ? $q->url_param('destination')
+      : uri_escape( $q->url( -absolute => 1, -query => 1 ) );
+
+    my $deleteURL =
+      $q->url( -absolute => 1 ) . '?a=manageExperiments'    # top-level action
+      . '&b=delete'                    # second-level action
+      . "&destination=$destination"    # current URI (encoded)
+      . '&id=';    # resource id on which second-level action will be performed
+
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+    return $js->define(
+        {
+            JSStudyList => {
                 caption => 'Showing Experiments',
                 records => $self->printJSRecords(),
                 headers => $self->printJSHeaders()
-            }
-        )
-    ) . $self->printTableInformation();
+            },
+            url_prefix => $q->url( -absolute => 1 ),
+            deleteURL  => $deleteURL
+        },
+        declare => 1
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -453,37 +481,29 @@ sub showExperiments_js {
 sub getDropDownJS {
     my $self = shift;
 
-    my $PlatfStudyExp =
-      encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
+    my $pid  = $self->{_pid};
+    my $stid = $self->{_stid};
 
-    my $selectedPlatform =
-        ( defined $self->{_pid} )
-      ? { $self->{_pid} => undef }
-      : {};
-
-    my $selectedStudy =
-        ( defined $self->{_stid} )
-      ? { $self->{_stid} => undef }
-      : {};
-
-    my $currentSelection = encode_json(
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+    return $js->define(
         {
-            'platform' => {
-                element   => undef,
-                selected  => $selectedPlatform,
-                elementId => 'pid'
-            },
-            'study' => {
-                element   => undef,
-                selected  => $selectedStudy,
-                elementId => 'stid'
+            PlatfStudyExp =>
+              $self->{_PlatformStudyExperiment}->get_ByPlatform(),
+            currentSelection => {
+                'platform' => {
+                    element   => undef,
+                    selected  => ( defined $pid ) ? { $pid => undef } : {},
+                    elementId => 'pid'
+                },
+                'study' => {
+                    element   => undef,
+                    selected  => ( defined $stid ) ? { $stid => undef } : {},
+                    elementId => 'stid'
+                }
             }
-        }
-    );
-
-    return <<"END_ret";
-var PlatfStudyExp = $PlatfStudyExp;
-var currentSelection = $currentSelection;
+        },
+        declare => 1
+    ) . <<"END_ret";
 YAHOO.util.Event.addListener(window, 'load', function() {
     populatePlatform.apply(currentSelection);
     populatePlatformStudy.apply(currentSelection);
@@ -506,6 +526,8 @@ END_ret
 #===============================================================================
 sub loadAllExperimentsFromStudy {
     my $self = shift;
+
+    my $dbh = $self->{_dbh};
     my $loadQuery;
     my @exec_param;
     if ( not defined( $self->{_stid} ) or $self->{_stid} eq 'all' ) {
@@ -537,11 +559,8 @@ sub loadAllExperimentsFromStudy {
         push @exec_param, $self->{_stid};
     }
 
-    my $sth = $self->{_dbh}->prepare($loadQuery)
-      or croak $self->{_dbh}->errstr;
-    my $rc = $sth->execute(@exec_param)
-      or croak $self->{_dbh}->errstr;
-
+    my $sth = $dbh->prepare($loadQuery);
+    my $rc  = $sth->execute(@exec_param);
     $self->{_FieldNames} = $sth->{NAME};
     $self->{_Data}       = $sth->fetchall_arrayref;
     $sth->finish;
@@ -562,6 +581,9 @@ sub getHTML {
     my $self = shift;
     my $q    = $self->{_cgi};
 
+    #---------------------------------------------------------------------------
+    #  Form with the Platform/Study dropdown
+    #---------------------------------------------------------------------------
     #Load the study dropdown to choose which experiments to load into table.
     my @return_array = (
         $q->h2('Manage Experiments'),
@@ -602,6 +624,9 @@ sub getHTML {
         $q->end_form
     );
 
+    #---------------------------------------------------------------------------
+    #  Main results table
+    #---------------------------------------------------------------------------
     if ( defined( $self->{_Data} ) ) {
 
         #If we have selected and loaded an experiment, load the table.
@@ -625,30 +650,25 @@ sub getHTML {
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:
+#                eid, pid, sample1, sample2, count(1), ExperimentDescription,
+#                AdditionalInfo, Study Description, platform name, stid ->
+#                sample1, sample2, count(1), eid, eid,ExperimentDescription,
+#                AdditionalInfo, Study Description, platform name, stid, pid.
+#
 #     SEE ALSO:  n/a
 #===============================================================================
 sub printJSRecords {
     my $self = shift;
 
-    my @tempRecordList;
-    foreach ( @{ $self->{_Data} } ) {
+    my $data = $self->{_Data};
+    my @columns = ( 2, 3, 4, 0, 0, 5, 6, 7, 8, 9, 1 );
 
-        # Input order: eid, pid, sample1, sample2, count(1),
-        # ExperimentDescription, AdditionalInfo, Study Description, platform
-        # name, stid
-
-        # Transform order: sample1, sample2, count(1), eid, eid,
-        # ExperimentDescription, AdditionalInfo, Study Description, platform
-        # name, stid, pid
-
-        push @tempRecordList,
-          [
-            $_->[2], $_->[3], $_->[4], $_->[0], $_->[0], $_->[5],
-            $_->[6], $_->[7], $_->[8], $_->[9], $_->[1]
-          ];
+    my @tmp;
+    foreach my $row (@$data) {
+        push @tmp, [ @$row[@columns] ];
     }
-    return \@tempRecordList;
+    return \@tmp;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -668,48 +688,6 @@ sub printJSHeaders {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
-#       METHOD:  printTableInformation
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub printTableInformation {
-    my $self = shift;
-
-    my @names = @{ $self->{_FieldNames} };
-    my $q     = $self->{_cgi};
-
-    # set 'destination' URL parameter -- encoded URL to
-    # get back to the page we were at
-    my $destination =
-      ( defined $q->url_param('destination') )
-      ? $q->url_param('destination')
-      : uri_escape( $q->url( -absolute => 1, -query => 1 ) );
-
-    my $deleteURL =
-      $q->url( absolute => 1 ) . '?a=manageExperiments'    # top-level action
-      . '&b=delete'                    # second-level action
-      . "&destination=$destination"    # current URI (encoded)
-      . '&id=';    # resource id on which second-level action will be performed
-
-    my $ret = sprintf(
-        <<"END_printTableInformation",
-var url_prefix = "%s";
-var deleteURL = "%s";
-
-END_printTableInformation
-        $q->url( absolute => 1 ),
-        $deleteURL
-    );
-
-    return $ret;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
 #       METHOD:  deleteExperiment
 #   PARAMETERS:  $self              - reference to current object instance
 #                id        => $eid  - experiment id
@@ -724,19 +702,21 @@ END_printTableInformation
 sub deleteExperiment {
     my ( $self, %param ) = @_;
 
+    my $dbh = $self->{_dbh};
+
     my ( $eid, $stid ) = @param{qw{id deleteFrom}};
 
     if ( defined($eid) and $eid ne '' ) {
         if ( defined($stid) and $stid ne '' ) {
 
             # Unassign: simply remove from the study
-            $self->{_dbh}->do( $self->{_UnassignQuery}, undef, $stid, $eid );
+            $dbh->do( $self->{_UnassignQuery}, undef, $stid, $eid );
         }
         else {
 
             # Delete: completely delete
             foreach ( @{ $self->{_DeleteQueries} } ) {
-                $self->{_dbh}->do( $_, undef, $eid );
+                $dbh->do( $_, undef, $eid );
             }
         }
     }

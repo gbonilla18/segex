@@ -44,7 +44,6 @@ use SGX::Util qw/count_gtzero max/;
 #===============================================================================
 sub new {
 
-    # This is the constructor
     my ( $class, %param ) = @_;
 
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
