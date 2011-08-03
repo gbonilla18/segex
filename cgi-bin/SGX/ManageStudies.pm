@@ -31,6 +31,7 @@ use warnings;
 
 use Carp::Assert;
 use Switch;
+use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::JSEmitter;
 
 #===  CLASS METHOD  ============================================================
@@ -186,7 +187,10 @@ sub dispatch_js {
 
             # default: show all studies or studies for a specific platform
             return unless $s->is_authorized('user');
-            $self->{_PlatformStudyExperiment}->init( platforms => 1 );
+            $self->{_PlatformStudyExperiment}->init(
+                platforms       => 1,
+                extra_platforms => { 'all' => { name => '@All Platforms' } }
+            );
             $self->loadFromForm();
             $self->loadAllStudies();
 
@@ -359,7 +363,7 @@ sub loadAllStudies {
 
     my $predicate    = '';
     my @query_params = ();
-    if ( defined( $self->{_pid} ) && $self->{_pid} ne '' ) {
+    if ( defined( $self->{_pid} ) && looks_like_number( $self->{_pid} ) ) {
         $predicate = 'WHERE platform.pid=?';
         push @query_params, $self->{_pid};
     }

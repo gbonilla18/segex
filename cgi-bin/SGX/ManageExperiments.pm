@@ -160,7 +160,8 @@ sub dispatch_js {
                 studies           => 1,
                 experiments       => 1,
                 platform_by_study => 1,
-                extra_studies     => { 'all' => { name => '@All Experiments' } }
+                extra_platforms   => { 'all' => { name => '@All Platforms' } },
+                extra_studies     => { 'all' => { name => '@All Studies' } }
             );
             $self->init();
             $self->loadAllExperimentsFromStudy();
@@ -183,7 +184,8 @@ sub dispatch_js {
                 studies           => 1,
                 experiments       => 1,
                 platform_by_study => 1,
-                extra_studies     => { 'all' => { name => '@All Experiments' } }
+                extra_platforms   => { 'all' => { name => '@All Platforms' } },
+                extra_studies     => { 'all' => { name => '@All Studies' } }
             );
             push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
             push @$js_src_code, { -code => $self->getDropDownJS() };
@@ -587,14 +589,16 @@ sub getHTML {
             $q->dd(
                 $q->popup_menu(
                     -name => 'pid',
-                    -id   => 'pid'
+                    -id   => 'pid',
+                    -title => 'Choose a microarray platform'
                 )
             ),
             $q->dt('Study:'),
             $q->dd(
                 $q->popup_menu(
                     -name => 'stid',
-                    -id   => 'stid'
+                    -id   => 'stid',
+                    -title => 'Choose a study'
                 )
             ),
             $q->dt('&nbsp;'),
@@ -606,7 +610,8 @@ sub getHTML {
                 $q->submit(
                     -name  => 'b',
                     -class => 'css3button',
-                    -value => 'Load'
+                    -value => 'Load',
+                    -title => 'Show matching experiments'
                 ),
             )
         ),

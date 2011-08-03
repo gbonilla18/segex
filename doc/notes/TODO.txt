@@ -140,3 +140,9 @@ experiment.
 
 *) Two more modules remaining to refactor for use with %controller_context:
 ChooseProject.pm and TFSDisplay.pm
+
+*) Consider using a Tree View instead of multiple levels of dropdown boxes. YUI
+has a Tree View control available. Doing so would make sense -- consider the
+following hierarchy:
+	species -> platform -> study -> experiment
+It's four levels deep!

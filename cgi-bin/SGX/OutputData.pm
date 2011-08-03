@@ -63,10 +63,11 @@ sub new {
         _Data            => '',
         _RecordsReturned => undef,
         _FieldNames      => '',
+
         #
-        _stid            => '',
-        _pid             => '',
-        _eidList         => []
+        _stid    => '',
+        _pid     => '',
+        _eidList => []
     };
 
     bless $self, $class;
@@ -115,9 +116,10 @@ sub dispatch_js {
         else {
             return unless $s->is_authorized('user');
             $self->{_PlatformStudyExperiment}->init(
-                platforms   => 1,
-                studies     => 1,
-                experiments => 1
+                platforms       => 1,
+                studies         => 1,
+                experiments     => 1,
+                extra_platforms => { 'all' => { name => '@All Platforms' } }
             );
             push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
             push @$js_src_code, { -code => $self->getDropDownJS() };
@@ -171,10 +173,10 @@ sub dispatch {
 #===============================================================================
 sub init {
     my $self = shift;
-    my $q = $self->{_cgi};
+    my $q    = $self->{_cgi};
 
     # optional
-    $self->{_pid} = $q->param('pid');
+    $self->{_pid}  = $q->param('pid');
     $self->{_stid} = $q->param('stid');
 
     # required
@@ -201,7 +203,8 @@ sub loadReportData {
     # cache database handle
     my $dbh = $self->{_dbh};
 
-    my $query_text = sprintf( <<"END_ReportQuery",
+    my $query_text = sprintf(
+        <<"END_ReportQuery",
 SELECT  
     study.description     AS 'Study',
     CONCAT(
@@ -297,12 +300,17 @@ sub showForm {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    return $q->h2('Output Data'), $q->h3('Select Items to output'), $q->dl(
+    return $q->h2('Output Data'), $q->h3('Choose one or more experiments:'),
+
+      # :TODO:08/03/2011 15:17:36:es: also pull out the study from the form and
+      # determine which study we are using by reverse lookup from experiments
+      $q->dl(
         $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
             $q->popup_menu(
-                -name => 'pid',
-                -id   => 'pid'
+                -name  => 'pid',
+                -id    => 'pid',
+                -title => 'Choose a microarray platform'
             )
         ),
 
@@ -316,15 +324,18 @@ sub showForm {
         $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
         $q->dd(
             $q->popup_menu(
-                -name => 'stid',
-                -id   => 'stid'
+                -name  => 'stid',
+                -id    => 'stid',
+                -title => 'Choose a study'
             )
         ),
         $q->dt( $q->label( { -for => 'eid' }, 'Experiment(s):' ) ),
         $q->dd(
             $q->popup_menu(
-                -name     => 'eid',
-                -id       => 'eid',
+                -name => 'eid',
+                -id   => 'eid',
+                -title =>
+'You can select multiple experiments here by holding down Control or Command key before clicking.',
                 -multiple => 'multiple'
             )
         ),
@@ -338,7 +349,8 @@ sub showForm {
                 -name  => 'b',
                 -id    => 'b',
                 -class => 'css3button',
-                -value => 'Load'
+                -value => 'Load',
+                -title => 'Get data for selected experiments'
             )
         )
       ),
@@ -376,7 +388,7 @@ sub getDropDownJS {
             },
             'experiment' => {
                 element   => undef,
-                selected  => +{ map { $_ => undef } @{$self->{_eidList}} },
+                selected  => +{ map { $_ => undef } @{ $self->{_eidList} } },
                 elementId => 'eid'
             }
         }

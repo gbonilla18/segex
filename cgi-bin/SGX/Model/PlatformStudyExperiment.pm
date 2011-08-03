@@ -90,9 +90,9 @@ use SGX::Abstract::Exception;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, %param ) = @_;
+    my ( $class, %args ) = @_;
 
-    my ($dbh) = @param{qw{dbh}};
+    my ($dbh) = @args{qw{dbh}};
 
     my $self = {
         _dbh        => $dbh,
@@ -149,13 +149,12 @@ sub getPlatformFromStudy {
     return $self->{_ByStudy}->{$stid}->{pid};
 }
 
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  PlatformStudyExperiment
 #       METHOD:  getPlatformNameFromPID
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -206,40 +205,45 @@ sub getPlatformStudyName {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub init {
-    my ( $self, %param ) = @_;
+    my ( $self, %args ) = @_;
 
     #---------------------------------------------------------------------------
     #  process argument hash
     #---------------------------------------------------------------------------
     # defaulting to "no"
-    my $platform_info = $param{platforms};
+    my $platform_info = $args{platforms};
 
     # defaulting to "no"
-    my $study_info = $param{studies};
+    my $study_info = $args{studies};
 
     # defaulting to "no"
-    my $experiment_info = $param{experiments};
+    my $experiment_info = $args{experiments};
 
     # defaulting to "no"
-    my $extra_studies = $param{extra_studies};
+    my $extra_studies = $args{extra_studies};
 
     # defaulting to "no"
-    my $extra_platforms = $param{extra_platforms};
+    my $extra_platforms = $args{extra_platforms};
 
     # defaulting to "no"
-    my $platform_by_study = $param{platform_by_study};
+    my $platform_by_study = $args{platform_by_study};
 
-    my $default_study_name = (exists $param{default_study_name})
-                           ? $param{default_study_name}
-                           : '@Unassigned Experiments';
+    my $default_study_name =
+      ( exists $args{default_study_name} )
+      ? $args{default_study_name}
+      : '@Unassigned Experiments';
 
-    my $default_platform_name = (exists $param{default_platform_name})
-                           ? $param{default_platform_name}
-                           : '@Unassigned Experiments';
+    my $default_platform_name =
+      ( exists $args{default_platform_name} )
+      ? $args{default_platform_name}
+      : '@Unassigned Experiments';
 
     #---------------------------------------------------------------------------
     #  build model
     #---------------------------------------------------------------------------
+    my $all_platforms = ( exists $extra_platforms->{all} ) ? 1 : 0;
+    my $all_studies   = ( exists $extra_studies->{all} )   ? 1 : 0;
+
     $self->getPlatforms( extra => $extra_platforms ) if $platform_info;
 
     # we didn't define getStudy() because getPlatformStudy() accomplishes the
@@ -247,15 +251,22 @@ sub init {
     # studies).
     $self->getPlatformStudy(
         reverse_lookup => $platform_by_study,
-        extra          => $extra_studies
+        extra          => $extra_studies,
+        all_platforms  => $all_platforms
     ) if $study_info;
-    $self->getExperiments() if $experiment_info;
+
+    $self->getExperiments( all_platforms => $all_platforms )
+      if $experiment_info;
 
     if ( $study_info && $experiment_info ) {
         $self->getStudyExperiment();
     }
 
     #---------------------------------------------------------------------------
+    #  Assign experiments from under studies and place them under studies that
+    #  are under platforms. This code will be executed only when we initialize
+    #  the object with the following parameters:
+    #
     #  platforms => 1, studies => 1, experiments => 1
     #---------------------------------------------------------------------------
     if ( $platform_info && $study_info && $experiment_info ) {
@@ -370,13 +381,14 @@ sub init {
 #                experiments, which can be composited in afterwards.
 #===============================================================================
 sub getPlatforms {
-    my ( $self, %param ) = @_;
+    my ( $self, %args ) = @_;
 
-    my $extra_platforms = (defined $param{extra} )
-                        ? $param{extra}
-                        : {};
+    my $extra_platforms =
+      ( defined $args{extra} )
+      ? $args{extra}
+      : {};
 
-    #my $unassigned_name = $param{empty};
+    #my $unassigned_name = $args{empty};
     #my %extra_platforms =
     #    ( defined $unassigned_name )
     #  ? ( '' => { name => "\@$unassigned_name", species => undef } )
@@ -438,19 +450,27 @@ END_PLATFORMQUERY
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getPlatformStudy {
-    my ( $self, %param ) = @_;
+    my ( $self, %args ) = @_;
 
-    my $extra_studies = (defined $param{extra})
-                      ? $param{extra}
-                      : {};
-    #my $unassigned_name = $param{empty};
+    my $extra_studies =
+      ( defined $args{extra} )
+      ? $args{extra}
+      : {};
+
+    # default: false
+    my $all_platforms = $args{all_platforms};
+
+    # default: false
+    my $all_studies = $args{all_studies};
+
+    #my $unassigned_name = $args{empty};
     #my %unassigned =
     #    ( defined $unassigned_name )
     #  ? ( '' => { name => "\@$unassigned_name" } )
     #  : ();
 
     # defaulting to "no"
-    my $reverse_lookup = $param{reverse_lookup};
+    my $reverse_lookup = $args{reverse_lookup};
 
     # cache the database handle
     my $dbh = $self->{_dbh};
@@ -479,7 +499,24 @@ END_STUDYQUERY
         }
         else {
             $model{$pid} =
-              { studies => { %$extra_studies, $stid => { name => $study_desc } } };
+              { studies =>
+                  merge( { $stid => { name => $study_desc } }, $extra_studies )
+              };
+        }
+
+        # if there is an 'all' platform, add every study to it
+        if ($all_platforms) {
+            if ( exists $model{all} ) {
+                $model{all}->{studies}->{$stid}->{name} = $study_desc;
+            }
+            else {
+                $model{all} = {
+                    studies => merge(
+                        { $stid => { name => $study_desc } },
+                        $extra_studies
+                    )
+                };
+            }
         }
         if ($reverse_lookup) {
             if ( exists $reverse_model{$stid} ) {
@@ -514,7 +551,10 @@ END_STUDYQUERY
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getExperiments {
-    my $self = shift;
+    my ( $self, %args ) = @_;
+
+    # default: false
+    my $all_platforms = $args{all_platforms};
 
     # cache the database handle
     my $dbh = $self->{_dbh};
@@ -534,6 +574,8 @@ END_EXPERIMENTQUERY
     my $rc_experiment = $sth_experiment->execute;
     my ( $pid, $eid, $sample1, $sample2 );
     $sth_experiment->bind_columns( undef, \$pid, \$eid, \$sample1, \$sample2 );
+
+    # add experiments to platforms
     while ( $sth_experiment->fetch ) {
 
         # an experiment may not have any pid, in which case we add it to empty
@@ -545,6 +587,17 @@ END_EXPERIMENTQUERY
         else {
             $model{$this_pid} =
               { experiments => { $eid => [ $sample1, $sample2 ] } };
+        }
+
+        # if there is an 'all' platform, add every experiment to it
+        if ($all_platforms) {
+            if ( exists $model{all} ) {
+                $model{all}->{experiments}->{$eid} = [ $sample1, $sample2 ];
+            }
+            else {
+                $model{all} =
+                  { experiments => { $eid => [ $sample1, $sample2 ] } };
+            }
         }
     }
 

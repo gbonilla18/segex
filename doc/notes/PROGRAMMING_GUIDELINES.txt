@@ -465,4 +465,13 @@ experiments. A probe is called significant if it satisfies P<0.05 and
 |foldchange|>x in at least one of the selected experiments.
 
 
+7. UI/UX
+
+7.1. Forms
+
+Use tooltips for all controls (set "title" attribute).
+
+Do not use grayed-out text in forms -- gray color should be reserved for
+controls that are disabled. Instead, use either (a) text in a different color,
+or (b) HTML tooltips using "title" attribute on controls, or (c ) YUI tooltips.
 
