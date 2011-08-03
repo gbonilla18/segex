@@ -31,7 +31,7 @@ use strict;
 use warnings;
 
 use Switch;
-use JSON::XS;
+use SGX::Abstract::JSEmitter;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
@@ -257,14 +257,14 @@ END_LoadQuery
 #
 #    #Run the SQL and get the data into the object.
 #    my $sth = $dbh->prepare(<<"END_LoadSingleQuery");
-#select 
-#    pname, 
-#    def_f_cutoff, 
-#    def_p_cutoff, 
+#select
+#    pname,
+#    def_f_cutoff,
+#    def_p_cutoff,
 #    species,
 #    pid,
-#    CASE WHEN isAnnotated THEN 'Y' ELSE 'N' END AS 'Is Annotated' 
-#from platform 
+#    CASE WHEN isAnnotated THEN 'Y' ELSE 'N' END AS 'Is Annotated'
+#from platform
 #WHERE pid=?
 #END_LoadSingleQuery
 #
@@ -302,8 +302,8 @@ sub init {
     $self->{_Species}      = $q->param('species');
 
     # try to get platform id first from POST parameters, second from the URL
-    $self->{_pid}          = $q->param('id');
-    $self->{_pid}          = $q->url_param('id') if not defined $self->{_pid};
+    $self->{_pid} = $q->param('id');
+    $self->{_pid} = $q->url_param('id') if not defined $self->{_pid};
 
     return 1;
 }
@@ -389,6 +389,7 @@ sub ajax_update {
         exit(0);
     }
     $s->commit;        # must commit session before exit
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -499,18 +500,17 @@ sub getTableJS {
     my $q     = $self->{_cgi};
 
     my $url_prefix = $q->url( -absolute => 1 );
-    my $JSPlatformList = sprintf(
-        <<"END_JSPlatformList",
-var JSPlatformList = {
-    caption: 'Showing all Platforms',
-    records: %s
-};
-END_JSPlatformList
-        encode_json( $self->getPlatformList() )
-    );
 
-    return <<"END_TableInfo";
-$JSPlatformList
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+    return $js->define(
+        {
+            JSPlatformList => {
+                caption => 'Showing all Platforms',
+                records => $self->getPlatformList()
+            }
+        },
+        declare => 1
+    ) . <<"END_TableInfo";
 
 YAHOO.util.Event.addListener("PlatformTable_astext", "click", export_table, JSPlatformList, true);
 

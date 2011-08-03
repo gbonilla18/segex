@@ -32,12 +32,11 @@ use warnings;
 
 use SGX::Debug;
 use SGX::DropDownData;
-use SGX::DrawingJavaScript;
 use SGX::Abstract::Exception;
+use SGX::Abstract::JSEmitter;
 
 use Switch;
 use Data::Dumper;
-use JSON::XS;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
@@ -62,102 +61,10 @@ sub new {
         _js_src_yui  => $js_src_yui,
         _js_src_code => $js_src_code,
 
-        # _UserQuery: load all users
-        _UserQuery => <<"END_UserQuery",
-SELECT uid, CONCAT(uname, ' \\\\ ', full_name) 
-FROM users 
-WHERE email_confirmed
-END_UserQuery
-
-        # _LoadQuery: show all projects
-        _LoadQuery => <<"END_LoadQuery",
-SELECT prid, prname, prdesc, users.uname as mgr_name
-FROM project
-LEFT JOIN users ON project.manager = users.uid
-END_LoadQuery
-
-        # _LoadSingleQuery: show single project
-        _LoadSingleQuery => <<"END_LoadSingleQuery",
-SELECT prid, prname, prdesc 
-FROM project 
-WHERE prid=?
-END_LoadSingleQuery
-
-        # _UpdateQuery: update project description
-        _UpdateQuery => <<"END_UpdateQuery",
-UPDATE project 
-SET prname=?, prdesc=?, manager=? 
-WHERE prid=?
-END_UpdateQuery
-
-        # _InsertQuery: insert into project (what about ProjectStudy?)
-        _InsertQuery => <<"END_InsertQuery",
-INSERT INTO project 
-(prname, prdesc, manager) 
-VALUES (?, ?, ?)
-END_InsertQuery
-
-        # _DeleteQuery: delete from both ProjectStudy and project
-        _DeleteQuery => <<"END_DeleteQuery",
-DELETE FROM project 
-WHERE prid=?
-END_DeleteQuery
-
-        # _StudiesQuery: select (and describe by platform) all studies that are
-        # a part of the given project
-        _StudiesQuery => <<"END_StudiesQuery",
-SELECT study.stid AS stid,
-       study.description AS study_desc,
-       study.pubmed AS pubmed,
-       platform.pname
-FROM study
-RIGHT JOIN ProjectStudy USING (stid)
-LEFT JOIN platform USING (pid)
-WHERE ProjectStudy.prid = ?
-END_StudiesQuery
-
-       # _ExistingProjectQuery: select all projects that are not current project
-        _ExistingProjectQuery => <<"END_ExistingProjectQuery",
-SELECT prid, prname
-FROM project
-WHERE prid <> ?
-END_ExistingProjectQuery
-
-        # _UnassignedProjectQuery: select all studies that are not in current
-        # project and which have not been assigned to any project
-        _UnassignedProjectQuery => <<"END_UnassignedProjectQuery",
-SELECT stid, description
-FROM study
-LEFT JOIN ProjectStudy USING (stid)
-WHERE ProjectStudy.prid IS NULL
-GROUP BY stid
-END_UnassignedProjectQuery
-
-        # _ExistingStudyQuery: select all studies that are not in current
-        # project and which have been assigned to other projects
-        _ExistingStudyQuery => <<"END_ExistingStudyQuery",
-SELECT prid, stid, description
-FROM study
-INNER JOIN ProjectStudy USING (stid)
-WHERE ProjectStudy.prid <> ?
-GROUP BY stid
-END_ExistingStudyQuery
-
-        # _AddExistingStudy: add study to project
-        _AddExistingStudy => <<"END_AddExistingStudy",
-INSERT INTO ProjectStudy
-(prid,stid)
-VALUES (?, ?)
-END_AddExistingStudy
-
-        # _RemoveStudy: remove study from project
-        _RemoveStudy => <<"END_RemoveStudy",
-DELETE FROM ProjectStudy 
-WHERE prid=? AND stid=?
-END_RemoveStudy
-
         _StudyFieldNames => undef,
         _StudyData       => undef,
+        _SelectedStudy   => undef,
+        _SelectedProject => undef,
         _delete_stid     => undef,
         _FieldNames      => undef,
         _Data            => undef,
@@ -306,14 +213,112 @@ sub dispatch_js {
                 +{ -code => $self->editProject_js() }
               );
         }
+        case 'update' {
+
+            # ajax_update takes care of authorization...
+            $self->ajax_update(
+                valid_fields => [qw{prname prdesc}],
+                table        => 'project',
+                key          => 'prid'
+            );
+        }
         else {
+
+            # default action: load all projects
             return unless $s->is_authorized('user');
             $self->loadFromForm();
             $self->loadAllProjects();
-            my $code = $self->showProjects_js();
-            push @$js_src_code, { -code => $self->showProjects_js() };
+            push @$js_src_code,
+              (
+                +{ -src  => 'CellUpdater.js' },
+                +{ -code => $self->showProjects_js() }
+              );
         }
     }
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  ajax_update
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Update part of CRUD operations. This is a *very generic* method
+#                handling AJAX request -- basically update a key-value pair in a
+#                specified row in the table.
+#       THROWS:  no exceptions
+#     COMMENTS:  :TODO:07/04/2011 16:48:45:es: Abstract out this method into a
+#                base class for SGX modules.
+#                :TODO:07/28/2011 00:38:55:es: Abstract out the model part of
+#                this method into the model composable of the abstract class.
+#     SEE ALSO:  n/a
+#===============================================================================
+sub ajax_update {
+
+    my ( $self, %args ) = @_;
+
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+
+    my $valid_fields = $args{valid_fields};
+    my $table        = $args{table};
+    my $column       = $args{key};
+
+    my %is_valid_field = map { $_ => 1 } @$valid_fields;
+
+    if ( !$s->is_authorized('user') ) {
+
+        # Send 401 Unauthorized header
+        print $q->header( -status => 401 );
+        $s->commit;    # must commit session before exit
+        exit(0);
+    }
+    my $field = $q->param('field');
+    if ( !defined($field) || $field eq '' || !$is_valid_field{$field} ) {
+
+        # Send 400 Bad Request header
+        print $q->header( -status => 400 );
+        $s->commit;    # must commit session before exit
+        exit(0);
+    }
+
+    # after field name has been checked against %valid_fields hash, it
+    # is safe to fill it in directly:
+    my $query = "update $table set $field=? where $column=?";
+
+    # :TODO:07/27/2011 23:42:00:es: implement transactional updates. Separate
+    # statement preparation from execution.
+
+    # Note that when $q->param('value') is undefined, DBI should fill in
+    # NULL into the corresponding placeholder.
+    my $rc =
+      eval { $dbh->do( $query, undef, $q->param('value'), $q->param('id') ); }
+      || 0;
+
+    if ( $rc > 0 ) {
+
+        # Normal condition -- at least some rows were updated:
+        # Send 200 OK header
+        print $q->header( -status => 200 );
+        $s->commit;    # must commit session before exit
+        exit(1);
+    }
+    elsif ( my $exception = $@ ) {
+
+        # Error condition -- no rows updated:
+        # Send 400 Bad Request header
+        print $q->header( -status => 400 );
+        $s->commit;    # must commit session before exit
+        $exception->throw();
+    }
+    else {
+
+        # Normal condition -- no rows updated:
+        # Send 404 Not Found header
+        print $q->header( -status => 404 );
+        $s->commit;    # must commit session before exit
+        exit(0);
+    }
+    $s->commit;        # must commit session before exit
     return 1;
 }
 
@@ -359,23 +364,41 @@ sub redirectInternal {
 #===============================================================================
 sub editProject_js {
     my $self = shift;
-    my $JSRecordsForExistingDropDowns =
-      $self->getJavaScriptRecordsForExistingDropDowns();
-    my $JSStudyList = encode_json(
-        {
-            headers => $self->getJSStudyHeaders(),
-            records => $self->getJSStudyRecords()
-        }
-    );
-    my $StudyTableInfo          = $self->getStudyTableInfo();
-    my $DrawStudyResultsTableJS = $self->getDrawStudyResultsTableJS();
 
-    return <<"END_JSStudyList";
-var project = $JSRecordsForExistingDropDowns;
+    my $q         = $self->{_cgi};
+    my $prid      = $self->{_prid};
+    my $deleteURL = $q->url( absolute => 1 )
+      . "?a=manageProjects&b=deleteStudy&id=$prid&removstid=";
+
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+    return $js->define(
+        {
+            project     => $self->getJSRecordsForExistingDropDowns(),
+            JSStudyList => {
+                headers => $self->getJSStudyHeaders(),
+                records => $self->getJSStudyRecords()
+            }
+        },
+        declare => 1
+    ) . <<"END_JSStudyList";
+
 YAHOO.util.Event.addListener(window, 'load', function() {
-    var JSStudyList = $JSStudyList;
-    $StudyTableInfo
-    $DrawStudyResultsTableJS
+    YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData)
+    {
+        elCell.innerHTML = '<a title="Remove" target="_self" href="$deleteURL' + oData + '">Remove</a>';
+    }
+    var myStudyColumnDefs = [
+        {key:"1", sortable:true, resizeable:true, label:"Study"},
+        {key:"2", sortable:true, resizeable:true, label:"Pubmed ID"},
+        {key:"3", sortable:true, resizeable:true, label:"Platform"},
+        {key:"0",sortable:false,resizeable:true,label:"Remove Study",formatter:"formatStudyDeleteLink"}
+    ];
+    var myDataSourceExp            = new YAHOO.util.DataSource(JSStudyList.records);
+    myDataSourceExp.responseType   = YAHOO.util.DataSource.TYPE_JSARRAY;
+    myDataSourceExp.responseSchema = {fields: ["0","1","2","3","4","5","6"]};
+    var myData_configExp           = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
+    var myDataTableExp             = new YAHOO.widget.DataTable("StudyTable", myStudyColumnDefs, myDataSourceExp, myData_configExp);
+
     populateExisting(document.getElementById("project_exist"), project);
     populateSelectExisting(document.getElementById("study_exist"),document.getElementById("project_exist"), project);
 });
@@ -399,8 +422,14 @@ sub loadAllProjects {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    my $sth = $dbh->prepare( $self->{_LoadQuery} );
-    my $rc  = $sth->execute();
+    # _LoadQuery: show all projects
+    my $sth = $dbh->prepare(<<"END_LoadQuery");
+SELECT prid, prname, prdesc, users.uname as mgr_name
+FROM project
+LEFT JOIN users ON project.manager = users.uid
+END_LoadQuery
+
+    my $rc = $sth->execute();
 
     #$self->{_FieldNames} = $sth->{NAME};
     # only first two columns will be used for plain-text export
@@ -421,24 +450,69 @@ sub loadAllProjects {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub showProjects_js {
-    my $self          = shift;
-    my $JSProjectList = encode_json(
+    my $self = shift;
+
+    my $q = $self->{_cgi};
+
+    my $url_prefix = $q->url( absolute => 1 );
+    my $deleteURL  = "$url_prefix?a=manageProjects&b=delete&id=";
+    my $editURL    = "$url_prefix?a=manageProjects&b=edit&id=";
+
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+    return $js->define(
         {
-            caption => 'Showing all Projects',
-            records => $self->getJSRecords(),
-            headers => $self->getJSHeaders()
-        }
-    );
-
-    my $JSTableInfo    = $self->getTableInfo();
-    my $JSResultsTable = $self->getDrawResultsTableJS();
-
-    return <<"END_ShowProjectsJS";
-var JSProjectList = $JSProjectList;
+            JSProjectList => {
+                caption => 'Showing all Projects',
+                records => $self->getJSRecords(),
+                headers => $self->getJSHeaders()
+            }
+        },
+        declare => 1
+    ) . <<"END_ShowProjectsJS";
 YAHOO.util.Event.addListener("ProjectTable_astext", "click", export_table, JSProjectList, true);
 YAHOO.util.Event.addListener(window, "load", function() {
-    $JSTableInfo
-    $JSResultsTable
+    function createExperimentCellUpdater(field) {
+        /*
+         * this functions makes a hammer after it first builds a factory in the
+         * neighborhood that makes hammers using the hammer construction factory
+         * spec sheet in CellUpdater.js 
+         */
+        return createCellUpdater(field, "$url_prefix?a=manageProjects", "2");
+    }
+    YAHOO.widget.DataTable.Formatter.formatProjectDeleteLink = function(elCell, oRecord, oColumn, oData)
+    {
+        elCell.innerHTML = '<a title="Delete Project" target="_self" onclick="return deleteConfirmation();" href="$deleteURL' + oData + '">Delete</a>';
+    }
+    YAHOO.widget.DataTable.Formatter.formatProjectEditLink = function(elCell, oRecord, oColumn, oData)
+    {
+        elCell.innerHTML = '<a title="Edit Project" target="_self" href="$editURL' + oData + '">Edit</a>';
+    }
+
+    YAHOO.util.Dom.get("caption").innerHTML = JSProjectList.caption;
+    var myColumnDefs = [
+        {key:"0", sortable:true, resizeable:true, label:JSProjectList.headers[0], editor:createExperimentCellUpdater("prname")},
+        {key:"1", sortable:true, resizeable:true, label:JSProjectList.headers[1], editor:createExperimentCellUpdater("prdesc")},
+        {key:"2", sortable:false, resizeable:true, label:"Delete Project",formatter:"formatProjectDeleteLink"},
+        {key:"3", sortable:false, resizeable:true, label:"Edit Project",formatter:"formatProjectEditLink"}
+    ];
+
+    var myDataSource            = new YAHOO.util.DataSource(JSProjectList.records);
+    myDataSource.responseType   = YAHOO.util.DataSource.TYPE_JSARRAY;
+    myDataSource.responseSchema = {fields: ["0","1","2","3"]};
+    var myData_config           = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
+    var myDataTable             = new YAHOO.widget.DataTable("ProjectTable", myColumnDefs, myDataSource, myData_config);
+
+    // Set up editing flow
+    var highlightEditableCell = function(oArgs) {
+        var elCell = oArgs.target;
+        if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) {
+        this.highlightCell(elCell);
+        }
+    };
+
+    myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell);
+    myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell);
+    myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
 });
 END_ShowProjectsJS
 }
@@ -457,21 +531,23 @@ sub loadUserData {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    my $sth = $dbh->prepare( $self->{_UserQuery} );
-    my $rc  = $sth->execute;
+    # _UserQuery: load all users
+    my $sth = $dbh->prepare(<<"END_UserQuery");
+SELECT uid, CONCAT(uname, ' \\\\ ', full_name) 
+FROM users 
+WHERE email_confirmed
+END_UserQuery
+    my $rc = $sth->execute;
 
     #Grab all users and build the hash and array for drop down.
-    my @tempUsers = @{ $sth->fetchall_arrayref };
-
-    # id -> name
-    my %userList = map { $_->[0] => $_->[1] } @tempUsers;
+    my $tempUsers = $sth->fetchall_arrayref;
+    $sth->finish;
 
     #Assign members variables reference to the hash and array.
-    $self->{_userList} = \%userList;
+    # id -> name
+    $self->{_userList} = +{ map { $_->[0] => $_->[1] } @$tempUsers };
 
-    #Finish with database.
-    $sth->finish;
-    return 1;
+    return $rc;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -496,8 +572,15 @@ sub loadSingleProject {
     $self->{_prid} = $q->url_param('id') if not defined $self->{_prid};
 
     #Run the SQL and get the data into the object.
-    my $sth = $dbh->prepare( $self->{_LoadSingleQuery} );
-    my $rc  = $sth->execute( $self->{_prid} );
+
+    # _LoadSingleQuery: show single project
+    my $sth = $dbh->prepare(<<"END_LoadSingleQuery");
+SELECT prid, prname, prdesc 
+FROM project 
+WHERE prid=?
+END_LoadSingleQuery
+
+    my $rc = $sth->execute( $self->{_prid} );
 
     if ( $rc < 1 ) {
         SGX::Abstract::Exception::User->throw(
@@ -517,7 +600,7 @@ sub loadSingleProject {
       @{ $self->{_Data}->[0] };
 
     $sth->finish;
-    return 1;
+    return $rc;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -534,12 +617,24 @@ sub loadAllStudiesFromProject {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    my $sth = $dbh->prepare( $self->{_StudiesQuery} );
-    my $rc  = $sth->execute( $self->{_prid} );
+    # _StudiesQuery: select (and describe by platform) all studies that are
+    # a part of the given project
+    my $sth = $dbh->prepare(<<"END_StudiesQuery");
+SELECT study.stid AS stid,
+       study.description AS study_desc,
+       study.pubmed AS pubmed,
+       platform.pname
+FROM study
+RIGHT JOIN ProjectStudy USING (stid)
+LEFT JOIN platform USING (pid)
+WHERE ProjectStudy.prid = ?
+END_StudiesQuery
+
+    my $rc = $sth->execute( $self->{_prid} );
     $self->{_StudyFieldNames} = $sth->{NAME};
     $self->{_StudyData}       = $sth->fetchall_arrayref;
     $sth->finish;
-    return 1;
+    return $rc;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -633,40 +728,6 @@ sub showProjects {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
-#       METHOD:  getDrawResultsTableJS
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  print draw results table in JavaScript
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getDrawResultsTableJS {
-    my $self = shift;
-    return <<"END_DrawResultsTableJS";
-var myDataSource            = new YAHOO.util.DataSource(JSProjectList.records);
-myDataSource.responseType   = YAHOO.util.DataSource.TYPE_JSARRAY;
-myDataSource.responseSchema = {fields: ["0","1","2","3"]};
-var myData_config           = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
-var myDataTable             = new YAHOO.widget.DataTable("ProjectTable", myColumnDefs, myDataSource, myData_config);
-
-// Set up editing flow
-var highlightEditableCell = function(oArgs) {
-    var elCell = oArgs.target;
-    if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) {
-    this.highlightCell(elCell);
-    }
-};
-
-myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell);
-myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell);
-myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
-
-END_DrawResultsTableJS
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
 #       METHOD:  getJSRecords
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -707,57 +768,6 @@ sub getJSHeaders {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
-#       METHOD:  getTableInfo
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  print table information
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getTableInfo {
-    my $self = shift;
-
-    my $uri_prefix = $self->{_cgi}->url( absolute => 1 );
-    my $deleteURL  = "$uri_prefix?a=manageProjects&b=delete&id=";
-    my $editURL    = "$uri_prefix?a=manageProjects&b=edit&id=";
-
-    #This is the code to use the AJAXy update box for description..
-    my $postBackURL = "'$uri_prefix?a=updateCell'";
-    my $postBackQueryParametersDesc =
-'"type=project&name=" + escape(record.getData("0")) + "&desc=" + escape(newValue) + "&old_name=" + encodeURI(record.getData("0"))';
-    my $postBackQueryParametersName =
-'"type=project&name=" + escape(newValue) + "&desc=" + escape(record.getData("1")) + "&old_name=" + encodeURI(record.getData("0"))';
-    my $textCellEditorObjectDescr =
-      SGX::DrawingJavaScript->new( $postBackURL, $postBackQueryParametersDesc );
-    my $textCellEditorObjectName =
-      SGX::DrawingJavaScript->new( $postBackURL, $postBackQueryParametersName );
-
-    my $name_editor = $textCellEditorObjectName->printTextCellEditorCode();
-    my $desc_editor = $textCellEditorObjectDescr->printTextCellEditorCode();
-    return <<"END_TableInfo";
-YAHOO.widget.DataTable.Formatter.formatProjectDeleteLink = function(elCell, oRecord, oColumn, oData)
-{
-    elCell.innerHTML = '<a title="Delete Project" target="_self" onclick="return deleteConfirmation();" href="$deleteURL' + oData + '">Delete</a>';
-}
-YAHOO.widget.DataTable.Formatter.formatProjectEditLink = function(elCell, oRecord, oColumn, oData)
-{
-    elCell.innerHTML = '<a title="Edit Project" target="_self" href="$editURL' + oData + '">Edit</a>';
-}
-
-YAHOO.util.Dom.get("caption").innerHTML = JSProjectList.caption;
-var myColumnDefs = [
-    {key:"0", sortable:true, resizeable:true, label:JSProjectList.headers[0], editor:$name_editor},
-    {key:"1", sortable:true, resizeable:true, label:JSProjectList.headers[1], editor:$desc_editor},
-    {key:"2", sortable:false, resizeable:true, label:"Delete Project",formatter:"formatProjectDeleteLink"},
-    {key:"3", sortable:false, resizeable:true, label:"Edit Project",formatter:"formatProjectEditLink"}
-];
-
-END_TableInfo
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
 #       METHOD:  insertNewProject
 #   PARAMETERS:  ????
 #      RETURNS:  Id of the inserted project
@@ -770,10 +780,18 @@ sub insertNewProject {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    $dbh->do( $self->{_InsertQuery}, undef, $self->{_prname}, $self->{_prdesc},
-        $self->{_manager} );
+    # _InsertQuery: insert into project (what about ProjectStudy?)
+    my $sth = $dbh->prepare(<<"END_InsertQuery");
+INSERT INTO project 
+(prname, prdesc, manager) 
+VALUES (?, ?, ?)
+END_InsertQuery
+
+    $sth->execute( $self->{_prname}, $self->{_prdesc}, $self->{_manager} );
+    $sth->finish;
 
     $self->{_prid} = $dbh->{mysql_insertid};
+
     return $self->{_prid};
 }
 
@@ -791,7 +809,15 @@ sub deleteProject {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    return $dbh->do( $self->{_DeleteQuery}, undef, $self->{_prid} );
+    # _DeleteQuery: delete from both ProjectStudy and project
+    my $sth = $dbh->prepare(<<"END_DeleteQuery");
+DELETE FROM project 
+WHERE prid=?
+END_DeleteQuery
+
+    my $rc = $sth->execute( $self->{_prid} );
+    $sth->finish;
+    return $rc;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -808,8 +834,15 @@ sub removeStudy {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    return $dbh->do( $self->{_RemoveStudy}, undef, $self->{_prid},
-        $self->{_delete_stid} );
+    # _RemoveStudy: remove study from project
+    my $sth = $dbh->prepare(<<"END_RemoveStudy");
+DELETE FROM ProjectStudy 
+WHERE prid=? AND stid=?
+END_RemoveStudy
+
+    my $rc = $sth->execute( $self->{_prid}, $self->{_delete_stid} );
+    $sth->finish;
+    return $rc;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -967,28 +1000,6 @@ sub editProject {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
-#       METHOD:  getDrawStudyResultsTableJS
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  print draw study results table in Javascript
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getDrawStudyResultsTableJS {
-    my $self = shift;
-    return <<"END_DrawStudyResultsTableJS"
-var myDataSourceExp            = new YAHOO.util.DataSource(JSStudyList.records);
-myDataSourceExp.responseType   = YAHOO.util.DataSource.TYPE_JSARRAY;
-myDataSourceExp.responseSchema = {fields: ["0","1","2","3","4","5","6"]};
-var myData_configExp           = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
-var myDataTableExp             = new YAHOO.widget.DataTable("StudyTable", myStudyColumnDefs, myDataSourceExp, myData_configExp);
-
-END_DrawStudyResultsTableJS
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
 #       METHOD:  addExistingStudy
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -1001,8 +1012,15 @@ sub addExistingStudy {
     my $self = shift;
 
     my $dbh = $self->{_dbh};
-    my $sth = $dbh->prepare( $self->{_AddExistingStudy} );
-    my $rc  = $sth->execute( $self->{_prid}, $self->{_SelectedStudy} );
+
+    # _AddExistingStudy: add study to project
+    my $sth = $dbh->prepare(<<"END_AddExistingStudy");
+INSERT INTO ProjectStudy
+(prid,stid)
+VALUES (?, ?)
+END_AddExistingStudy
+
+    my $rc = $sth->execute( $self->{_prid}, $self->{_SelectedStudy} );
     $sth->finish();
     if ( $rc != 1 ) {
 
@@ -1014,43 +1032,6 @@ sub addExistingStudy {
             error => "$rc records were modified though one was expected\n" );
     }
     return $rc;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  getStudyTableInfo
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  print study table information
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getStudyTableInfo {
-    my $self = shift;
-
-    #my $arrayRef = $self->{_StudyFieldNames};
-    #my @names     = @$arrayRef;
-
-    my $q         = $self->{_cgi};
-    my $projectID = $self->{_prid};
-
-    my $deleteURL = $q->url( absolute => 1 )
-      . "?a=manageProjects&b=deleteStudy&id=$projectID&removstid=";
-
-    return <<"END_StudyTableInfo"
-YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData)
-{
-    elCell.innerHTML = '<a title="Remove" target="_self" href="$deleteURL' + oData + '">Remove</a>';
-}
-
-var myStudyColumnDefs = [
-    {key:"1", sortable:true, resizeable:true, label:"Study"},
-    {key:"2", sortable:true, resizeable:true, label:"Pubmed ID"},
-    {key:"3", sortable:true, resizeable:true, label:"Platform"},
-    {key:"0", sortable:false, resizeable:true, label:"Remove Study",formatter:"formatStudyDeleteLink"}
-];
-END_StudyTableInfo
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1106,8 +1087,20 @@ sub getJSStudyHeaders {
 sub buildUnassignedStudyDropDown {
     my $self = shift;
 
+    # _UnassignedProjectQuery: select all studies that are not in current
+    # project and which have not been assigned to any project
+    my $sql = <<"END_UnassignedProjectQuery";
+SELECT stid, description
+FROM study
+LEFT JOIN ProjectStudy USING (stid)
+WHERE ProjectStudy.prid IS NULL
+GROUP BY stid
+END_UnassignedProjectQuery
+
+ # :TODO:08/03/2011 10:17:28:es: Rely on PlatformStudyExperiment for a similar
+ # hierarchy
     my $unassignedDropDown =
-      SGX::DropDownData->new( $self->{_dbh}, $self->{_UnassignedProjectQuery} );
+      SGX::DropDownData->new( $self->{_dbh}, $sql );
 
     $self->{_unassignedList} = $unassignedDropDown->loadDropDownValues();
     return 1;
@@ -1115,7 +1108,7 @@ sub buildUnassignedStudyDropDown {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
-#       METHOD:  getJavaScriptRecordsForExistingDropDowns
+#       METHOD:  getJSRecordsForExistingDropDowns
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  print JavaScript records for drop down menu showing existing
@@ -1124,12 +1117,17 @@ sub buildUnassignedStudyDropDown {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getJavaScriptRecordsForExistingDropDowns {
+sub getJSRecordsForExistingDropDowns {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    my $sth = $dbh->prepare( $self->{_ExistingProjectQuery} );
-    my $rc  = $sth->execute( $self->{_prid} );
+    # _ExistingProjectQuery: select all projects that are not current project
+    my $sth = $dbh->prepare(<<"END_ExistingProjectQuery");
+SELECT prid, prname
+FROM project
+WHERE prid <> ?
+END_ExistingProjectQuery
+    my $rc = $sth->execute( $self->{_prid} );
 
     my %out;
     while ( my @row = $sth->fetchrow_array ) {
@@ -1138,8 +1136,18 @@ sub getJavaScriptRecordsForExistingDropDowns {
     $sth->finish;
 
     # resetting $sth
-    $sth = $dbh->prepare( $self->{_ExistingStudyQuery} );
-    $rc  = $sth->execute( $self->{_prid} );
+
+    # _ExistingStudyQuery: select all studies that are not in current
+    # project and which have been assigned to other projects
+    $sth = $dbh->prepare(<<"END_ExistingStudyQuery");
+SELECT prid, stid, description
+FROM study
+INNER JOIN ProjectStudy USING (stid)
+WHERE ProjectStudy.prid <> ?
+GROUP BY stid
+END_ExistingStudyQuery
+
+    $rc = $sth->execute( $self->{_prid} );
 
     ### populate the Javascript hash with the content of the study recordset
     while ( my @row = $sth->fetchrow_array ) {
@@ -1147,7 +1155,7 @@ sub getJavaScriptRecordsForExistingDropDowns {
     }
     $sth->finish;
 
-    return encode_json( \%out );
+    return \%out;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1164,8 +1172,19 @@ sub editSubmitProject {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    return $dbh->do( $self->{_UpdateQuery}, undef, $self->{_prname},
-        $self->{_prdesc}, $self->{_manager}, $self->{_prid} );
+    # _UpdateQuery: update project description
+    my $sth = $dbh->prepare(<<"END_UpdateQuery");
+UPDATE project 
+SET prname=?, prdesc=?, manager=? 
+WHERE prid=?
+END_UpdateQuery
+
+    my $rc = $sth->execute(
+        $self->{_prname},  $self->{_prdesc},
+        $self->{_manager}, $self->{_prid}
+    );
+    $sth->finish;
+    return $rc;
 }
 
 1;

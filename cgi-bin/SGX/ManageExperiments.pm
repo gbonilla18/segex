@@ -66,103 +66,10 @@ sub new {
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
 
-        # load experiments when a study is known
-        _LoadQuery => <<"END_LoadQuery",
-SELECT
-    experiment.eid,
-    study.pid,
-    experiment.sample1,
-    experiment.sample2,
-    (SELECT COUNT(*) FROM microarray WHERE eid=experiment.eid) AS 'Probe Count',
-    ExperimentDescription,
-    AdditionalInformation,
-    IF(study.stid IS NULL, 'Unknown Study', study.description) AS description,
-    IF(platform.pid IS NULL, 'Unknown Platform', platform.pname) AS pname,
-    IFNULL(study.stid, '')
-FROM experiment
-INNER JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
-INNER JOIN study ON study.stid = StudyExperiment.stid
-LEFT JOIN platform ON platform.pid = study.pid
-WHERE study.stid=?
-GROUP BY experiment.eid
-ORDER BY experiment.eid ASC
-
-END_LoadQuery
-
-        # load experiments that are not assigned to any study and may or may not
-        # have probes in a specific platform
-        _LoadUnassignedQuery => <<"END_LoadUnassignedQuery",
-SELECT
-    experiment.eid,
-    platform.pid,
-    experiment.sample1,
-    experiment.sample2,
-    COUNT(1),
-    ExperimentDescription,
-    AdditionalInformation,
-    'Unknown Study' AS description,
-    IF(platform.pid IS NULL, 'Unknown Platform', platform.pname) AS pname,
-    '' AS stid
-FROM experiment
-LEFT JOIN microarray ON microarray.eid = experiment.eid
-LEFT JOIN probe ON probe.rid = microarray.rid
-LEFT JOIN platform ON platform.pid = probe.pid
-WHERE experiment.eid NOT IN (SELECT DISTINCT eid FROM StudyExperiment) %s
-GROUP BY experiment.eid
-ORDER BY experiment.eid ASC
-
-END_LoadUnassignedQuery
-
-# Unassigned experiments will not be linked to a specific study, and the only
-# way to find out what platform they are at is through joining probe table.
-# We resolve the question of what platform an experiment is on the following
-# way: if the experiment is linked to a study, use the platform name/id from the
-# study, otherwise determine the platform through joining probe table.
-        _LoadAllExperimentsQuery => <<"END_LoadAllExperimentsQuery",
-SELECT
-    experiment.eid,
-    COALESCE(study.pid, probe.pid) AS my_pid,
-    experiment.sample1,
-    experiment.sample2,
-    COUNT(1),
-    ExperimentDescription,
-    AdditionalInformation,
-    IF(study.stid IS NULL, 'Unknown Study', study.description) AS description,
-    IF(
-        study.pid IS NULL,
-        IF(probe.pid IS NULL, 'Unknown Platform', probe_platform.pname),
-        study_platform.pname
-    ) AS 'Platform',
-    IFNULL(study.stid, '')
-FROM experiment
-LEFT JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
-LEFT JOIN study ON study.stid = StudyExperiment.stid
-LEFT JOIN platform study_platform ON study_platform.pid = study.pid
-LEFT JOIN microarray ON microarray.eid = experiment.eid
-LEFT JOIN probe ON probe.rid = microarray.rid
-LEFT JOIN platform probe_platform ON probe_platform.pid = probe.pid
-GROUP BY experiment.eid, study.stid
-%s
-ORDER BY experiment.eid ASC
-
-END_LoadAllExperimentsQuery
-
-        _DeleteQueries => [
-            'DELETE FROM microarray WHERE eid = ?',
-            'DELETE FROM StudyExperiment WHERE eid = ?',
-            'DELETE FROM experiment WHERE eid = ?'
-        ],
-
-        _UnassignQuery => <<"END_UnassignQuery",
-DELETE FROM StudyExperiment
-WHERE stid = ? AND eid = ?
-END_UnassignQuery
-
-        _FieldNames => undef,
-        _Data       => undef,
-        _stid       => undef,
-        _pid        => undef,
-        _eid        => undef,
+        _Data => undef,
+        _stid => undef,
+        _pid  => undef,
+        _eid  => undef,
     };
 
     bless $self, $class;
@@ -225,6 +132,9 @@ sub dispatch_js {
     switch ($action) {
         case 'delete' {
             return unless $s->is_authorized('user');
+
+            # :TODO:08/03/2011 10:11:22:es: initialize object from CGI
+            # parameters using loadFromForm() or init()
             $self->deleteExperiment(
                 id         => $q->param('id'),
                 deleteFrom => $q->param('deleteFrom')
@@ -421,6 +331,7 @@ sub ajax_update {
         exit(0);
     }
     $s->commit;        # must commit session before exit
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -538,8 +449,41 @@ sub loadAllExperimentsFromStudy {
             $having_platform_clause = 'HAVING my_pid=?';
             push @exec_param, $self->{_pid};
         }
-        $loadQuery =
-          sprintf( $self->{_LoadAllExperimentsQuery}, $having_platform_clause );
+
+# Unassigned experiments will not be linked to a specific study, and the only
+# way to find out what platform they are at is through joining probe table.
+# We resolve the question of what platform an experiment is on the following
+# way: if the experiment is linked to a study, use the platform name/id from the
+# study, otherwise determine the platform through joining probe table.
+
+        $loadQuery = <<"END_LoadAllExperimentsQuery";
+SELECT
+    experiment.eid,
+    COALESCE(study.pid, probe.pid) AS my_pid,
+    experiment.sample1,
+    experiment.sample2,
+    COUNT(1),
+    ExperimentDescription,
+    AdditionalInformation,
+    IF(study.stid IS NULL, 'Unknown Study', study.description) AS description,
+    IF(
+        study.pid IS NULL,
+        IF(probe.pid IS NULL, 'Unknown Platform', probe_platform.pname),
+        study_platform.pname
+    ) AS 'Platform',
+    IFNULL(study.stid, '')
+FROM experiment
+LEFT JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
+LEFT JOIN study ON study.stid = StudyExperiment.stid
+LEFT JOIN platform study_platform ON study_platform.pid = study.pid
+LEFT JOIN microarray ON microarray.eid = experiment.eid
+LEFT JOIN probe ON probe.rid = microarray.rid
+LEFT JOIN platform probe_platform ON probe_platform.pid = probe.pid
+GROUP BY experiment.eid, study.stid
+$having_platform_clause
+ORDER BY experiment.eid ASC
+
+END_LoadAllExperimentsQuery
     }
     elsif ( $self->{_stid} eq '' ) {
 
@@ -549,14 +493,59 @@ sub loadAllExperimentsFromStudy {
             $where_platform_clause = 'AND platform.pid=?';
             push @exec_param, $self->{_pid};
         }
-        $loadQuery =
-          sprintf( $self->{_LoadUnassignedQuery}, $where_platform_clause );
+
+        # load experiments that are not assigned to any study and may or may not
+        # have probes in a specific platform
+        $loadQuery = <<"END_LoadUnassignedQuery";
+SELECT
+    experiment.eid,
+    platform.pid,
+    experiment.sample1,
+    experiment.sample2,
+    COUNT(1),
+    ExperimentDescription,
+    AdditionalInformation,
+    'Unknown Study' AS description,
+    IF(platform.pid IS NULL, 'Unknown Platform', platform.pname) AS pname,
+    '' AS stid
+FROM experiment
+LEFT JOIN microarray ON microarray.eid = experiment.eid
+LEFT JOIN probe ON probe.rid = microarray.rid
+LEFT JOIN platform ON platform.pid = probe.pid
+WHERE experiment.eid NOT IN (SELECT DISTINCT eid FROM StudyExperiment)
+$where_platform_clause
+GROUP BY experiment.eid
+ORDER BY experiment.eid ASC
+
+END_LoadUnassignedQuery
     }
     else {
 
-        # assigned studies -- no need to check platform
-        $loadQuery = $self->{_LoadQuery};
+        # load experiments when a study is known
         push @exec_param, $self->{_stid};
+
+        # assigned studies -- no need to check platform
+        $loadQuery = <<"END_LoadQuery";
+SELECT
+    experiment.eid,
+    study.pid,
+    experiment.sample1,
+    experiment.sample2,
+    (SELECT COUNT(*) FROM microarray WHERE eid=experiment.eid) AS 'Probe Count',
+    ExperimentDescription,
+    AdditionalInformation,
+    IF(study.stid IS NULL, 'Unknown Study', study.description) AS description,
+    IF(platform.pid IS NULL, 'Unknown Platform', platform.pname) AS pname,
+    IFNULL(study.stid, '')
+FROM experiment
+INNER JOIN StudyExperiment ON experiment.eid = StudyExperiment.eid
+INNER JOIN study ON study.stid = StudyExperiment.stid
+LEFT JOIN platform ON platform.pid = study.pid
+WHERE study.stid=?
+GROUP BY experiment.eid
+ORDER BY experiment.eid ASC
+
+END_LoadQuery
     }
 
     my $sth = $dbh->prepare($loadQuery);
@@ -710,13 +699,26 @@ sub deleteExperiment {
         if ( defined($stid) and $stid ne '' ) {
 
             # Unassign: simply remove from the study
-            $dbh->do( $self->{_UnassignQuery}, undef, $stid, $eid );
+            my $sth = $dbh->prepare(<<"END_UnassignQuery");
+DELETE FROM StudyExperiment
+WHERE stid = ? AND eid = ?
+END_UnassignQuery
+            my $rc = $sth->execute( $stid, $eid );
+            $sth->finish;
         }
         else {
+            my @deleteStatements = map { $dbh->prepare($_) } (
+                'DELETE FROM microarray WHERE eid = ?',
+                'DELETE FROM StudyExperiment WHERE eid = ?',
+                'DELETE FROM experiment WHERE eid = ?'
+            );
 
             # Delete: completely delete
-            foreach ( @{ $self->{_DeleteQueries} } ) {
-                $dbh->do( $_, undef, $eid );
+            foreach (@deleteStatements) {
+                $_->execute($eid);
+            }
+            foreach (@deleteStatements) {
+                $_->finish;
             }
         }
     }

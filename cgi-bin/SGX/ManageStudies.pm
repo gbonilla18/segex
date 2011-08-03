@@ -30,7 +30,6 @@ use strict;
 use warnings;
 
 use Carp::Assert;
-use SGX::DrawingJavaScript;
 use Switch;
 use SGX::Abstract::JSEmitter;
 
@@ -320,6 +319,7 @@ sub ajax_update {
         exit(0);
     }
     $s->commit;        # must commit session before exit
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================

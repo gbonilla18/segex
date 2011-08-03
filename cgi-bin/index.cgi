@@ -112,7 +112,6 @@ use constant HELP               => 'help';
 use constant ABOUT              => 'about';
 use constant COMPAREEXPERIMENTS => 'compareExperiments';    # submit button text
 use constant FINDPROBES         => 'findProbes';            # submit button text
-use constant UPDATECELL         => 'updateCell';
 use constant UPLOADANNOT        => 'uploadAnnot';
 use constant UPLOADDATA         => 'uploadData';
 
@@ -181,24 +180,6 @@ while ( defined($action) ) {
             }
             else {
                 $action = FORM . LOGIN;
-            }
-        }
-        case UPDATECELL {
-
-            # AJAX request
-            if ( $s->is_authorized('user') ) {
-                if ( updateCell() ) {
-                    print $q->header( -status => 200 );
-                    exit(1);
-                }
-                else {
-                    print $q->header( -status => 404 );
-                    exit(0);
-                }
-            }
-            else {
-                print $q->header( -status => 401 );
-                exit(0);
             }
         }
         case MANAGEPLATFORMS {
@@ -1175,31 +1156,7 @@ sub footer {
         )
     );
 }
-#######################################################################################
-sub updateCell {
-    my $type = $q->param('type');
-    assert( defined($type) );
 
-    switch ($type) {
-        case 'study' {
-            my $rc =
-              $dbh->do( 'update study set description=?, pubmed=? where stid=?',
-                undef, $q->param('desc'), $q->param('pubmed'),
-                $q->param('stid') );
-            return $rc;
-        }
-        case 'project' {
-            my $rc =
-              $dbh->do( 'update project set prname=?, prdesc=? where prname=?',
-                undef, $q->param('name'), $q->param('desc'),
-                $q->param('old_name') );
-            return $rc;
-        }
-        else {
-            croak "Unknown request type=$type\n";
-        }
-    }
-}
 #######################################################################################
 sub schema {
     print $q->img(

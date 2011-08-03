@@ -17,6 +17,9 @@
 
 package SGX::Abstract::JSEmitter;
 
+ # :TODO:08/03/2011 08:47:49:es: Come up with some syntax to to use this class
+ # to define simple Javascript functions.
+
 use strict;
 use warnings;
 
@@ -80,8 +83,8 @@ sub init {
 
     $self->{pretty} = $arg_pretty;
 
-    # 'orcish' operator: assign value to property only if property evaluates to
-    # false:
+    # 'Orcish' operator (||=): assign value to property only if that property
+    # evaluates to false. A valid reference will never evaluate to false.
     $self->{json} ||= JSON->new->allow_nonref;
 
     return 1;
