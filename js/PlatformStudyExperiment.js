@@ -13,8 +13,27 @@ function getSelectedValue(obj)
     }
 }
 /******************************************************************/
-function buildDropDown(obj, tuples, selected) {
-    for (var i = 0, len = tuples.length; i < len; i++) {
+function setMinWidth(el, width, old) {
+    // sets minimum width for an element with content
+
+    // first see if scrollWidth is greater than zero. If yes, reuse offsetWidth
+    // instead of setting minimum. Only when scrollWidth is zero do we set
+    // style.width.
+    el.style.width = (old.scrollWidth > 0) 
+    ? old.offsetWidth + 'px' 
+    : width;
+}
+/******************************************************************/
+function buildDropDown(obj, tuples, selected, old) {
+    var len = tuples.length;
+    if (len > 0) {
+        // reset width for automatic width control
+        obj.style.width = '';
+    } else {
+        // set width to either old (if present) or minimum
+        setMinWidth(obj, '200px', old);
+    }
+    for (var i = 0; i < len; i++) {
         var key = tuples[i][0];
         var value = tuples[i][1];
         var option = document.createElement('option');
@@ -22,16 +41,23 @@ function buildDropDown(obj, tuples, selected) {
         if (typeof(selected) !== 'undefined' && (key in selected)) {
             option.selected = 'selected';
         }
-        //console.log(key + ' ' + value);
         option.innerHTML = value;
         obj.appendChild(option);
     }
 }
 /******************************************************************/
 function clearDropDown(obj) {
+    // capture old width
+    var oldWidth = { 
+        clientWidth: obj.clientWidth, 
+        offsetWidth: obj.offsetWidth, 
+        scrollWidth: obj.scrollWidth 
+    };
+    // remove option elements
     while (obj.options[0]) {
         obj.removeChild(obj.options[0]);
     }
+    return oldWidth;
 }
 /******************************************************************
 * populatePlatform()
@@ -41,15 +67,15 @@ function populatePlatform()
 {
     var platform = this.platform;
     var platforms = (platform.element === null)
-        ? (platform.element = document.getElementById(platform.elementId))
-        : platform.element;
+    ? (platform.element = document.getElementById(platform.elementId))
+    : platform.element;
 
     // First remove all existing option elements -- need to do this even though
     // platform drop-down list is never repopulated after page loads. This is
     // because it seems that some browsers (Firefox, Safari) automatically add
     // an option to the dropdown that was present in the same control before
     // page load.
-    clearDropDown(platforms);
+    var oldWidth = clearDropDown(platforms);
 
     // sort by platform name
     var tuples = [];
@@ -68,7 +94,7 @@ function populatePlatform()
     });
 
     // build dropdown box
-    buildDropDown(platforms, tuples, platform.selected);
+    buildDropDown(platforms, tuples, platform.selected, oldWidth);
 }
 
 /******************************************************************/
@@ -76,16 +102,16 @@ function populatePlatformStudy()
 {
     var platform = this.platform;
     var platforms = (platform.element === null)
-        ? (platform.element = document.getElementById(platform.elementId))
-        : platform.element;
+    ? (platform.element = document.getElementById(platform.elementId))
+    : platform.element;
 
     var study = this.study;
     var studies = (study.element === null)
-        ? (study.element = document.getElementById(study.elementId))
-        : study.element;
+    ? (study.element = document.getElementById(study.elementId))
+    : study.element;
 
     // first remove all existing option elements
-    clearDropDown(studies);
+    var oldWidth = clearDropDown(studies);
 
     // now add new ones
     var pid = getSelectedValue(platforms);
@@ -106,7 +132,7 @@ function populatePlatformStudy()
             return a < b ? -1 : (a > b ? 1 : 0);
         });
 
-        buildDropDown(studies, tuples, study.selected);
+        buildDropDown(studies, tuples, study.selected, oldWidth);
     }
 }
 /******************************************************************/
@@ -114,23 +140,23 @@ function populateStudyExperiment()
 {
     var platform = this.platform;
     var platforms = (platform.element === null)
-        ? (platform.element = document.getElementById(platform.elementId))
-        : platform.element;
+    ? (platform.element = document.getElementById(platform.elementId))
+    : platform.element;
     var pid = getSelectedValue(platforms);
 
     var study = this.study;
     var studies = (study.element === null)
-        ? (study.element = document.getElementById(study.elementId))
-        : study.element;
+    ? (study.element = document.getElementById(study.elementId))
+    : study.element;
     var stid = getSelectedValue(studies);
 
     var experiment = this.experiment;
     var experiments = (experiment.element === null)
-        ? (experiment.element = document.getElementById(experiment.elementId))
-        : experiment.element;
+    ? (experiment.element = document.getElementById(experiment.elementId))
+    : experiment.element;
 
     // first remove all existing option elements
-    clearDropDown(experiments);
+    var oldWidth = clearDropDown(experiments);
 
     // now add new ones
     if (typeof pid !== 'undefined' && typeof stid !== 'undefined') {
@@ -139,8 +165,8 @@ function populateStudyExperiment()
         // When we need to use experiments from all studies in given platform, 
         // we simply point to 'experiments' property of parent platform.
         var experiment_ids = (stid === 'all') 
-            ? platformNode.experiments 
-            : platformNode.studies[stid].experiments;
+        ? platformNode.experiments 
+        : platformNode.studies[stid].experiments;
         var experiment_data = platformNode.experiments;
 
         // sort by experiment id
@@ -163,6 +189,6 @@ function populateStudyExperiment()
         });
 
         // build dropdown box
-        buildDropDown(experiments, tuples, experiment.selected);
+        buildDropDown(experiments, tuples, experiment.selected, oldWidth);
     }
 }
