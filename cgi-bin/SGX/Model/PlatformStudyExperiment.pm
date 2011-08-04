@@ -299,7 +299,7 @@ sub init {
             # initialize $platform->{studies} (must always be present)
             $platform->{studies} ||= {};
             $platform->{name}    ||= $this_empty_platform;
-            $platform->{species} ||= '';
+            $platform->{species} ||= undef;
 
             # cache "studies" field
             my $platformStudies = $platform->{studies};
