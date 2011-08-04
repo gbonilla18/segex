@@ -337,7 +337,8 @@ sub showForm {
                 -id   => 'eid',
                 -title =>
 'You can select multiple experiments here by holding down Control or Command key before clicking.',
-                -multiple => 'multiple'
+                -multiple => 'multiple',
+                -size => 7
             )
         ),
         $q->dt('&nbsp;'),
