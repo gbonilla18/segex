@@ -119,7 +119,8 @@ sub dispatch_js {
                 platforms       => 1,
                 studies         => 1,
                 experiments     => 1,
-                extra_platforms => { 'all' => { name => '@All Platforms' } }
+                extra_platforms => { 'all' => { name => '@All Platforms' } },
+                extra_studies => { 'all' => { name => '@All Studies' } }
             );
             push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
             push @$js_src_code, { -code => $self->getDropDownJS() };

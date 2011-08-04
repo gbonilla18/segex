@@ -294,12 +294,12 @@ sub init {
             # populate %unassigned hash initially with all experiments for the
             # platform
             my %unassigned =
-              map { $_ => undef } keys %{ $platform->{experiments} };
+              map { $_ => {} } keys %{ $platform->{experiments} };
 
             # initialize $platform->{studies} (must always be present)
             $platform->{studies} ||= {};
             $platform->{name}    ||= $this_empty_platform;
-            $platform->{species} ||= undef;
+            $platform->{species} ||= '';
 
             # cache "studies" field
             my $platformStudies = $platform->{studies};
@@ -582,21 +582,30 @@ END_EXPERIMENTQUERY
         # platform
         my $this_pid = ( defined($pid) ) ? $pid : '';
         if ( exists $model{$this_pid} ) {
-            $model{$this_pid}->{experiments}->{$eid} = [ $sample1, $sample2 ];
+            $model{$this_pid}->{experiments}->{$eid} = {
+                sample1 => $sample1,
+                sample2 => $sample2
+            };
         }
         else {
             $model{$this_pid} =
-              { experiments => { $eid => [ $sample1, $sample2 ] } };
+              { experiments =>
+                  { $eid => { sample1 => $sample1, sample2 => $sample2 } } };
         }
 
         # if there is an 'all' platform, add every experiment to it
         if ($all_platforms) {
             if ( exists $model{all} ) {
-                $model{all}->{experiments}->{$eid} = [ $sample1, $sample2 ];
+                $model{all}->{experiments}->{$eid} = {
+                    sample1 => $sample1,
+                    sample2 => $sample2
+                };
             }
             else {
                 $model{all} =
-                  { experiments => { $eid => [ $sample1, $sample2 ] } };
+                  { experiments =>
+                      { $eid => { sample1 => $sample1, sample2 => $sample2 } }
+                  };
             }
         }
     }
@@ -647,10 +656,10 @@ END_STUDYEXPERIMENTQUERY
     while ( $sth_StudyExperiment->fetch ) {
 
         if ( exists $model{$se_stid} ) {
-            $model{$se_stid}->{experiments}->{$se_eid} = undef;
+            $model{$se_stid}->{experiments}->{$se_eid} = {};
         }
         else {
-            $model{$se_stid} = { experiments => { $se_eid => undef } };
+            $model{$se_stid} = { experiments => { $se_eid => {} } };
         }
     }
 

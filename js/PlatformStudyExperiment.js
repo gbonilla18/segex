@@ -135,19 +135,25 @@ function populateStudyExperiment()
     // now add new ones
     if (typeof pid !== 'undefined' && typeof stid !== 'undefined') {
         var platformNode = PlatfStudyExp[pid];
-        var experiment_ids = platformNode.studies[stid].experiments;
+
+        // When we need to use experiments from all studies in given platform, 
+        // we simply point to 'experiments' property of parent platform.
+        var experiment_ids = (stid === 'all') 
+            ? platformNode.experiments 
+            : platformNode.studies[stid].experiments;
         var experiment_data = platformNode.experiments;
 
         // sort by experiment id
         var tuples = [];
         for (var i in experiment_ids) {
             var experimentNode = experiment_data[i];
-            var content;
-            if (typeof(experimentNode) === 'undefined') {
-                // no experiment info for given eid among platform data
-                content = '@' + i;
-            } else {
-                content = experimentNode[0] + ' / ' + experimentNode[1];
+            var content = i + '. ';
+            if (typeof(experimentNode) !== 'undefined') {
+                // no experiment info for given eid among platform data -- this
+                // typically would mean that the experiment in question has been
+                // assigned to the study but not the platform -- this is not
+                // supposed to happen but we consider the possibility anyway.
+                content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
             }
             tuples.push([i, content]);
         }

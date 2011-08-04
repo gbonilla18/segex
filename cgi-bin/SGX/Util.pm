@@ -27,7 +27,9 @@ our @EXPORT_OK =
 #      RETURNS:  True/False
 #  DESCRIPTION:  ????
 #       THROWS:  no exceptions
-#     COMMENTS:  This is a higher-order function. Returns true when run on a
+#     COMMENTS:  This is a higher-order function. It is similar to every()
+#                array method in ECMAScript 5 / Javascript 1.6. Like its
+#                Javascript counterpart, it returns true when run on a
 #                zero-length array (of no elements).
 #
 #                # Example usage:
@@ -42,7 +44,8 @@ our @EXPORT_OK =
 #                $bar->('', undef);              # true
 #                $bar->('', 'foo');              # false
 #
-#     SEE ALSO:  n/a
+#     SEE ALSO:  
+# https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/every
 #===============================================================================
 sub all_match {
     my ( $regex, %args ) = @_;
@@ -59,8 +62,10 @@ sub all_match {
 #      RETURNS:  ????
 #  DESCRIPTION:  ????
 #       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
+#     COMMENTS:  This function is conceptually similar to Javascript some()
+#                array method.
+#     SEE ALSO:  
+# https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/some
 #===============================================================================
 sub count_gtzero { my $c = 0; defined && $_ > 0 && $c++ for @_; return $c }
 

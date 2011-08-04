@@ -146,3 +146,6 @@ has a Tree View control available. Doing so would make sense -- consider the
 following hierarchy:
 	species -> platform -> study -> experiment
 It's four levels deep!
+
+*) In the CREATE TABLE definition for platform, treat species value as undefined
+when set to empty string -- NOT NULL DEFAULT '';
