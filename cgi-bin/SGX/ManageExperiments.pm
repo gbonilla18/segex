@@ -580,8 +580,7 @@ sub getHTML {
         $q->h2('Manage Experiments'),
         $q->start_form(
             -method => 'GET',
-            -action => $q->url( -absolute => 1 )
-              . '?a=manageExperiments&b=Load',
+            -action => $q->url( -absolute => 1 ),
             -enctype => 'application/x-www-form-urlencoded'
         ),
         $q->dl(

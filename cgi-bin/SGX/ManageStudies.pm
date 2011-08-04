@@ -535,23 +535,26 @@ sub showStudies {
 
       # Resource URI: /manageStudies
       $q->start_form(
-        -method => 'POST',
-        -action => $q->url( -absolute => 1 ) . '?a=manageStudies'
+        -method => 'GET',
+        -action => $q->url( -absolute => 1 )
       ),
       $q->dl(
         $q->dt('Platform:'),
         $q->dd(
             $q->popup_menu(
-                -name => 'pid',
-                -id   => 'pid'
+                -name  => 'pid',
+                -id    => 'pid',
+                -title => 'Choose platform'
             )
         ),
         $q->dt('&nbsp;'),
         $q->dd(
+            $q->hidden( -name => 'a', -value => 'manageStudies' ),
             $q->submit(
                 -name  => 'b',
                 -class => 'css3button',
-                -value => 'Load from Platform'
+                -value => 'Load',
+                -title => 'Get studies for the selected platform'
             )
         )
       ),

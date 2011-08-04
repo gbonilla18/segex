@@ -149,3 +149,14 @@ It's four levels deep!
 
 *) In the CREATE TABLE definition for platform, treat species value as undefined
 when set to empty string -- NOT NULL DEFAULT '';
+
+*) Right now have two methods -- perm_cookie_store() and session_cookie_store()
+for cookie storage. They both take a direct hash. perm_cookie_store() saves data
+both to permanent cookie and session cookie, while session_cookie_store() saves
+data only in the session cookie. Rewrite this as follows: there should be only
+one method, called either cookie_store or client_store() that would take (1) a
+hash reference to the data currently passed as direct hash, (2) an optional
+parameter, make_permanent => ... that would ensure that data gets stored in the
+permanent cookie as well as in the session cookie (when this parameter is
+missing or set to false, data is store only in the session cookie), (3) possibly
+other parameters.

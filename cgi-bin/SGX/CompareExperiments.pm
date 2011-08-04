@@ -387,11 +387,12 @@ sub getFormHTML {
         $q->dl(
             $q->dt( $q->label( { -for => 'upload_file' }, 'Upload File:' ) ),
             $q->dd(
-                $q->filefield( -name => 'upload_file', -id => 'upload_file' ),
-                $q->p(
-                    { -style => 'color:#777;' },
-'File must be in tab-delimited format, without a header, and with search terms in the first column'
-                )
+                $q->filefield(
+                    -name => 'upload_file',
+                    -id   => 'upload_file',
+                    -title =>
+'File must be in tab-delimited format, without a header, and with search terms in the first column.'
+                ),
             )
         )
       ),

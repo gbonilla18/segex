@@ -90,7 +90,7 @@ my $content;
 use constant FORM              => 'form_';
 use constant LOGIN             => 'login';
 use constant LOGOUT            => 'logout';
-use constant DEFAULT_ACTION    => 'mainPage';
+use constant DEFAULT_ACTION    => '';
 use constant UPDATEPROFILE     => 'updateProfile';
 use constant MANAGEPLATFORMS   => 'managePlatforms';
 use constant MANAGEPROJECTS    => 'manageProjects';
@@ -101,7 +101,7 @@ use constant CHANGEPASSWORD    => 'changePassword';
 use constant CHANGEEMAIL       => 'changeEmail';
 use constant CHOOSEPROJECT     => 'chooseProject';
 use constant RESETPASSWORD     => 'resetPassword';
-use constant REGISTERUSER      => 'registerUser';
+use constant REGISTER          => 'registerUser';
 use constant VERIFYEMAIL       => 'verifyEmail';
 use constant QUIT              => 'quit';
 
@@ -117,18 +117,22 @@ use constant UPLOADDATA         => 'uploadData';
 
 my $loadModule;
 
- # :TRICKY:08/02/2011 13:10:53:es: need to use url_param instead of param here
- # for successful login -- why?
+# :TRICKY:08/02/2011 13:10:53:es: need to use url_param instead of param here
+# for successful login -- why?
 my $action =
   ( defined( $q->url_param('a') ) ) ? $q->url_param('a') : DEFAULT_ACTION;
 
 while ( defined($action) ) {
+
+    # :TRICKY:07/12/2011 14:51:01:es: always undefine $action at the end of
+    # your case block, unless you're passing the execution to another case
+    # block that will undefine $action on its own. If you don't undefine
+    # $action, this loop will go on forever!
     switch ($action) {
 
-        # :TRICKY:07/12/2011 14:51:01:es: always undefine $action at the end of
-        # your case block, unless you're passing the execution to another case
-        # block that will undefine $action on its own. If you don't undefine
-        # $action, this loop will go on forever!
+    #---------------------------------------------------------------------------
+    #  Everything that uses %controller_context
+    #---------------------------------------------------------------------------
         case UPLOADANNOT {
             $loadModule = SGX::UploadAnnot->new(%controller_context);
             if ( $loadModule->dispatch_js() ) {
@@ -152,31 +156,12 @@ while ( defined($action) ) {
                 $action = FORM . LOGIN;
             }
         }
-        case FORM . CHOOSEPROJECT {
-            if ( $s->is_authorized('user') ) {
-                $title   = 'Change Project';
-                $content = \&chooseProject;
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
         case CHOOSEPROJECT {
-            if ( $s->is_authorized('user') ) {
-                my $project_set_to = $q->param('current_project');
-                my $chooseProj =
-                  SGX::ChooseProject->new( $dbh, $q, $project_set_to );
-
-                # store id in a permanent cookie (also gets copied to the
-                # session cookie automatically)
-                $s->perm_cookie_store( curr_proj => $project_set_to );
-
-                # store name in the session cookie only
-                $s->session_cookie_store(
-                    proj_name => $chooseProj->lookupProjectName() );
-
-                $action = FORM . CHOOSEPROJECT;
+            $loadModule = SGX::ChooseProject->new(%controller_context);
+            if ( $loadModule->dispatch_js() ) {
+                $content = \&module_show_html;
+                $title   = 'Change Project';
+                $action  = undef;                  # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -187,7 +172,7 @@ while ( defined($action) ) {
             if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
                 $title   = 'Platforms';
-                $action  = undef;                # final state
+                $action  = undef;                  # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -198,7 +183,7 @@ while ( defined($action) ) {
             if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
                 $title   = 'Projects';
-                $action  = undef;                # final state
+                $action  = undef;                  # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -208,8 +193,8 @@ while ( defined($action) ) {
             $loadModule = SGX::ManageStudies->new(%controller_context);
             if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
-                $title  = 'Studies';
-                $action = undef;       # final state
+                $title   = 'Studies';
+                $action  = undef;                  # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -220,7 +205,7 @@ while ( defined($action) ) {
             if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
                 $title   = 'Experiments';
-                $action  = undef;                # final state
+                $action  = undef;                  # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -231,10 +216,21 @@ while ( defined($action) ) {
             if ( $loadModule->dispatch_js() ) {
                 $content = \&module_show_html;
                 $title   = 'Output Data';
-                $action  = undef;                # final state
+                $action  = undef;                  # final state
             }
             else {
                 $action = FORM . LOGIN;
+            }
+        }
+        case COMPAREEXPERIMENTS {
+            $loadModule = SGX::CompareExperiments->new(%controller_context);
+            if ( $loadModule->dispatch_js() ) {
+                $title   = 'Compare Experiments';
+                $content = \&module_show_html;
+                $action  = undef;
+            }
+            else {
+                $action = FORM . LOGIN;    # final state
             }
         }
         case FINDPROBES {
@@ -248,25 +244,10 @@ while ( defined($action) ) {
                 $action = FORM . LOGIN;
             }
         }
-
-        #case DUMP {
-        #    if ( $s->is_authorized('user') ) {
-        #        my $table = $q->param('table');
-
-        #        #show data as a tab-delimited text file
-        #        $s->commit();
-        #        print $q->header(
-        #            -type   => 'text/plain',
-        #            -cookie => $s->cookie_array()
-        #        );
-        #        dump_table($table);
-        #        $action = QUIT;
-        #    }
-        #    else {
-        #        $action = FORM . LOGIN;
-        #    }
-        #}
         case DOWNLOADTFS {
+
+            # :TODO:08/04/2011 12:25:51:es: refactor this to use
+            # %controller_context
             if ( $s->is_authorized('user') ) {
                 $title = 'View Slice';
 
@@ -288,43 +269,10 @@ while ( defined($action) ) {
                 $action = FORM . LOGIN;
             }
         }
-        case SHOWSCHEMA {
-            if ( $s->is_authorized('user') ) {
-                $title   = 'Database Schema';
-                $content = \&schema;
-                $action  = undef;               # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case HELP {
 
-            # will send a redirect header, so commit the session to data store
-            $s->commit();
-            print $q->redirect(
-                -uri    => $q->url( -base => 1 ) . './html/wiki/',
-                -status => 302,           # 302 Found
-                -cookie => $s->cookie_array()
-            );
-            $action = QUIT;
-        }
-        case ABOUT {
-            $title   = 'About';
-            $content = \&about;
-            $action  = undef;                   # final state
-        }
-        case COMPAREEXPERIMENTS {
-            $loadModule = SGX::CompareExperiments->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $title   = 'Compare Experiments';
-                $content = \&module_show_html;
-                $action  = undef;
-            }
-            else {
-                $action = FORM . LOGIN;         # final state
-            }
-        }
+    #---------------------------------------------------------------------------
+    #  User stuff
+    #---------------------------------------------------------------------------
         case FORM . LOGIN {
             if ( $s->is_authorized('unauth') ) {
                 $action = DEFAULT_ACTION;
@@ -332,28 +280,16 @@ while ( defined($action) ) {
             else {
                 $title   = 'Login';
                 $content = \&form_login;
-                $action  = undef;               # final state
+                $action  = undef;          # final state
             }
         }
         case LOGIN {
-
-            # :TODO:07/12/2011 14:30:39:es: Separate out code that is concerned
-            # with model and server side storage into User.pm
-            #
             $s->authenticate( $q->param('username'), $q->param('password'),
                 \$error_string );
             if ( $s->is_authorized('unauth') ) {
-                my $chooseProj =
-                  SGX::ChooseProject->new( $dbh, $q,
-                    $s->{session_cookie}->{curr_proj} );
-
-                # no need to store the working project name in permanent storage
-                # (only store the working project id there) -- store it only in
-                # the session cookie (which is read every time session is
-                # initialized).
-
-                $s->session_cookie_store(
-                    proj_name => $chooseProj->lookupProjectName() );
+                my $chooseProj = SGX::ChooseProject->new(%controller_context);
+                $chooseProj->init();
+                $chooseProj->changeToCurrent();
 
                 my $destination =
                   ( defined( $q->url_param('destination') ) )
@@ -466,16 +402,6 @@ while ( defined($action) ) {
                 $action = FORM . LOGIN;
             }
         }
-        case CHOOSEPROJECT {
-            if ( $s->is_authorized('user') ) {
-                $title   = 'Choose Project';
-                $content = \&chooseProject;
-                $action  = undef;              # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
         case FORM . CHANGEEMAIL {
             if ( $s->is_authorized('unauth') ) {
                 $title   = 'Change Email';
@@ -512,7 +438,7 @@ while ( defined($action) ) {
                 $action = FORM . LOGIN;
             }
         }
-        case FORM . REGISTERUSER {
+        case FORM . REGISTER {
             if ( $s->is_authorized('unauth') ) {
                 $action = DEFAULT_ACTION;
             }
@@ -522,7 +448,7 @@ while ( defined($action) ) {
                 $action  = undef;                 # final state
             }
         }
-        case REGISTERUSER {
+        case REGISTER {
             if ( $s->is_authorized('unauth') ) {
                 $action = DEFAULT_ACTION;
             }
@@ -549,7 +475,7 @@ while ( defined($action) ) {
                     $action  = undef;                    # final state
                 }
                 else {
-                    $action = FORM . REGISTERUSER;
+                    $action = FORM . REGISTER;
                 }
             }
         }
@@ -594,21 +520,55 @@ while ( defined($action) ) {
                 $action = FORM . LOGIN;
             }
         }
+
+    #---------------------------------------------------------------------------
+    #  Protected static pages
+    #---------------------------------------------------------------------------
+        case SHOWSCHEMA {
+            if ( $s->is_authorized('user') ) {
+                $title   = 'Database Schema';
+                $content = \&schema;
+                $action  = undef;               # final state
+            }
+            else {
+                $action = FORM . LOGIN;
+            }
+        }
+
+    #---------------------------------------------------------------------------
+    #  Public static pages
+    #---------------------------------------------------------------------------
+        case HELP {
+
+            # :TODO:08/04/2011 12:29:39:es: Not using Wiki anymore -- correct
+            # this.
+
+            # will send a redirect header, so commit the session to data store
+            $s->commit();
+            print $q->redirect(
+                -uri    => $q->url( -base => 1 ) . './html/wiki/',
+                -status => 302,           # 302 Found
+                -cookie => $s->cookie_array()
+            );
+            $action = QUIT;
+        }
+        case ABOUT {
+            $title   = 'About';
+            $content = \&about;
+            $action  = undef;     # final state
+        }
         case QUIT {
 
             # perform cleanup and stop execution
             $dbh->disconnect;
             exit;
         }
-        case DEFAULT_ACTION {
+        else {
+
+            # default action -- DEFAULT_ACTION redirects here
             $title   = 'Main';
             $content = \&main;
             $action  = undef;    # final state
-        }
-        else {
-
-            # should not happen during normal operation
-            croak "Invalid action name specified: $action";
         }
     }
 }
@@ -1038,9 +998,7 @@ sub form_updateProfile {
         print $q->p(
             $q->a(
                 {
-                    -href => $q->url( -absolute => 1 ) . '?a=' 
-                      . FORM
-                      . CHOOSEPROJECT,
+                    -href  => $q->url( -absolute => 1 ) . '?a=' . CHOOSEPROJECT,
                     -title => 'Choose Project'
                 },
                 'Choose Project'
@@ -1076,7 +1034,7 @@ sub form_registerUser {
     # user cannot be logged in
     print $q->start_form(
         -method => 'POST',
-        -action => $q->url( absolute => 1 ) . '?a=' . REGISTERUSER,
+        -action => $q->url( absolute => 1 ) . '?a=' . REGISTER,
         -onsubmit =>
 'return validate_fields(this, [\'username\',\'password1\',\'password2\',\'email1\',\'email2\',\'full_name\']);'
       )
@@ -1231,14 +1189,6 @@ sub module_show_html {
     $loadModule->dispatch();
     return;
 }
-#######################################################################################
-sub chooseProject {
-    my $curr_proj = $s->{session_cookie}->{curr_proj};
-
-    my $cp = SGX::ChooseProject->new( $dbh, $q, $curr_proj );
-    $cp->dispatch( $q->url_param('projectAction') );
-    return;
-}
 
 #===  FUNCTION  ================================================================
 #         NAME:  build_side_menu
@@ -1277,7 +1227,7 @@ sub build_sidemenu {
           $q->span(
             { -style => 'color:#999' },
             "Current Project: $proj_name ("
-              . $q->a( { -href => $url_prefix . '?a=form_chooseProject' },
+              . $q->a( { -href => $url_prefix . '?a=' . CHOOSEPROJECT },
                 'change' )
               . ')'
           );
@@ -1314,9 +1264,7 @@ sub build_sidemenu {
           . $q->span( { -class => 'separator' }, ' / ' )
           . $q->a(
             {
-                -href => $q->url( -absolute => 1 ) . '?a=' 
-                  . FORM
-                  . REGISTERUSER,
+                -href => $q->url( -absolute => 1 ) . '?a=' . FORM . REGISTER,
                 -title => 'Set up a new account'
             },
             'Sign up'

@@ -304,7 +304,8 @@ sub init {
             # cache "studies" field
             my $platformStudies = $platform->{studies};
             foreach my $study ( keys %$platformStudies ) {
-                my $studyExperiments = $studies->{$study}->{experiments};
+                my $studyExperiments =
+                  ( $studies->{$study}->{experiments} || {} );
                 $platformStudies->{$study}->{experiments} = $studyExperiments;
 
                 # delete assigned experiments from unassigned

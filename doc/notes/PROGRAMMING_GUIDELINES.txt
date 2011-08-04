@@ -233,19 +233,29 @@ https://github.com/alexyoung/ico
 
 2. REST ARCHITECTURE
 
-2.1 REST: GET vs POST
+2.1 Form encoding
 
-Except for special cases (for example when file upload control is present), all
-forms should be sent as GET requests instead of POST. Whenever a form uses GET
-method, its 'enctype' attribute must be set to
-"application/x-www-form-urlencoded" ("multipart/form-data" which is default in
-CGI.pm creates a binary stream which doubles the traffic). Because URL
-parameters in the 'action' attribute of a form element may interfere with form
-input fields, instead of doing action="?x=blah" we should instead create a
-hidden field in the form that stores the desired value of "x". The above applies
-for GET forms only -- for POST forms, it is okay to specify URL parameters in
-the 'action' attribute directly as long as they are read with url_param on
-processing. 
+With CGI.pm, always pass "-enctype => 'application/x-www-form-urlencoded'"
+option to start_form() unless the form contains a file input field
+("multipart/form-data" which is default in CGI.pm creates a binary stream which
+doubles the traffic)
+
+2.2 HTTP Error Codes
+
+For reference on HTTP error codes, see REST cookbook, pp. 71-72.
+
+2.3 GET vs POST
+
+For forms, prefer GET method to POST unless (1) submitting the form modifies a
+resource on the server, or (2) requires the user to upload a file (i.e. when
+file upload control is present) or (3) sends large textual data to server (i.e.
+when textarea control is present or when hidden fields in the form could contain
+large amounts of data).  Because URL parameters in the 'action' attribute of a
+form element may interfere with form input fields, instead of doing
+action="?x=blah" we should instead create a hidden field in the form that stores
+the desired value of "x". The above applies for GET forms only -- for POST
+forms, it is okay to specify URL parameters in the 'action' attribute directly
+as long as they are read with url_param on processing. 
 
 The above entails that top-level and second-level "resources" should be read
 using CGI::url_param() while all other non-RESTful state information should be
@@ -257,27 +267,27 @@ identify unique and relatively permanent resources that are accessed more or
 less often. Such resources are, for example, first-level branches ('a='
 parameter) and ids of items in a collection.
 
-Plain URLs *must not* be used to affect resource states.  The following is a
-very short reason why: any plain link should be crawlable, regardless of whether
-it is behind password protection (one day, for specific reources, or even by
-accident, password protection may be removed, and we *really, really* do not
-want a web crawler to delete every resource on the site that has a delete link.
+Plain URLs *must not* be used to affect resource states.  Here is a very short
+reason why: any plain link should be crawlable, regardless of whether it is
+behind password protection (one day, for specific reources, or even by accident,
+password protection may be removed, and we *really, really* do not want a web
+crawler to delete every resource on the site that has a delete link).
 
-Instead of creating "Delete" and "Remove" links, we should be
-create forms with textual submit buttons. Alternatively, we could submit an AJAX
-POST request to delete these resources from the table. This would be in
-agreement with the "RESTful Web Services Cookbook" (pp. 13-15): "Use GET for
-safe and idempotent information retrieval. ... Use POST ... To create a new
-resource ... To modify one or more resources via a controller resource ... To
-run queries with large inputs ... To perform any unsafe or nonidempotent
-operation when no other HTTP method seems appropriate".
+Instead of creating "Delete" and "Remove" links, we should be create forms with
+textual submit buttons. Alternatively, we could submit an AJAX POST request to
+delete these resources from the table. This would be in agreement with the
+"RESTful Web Services Cookbook" (pp. 13-15): "Use GET for safe and idempotent
+information retrieval. ... Use POST ... To create a new resource ... To modify
+one or more resources via a controller resource ... To run queries with large
+inputs ... To perform any unsafe or nonidempotent operation when no other HTTP
+method seems appropriate".
 
-The URLs should be short enough and human readable enough
-that they could be modified by the user. Care should be taken that, in case a
-link is shared via email, the resulting page looks the same regardless of who
-the user is or what computer he or she uses. To achieve this goal, all state
-information should be expressly specified in the form of hidden fields in the
-form performing the GET request.
+The URLs should be short enough and human readable enough that they could be
+modified by the user. Care should be taken that, in case a link is shared via
+email, the resulting page looks the same regardless of who the user is or what
+computer he or she uses. To achieve this goal, all state information should be
+expressly specified in the form of hidden fields in the form performing the GET
+request.
 
 "The REST cookbook –- a fantastic write-up which I do strongly recommend –-
 suggests to identify commonly used search criteria and expose those queries as
@@ -303,10 +313,6 @@ parameters from the URL. If the form was submitted with POST but also had URL
 parameters thrown in too, then param() returns only the POSTed parameters and
 url_param() returns only the URL ones."
 http://www.garayed.com/perl/75096-cgi-pm-distinguish-between-post-get-3.html#post335175
-
-2.2 REST - Error Codes
-
-For reference on HTTP error codes, see REST cookbook, pp. 71-72.
 
 
 

@@ -232,7 +232,7 @@ sub init {
 
         # check for errors
         if ( my $error = $csv_in->error_diag() ) {
-            SGX::Abstract::Exception::User->throw(error => $error);
+            SGX::Abstract::Exception::User->throw( error => $error );
         }
     }
     else {
@@ -809,8 +809,8 @@ sub getFormHTML {
 
     return $q->start_form(
         -id      => 'main_form',
-        -method  => 'GET',
-        -action  => $q->url( absolute => 1 ),
+        -method  => 'POST',
+        -action  => $q->url( absolute => 1 ) . '?a=findProbes',
         -enctype => 'application/x-www-form-urlencoded'
       ),
       $q->h2('Find Probes'),
@@ -822,15 +822,14 @@ END_H2P_TEXT
         $q->dt( $q->label( { -for => 'terms' }, 'Search term(s):' ) ),
         $q->dd(
             $q->textarea(
-                -name     => 'terms',
-                -id       => 'terms',
-                -rows     => 10,
-                -columns  => 50,
-                -tabindex => 1
-            ),
-            $q->p(
-                { -style => 'color:#777' },
-'Multiple entries have to be separated by commas or be on separate lines'
+                -name    => 'terms',
+                -id      => 'terms',
+                -rows    => 10,
+                -columns => 50,
+                -title   => <<"END_terms_title"
+Enter list of terms to search. Multiple entries have to be separated by commas 
+or be on separate lines.
+END_terms_title
             )
         ),
         $q->dt( $q->label( { -for => 'type' }, 'Search type:' ) ),
@@ -840,35 +839,41 @@ END_H2P_TEXT
                 -id      => 'type',
                 -default => 'gene',
                 -values  => [ keys %{ $self->{_typeDesc} } ],
-                -labels  => $self->{_typeDesc}
+                -labels  => $self->{_typeDesc},
+                -title   => 'Choose which fields you would like to be searched.'
             )
         ),
         $q->dt('Pattern to match:'),
         $q->dd(
             $q->radio_group(
-                -tabindex  => 2,
                 -name      => 'match',
                 -linebreak => 'true',
                 -default   => 'full',
                 -values    => [ keys %{ $self->{_matchDesc} } ],
-                -labels    => $self->{_matchDesc}
+                -labels    => $self->{_matchDesc},
+                -title     => <<"END_match_title"
+Example of a regular expression: entering ^cyp.b into the Search Terms box above 
+and choosing "Gene Symbols" under Search Type would tell the database to 
+retrieve all genes starting with cyp.b where the period represents any one 
+character (either letter or digit).
+END_match_title
             ),
             $q->p( { -style => 'color:#777' }, <<"END_EXAMPLE_TEXT")
-* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with
-cyp.b where the period represents any one character (2, 3, 4, "a", etc.).  See
-<a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for
+* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with 
+cyp.b where the period represents any one character (2, 3, 4, "a", etc.).  See 
+<a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for 
 more examples.
 END_EXAMPLE_TEXT
         ),
-        $q->dt( $q->label( { -for => 'opts' }, 'Display options:' ) ),
+        $q->dt( $q->label( { -for => 'opts' }, 'Output options:' ) ),
         $q->dd(
             $q->popup_menu(
-                -tabindex => 3,
-                -name     => 'opts',
-                -id       => 'opts',
-                -values   => [ keys %opts_dropdown ],
-                -default  => '2',
-                -labels   => \%opts_dropdown
+                -name    => 'opts',
+                -id      => 'opts',
+                -values  => [ keys %opts_dropdown ],
+                -default => '2',
+                -labels  => \%opts_dropdown,
+                -title => 'Choose output format and how many fields to include'
             )
         ),
         $q->dt(
@@ -878,22 +883,20 @@ END_EXAMPLE_TEXT
         $q->dd(
             { -id => 'graph_values' },
             $q->checkbox(
-                -tabindex => 4,
-                -id       => 'graph',
-                -checked  => 0,
-                -name     => 'graph',
-                -label    => ''
-            ),
-            $q->span( { -style => 'color:#777;' }, <<"END_BROWSER_NOTICE")
-(Works best with Firefox; SVG support on Internet Explorer (IE) requires either
-IE 9 or Adobe SVG plugin)
+                -id      => 'graph',
+                -checked => 0,
+                -name    => 'graph',
+                -label   => '',
+                -title   => <<"END_BROWSER_NOTICE"
+Works best with Firefox or Safari. SVG support on Internet Explorer (IE) requires either 
+IE 9 or Adobe SVG plugin.
 END_BROWSER_NOTICE
+            ),
         ),
         $q->dt( { -id => 'graph_option_names' }, "Response variable:" ),
         $q->dd(
             { -id => 'graph_option_values' },
             $q->radio_group(
-                -tabindex  => 5,
                 -name      => 'trans',
                 -linebreak => 'true',
                 -default   => 'fold',
@@ -904,12 +907,11 @@ END_BROWSER_NOTICE
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'proj', -value => $curr_proj ),
-            $q->hidden( -name => 'a',    -value => 'findProbes' ),
             $q->submit(
-                -tabindex => 6,
-                -class    => 'css3button',
-                -name     => 'b',
-                -value    => 'Search'
+                -class => 'css3button',
+                -name  => 'b',
+                -value => 'Search',
+                -title => 'Search the database'
             )
         ),
       ),
