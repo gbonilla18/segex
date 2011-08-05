@@ -679,7 +679,7 @@ sub printFindProbeCSV {
 #######################################################################################
 sub getProbeList {
     my $self = shift;
-    return join( ',', keys %{ $self->{_ProbeHash} } );
+    return [ keys %{ $self->{_ProbeHash} } ];
 }
 #######################################################################################
 #Loop through the list of experiments we are displaying and get the information on each.

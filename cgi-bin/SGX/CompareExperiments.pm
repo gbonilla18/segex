@@ -491,8 +491,9 @@ sub getResultsJS {
         #warn "the code took:", timestr($td), "\n";
 
         # get list of probe record ids (rid)
-        $probeList          = $findProbes->getProbeList();
-        $probeListPredicate = " WHERE rid IN ($probeList) ";
+        my $probeList = $findProbes->getProbeList();
+        $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
+            ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
     }
     elsif ( $q->param('terms') ) {
 
@@ -512,8 +513,9 @@ sub getResultsJS {
         $findProbes->loadProbeData();
 
         # get list of probe record ids (rid)
-        $probeList          = $findProbes->getProbeList();
-        $probeListPredicate = " WHERE rid IN ($probeList) ";
+        my $probeList = $findProbes->getProbeList();
+        $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
+            ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
     }
 
     #If we are filtering, generate the SQL statement for the rid's.
