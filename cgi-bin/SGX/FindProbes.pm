@@ -723,6 +723,7 @@ FROM experiment
 INNER JOIN StudyExperiment USING(eid)
 INNER JOIN study USING(stid)
 $whereSQL
+ORDER BY study.stid ASC, experiment.eid ASC
 END_query_titles_element
 
     my $sth = $self->{_dbh}->prepare($query_titles);
