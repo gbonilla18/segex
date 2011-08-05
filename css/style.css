@@ -142,6 +142,8 @@ dl dd {
 }
 /*** buttons that look like links: *****/
 .plaintext {
+	display:inline;
+	text-align:left;
 	color: #00f;
 	background-color: transparent;
 	border-width: 0; 

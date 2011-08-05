@@ -337,9 +337,13 @@ sub getFormHTML {
       $q->dl(
         $q->dt('Add experiment from platform:'),
         $q->dd(
-            $q->popup_menu( -name => 'platform', -id => 'platform' ),
+'<button id="add_experiment" class="plaintext">Add experiment</button>',
             $q->span( { -class => 'separator' }, ' : ' ),
-            '<button id="add_experiment" class="plaintext">Add experiment</button>'
+            $q->popup_menu(
+                -name  => 'platform',
+                -id    => 'platform',
+                -style => 'display:inline;'
+            )
         )
       ),
       $q->start_form(
