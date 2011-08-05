@@ -141,15 +141,15 @@ dl dd {
 	/*color:#777;*/
 }
 /*** buttons that look like links: *****/
-input.plaintext {
+.plaintext {
 	color: #00f;
 	background-color: transparent;
 	border-width: 0; 
 	cursor: pointer;
 }
-input.plaintext:focus { outline: none; }
-input.plaintext:hover { color:#f00; }
-input.plaintext:active { color:#fff; background:#55f; }
+.plaintext:focus { outline: none; }
+.plaintext:hover { color:#f00; }
+.plaintext:active { color:#fff; background:#55f; }
 
 /****** begin Javascript form validation */
 form dl dd.error input, form dl dd.error textarea {
