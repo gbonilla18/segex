@@ -608,7 +608,7 @@ sub getHTML {
                 ),
                 $q->submit(
                     -name  => 'b',
-                    -class => 'css3button',
+                    -class => 'button black bigrounded',
                     -value => 'Load',
                     -title => 'Show matching experiments'
                 ),

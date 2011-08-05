@@ -552,7 +552,7 @@ sub showStudies {
             $q->hidden( -name => 'a', -value => 'manageStudies' ),
             $q->submit(
                 -name  => 'b',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Load',
                 -title => 'Get studies for the selected platform'
             )
@@ -610,7 +610,7 @@ sub form_createStudy {
         $q->dd(
             $q->submit(
                 -name  => 'b',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Create Study'
             )
         )
@@ -829,7 +829,7 @@ sub editStudy {
         $q->dd(
             $q->submit(
                 -name  => 'b',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Set Attributes'
             )
         )
@@ -873,7 +873,7 @@ sub editStudy {
         $q->dd(
             $q->submit(
                 -name  => 'b',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Assign Experiment'
             )
         )

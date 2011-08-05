@@ -278,7 +278,7 @@ sub getFormHTML {
         $q->dd(
             $q->submit(
                 -name  => 'b',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Change',
                 -title => 'Change your working project to the selected one'
             )

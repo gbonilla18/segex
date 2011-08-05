@@ -718,7 +718,7 @@ sub showProjects {
             $q->submit(
                 -name  => 'AddProject',
                 -id    => 'AddProject',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Add Project'
             )
         )
@@ -914,7 +914,7 @@ sub editProject {
             $q->submit(
                 -name  => 'editSaveProject',
                 -id    => 'editSaveProject',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Save Edits'
             )
         )
@@ -964,7 +964,7 @@ sub editProject {
                 -name  => 'AddExistingStudy',
                 -id    => 'AddExistingStudy',
                 -value => 'Add Study',
-                -class => 'css3button'
+                -class => 'button black bigrounded'
             )
         )
       ),
@@ -990,7 +990,7 @@ sub editProject {
             $q->submit(
                 -name  => 'AddUnassignedStudy',
                 -id    => 'AddUnassignedStudy',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Add Study'
             )
         )

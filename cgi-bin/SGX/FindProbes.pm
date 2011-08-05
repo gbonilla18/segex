@@ -909,7 +909,7 @@ END_BROWSER_NOTICE
         $q->dd(
             $q->hidden( -name => 'proj', -value => $curr_proj ),
             $q->submit(
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -name  => 'b',
                 -value => 'Search',
                 -title => 'Search the database'

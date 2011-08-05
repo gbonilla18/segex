@@ -595,7 +595,7 @@ sub form_uploadAnnot {
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -id => 'fields', -name => 'fields' ),
-            $q->submit( -class => 'css3button', -value => 'Upload' )
+            $q->submit( -class => 'button black bigrounded', -value => 'Upload' )
         )
       ),
       $q->end_form;

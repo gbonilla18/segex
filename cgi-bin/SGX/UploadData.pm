@@ -392,7 +392,7 @@ END_TEXT2
             $q->submit(
                 -name  => 'b',
                 -id    => 'b',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Upload'
             )
         )

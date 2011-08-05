@@ -475,7 +475,7 @@ sub getTableHTML {
         $q->dd(
             $q->submit(
                 -name  => 'b',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Add'
             )
         )

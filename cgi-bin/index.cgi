@@ -758,7 +758,7 @@ sub form_login {
             $q->submit(
                 -name  => 'login',
                 -id    => 'login',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Login'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),
@@ -791,7 +791,7 @@ sub form_resetPassword {
             $q->submit(
                 -name  => 'resetPassword',
                 -id    => 'resetPassword',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Email new password'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),
@@ -875,7 +875,7 @@ sub form_changePassword {
             $q->submit(
                 -name  => 'changePassword',
                 -id    => 'changePassword',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Change password'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),
@@ -954,7 +954,7 @@ sub form_changeEmail {
             $q->submit(
                 -name  => 'changeEmail',
                 -id    => 'changeEmail',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Change email'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),
@@ -1080,7 +1080,7 @@ sub form_registerUser {
             $q->submit(
                 -name  => 'registerUser',
                 -id    => 'registerUser',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Register'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),

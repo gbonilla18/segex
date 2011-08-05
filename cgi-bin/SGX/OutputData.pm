@@ -350,7 +350,7 @@ sub showForm {
             $q->submit(
                 -name  => 'b',
                 -id    => 'b',
-                -class => 'css3button',
+                -class => 'button black bigrounded',
                 -value => 'Load',
                 -title => 'Get data for selected experiments'
             )
