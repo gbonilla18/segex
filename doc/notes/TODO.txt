@@ -5,8 +5,6 @@ a particular experiment needs to be released but other experiments from the same
 study need to stay private, the given # experiment will have to be referenced to
 from a separate, "public" study (can be a virtual link).
 
-*) abstract out reliance on local /js/ path in modules under SGX/.
-
 *) Write tests?
 
 *) Concern about concepts used in SEGEX -- will these concepts be defined in a
@@ -34,9 +32,6 @@ same type/platform, "experiment" is actually a plate.
 object is in many ways similar to ManageProjects. Formalize this similarity and
 abstract it away (to superclass perhaps?).
 
-*) UI: when no pull-down menus have no items in them, do not show the pulldowns
-at all.
-
 *) Installation: automate file copying: have user provide only two directories:
 CGI_ROOT and DOCUMENTS_ROOT. Create the subtree containing css/, images/, and
 js/ directories under DOCUMENTS_ROOT and the subtree corresponding to cgi-bin
@@ -46,13 +41,6 @@ under CGI_ROOT.
 Working Project ids), it is now possible to recover expired sessions by storing
 the session id in permanent storage. Implementing this would help keep
 "sessions" table small.
-
-*) The following does not seem to work: Although both ^Cyp2b and ^Cyp4b are
-present in the database, only Cyp2b-prefixed genes show up in the following
-query:
-http://localhost/cgi-bin/segex/index.cgi?text=Cyp2b%0D%0ACyp4b&type=gene&match=prefix&opts=1&trans=fold&a=Search
-Need to rewrite text box content on submission of Find Probes form, to replace
-new lines with commas before anything is sent to the server.
 
 *) Project ID must be an URL parameter for the Compare Experiments module,
 otherwise execution and results will be state-dependent, which will cause
@@ -138,17 +126,14 @@ Experiments would also generate table in ManageStudies (or vice versa).
 editing study fields, (b) assigning existing experiment, (c) adding new
 experiment.
 
-*) Two more modules remaining to refactor for use with %controller_context:
-ChooseProject.pm and TFSDisplay.pm
+*) One more module remaining to refactor for use with %controller_context:
+TFSDisplay.pm
 
 *) Consider using a Tree View instead of multiple levels of dropdown boxes. YUI
 has a Tree View control available. Doing so would make sense -- consider the
 following hierarchy:
 	species -> platform -> study -> experiment
 It's four levels deep!
-
-*) In the CREATE TABLE definition for platform, treat species value as undefined
-when set to empty string -- NOT NULL DEFAULT '';
 
 *) Right now have two methods -- perm_cookie_store() and session_cookie_store()
 for cookie storage. They both take a direct hash. perm_cookie_store() saves data

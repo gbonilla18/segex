@@ -60,6 +60,8 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
+    ${$param{title}} = 'Find Probes';
+
     my %type_dropdown;
     my $type_dropdown_t = tie(
         %type_dropdown, 'Tie::IxHash',

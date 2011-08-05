@@ -49,6 +49,8 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
+    ${$param{title}} = 'Compare Experiments';
+
     my $self = {
         _dbh         => $dbh,
         _cgi         => $q,
@@ -338,7 +340,7 @@ sub getFormHTML {
         $q->dt('Add experiment from platform:'),
         $q->dd(
 '<button id="add_experiment" class="plaintext">Add experiment</button>',
-            $q->span( { -class => 'separator' }, ' : ' ),
+            $q->span( { -class => 'separator' }, ':' ),
             $q->popup_menu(
                 -name  => 'platform',
                 -id    => 'platform',

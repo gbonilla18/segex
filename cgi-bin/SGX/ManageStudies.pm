@@ -33,6 +33,7 @@ use Carp::Assert;
 use Switch;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::JSEmitter;
+use SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageStudies
@@ -52,6 +53,8 @@ sub new {
 
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+
+    ${$param{title}} = 'Manage Studies';
 
     my $self = {
         _dbh         => $dbh,

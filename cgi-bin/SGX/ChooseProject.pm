@@ -51,6 +51,8 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
+    ${$param{title}} = 'Change Project';
+
     my $self = {
         _dbh         => $dbh,
         _cgi         => $q,

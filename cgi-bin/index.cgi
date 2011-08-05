@@ -27,17 +27,7 @@ use SGX::Config;    # all configuration for our project goes here
 
 use SGX::Session::User 0.07;       # user authentication, sessions and cookies
 use SGX::Session::Session 0.08;    # email verification
-use SGX::ManagePlatforms;
-use SGX::ManageProjects;
-use SGX::ManageStudies;
-use SGX::ManageExperiments;
-use SGX::OutputData;
 use SGX::TFSDisplay;
-use SGX::FindProbes;
-use SGX::ChooseProject;
-use SGX::CompareExperiments;
-use SGX::UploadData;
-use SGX::UploadAnnot;
 
 #---------------------------------------------------------------------------
 #  User Authentication
@@ -47,11 +37,11 @@ my $softwareVersion = '0.2.4';
 my $dbh = sgx_db_connect();
 my $s   = SGX::Session::User->new(
     dbh       => $dbh,
-    expire_in => 3600,    # expire in 3600 seconds (1 hour)
+    expire_in => 3600,             # expire in 3600 seconds (1 hour)
     check_ip  => 1
 );
 
-$s->restore();            # restore old session if it exists
+$s->restore();                     # restore old session if it exists
 
 #---------------------------------------------------------------------------
 #  Main
@@ -76,7 +66,8 @@ my %controller_context = (
     cgi          => $q,
     user_session => $s,
     js_src_yui   => \@js_src_yui,
-    js_src_code  => \@js_src_code
+    js_src_code  => \@js_src_code,
+    title        => \$title
 );
 
 # this will be a reference to a subroutine that displays the main content
@@ -87,41 +78,70 @@ my $content;
 # but then the URIs would not be human-readable anymore.
 # ===== User Management ==================================
 # this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
-use constant FORM              => 'form_';
-use constant LOGIN             => 'login';
-use constant LOGOUT            => 'logout';
-use constant DEFAULT_ACTION    => '';
-use constant UPDATEPROFILE     => 'updateProfile';
-use constant MANAGEPLATFORMS   => 'managePlatforms';
-use constant MANAGEPROJECTS    => 'manageProjects';
-use constant MANAGESTUDIES     => 'manageStudies';
-use constant MANAGEEXPERIMENTS => 'manageExperiments';
-use constant OUTPUTDATA        => 'outputData';
-use constant CHANGEPASSWORD    => 'changePassword';
-use constant CHANGEEMAIL       => 'changeEmail';
-use constant CHOOSEPROJECT     => 'chooseProject';
-use constant RESETPASSWORD     => 'resetPassword';
-use constant REGISTER          => 'registerUser';
-use constant VERIFYEMAIL       => 'verifyEmail';
-use constant QUIT              => 'quit';
+use constant FORM           => 'form_';
+use constant LOGIN          => 'login';
+use constant LOGOUT         => 'logout';
+use constant DEFAULT_ACTION => '';
+use constant UPDATEPROFILE  => 'updateProfile';
+use constant CHANGEPASSWORD => 'changePassword';
+use constant CHANGEEMAIL    => 'changeEmail';
+use constant RESETPASSWORD  => 'resetPassword';
+use constant REGISTER       => 'registerUser';
+use constant VERIFYEMAIL    => 'verifyEmail';
+use constant QUIT           => 'quit';
+use constant SHOWSCHEMA     => 'showSchema';
+use constant HELP           => 'help';
+use constant ABOUT          => 'about';
 
-#use constant DUMP               => 'dump';
-use constant DOWNLOADTFS        => 'getTFS';
-use constant SHOWSCHEMA         => 'showSchema';
-use constant HELP               => 'help';
-use constant ABOUT              => 'about';
-use constant COMPAREEXPERIMENTS => 'compareExperiments';    # submit button text
-use constant FINDPROBES         => 'findProbes';            # submit button text
-use constant UPLOADANNOT        => 'uploadAnnot';
-use constant UPLOADDATA         => 'uploadData';
+use constant DOWNLOADTFS => 'getTFS';
+
+# this table maps action names ('?a=' URL parameter) to module paths
+my %dispatch_table = (
+    uploadAnnot        => 'SGX::UploadAnnot',
+    uploadData         => 'SGX::UploadData',
+    chooseProject      => 'SGX::ChooseProject',
+    managePlatforms    => 'SGX::ManagePlatforms',
+    manageProjects     => 'SGX::ManageProjects',
+    manageStudies      => 'SGX::ManageStudies',
+    manageExperiments  => 'SGX::ManageExperiments',
+    outputData         => 'SGX::OutputData',
+    compareExperiments => 'SGX::CompareExperiments',
+    findProbes         => 'SGX::FindProbes'
+);
 
 my $loadModule;
 
-# :TRICKY:08/02/2011 13:10:53:es: need to use url_param instead of param here
-# for successful login -- why?
 my $action =
   ( defined( $q->url_param('a') ) ) ? $q->url_param('a') : DEFAULT_ACTION;
 
+#---------------------------------------------------------------------------
+#  This is our own super-cool custom action dispatcher and dynamic loader
+#---------------------------------------------------------------------------
+my $module = $dispatch_table{$action};
+if ( defined $module ) {
+    $loadModule = eval {
+
+        # convert Perl path to system path and load the file
+        ( my $file = $module ) =~ s/::/\//g;
+        require "$file.pm";    ## no critic
+        $module->new(%controller_context);
+    } or do {
+        my $error = $@;
+        die "Error on loading $module. Error returned: $error";
+    };
+    if ( $loadModule->dispatch_js() ) {
+        $content = \&module_show_html;
+        $action  = undef;                # final state
+    }
+    else {
+        $action = FORM . LOGIN;
+    }
+}
+
+#---------------------------------------------------------------------------
+#  State machine loop -- this will be refactored so that this loop will not be
+#  needed...
+#---------------------------------------------------------------------------
 while ( defined($action) ) {
 
     # :TRICKY:07/12/2011 14:51:01:es: always undefine $action at the end of
@@ -129,121 +149,6 @@ while ( defined($action) ) {
     # block that will undefine $action on its own. If you don't undefine
     # $action, this loop will go on forever!
     switch ($action) {
-
-    #---------------------------------------------------------------------------
-    #  Everything that uses %controller_context
-    #---------------------------------------------------------------------------
-        case UPLOADANNOT {
-            $loadModule = SGX::UploadAnnot->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $content = \&module_show_html;
-                $title   = 'Upload Annotations';
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case UPLOADDATA {
-            $loadModule = SGX::UploadData->new(%controller_context);
-
-            if ( $loadModule->dispatch_js() ) {
-                $content = \&module_show_html;
-                $title   = 'Upload Data';
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case CHOOSEPROJECT {
-            $loadModule = SGX::ChooseProject->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $content = \&module_show_html;
-                $title   = 'Change Project';
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case MANAGEPLATFORMS {
-            $loadModule = SGX::ManagePlatforms->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $content = \&module_show_html;
-                $title   = 'Platforms';
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case MANAGEPROJECTS {
-            $loadModule = SGX::ManageProjects->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $content = \&module_show_html;
-                $title   = 'Projects';
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case MANAGESTUDIES {
-            $loadModule = SGX::ManageStudies->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $content = \&module_show_html;
-                $title   = 'Studies';
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case MANAGEEXPERIMENTS {
-            $loadModule = SGX::ManageExperiments->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $content = \&module_show_html;
-                $title   = 'Experiments';
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case OUTPUTDATA {
-            $loadModule = SGX::OutputData->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $content = \&module_show_html;
-                $title   = 'Output Data';
-                $action  = undef;                  # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-        case COMPAREEXPERIMENTS {
-            $loadModule = SGX::CompareExperiments->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $title   = 'Compare Experiments';
-                $content = \&module_show_html;
-                $action  = undef;
-            }
-            else {
-                $action = FORM . LOGIN;    # final state
-            }
-        }
-        case FINDPROBES {
-            $loadModule = SGX::FindProbes->new(%controller_context);
-            if ( $loadModule->dispatch_js() ) {
-                $title   = 'Find Probes';
-                $content = \&module_show_html;
-                $action  = undef;                # final state
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
         case DOWNLOADTFS {
 
             # :TODO:08/04/2011 12:25:51:es: refactor this to use
@@ -287,6 +192,7 @@ while ( defined($action) ) {
             $s->authenticate( $q->param('username'), $q->param('password'),
                 \$error_string );
             if ( $s->is_authorized('unauth') ) {
+                require SGX::ChooseProject;
                 my $chooseProj = SGX::ChooseProject->new(%controller_context);
                 $chooseProj->init();
                 $chooseProj->changeToCurrent();
@@ -998,7 +904,7 @@ sub form_updateProfile {
         print $q->p(
             $q->a(
                 {
-                    -href  => $q->url( -absolute => 1 ) . '?a=' . CHOOSEPROJECT,
+                    -href  => $q->url( -absolute => 1 ) . '?a=chooseProject',
                     -title => 'Choose Project'
                 },
                 'Choose Project'
@@ -1227,8 +1133,7 @@ sub build_sidemenu {
           $q->span(
             { -style => 'color:#999' },
             "Current Project: $proj_name ("
-              . $q->a( { -href => $url_prefix . '?a=' . CHOOSEPROJECT },
-                'change' )
+              . $q->a( { -href => $url_prefix . '?a=chooseProject' }, 'change' )
               . ')'
           );
         push @menu,
@@ -1320,7 +1225,7 @@ sub build_menu {
         push @{ $menu{$view} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . COMPAREEXPERIMENTS,
+                -href  => $url_prefix . '?a=compareExperiments',
                 -title => 'Select samples to compare'
             },
             'Compare Experiments'
@@ -1328,7 +1233,7 @@ sub build_menu {
         push @{ $menu{$view} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . FINDPROBES,
+                -href  => $url_prefix . '?a=findProbes',
                 -title => 'Search for probes'
             },
             'Find Probes'
@@ -1336,7 +1241,7 @@ sub build_menu {
         push @{ $menu{$view} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . OUTPUTDATA,
+                -href  => $url_prefix . '?a=outputData',
                 -title => 'Output Data'
             },
             'Output Data'
@@ -1346,7 +1251,7 @@ sub build_menu {
         push @{ $menu{$upload} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . UPLOADDATA,
+                -href  => $url_prefix . '?a=uploadData',
                 -title => 'Upload data to a new experiment'
             },
             'Upload Data'
@@ -1354,7 +1259,7 @@ sub build_menu {
         push @{ $menu{$upload} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . UPLOADANNOT,
+                -href  => $url_prefix . '?a=uploadAnnot',
                 -title => 'Upload Probe Annotations'
             },
             'Upload Annotation'
@@ -1364,7 +1269,7 @@ sub build_menu {
         push @{ $menu{$manage} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . MANAGEPLATFORMS,
+                -href  => $url_prefix . '?a=managePlatforms',
                 -title => 'Manage Platforms'
             },
             'Manage Platforms'
@@ -1372,7 +1277,7 @@ sub build_menu {
         push @{ $menu{$manage} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . MANAGEPROJECTS,
+                -href  => $url_prefix . '?a=manageProjects',
                 -title => 'Manage Projects'
             },
             'Manage Projects'
@@ -1380,7 +1285,7 @@ sub build_menu {
         push @{ $menu{$manage} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . MANAGESTUDIES,
+                -href  => $url_prefix . '?a=manageStudies',
                 -title => 'Manage Studies'
             },
             'Manage Studies'
@@ -1388,7 +1293,7 @@ sub build_menu {
         push @{ $menu{$manage} },
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . MANAGEEXPERIMENTS,
+                -href  => $url_prefix . '?a=manageExperiments',
                 -title => 'Manage Experiments'
             },
             'Manage Experiments'

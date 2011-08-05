@@ -43,12 +43,12 @@ from all studies" onclick="return deleteConfirmation(\
 
         YAHOO.util.Dom.get("caption").innerHTML = caption;
         var myColumnDefs = [
-            {key:"3", sortable:true, resizeable:true, label:"No."},
+            {key:"3", sortable:true, resizeable:true, label:"#"},
             {key:"0", sortable:true, resizeable:true, label:"Sample 1", editor:createExperimentCellUpdater("sample1")},
             {key:"1", sortable:true, resizeable:true, label:"Sample 2", editor:createExperimentCellUpdater("sample2")},
             {key:"2", sortable:true, resizeable:true, label:"Probe Count"},
-            {key:"5", sortable:false, resizeable:true, label:"Experiment", editor:createExperimentCellUpdater("ExperimentDescription")},
-            {key:"6", sortable:false, resizeable:true, label:"Experiment: Additional Info", editor:createExperimentCellUpdater("AdditionalInformation")},
+            {key:"5", sortable:true, resizeable:true, label:"Experiment", editor:createExperimentCellUpdater("ExperimentDescription")},
+            {key:"6", sortable:true, resizeable:true, label:"Experiment: Additional Info", editor:createExperimentCellUpdater("AdditionalInformation")},
             {key:"3", sortable:false, resizeable:true, label:"Unassign\/Delete", formatter:"formatExperimentDeleteLink"},
             {key:"7", sortable:true, resizeable:true, label:"Study"},
             {key:"8", sortable:true, resizeable:true, label:"Platform"}

@@ -53,6 +53,8 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
+    ${$param{title}} = 'Manage Experiments';
+
     # :TODO:07/01/2011 04:02:51:es: To find out the number of probes for each
     # experiment, run separate queries for better performance
     my $self = {
