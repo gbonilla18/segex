@@ -339,11 +339,7 @@ sub getFormHTML {
         $q->dd(
             $q->popup_menu( -name => 'platform', -id => 'platform' ),
             $q->span( { -class => 'separator' }, ' : ' ),
-            $q->button(
-                -value => 'Add experiment',
-                -class => 'plaintext',
-                -id    => 'add_experiment'
-            )
+            $q->a( { -id => 'add_experiment' }, 'Add experiment' )
         )
       ),
       $q->start_form(
