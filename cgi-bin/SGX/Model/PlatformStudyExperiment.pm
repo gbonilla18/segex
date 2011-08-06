@@ -75,7 +75,7 @@ use strict;
 use warnings;
 
 #use SGX::Debug qw/assert/;
-use Data::Dumper;
+#use Data::Dumper;
 use Hash::Merge qw/merge/;
 use SGX::Abstract::Exception;
 

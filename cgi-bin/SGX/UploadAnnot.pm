@@ -243,7 +243,7 @@ sub uploadAnnot {
 
         # if the assertion below fails, the field specified by the user
         # either doesn't exist or is protected.
-        assert( $probe_fields{$_} || $gene_fields{$_} );
+        die if !( $probe_fields{$_} || $gene_fields{$_} );
 
         if ( $probe_fields{$_} ) {
             $col{ $probe_fields{$_} } = $i;

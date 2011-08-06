@@ -20,14 +20,14 @@ package SGX::CompareExperiments;
 use strict;
 use warnings;
 
-use Benchmark;
+#use Benchmark;
+#use Data::Dumper;
 use Switch;
 use URI::Escape;
 use JSON::XS;
 use Tie::IxHash;
 use SGX::Debug qw/assert/;
 use SGX::FindProbes;
-use Data::Dumper;
 use SGX::Abstract::Exception;
 use SGX::Abstract::JSEmitter;
 use SGX::Util qw/count_gtzero max/;
@@ -839,12 +839,12 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     YAHOO.widget.DataTable.Formatter.formatDownload = function(elCell, oRecord, oColumn, oData) {
         var fs = oRecord.getData("0");
-        elCell.innerHTML = "<input class=\"plaintext\" type=\"submit\" name=\"get\" value=\"TFS: " + fs + "\" />&nbsp;&nbsp;&nbsp;<input class=\"plaintext\" type=\"submit\" name=\"CSV\" value=\"(TFS: " + fs + " CSV)\" />";
+        elCell.innerHTML = "<input class=\"plaintext\" type=\"submit\" name=\"get\" value=\"TFS " + fs + " (HTML)\" />&nbsp;&nbsp;&nbsp;<input class=\"plaintext\" type=\"submit\" name=\"get\" value=\"TFS " + fs + " (CSV)\" />";
     }
     Dom.get("tfs_caption").innerHTML = tfs.caption;
     Dom.get("tfs_all_dt").innerHTML = "View data for '
       . $rep_count . ' probes:";
-    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"HTML-formatted\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"CSV\" value=\"CSV-formatted\" />";
+    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"TFS (HTML)\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"get\" value=\"TFS (CSV)\" />";
     var tfs_table_defs = [
 ' . $tfs_defs . '
     ];

@@ -30,13 +30,13 @@ package SGX::ManageProjects;
 use strict;
 use warnings;
 
-use SGX::Debug;
+#use Data::Dumper;
+#use SGX::Debug qw/assert/;
+use Switch;
 use SGX::DropDownData;
 use SGX::Abstract::Exception;
 use SGX::Abstract::JSEmitter;
 
-use Switch;
-use Data::Dumper;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects

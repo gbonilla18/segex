@@ -29,7 +29,7 @@ package SGX::OutputData;
 
 use strict;
 use warnings;
-use Data::Dumper;
+#use Data::Dumper;
 use Switch;
 use JSON::XS;
 use SGX::Model::PlatformStudyExperiment;

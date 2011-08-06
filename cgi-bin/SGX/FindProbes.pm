@@ -30,19 +30,13 @@ use strict;
 use warnings;
 
 use Switch;
-use CGI::Carp;
 use Tie::IxHash;
-use Data::Dumper;
 use File::Basename;
 use JSON::XS;
 use File::Temp;
 use SGX::Abstract::Exception;
-use List::Util qw/min/;
-use SGX::Util qw/all_match/;
+use SGX::Util qw/all_match trim min/;
 use SGX::Model::PlatformStudyExperiment;
-
-use SGX::Util qw/trim/;
-use SGX::Debug qw/assert/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
@@ -60,7 +54,7 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
-    ${$param{title}} = 'Find Probes';
+    ${ $param{title} } = 'Find Probes';
 
     my %type_dropdown;
     my $type_dropdown_t = tie(
@@ -335,18 +329,24 @@ sub _setSearchPredicate {
 
     switch ($match) {
         case 'full' {
-            $predicate = 'IN (' . join( ',', map { '?' } @$items ) . ')';
-            $qtext = [@$items];
+            my $inner =
+              ( @$items > 0 ) ? join( ',', map { '?' } @$items ) : 'NULL';
+            $predicate = "IN ($inner)";
+            $qtext     = [@$items];
         }
         case 'prefix' {
-            $predicate = 'REGEXP ?';
-            $qtext = [ join( '|', map { "^$_" } @$items ) ];
+            $predicate = ( @$items > 0 ) ? 'REGEXP ?' : 'IN (NULL)';
+            $qtext =
+              ( @$items > 0 ) ? [ join( '|', map { "^$_" } @$items ) ] : [];
         }
         case 'part' {
-            $predicate = 'REGEXP ?';
-            $qtext = [ join( '|', @$items ) ];
+            $predicate = ( @$items > 0 ) ? 'REGEXP ?' : 'IN (NULL)';
+            $qtext = ( @$items > 0 ) ? [ join( '|', @$items ) ] : [];
         }
-        else { croak "Invalid match value $match" }
+        else {
+            SGX::Abstract::Exception::Internal->throw(
+                error => "Invalid match value $match\n" );
+        }
     }
 
     $self->{_Predicate}   = $predicate;
@@ -1021,8 +1021,6 @@ END_ProbeQuery
 sub build_ProbeQuery {
     my ( $self, %p ) = @_;
     my $sql_select_fields = '';
-
-    assert( defined( $p{extra_fields} ) );
 
     if ( $p{extra_fields} == 1 ) {
 

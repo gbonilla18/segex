@@ -29,7 +29,7 @@ package SGX::ManageExperiments;
 use strict;
 use warnings;
 
-use Data::Dumper;
+#use Data::Dumper;
 use Switch;
 use URI::Escape;
 use SGX::Model::PlatformStudyExperiment;

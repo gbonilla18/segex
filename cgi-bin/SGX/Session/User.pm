@@ -136,8 +136,8 @@ http://www.opensource.org/licenses/artistic-license-2.0.php
 package SGX::Session::User;
 
 # :TODO:07/31/2011 15:38:04:es: scan this module for error handling mechanisms
-# that involve calling assert() or setting $$error dereferenced variable.
-# Replace all those cases with exceptions.
+# that involve setting $$error dereferenced variable.  Replace all those cases
+# with exceptions.
 #
 use strict;
 use warnings;
@@ -147,12 +147,12 @@ use vars qw($VERSION);
 $VERSION = '0.11';
 
 use base qw/SGX::Session::Cookie/;
+
+#use Data::Dumper;
 use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
-use SGX::Debug;
 use SGX::Abstract::Exception;
 use SGX::Session::Session;    # for email confirmation
-use Data::Dumper;
 use Email::Address;
 
 #===  CLASS METHOD  ============================================================
@@ -368,7 +368,11 @@ END_RESET_PWD_MSG
     my $rows_affected = $dbh->do( 'update users set pwd=? where uname=?',
         undef, sha1_hex($new_pwd), $username );
 
-    assert( $rows_affected == 1 );
+    if ( $rows_affected != 1 ) {
+        SGX::Abstract::Exception::Internal->throw( error =>
+"Expected to find one user with login $username but $rows_affected rows were updated\n"
+        );
+    }
 
     return 1;
 
@@ -431,25 +435,25 @@ sub change_password {
     $new_password1 = sha1_hex($new_password1);
     $old_password  = sha1_hex($old_password);
     my $username = $self->{session_stash}->{username};
-    assert($username);
+    if ( !defined($username) || $username eq '' ) {
+        SGX::Abstract::Exception::Internal->throw( error =>
+"Expected to see a defined username in session data but none was found\n"
+        );
+    }
 
     my $rows_affected =
       $self->{dbh}->do( 'update users set pwd=? where uname=? and pwd=?',
         undef, $new_password1, $username, $old_password );
 
-    if ( $rows_affected == 1 ) {
-        return 1;
-    }
-    else {
-        if ( $rows_affected == 0 ) {
-            $$error =
+    if ( $rows_affected == 0 ) {
+        $$error =
 'The password was not changed. Please try again and make sure you entered your old password correctly.';
-        }
-        else {
-            assert(undef);    # should never happen
-        }
-        return;
     }
+    elsif ( $rows_affected > 1 ) {
+        SGX::Abstract::Exception::Internal::Duplicate->throw( error =>
+              "Expected one user record but encountered $rows_affected.\n" );
+    }
+    return $rows_affected;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -498,7 +502,11 @@ sub change_email {
 
     $password = sha1_hex($password);
     my $username = $self->{session_stash}->{username};
-    assert( defined($username) );
+    if ( !defined($username) || $username eq '' ) {
+        SGX::Abstract::Exception::Internal->throw( error =>
+"Expected to see a defined username in session data but none was found\n"
+        );
+    }
 
     my $full_name = $self->{session_cookie}->{full_name};
 
@@ -618,7 +626,6 @@ sub register_user {
 
     my $sth = $self->{dbh}->prepare('select count(*) from users where uname=?');
     my $row_count = $sth->execute($username);
-    assert( $row_count == 1 );
     my ($user_found) = $sth->fetchrow_array;
     $sth->finish();
     if ($user_found) {
@@ -636,8 +643,6 @@ sub register_user {
         $address,
         $phone
     );
-
-    assert( $rows_affected == 1 );
 
     $self->send_verify_email(
         project_name => $project_name,
@@ -701,10 +706,10 @@ sub send_verify_email {
 
     return unless $s->commit();
 
-#---------------------------------------------------------------------------
-#  email the confirmation link
-#---------------------------------------------------------------------------
-        
+    #---------------------------------------------------------------------------
+    #  email the confirmation link
+    #---------------------------------------------------------------------------
+
     my $msg = Mail::Send->new(
         Subject => "Please confirm your email address with $project_name",
         To      => $email
@@ -757,8 +762,12 @@ sub verify_email {
       $self->{dbh}->do( 'update users set email_confirmed=1 WHERE uname=?',
         undef, $username );
 
-    assert( $rows_affected == 1 );
-    return 1;
+    if ( $rows_affected != 1 ) {
+        SGX::Abstract::Exception::Internal->throw( error =>
+"Expected to find one user record for login $username but $rows_affected were found.\n"
+        );
+    }
+    return $rows_affected;
 }
 
 #===  CLASS METHOD  ============================================================

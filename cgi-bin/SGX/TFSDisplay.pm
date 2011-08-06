@@ -28,9 +28,11 @@ package SGX::TFSDisplay;
 use strict;
 use warnings;
 
+#use Data::Dumper;
+use Switch;
 use Math::BigInt;
-use Data::Dumper;
 use JSON::XS;
+use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::TFSDisplay
@@ -43,45 +45,266 @@ use JSON::XS;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, $dbh, %param ) = @_;
+    my ( $class, %param ) = @_;
+
+    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
+      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+
+    ${ $param{title} } = 'View Slice';
 
     my $self = {
-        _dbh             => $dbh,
-        _cgi             => $param{cgi},
-        _UserSession     => $param{user_session},
-        _Records         => '',
-        _RecordsPlatform => '',
-        _RowCountAll     => 0,
-        _headerTitles    => '',
-        _headerRecords   => '',
-        _headerCount     => 0,
-        _PlatformCount   => '',
-        _DataPlatform    => '',
-        _Data            => '',
-        _eids            => '',
-        _reverses        => '',
-        _fcs             => '',
-        _pvals           => '',
-        _fs              => '',
-        _outType         => '',
-        _numStart        => 0,
-        _opts            => '',
-        _allProbes       => '',
-        _searchFilters   => ''
+        _dbh         => $dbh,
+        _cgi         => $q,
+        _UserSession => $s,
+        _js_src_yui  => $js_src_yui,
+        _js_src_code => $js_src_code,
+
+        # model
+        _Records       => '',
+        _RowCountAll   => 0,
+        _headerRecords => '',
+        _DataPlatform  => '',
+        _Data          => '',
+
+        # form data
+        _eids          => '',
+        _reverses      => '',
+        _fcs           => '',
+        _pvals         => '',
+        _fs            => '',
+        _outType       => '',
+        _numStart      => 0,
+        _opts          => '',
+        _allProbes     => '',
+        _searchFilters => ''
     };
 
+    bless $self, $class;
+
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  dispatch
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  executes code appropriate for the given action
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch {
+    my ($self) = @_;
+
+    print $self->getHTML();
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  dispatch_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Write JSON model
+#       THROWS:  no exceptions
+#     COMMENTS:  The most important thing this function *must not* do is print
+#                to browser window.
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch_js {
+    my ($self) = @_;
+
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+
     # find out what the current project is set to
-    if ( defined( $self->{_UserSession} ) ) {
-        $self->{_WorkingProject} =
-          $self->{_UserSession}->{session_cookie}->{curr_proj};
-        $self->{_WorkingProjectName} =
-          $self->{_UserSession}->{session_cookie}->{proj_name};
-        $self->{_UserFullName} =
-          $self->{_UserSession}->{session_cookie}->{full_name};
+    $self->getSessionOverrideCGI();
+
+    $self->loadDataFromSubmission();
+    my $action = ( defined $self->{_format} ) ? $self->{_format} : '';
+
+    switch ($action) {
+        case 'CSV' {
+            return unless $s->is_authorized('user');
+
+            $s->commit();
+            $self->getPlatformData();
+            $self->loadAllData();
+
+            # :TODO:08/06/2011 14:25:39:es: instead of printing directly to
+            # browser window in the function below, have it return a string
+            $self->displayTFSInfoCSV();
+
+            exit;
+        }
+        case 'HTML' {
+            return unless $s->is_authorized('user');
+
+            push @$js_src_yui,
+              (
+                'yahoo-dom-event/yahoo-dom-event.js',
+                'element/element-min.js',
+                'paginator/paginator-min.js',
+                'datasource/datasource-min.js',
+                'datatable/datatable-min.js',
+                'yahoo/yahoo.js'
+              );
+
+            $self->loadTFSData();
+            push @$js_src_code, { -code => $self->displayTFSInfo() };
+        }
+        else {
+            SGX::Abstract::Exception::Internal->throw( error =>
+                  "Do not know how to handle parameter value get=$action.\n" );
+        }
+    }
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  TFSDisplay
+#       METHOD:  getHTML
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getHTML {
+    my $self = shift;
+
+    my $q = $self->{_cgi};
+
+    return
+      $q->h2( { -id => 'summary_caption' }, '' ),
+      $q->div( $q->a( { -id => 'summ_astext' }, 'View as plain text' ) ),
+      $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
+      $q->h2( { -id => 'tfs_caption' }, '' ),
+      $q->div( $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
+      $q->div( { -id => 'tfs_table', -class => 'table_cont' } );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  loadDataFromSubmission
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  LOAD DATA FROM FORM
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub loadDataFromSubmission {
+    my $self = shift;
+
+    my $q = $self->{_cgi};
+
+    # The $self->{_fs} parameter is the flagsum for which the data will be
+    # filtered If the $self->{_fs} is zero or undefined, all data will be
+    # output.
+    my $split_on_commas = qr/\s*,\s*/;
+    my @eidsArray       = split( $split_on_commas, $q->param('eid') );
+    my @reversesArray   = split( $split_on_commas, $q->param('rev') );
+    my @fcsArray        = split( $split_on_commas, $q->param('fc') );
+    my @pvalArray       = split( $split_on_commas, $q->param('pval') );
+
+    $self->{_eids}     = \@eidsArray;
+    $self->{_reverses} = \@reversesArray;
+    $self->{_fcs}      = \@fcsArray;
+    $self->{_pvals}    = \@pvalArray;
+
+    $self->{_allProbes}     = $q->param('allProbes');
+    $self->{_searchFilters} = $q->param('searchFilter');
+    $self->{_fs}            = $q->param('get');
+    $self->{_outType}       = $q->param('outType');
+    $self->{_opts}          = $q->param('opts');
+
+    my $get   = $q->param('get');
+    my $regex = qr/^\s*TFS\s*(\d*)\s*\((CSV|HTML)\)\s*$/i;
+
+    if ( $get =~ m/$regex/i ) {
+        ( $self->{_fs}, $self->{_format} ) = ( $1, $2 );
+    }
+    else {
+        ( $self->{_fs}, $self->{_format} ) = ( undef, undef );
+    }
+    if ($self->{_fs} eq '') {
+        $self->{_fs} = undef;
     }
 
-    bless $self, $class;
-    return $self;
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  getSessionOverrideCGI
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Gets full user name from session and full project name from CGI
+#                parameters or session in that order. Also sets project id.
+#       THROWS:  SGX::Abstract::Exception::Internal, Class::Exception::DBI
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getSessionOverrideCGI {
+    my ($self) = @_;
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+
+    # For user name, just look it up from the session
+    $self->{_UserFullName} =
+      ( defined $s )
+      ? $s->{session_cookie}->{full_name}
+      : '';
+
+    # :TRICKY:06/28/2011 13:47:09:es: We implement the following behavior: if,
+    # in the URI option string, "proj" is set to some value (e.g. "proj=32") or
+    # to an empty string (e.g. "proj="), we set the data field _WorkingProject
+    # to that value; if the "proj" option is missing from the URI, we use the
+    # value of "curr_proj" from session data. This allows us to have all
+    # portions of the data accessible via a REST-style interface regardless of
+    # current user preferences.
+    if ( defined( my $cgi_proj = $q->param('proj') ) ) {
+        $self->{_WorkingProject} = $cgi_proj;
+        if ( $cgi_proj ne '' ) {
+
+            # now need to obtain project name from the database
+            my $sth =
+              $dbh->prepare(qq{SELECT prname FROM project WHERE prid=?});
+            my $rc = $sth->execute($cgi_proj);
+            if ( $rc == 1 ) {
+
+                # project exists in the database
+                $self->{_WorkingProject} = $cgi_proj;
+                ( $self->{_WorkingProjectName} ) = $sth->fetchrow_array;
+            }
+            elsif ( $rc < 1 ) {
+
+                # project doesn't exist in the database
+                $self->{_WorkingProject}     = '';
+                $self->{_WorkingProjectName} = '';
+            }
+            else {
+                SGX::Abstract::Exception::Internal->throw( error =>
+"More than one result returned where unique was expected\n"
+                );
+            }
+            $sth->finish;
+        }
+        else {
+            $self->{_WorkingProjectName} = '';
+        }
+    }
+    elsif ( defined $s ) {
+        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
+        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
+    }
+    else {
+        $self->{_WorkingProject}     = '';
+        $self->{_WorkingProjectName} = '';
+    }
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -96,37 +319,6 @@ sub new {
 #===============================================================================
 sub loadTFSData {
     my $self = shift;
-
-    # The $output_format parameter is either 'html' or 'text'; The $self->{_fs}
-    # parameter is the flagsum for which the data will be filtered If the
-    # $self->{_fs} is zero or undefined, all data will be output
-    #
-    my $regex_split_on_commas = qr/ *, */;
-    my @eidsArray =
-      split( $regex_split_on_commas, $self->{_cgi}->param('eid') );
-    my @reversesArray =
-      split( $regex_split_on_commas, $self->{_cgi}->param('rev') );
-    my @fcsArray = split( $regex_split_on_commas, $self->{_cgi}->param('fc') );
-    my @pvalArray =
-      split( $regex_split_on_commas, $self->{_cgi}->param('pval') );
-
-    $self->{_eids}     = \@eidsArray;
-    $self->{_reverses} = \@reversesArray;
-    $self->{_fcs}      = \@fcsArray;
-    $self->{_pvals}    = \@pvalArray;
-
-    $self->{_allProbes}     = $self->{_cgi}->param('allProbes');
-    $self->{_searchFilters} = $self->{_cgi}->param('searchFilter');
-    $self->{_fs}            = $self->{_cgi}->param('get');
-    $self->{_outType}       = $self->{_cgi}->param('outType');
-    $self->{_opts}          = $self->{_cgi}->param('opts');
-
-    if ( $self->{_fs} =~ m/^HTML-formatted$/i ) {
-        undef $self->{_fs};
-    }
-    else {
-        $self->{_fs} =~ s/^TFS: //i;
-    }
 
     # Build the SQL query that does the TFS calculation
     my $having =
@@ -159,9 +351,7 @@ sub loadTFSData {
 
         #The EID is actually STID|EID. We need to split the string on '|' and
         #extract the app
-        my @IDSplit     = split( /\|/, $eid );
-        my $currentSTID = $IDSplit[0];
-        my $currentEID  = $IDSplit[1];
+        my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
 
         my ( $fc, $pval ) =
           ( $self->{_fcs}->[ $i - 1 ], $self->{_pvals}->[ $i - 1 ] );
@@ -235,11 +425,11 @@ END_query_titles
         $i++;
     }
 
-    $self->{_headerTitles} =
-      $self->{_dbh}->prepare( join( ' UNION ALL ', @query_titles ) );
-    $self->{_headerCount}   = $self->{_headerTitles}->execute;
-    $self->{_headerRecords} = $self->{_headerTitles}->fetchall_hashref('eid');
-    $self->{_headerTitles}->finish;
+    my $dbh = $self->{_dbh};
+    my $sth = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
+    my $rc  = $sth->execute;
+    $self->{_headerRecords} = $sth->fetchall_hashref('eid');
+    $sth->finish;
 
     if ( $self->{_opts} > 1 ) {
         $self->{_numStart} += 3;
@@ -301,6 +491,8 @@ END_query
 sub getPlatformData {
     my $self = shift;
 
+    my $dbh = $self->{_dbh};
+
     my @eidList;
     foreach ( @{ $self->{_eids} } ) {
 
@@ -309,7 +501,10 @@ sub getPlatformData {
         push @eidList, $currentEID;
     }
 
-    my $placeholders = join( ',', map { '?' } @eidList );
+    my $placeholders =
+      ( @eidList > 0 )
+      ? join( ',', map { '?' } @eidList )
+      : 'NULL';
 
   # :TODO:07/25/2011 02:39:05:es: Since experiments from different platforms
   # cannot be comoared using Compare Experiments, this query is a little bit too
@@ -335,49 +530,11 @@ WHERE experiment.eid  IN ($placeholders)
 GROUP BY platform.pid
 END_LoadQuery
 
-    $self->{_RecordsPlatform} = $self->{_dbh}->prepare($singleItemQuery);
-    $self->{_PlatformCount}   = $self->{_RecordsPlatform}->execute(@eidList);
-    $self->{_FieldNames}      = $self->{_RecordsPlatform}->{NAME};
-    $self->{_DataPlatform}    = $self->{_RecordsPlatform}->fetchall_arrayref;
-    $self->{_RecordsPlatform}->finish;
-
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::TFSDisplay
-#       METHOD:  loadDataFromSubmission
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  LOAD DATA FROM FORM
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub loadDataFromSubmission {
-    my $self = shift;
-
-    my $q = $self->{_cgi};
-
-    # The $self->{_fs} parameter is the flagsum for which the data will be
-    # filtered If the $self->{_fs} is zero or undefined, all data will be
-    # output.
-    my $split_on_commas = qr/\s*,\s*/;
-    my @eidsArray       = split( $split_on_commas, $q->param('eid') );
-    my @reversesArray   = split( $split_on_commas, $q->param('rev') );
-    my @fcsArray        = split( $split_on_commas, $q->param('fc') );
-    my @pvalArray       = split( $split_on_commas, $q->param('pval') );
-
-    $self->{_eids}     = \@eidsArray;
-    $self->{_reverses} = \@reversesArray;
-    $self->{_fcs}      = \@fcsArray;
-    $self->{_pvals}    = \@pvalArray;
-
-    $self->{_fs}            = $q->param('get');
-    $self->{_outType}       = $q->param('outType');
-    $self->{_opts}          = $q->param('opts');
-    $self->{_allProbes}     = $q->param('allProbes');
-    $self->{_searchFilters} = $q->param('searchFilter');
+    my $sth = $dbh->prepare($singleItemQuery);
+    my $rc  = $sth->execute(@eidList);
+    $self->{_FieldNames}   = $sth->{NAME};
+    $self->{_DataPlatform} = $sth->fetchall_arrayref;
+    $sth->finish;
 
     return 1;
 }
@@ -395,26 +552,6 @@ sub loadDataFromSubmission {
 sub loadAllData {
     my $self = shift;
 
-    if ( defined( $self->{_fs} ) ) {
-        if ( $self->{_fs} =~ m/^HTML-formatted$/i ) {
-            undef $self->{_fs};
-        }
-        else {
-            $self->{_fs} =~ s/^FS: //i;
-        }
-    }
-
-    if ( defined( $self->{_cgi}->param('CSV') ) ) {
-        if ( $self->{_cgi}->param('CSV') =~ m/^(CSV)$/i ) {
-            undef $self->{_fs};
-        }
-        else {
-            if ( $self->{_cgi}->param('CSV') =~ m/^\(TFS\:\s*(\d*)\s*CSV\)/i ) {
-                $self->{_fs} = $1;
-            }
-        }
-    }
-
     #This is the different parts of the experiment and titles query.
     my @query_body;
     my @query_proj;
@@ -430,10 +567,7 @@ sub loadAllData {
     my $i = 1;
 
     foreach my $eid ( @{ $self->{_eids} } ) {
-        my @IDSplit = split( /\|/, $eid );
-
-        my $currentSTID = $IDSplit[0];
-        my $currentEID  = $IDSplit[1];
+        my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
 
         my ( $fc, $pval ) =
           ( ${ $self->{_fcs} }[ $i - 1 ], ${ $self->{_pvals} }[ $i - 1 ] );
@@ -549,11 +683,11 @@ ORDER BY abs_fs DESC
 END_queryCSV
 
     #Run the query for the experiment headers.
-    $self->{_headerTitles} =
-      $self->{_dbh}->prepare( join( ' UNION ALL ', @query_titles ) );
-    $self->{_headerCount}   = $self->{_headerTitles}->execute;
-    $self->{_headerRecords} = $self->{_headerTitles}->fetchall_hashref('eid');
-    $self->{_headerTitles}->finish;
+    my $dbh = $self->{_dbh};
+    my $sth = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
+    my $rc  = $sth->execute;
+    $self->{_headerRecords} = $sth->fetchall_hashref('eid');
+    $sth->finish;
 
     #Run the query for the actual data records.
     $self->{_Records}     = $self->{_dbh}->prepare($query);
@@ -609,6 +743,7 @@ sub displayTFSInfoCSV {
     print
 "Platform, FC-cutoff, P-cutoff, Species, Is Annotated, Probe Count, Sequences Loaded, Accession Numbers, Gene Symbols, Gene Names\n";
 
+    # :TODO:08/06/2011 14:37:20:es: replace this with Text::CSV
     #Print Platform info.
     foreach my $row ( @{ $self->{_DataPlatform} } ) {
         print join(
@@ -634,8 +769,8 @@ sub displayTFSInfoCSV {
     #Print Experiment info.
     for ( my $i = 0 ; $i < @{ $self->{_eids} } ; $i++ ) {
 
-        my @IDSplit = split( /\|/, ${ $self->{_eids} }[$i] );
-        my $currentEID = $IDSplit[1];
+        my ( $currentSTID, $currentEID ) =
+          split( /\|/, ${ $self->{_eids} }[$i] );
 
         my @currentLine = (
             $currentEID,
@@ -725,8 +860,7 @@ sub displayTFSInfoCSV {
     );
 
     foreach my $eid ( @{ $self->{_eids} } ) {
-        my @IDSplit = split( /\|/, $eid );
-        my $currentEID = $IDSplit[1];
+        my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
 
         push @currentLine,
           (
@@ -760,6 +894,8 @@ sub displayTFSInfoCSV {
                 )
             )
         );
+
+        # :TODO:08/06/2011 14:38:16:es: Replace this block with Text::CSV
         print "$TFS,", join(
             ',',
             map {
@@ -798,8 +934,8 @@ records:
     my @tmpArrayHead;
     for ( $i = 0 ; $i < @{ $self->{_eids} } ; $i++ ) {
 
-        my @IDSplit = split( /\|/, ${ $self->{_eids} }[$i] );
-        my $currentEID = $IDSplit[1];
+        my ( $currentSTID, $currentEID ) =
+          split( /\|/, ${ $self->{_eids} }[$i] );
 
         my $this_eid     = $self->{_headerRecords}->{$currentEID};
         my $currentTitle = $this_eid->{title};
@@ -929,7 +1065,7 @@ records:
         push @tmpArray, { 0 => $TFS, map { $_ => $row[ $_ - 1 ] } 1 .. @row };
     }
     $self->{_Records}->finish;
-    $out .= encode_json( \@tmpArray ) . '
+    return $out . encode_json( \@tmpArray ) . '
 };
 
 YAHOO.util.Event.addListener("summ_astext", "click", export_table, summary, true);
@@ -992,7 +1128,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
 });
 ';
-    $out;
 }
 
 1;

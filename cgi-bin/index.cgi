@@ -27,7 +27,6 @@ use SGX::Config;    # all configuration for our project goes here
 
 use SGX::Session::User 0.07;       # user authentication, sessions and cookies
 use SGX::Session::Session 0.08;    # email verification
-use SGX::TFSDisplay;
 
 #---------------------------------------------------------------------------
 #  User Authentication
@@ -93,8 +92,6 @@ use constant SHOWSCHEMA     => 'showSchema';
 use constant HELP           => 'help';
 use constant ABOUT          => 'about';
 
-use constant DOWNLOADTFS => 'getTFS';
-
 # this table maps action names ('?a=' URL parameter) to module paths
 my %dispatch_table = (
     uploadAnnot        => 'SGX::UploadAnnot',
@@ -106,7 +103,8 @@ my %dispatch_table = (
     manageExperiments  => 'SGX::ManageExperiments',
     outputData         => 'SGX::OutputData',
     compareExperiments => 'SGX::CompareExperiments',
-    findProbes         => 'SGX::FindProbes'
+    findProbes         => 'SGX::FindProbes',
+    getTFS             => 'SGX::TFSDisplay'
 );
 
 my $loadModule;
@@ -127,7 +125,7 @@ if ( defined $module ) {
         $module->new(%controller_context);
     } or do {
         my $error = $@;
-        die "Error on loading $module. Error returned: $error";
+        die "Error loading module $module. Error message returned was:\n\n$error";
     };
     if ( $loadModule->dispatch_js() ) {
         $content = \&module_show_html;
@@ -149,32 +147,6 @@ while ( defined($action) ) {
     # block that will undefine $action on its own. If you don't undefine
     # $action, this loop will go on forever!
     switch ($action) {
-        case DOWNLOADTFS {
-
-            # :TODO:08/04/2011 12:25:51:es: refactor this to use
-            # %controller_context
-            if ( $s->is_authorized('user') ) {
-                $title = 'View Slice';
-
-                push @js_src_yui,
-                  (
-                    'yahoo-dom-event/yahoo-dom-event.js',
-                    'element/element-min.js',
-                    'paginator/paginator-min.js',
-                    'datasource/datasource-min.js',
-                    'datatable/datatable-min.js',
-                    'yahoo/yahoo.js'
-                  );
-                push @js_src_code, { -code => show_tfs_js() };
-
-                $content = \&show_tfs;
-                $action  = undef;
-            }
-            else {
-                $action = FORM . LOGIN;
-            }
-        }
-
     #---------------------------------------------------------------------------
     #  User stuff
     #---------------------------------------------------------------------------
@@ -1058,38 +1030,7 @@ sub schema {
 #    $sth->finish;
 #    return;
 #}
-#######################################################################################
 
-sub show_tfs_js {
-
-    if ( defined( $q->param('CSV') ) ) {
-        $s->commit();
-        my $TFSDisplay =
-          SGX::TFSDisplay->new( $dbh, cgi => $q, user_session => $s );
-        $TFSDisplay->loadDataFromSubmission();
-        $TFSDisplay->getPlatformData();
-        $TFSDisplay->loadAllData();
-        return $TFSDisplay->displayTFSInfoCSV();
-    }
-    else {
-        my $TFSDisplay =
-          SGX::TFSDisplay->new( $dbh, cgi => $q, user_session => $s );
-        $TFSDisplay->loadDataFromSubmission();
-        $TFSDisplay->loadTFSData();
-        return $TFSDisplay->displayTFSInfo();
-    }
-}
-#######################################################################################
-
-sub show_tfs {
-    print '<h2 id="summary_caption"></h2>';
-    print '<div><a id="summ_astext">View as plain text</a></div>';
-    print '<div id="summary_table" class="table_cont"></div>';
-    print '<h2 id="tfs_caption"></h2>';
-    print '<div><a id="tfs_astext">View as plain text</a></div>';
-    print '<div id="tfs_table" class="table_cont"></div>';
-    return;
-}
 #######################################################################################
 sub module_show_html {
     $loadModule->dispatch();

@@ -169,7 +169,9 @@ sub tie_session {
     # throw exception -- attempting to tie a session to a hash that's currently
     # occupied
     if ( $self->session_is_tied() ) {
-        SGX::Abstract::Exception::Internal::Session->throw( error => 'Cannot tie to session hash: another session is currently active');
+        SGX::Abstract::Exception::Internal::Session->throw( error =>
+              'Cannot tie to session hash: another session is currently active'
+        );
     }
 
     # Tie session_obj. Catch exceptions -- failure here is normal.
@@ -182,7 +184,10 @@ sub tie_session {
     };
     if ( $ret && !$@ ) {
         my $generated_id = $self->{session_obj}->{_session_id};
-        assert( $generated_id eq $id ) if defined($id);
+        if ( defined($id) && !( $generated_id eq $id ) ) {
+            SGX::Abstract::Exception::Internal::Session->throw(
+                error => 'Internal error' );
+        }
         return 1;
     }
     else {
@@ -257,7 +262,8 @@ sub checkin {
     if ( !$self->session_is_tied() ) {
 
         # Internal error -- no session tied
-        SGX::Abstract::Exception::Internal::Session->throw( error => 'No session attached: cannot checkin');
+        SGX::Abstract::Exception::Internal::Session->throw(
+            error => 'No session attached: cannot checkin' );
     }
 
     my $curr_time = now();
@@ -315,8 +321,11 @@ sub stash_session {
 
     # _session_id is the only required value in object
     my $session_id = $self->get_session_id();
-    assert( defined($session_id) );
 
+    if ( !defined($session_id) ) {
+        SGX::Abstract::Exception::Internal::Session->throw(
+            error => 'Undefined session id' );
+    }
     return $session_id;
 }
 
@@ -332,12 +341,6 @@ sub stash_session {
 #===============================================================================
 sub get_session_id {
     my $self = shift;
-
-    # after untying, session_obj becomes an empty hash
-    # so the assertion below will always fail:
-    #
-    #assert($self->{session_stash}->{_session_id} eq
-    #    $self->{session_obj}->{_session_id}) if ($self->{session_obj});
 
     return $self->{session_stash}->{_session_id};
 }
@@ -356,7 +359,8 @@ sub recover {
     my ( $self, $id ) = @_;
 
     if ( !defined($id) ) {
-        SGX::Abstract::Exception::Internal::Session->throw( error => 'Cannot recover session from unspecified id');
+        SGX::Abstract::Exception::Internal::Session->throw(
+            error => 'Cannot recover session from unspecified id' );
     }
 
     if ( !$self->tie_session($id) ) {
@@ -416,10 +420,12 @@ sub init_session {
     my $self = shift;
 
     if ( !defined( $self->{session_obj}->{_session_id} ) ) {
-        SGX::Abstract::Exception::Internal::Session->throw( error => 'Session hash does not contain required field _session_id');
+        SGX::Abstract::Exception::Internal::Session->throw( error =>
+              'Session hash does not contain required field _session_id' );
     }
     if ( !$self->session_is_tied() ) {
-        SGX::Abstract::Exception::Internal::Session->throw( error => 'Cannot initialize untied session hash');
+        SGX::Abstract::Exception::Internal::Session->throw(
+            error => 'Cannot initialize untied session hash' );
     }
 
     # New session has been started. Store remote user IP address if
@@ -431,7 +437,12 @@ sub init_session {
     $self->{session_obj}->{tla} = now();
 
     # debugging mode: must pass checkin()
-    assert( $self->checkin() );
+    my $ok = $self->checkin();
+
+    if ( !$ok ) {
+        SGX::Abstract::Exception::Internal::Session->throw(
+            error => 'Cannot checkin' );
+    }
 
     return;
 }

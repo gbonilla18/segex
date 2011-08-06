@@ -29,10 +29,11 @@ package SGX::ManageStudies;
 use strict;
 use warnings;
 
-use Carp::Assert;
+#use Carp::Assert;
 use Switch;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::JSEmitter;
+use SGX::Abstract::Exception;
 use SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
@@ -54,7 +55,7 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
-    ${$param{title}} = 'Manage Studies';
+    ${ $param{title} } = 'Manage Studies';
 
     my $self = {
         _dbh         => $dbh,
@@ -760,7 +761,11 @@ sub removeExperiment {
       $dbh->prepare('DELETE FROM StudyExperiment WHERE stid=? AND eid=?');
     my $rc = $sth->execute( $self->{_stid}, $self->{_deleteEid} );
     $sth->finish;
-    assert( $rc == 1 );
+
+    if ( $rc != 1 ) {
+        SGX::Abstract::Exception::Internal->throw(
+            error => "Expected one record but $rc were removed\n" );
+    }
     return 1;
 }
 
@@ -901,9 +906,12 @@ sub addExistingExperiment {
 
     my $rc = $sth->execute( $self->{_SelectedExperiment}, $self->{_stid} );
     $sth->finish;
-    assert( $rc == 1 );
 
-    return 1;
+    if ( $rc != 1 ) {
+        SGX::Abstract::Exception::Internal->throw(
+            error => "Expected one record but $rc were inserted\n" );
+    }
+    return $rc;
 }
 
 #######################################################################################
@@ -1059,8 +1067,11 @@ sub editSubmitStudy {
     my $rc =
       $sth->execute( $self->{_description}, $self->{_pubmed}, $self->{_stid} );
     $sth->finish;
-    assert( $rc == 1 );
 
+    if ( $rc != 1 ) {
+        SGX::Abstract::Exception::Internal->throw(
+            error => "Expected one record but $rc were updated\n" );
+    }
     return 1;
 }
 

@@ -19,6 +19,6 @@ BEGIN {
     carpout($LOG);
 }
 
-our @EXPORT = qw(assert);
+our @EXPORT_OK = qw(assert);
 
 1;

@@ -29,8 +29,8 @@ package SGX::ChooseProject;
 use strict;
 use warnings;
 
+#use Data::Dumper;
 use Switch;
-use Data::Dumper;
 use SGX::DropDownData;
 
 #use DBI;

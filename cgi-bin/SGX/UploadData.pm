@@ -564,8 +564,6 @@ sub probesPerPlatform {
     my $sth = $dbh->prepare('SELECT COUNT(*) FROM probe WHERE pid=?');
     my $rc  = $sth->execute($pid);
 
-    #assert( $rc == 1 );
-
     my ($count) = $sth->fetchrow_array;
     $sth->finish;
 
