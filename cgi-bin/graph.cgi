@@ -5,10 +5,8 @@ use warnings;
 
 use lib qw/./;
 
+#use Data::Dumper;
 use CGI;
-use Switch;
-use Data::Dumper;
-use SGX::Debug;
 use SGX::Config;
 use SGX::Util qw/label_format bounds/;
 use SGX::Session::User 0.07;    # user authentication, sessions and cookies
@@ -18,11 +16,11 @@ use SGX::Session::User 0.07;    # user authentication, sessions and cookies
 my $dbh = sgx_db_connect();
 my $s   = SGX::Session::User->new(
     dbh       => $dbh,
-    expire_in => 3600,    # expire in 3600 seconds (1 hour)
+    expire_in => 3600,          # expire in 3600 seconds (1 hour)
     check_ip  => 1
 );
 
-$s->restore;              # restore old session if it exists
+$s->restore;                    # restore old session if it exists
 
 my $q         = new CGI;
 my $reporter  = $q->param('reporter');
@@ -52,24 +50,20 @@ my $sql_trans;
 my $sql_cutoff;
 my $ytitle_text;
 my $middle_label;
-switch ($transform) {
-    case 'fold' {
-        $y_start      = 1;
-        $sql_trans    = 'if(foldchange>0,foldchange-1,foldchange+1)';
-        $sql_cutoff   = '(def_f_cutoff-1)';
-        $ytitle_text  = 'Fold Change';
-        $middle_label = '&#177;1';
-    }
-    case 'ln' {
-        $y_start    = 0;
-        $sql_trans  = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
-        $sql_cutoff = 'log2(def_f_cutoff)';
-        $ytitle_text  = 'Log2 of Intensity Ratio';
-        $middle_label = '0';
-    }
-    else {
-        assert(0);
-    }
+
+if ( $transform eq 'ln' ) {
+    $y_start      = 0;
+    $sql_trans    = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
+    $sql_cutoff   = 'log2(def_f_cutoff)';
+    $ytitle_text  = 'Log2 of Intensity Ratio';
+    $middle_label = '0';
+} else {
+    # default: $transform eq 'fold'
+    $y_start      = 1;
+    $sql_trans    = 'if(foldchange>0,foldchange-1,foldchange+1)';
+    $sql_cutoff   = '(def_f_cutoff-1)';
+    $ytitle_text  = 'Fold Change';
+    $middle_label = '&#177;1';
 }
 
 ####################################################################
@@ -102,6 +96,7 @@ my $rowcount = $sth->execute(@exec_array_title);
 if ( $rowcount == 0 ) {
     warn "Probe $reporter does not exist in the database";
 }
+
 #elsif ($rowcount > 1) {
 #    warn "More than one record found with reporter ID $reporter";
 #}
@@ -182,11 +177,10 @@ my $golden_ratio =
   1.61803399;    # space between bars is wider than the bars by golden ratio
 my $bar_width =
   $body_width / ( @y * ( 1 + $golden_ratio ) + $golden_ratio );    # bar width
-my ( $min_data, $max_data ) = bounds( @y );
+my ( $min_data, $max_data ) = bounds(@y);
 $max_data = ( $max_data > $cutoff )  ? $max_data : $cutoff;
 $min_data = ( $min_data < -$cutoff ) ? $min_data : -$cutoff;
 my $spread = $max_data - $min_data;
-assert( $spread > 0 );
 my $body_prop = 0.9;
 my $scale     = $body_prop * $body_height / $spread;
 my $wspace    = ( 1 - $body_prop ) / 2 * $body_height;
@@ -221,11 +215,11 @@ for ( my $i = 0 ; $i < @y ; $i++ ) {
         $leg_class = 'legendLabel legendNALabel';
         $yvalue    = 0;
     }
-    my $top       = $xaxisy - $scale * $yvalue;
+    my $top = $xaxisy - $scale * $yvalue;
 
 #$xlabels .= "<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" transform=\"rotate(270 $text_left $label_shift)\">".$labels[$i]."</text>\n";
     $xlabels .=
-        "<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" transform=\"rotate(270 $text_left $label_shift)\">"
+"<text x=\"$text_left\" y=\"$label_shift\" class=\"$lab_class\" transform=\"rotate(270 $text_left $label_shift)\">"
       . $exp_ids[$i]
       . "</text>\n";
     $legend .=
