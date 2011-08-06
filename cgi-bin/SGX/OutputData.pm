@@ -29,6 +29,7 @@ package SGX::OutputData;
 
 use strict;
 use warnings;
+
 #use Data::Dumper;
 use Switch;
 use JSON::XS;
@@ -50,7 +51,7 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
-    ${$param{title}} = 'Output Data';
+    ${ $param{title} } = 'Output Data';
 
     my $self = {
         _dbh         => $dbh,
@@ -122,7 +123,10 @@ sub dispatch_js {
                 studies         => 1,
                 experiments     => 1,
                 extra_platforms => { 'all' => { name => '@All Platforms' } },
-                extra_studies => { 'all' => { name => '@All Studies' } }
+                extra_studies   => {
+                    'all' => { name => '@All Studies' },
+                    ''    => { name => '@Unassigned Experiments' }
+                }
             );
             push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
             push @$js_src_code, { -code => $self->getDropDownJS() };
@@ -340,7 +344,7 @@ sub showForm {
                 -title =>
 'You can select multiple experiments here by holding down Control or Command key before clicking.',
                 -multiple => 'multiple',
-                -size => 7
+                -size     => 7
             )
         ),
         $q->dt('&nbsp;'),

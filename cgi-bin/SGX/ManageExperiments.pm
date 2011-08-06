@@ -53,7 +53,7 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
-    ${$param{title}} = 'Manage Experiments';
+    ${ $param{title} } = 'Manage Experiments';
 
     # :TODO:07/01/2011 04:02:51:es: To find out the number of probes for each
     # experiment, run separate queries for better performance
@@ -163,7 +163,10 @@ sub dispatch_js {
                 experiments       => 1,
                 platform_by_study => 1,
                 extra_platforms   => { 'all' => { name => '@All Platforms' } },
-                extra_studies     => { 'all' => { name => '@All Studies' } }
+                extra_studies     => {
+                    'all' => { name => '@All Studies' },
+                    ''    => { name => '@Unassigned Experiments' }
+                }
             );
             $self->init();
             $self->loadAllExperimentsFromStudy();
@@ -581,24 +584,24 @@ sub getHTML {
     my @return_array = (
         $q->h2('Manage Experiments'),
         $q->start_form(
-            -method => 'GET',
-            -action => $q->url( -absolute => 1 ),
+            -method  => 'GET',
+            -action  => $q->url( -absolute => 1 ),
             -enctype => 'application/x-www-form-urlencoded'
         ),
         $q->dl(
             $q->dt('Platform:'),
             $q->dd(
                 $q->popup_menu(
-                    -name => 'pid',
-                    -id   => 'pid',
+                    -name  => 'pid',
+                    -id    => 'pid',
                     -title => 'Choose a microarray platform'
                 )
             ),
             $q->dt('Study:'),
             $q->dd(
                 $q->popup_menu(
-                    -name => 'stid',
-                    -id   => 'stid',
+                    -name  => 'stid',
+                    -id    => 'stid',
                     -title => 'Choose a study'
                 )
             ),
