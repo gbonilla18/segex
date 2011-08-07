@@ -126,9 +126,6 @@ Experiments would also generate table in ManageStudies (or vice versa).
 editing study fields, (b) assigning existing experiment, (c) adding new
 experiment.
 
-*) One more module remaining to refactor for use with %controller_context:
-TFSDisplay.pm
-
 *) Consider using a Tree View instead of multiple levels of dropdown boxes. YUI
 has a Tree View control available. Doing so would make sense -- consider the
 following hierarchy:
@@ -145,3 +142,7 @@ parameter, make_permanent => ... that would ensure that data gets stored in the
 permanent cookie as well as in the session cookie (when this parameter is
 missing or set to false, data is store only in the session cookie), (3) possibly
 other parameters.
+
+*) Replace "Back to my profile" links etc with breadcrumbs. Breadcrumbs would
+also be useful for Manage* modules or any other hiearachies on the site.
+

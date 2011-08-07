@@ -125,7 +125,8 @@ if ( defined $module ) {
         $module->new(%controller_context);
     } or do {
         my $error = $@;
-        die "Error loading module $module. Error message returned was:\n\n$error";
+        die
+          "Error loading module $module. Error message returned was:\n\n$error";
     };
     if ( $loadModule->dispatch_js() ) {
         $content = \&module_show_html;
@@ -147,6 +148,7 @@ while ( defined($action) ) {
     # block that will undefine $action on its own. If you don't undefine
     # $action, this loop will go on forever!
     switch ($action) {
+
     #---------------------------------------------------------------------------
     #  User stuff
     #---------------------------------------------------------------------------
@@ -728,7 +730,8 @@ sub form_changePassword {
             $q->password_field(
                 -name      => 'old_password',
                 -id        => 'old_password',
-                -maxlength => 40
+                -maxlength => 40,
+                -title     => 'Enter your old password'
             )
         ),
         $q->dt('New Password:'),
@@ -736,7 +739,8 @@ sub form_changePassword {
             $q->password_field(
                 -name      => 'new_password1',
                 -id        => 'new_password1',
-                -maxlength => 40
+                -maxlength => 40,
+                -title => 'Enter the new password you would like to change to'
             )
         ),
         $q->dt('Confirm New Password:'),
@@ -744,7 +748,8 @@ sub form_changePassword {
             $q->password_field(
                 -name      => 'new_password2',
                 -id        => 'new_password2',
-                -maxlength => 40
+                -maxlength => 40,
+                -title     => 'Confirm the new password'
             )
         ),
         $q->dt('&nbsp;'),
@@ -754,7 +759,8 @@ sub form_changePassword {
                 -name  => 'changePassword',
                 -id    => 'changePassword',
                 -class => 'button black bigrounded',
-                -value => 'Change password'
+                -value => 'Change password',
+                -title => 'Submit form'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),
             $q->a(
@@ -819,13 +825,26 @@ sub form_changeEmail {
             $q->password_field(
                 -name      => 'password',
                 -id        => 'password',
-                -maxlength => 40
+                -maxlength => 40,
+                -title     => 'Enter your current user password'
             )
         ),
         $q->dt('New Email Address:'),
-        $q->dd( $q->textfield( -name => 'email1', -id => 'email1' ) ),
+        $q->dd(
+            $q->textfield(
+                -name => 'email1',
+                -id   => 'email1',
+                title => 'Enter your new email address'
+            )
+        ),
         $q->dt('Confirm New Address:'),
-        $q->dd( $q->textfield( -name => 'email2', -id => 'email2' ) ),
+        $q->dd(
+            $q->textfield(
+                -name => 'email2',
+                -id   => 'email2',
+                title => 'Confirm your new email address'
+            )
+        ),
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
@@ -833,7 +852,8 @@ sub form_changeEmail {
                 -name  => 'changeEmail',
                 -id    => 'changeEmail',
                 -class => 'button black bigrounded',
-                -value => 'Change email'
+                -value => 'Change email',
+                -title => 'Submit form'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),
             $q->a(
