@@ -140,25 +140,39 @@ sub session_cookie_store {
 #       METHOD:  restore
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:
+#  DESCRIPTION:  Overrides SGX::Session::Session::restore. First tries to get
+#                session from the provided id, and, on success stores the id in
+#                the session cookie. If that fails, fetches cookies, looks for
+#                one with name $SESSION_NAME, and tries to get the session id
+#                from there.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub restore {
-    my $self = shift;
+    my ($self, $id) = @_;
 
+    # first try to restore session from provided id
+    if ( defined($id) && $self->SUPER::restore($id) ) {
+        $self->{session_cookie} = { $SID_FIELD => $id };
+        $self->{session_cookie_modified} = 1;
+        return 1;
+    }
+
+    # on failure, try to get id from cookies
     my %cookies = fetch CGI::Cookie;
     $self->{fetched_cookies} = \%cookies;
 
     # in scalar context, the result of CGI::Cookie::value is a scalar
     my %session_cookie = eval { $cookies{$SESSION_NAME}->value };
+    $id = $session_cookie{$SID_FIELD};
 
-    my $id = $session_cookie{$SID_FIELD};
-    if ( defined($id) && $self->recover($id) ) {
+    if ( defined($id) && $self->SUPER::restore($id) ) {
         $self->{session_cookie} = \%session_cookie;
+        $self->{session_cookie_modified} = 1;
         return 1;
     }
+
     return;
 }
 

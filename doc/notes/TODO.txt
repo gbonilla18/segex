@@ -146,3 +146,6 @@ other parameters.
 *) Replace "Back to my profile" links etc with breadcrumbs. Breadcrumbs would
 also be useful for Manage* modules or any other hiearachies on the site.
 
+*) Replace all occurrences of 'use constant' with equivalent funcitonality in 
+Readonly module:
+http://search.cpan.org/~roode/Readonly-1.03/Readonly.pm

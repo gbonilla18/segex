@@ -235,9 +235,9 @@ https://github.com/alexyoung/ico
 
 2.1 Some basic facts:
 
-   * REST is the way to go; it is the only correct way to architecture web
-     applications. All other ways are either inherently worse or they eventually
-     end up mirroring REST in some strange and non-standard way.
+   * REST is the way to go; currently it is the only correct way to architecture
+     web applications. All other existing ways are either inherently worse or 
+     they eventually end up mirroring REST in some strange and non-standard way.
 
    * XHTML 1 and HTML 4 do not support all REST methods. For example, the only
      allowed values of 'method=' attribute in web forms in XHTML 1 and HTML 4
@@ -249,7 +249,7 @@ https://github.com/alexyoung/ico
    * Although REST places heavy emphasis on using correct methods for sending
      requests, we can obtain nearly all of the benefits of RESTful architecture
      without resorting to the use of PUT and DELETE methods. To do so, it is
-     enough to (a) indentify resources and express them as nouns, (b) use GET 
+     enough to (a) identify resources and express them as nouns, (b) use GET 
      and POST methods (verbs) in a correct way, (c) apply HATEOAS (Hypermedia as
      the Engine of Application State).
 
@@ -259,7 +259,7 @@ https://github.com/alexyoung/ico
 According to recipe 1.8 in RESTful Web Services Cookbook, after creating a
 resource with POST, a response with code 201 (Created) and either a Location: or
 a Content-Location: header must be returned containing the URI of the newly
-creted resource. The Content-Location: header is returned only if the body of
+created resource. The Content-Location: header is returned only if the body of
 the response already includes a complete representation of the newly created
 resource and no redirect (which occurs when Location: is sent to client) is
 needed.

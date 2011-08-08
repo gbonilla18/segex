@@ -9,6 +9,7 @@ use warnings;
 use CGI 2.47 qw/-nosticky -private_tempfiles/;
 
 #use CGI::Pretty 2.47 qw/-nosticky/;
+use Carp;    # croak exported automatically
 use Switch;
 use URI::Escape;
 use Tie::IxHash;
@@ -34,12 +35,13 @@ my $s   = SGX::Session::User->new(
     check_ip  => 1
 );
 
-$s->restore();                     # restore old session if it exists
+my $q = CGI->new();
+
+$s->restore( $q->param('sid') );    # restore old session if it exists
 
 #---------------------------------------------------------------------------
 #  Main
 #---------------------------------------------------------------------------
-my $q = CGI->new();
 my $error_string;
 my $title;
 
@@ -129,7 +131,8 @@ if ( defined $module ) {
         $module->new(%controller_context);
     } or do {
         my $error = $@;
-        die "Error loading module $module. The message returned was:\n\n$error";
+        croak
+          "Error loading module $module. The message returned was:\n\n$error";
     };
     if ( $loadModule->dispatch_js() ) {
         $content = \&module_show_html;
@@ -264,9 +267,13 @@ while ( defined($action) ) {
         }
         case CHANGEPASSWORD {
             if ( $s->is_authorized('unauth') ) {
+                my $old_password =
+                  ( defined $q->param('old_password') )
+                  ? $q->param('old_password')
+                  : undef;
                 if (
                     $s->change_password(
-                        old_password  => $q->param('old_password'),
+                        old_password  => $old_password,
                         new_password1 => $q->param('new_password1'),
                         new_password2 => $q->param('new_password2'),
                         error         => \$error_string
@@ -382,7 +389,7 @@ while ( defined($action) ) {
                     expire_in => 3600 * 48,
                     check_ip  => 0
                 );
-                if ( $t->recover( $q->param('sid') ) ) {
+                if ( $t->restore( $q->param('sid') ) ) {
                     if ( $s->verify_email( $t->{session_stash}->{username} ) ) {
                         $title   = 'Email Verification';
                         $content = \&verifyEmail_success;
@@ -695,22 +702,29 @@ sub registration_success {
 sub form_changePassword {
 
     # user has to be logged in
+    my $require_old = !defined( $s->{session_stash}->{change_pwd} );
     return $q->start_form(
-        -method => 'POST',
-        -action => $q->url( -absolute => 1 ) . '?a=' . CHANGEPASSWORD,
-        -onsubmit =>
+        -method   => 'POST',
+        -action   => $q->url( -absolute => 1 ) . '?a=' . CHANGEPASSWORD,
+        -onsubmit => sprintf(
 'return validate_fields(this, [\'old_password\',\'new_password1\',\'new_password2\']);'
+
+        )
       ),
       $q->dl(
-        $q->dt('Old Password:'),
-        $q->dd(
-            $q->password_field(
-                -name      => 'old_password',
-                -id        => 'old_password',
-                -maxlength => 40,
-                -title     => 'Enter your old password'
+        ($require_old)
+        ? (
+            $q->dt('Old Password:'),
+            $q->dd(
+                $q->password_field(
+                    -name      => 'old_password',
+                    -id        => 'old_password',
+                    -maxlength => 40,
+                    -title     => 'Enter your old password'
+                )
             )
-        ),
+          )
+        : (),
         $q->dt('New Password:'),
         $q->dd(
             $q->password_field(
@@ -746,7 +760,8 @@ sub form_changePassword {
 #######################################################################################
 sub changePassword_success {
     return $q->p(
-        'Success! Your password has been changed to the new one you provided.');
+        'Success! Your password has been changed to the new one you provided.'
+    );
 }
 #######################################################################################
 sub verifyEmail_success {

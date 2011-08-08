@@ -9,14 +9,15 @@
 #         BUGS:  ---
 #        NOTES:
 #
+#  use Carp;
 #  use SGX::CSV;
 #
 #  my ( $infile, $outfile ) = splice @ARGV, 0, 2;
 #  exit if !(defined($infile) && defined($outfile));
 #
 #  print "Opening files...\n";
-#  open( my $in,  '<', $infile )  or die "$infile: $!";
-#  open( my $out, '>', $outfile ) or die "$outfile: $!";
+#  open( my $in,  '<', $infile )  or croak "$infile: $!";
+#  open( my $out, '>', $outfile ) or croak "$outfile: $!";
 #  print "Rewriting...\n";
 #  my $ok = eval {
 #      SGX::CSV::csv_rewrite(
@@ -32,7 +33,7 @@
 #      print "Closing files...\n";
 #      close $in;
 #      close $out;
-#      die $@;
+#      croak $@;
 #  }
 #  print "Closing files...\n";
 #  close $in;

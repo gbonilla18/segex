@@ -19,7 +19,7 @@ Create an instance:
     );
 
 Restore previous session if it exists:
-    $s->recover('1c287c065fc22df74e3e57c63ceedd20');
+    $s->restore('1c287c065fc22df74e3e57c63ceedd20');
 
 Delete previous session, active session, or both if both exist:
     $s->destroy();
@@ -199,7 +199,7 @@ sub tie_session {
 #        CLASS:  SGX::Session::Session
 #       METHOD:  session_store
 #   PARAMETERS:  ????
-#      RETURNS:  ????
+#      RETURNS:  True value on success
 #  DESCRIPTION:  Stores key-value combinations to session object and updates
 #                session view
 #       THROWS:  no exceptions
@@ -212,7 +212,7 @@ sub session_store {
         $self->{session_obj}->{$key}   = $value;
         $self->{session_stash}->{$key} = $value;
     }
-    return;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -268,7 +268,6 @@ sub checkin {
 
     my $curr_time = now();
 
-    #my $obj = $self->{session_obj};
     if (
            $self->{session_obj}
         && looks_like_number( $self->{session_obj}->{tla} )
@@ -305,7 +304,7 @@ sub checkin {
 #        CLASS:  SGX::Session::Session
 #       METHOD:  stash_session
 #   PARAMETERS:  ????
-#      RETURNS:  ????
+#      RETURNS:  True value on success
 #  DESCRIPTION:  Copies data from session_obj to session_stash
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -326,7 +325,7 @@ sub stash_session {
         SGX::Abstract::Exception::Internal::Session->throw(
             error => 'Undefined session id' );
     }
-    return $session_id;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -347,7 +346,7 @@ sub get_session_id {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Session
-#       METHOD:  recover
+#       METHOD:  restore
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Attempt to attach to a session. On fail, return false.
@@ -355,12 +354,12 @@ sub get_session_id {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub recover {
+sub restore {
     my ( $self, $id ) = @_;
 
     if ( !defined($id) ) {
         SGX::Abstract::Exception::Internal::Session->throw(
-            error => 'Cannot recover session from unspecified id' );
+            error => 'Cannot restore session from unspecified id' );
     }
 
     if ( !$self->tie_session($id) ) {
@@ -370,8 +369,7 @@ sub recover {
     # doing checkin() without initialization -- will only work if using a
     # recovered session, not a new one.
     if ( $self->checkin($id) ) {
-        $self->stash_session();
-        return 1;
+        return $self->stash_session();
     }
     else {
         $self->destroy();
@@ -394,22 +392,19 @@ sub recover {
 sub start {
     my ( $self, $id ) = @_;
 
-    # first try to recover using passed id if it is defined
-    if ( !defined($id) || !$self->recover($id) ) {
+    # first try to restore using passed id if it is defined
+    return $self->restore($id) if defined($id);
 
-        # on failure start new session
-        $self->tie_session(undef);
-        $self->init_session();
-        $self->stash_session();
-    }
-    return 1;
+    # on failure start new session
+    return ($self->tie_session(undef) && $self->init_session() &&
+        $self->stash_session());
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Session
 #       METHOD:  init_session
 #   PARAMETERS:  ????
-#      RETURNS:  ????
+#      RETURNS:  True value on success
 #  DESCRIPTION:  Initialize a freshly tied session object with values
 #       THROWS:  SGX::Abstract::Exception::Internal::Session
 #     COMMENTS:  Call after opening a new session. After initialization,
@@ -444,7 +439,7 @@ sub init_session {
             error => 'Cannot checkin' );
     }
 
-    return;
+    return $ok;
 }
 
 #===  FUNCTION  ================================================================
@@ -491,7 +486,7 @@ sub commit {
 #        CLASS:  SGX::Session::Session
 #       METHOD:  unset
 #   PARAMETERS:  ????
-#      RETURNS:  ????
+#      RETURNS:  True on success
 #  DESCRIPTION:  Unset session variables
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -500,14 +495,14 @@ sub commit {
 sub unset {
     my $self = shift;
     undef %{ $self->{session_stash} };
-    return;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Session
 #       METHOD:  destroy
 #   PARAMETERS:  ????
-#      RETURNS:  ????
+#      RETURNS:  True on success
 #  DESCRIPTION:  deletes all referenced sessions from object store in this order:
 #                (1) delete active if it exists, (2) delete old if it exists
 #       THROWS:  no exceptions
@@ -524,8 +519,7 @@ sub destroy {
     }
 
     # clear session data
-    $self->unset();
-    return;
+    return $self->unset();
 }
 
 1;    # for require

@@ -148,7 +148,7 @@ $VERSION = '0.11';
 
 use base qw/SGX::Session::Cookie/;
 
-#use Data::Dumper;
+use Data::Dumper;
 use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
 use SGX::Abstract::Exception;
@@ -197,7 +197,7 @@ sub commit {
 #  and password hash. Stores full user name in session cookie on login.  Full user
 #  name is an example of information that is not critical from security
 #  standpoint, which means that (a) it can be stored on the client, and that (b)
-#  it should be stored on the client (to save space in the database.  In
+#  it should be stored on the client (to save space in the database).  In
 #  addition to full user name, data such as name of the working project could
 #  also be stored in the session cookie. Note that project names are more likely
 #  to change than project ids; so it makes more sense to store only the project
@@ -209,7 +209,6 @@ sub commit {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub authenticate {
-
     my ( $self, $username, $password, $error ) = @_;
 
     if ( !defined($username) || $username eq '' ) {
@@ -220,60 +219,148 @@ sub authenticate {
         $$error = 'No password specified';
         return;
     }
+    return $self->authenticateFromDB(
+        {
+            username => $username,
+            password => $password
+        },
+        reset_session => 1,
+        error_string  => $error
+    );
+}
 
- # :TODO:08/07/2011 17:43:57:es: don't match on both username and password at
- # the same time because this way we cannot distinguish random logins from an
- # attacker from repeated logins from a user.
-    my $sth =
-      $self->{dbh}
-      ->prepare('select level, full_name from users where uname=? and pwd=?');
-    my $row_count = $sth->execute( $username, sha1_hex($password) );
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
+#       METHOD:  authenticateFromDB
+#   PARAMETERS:  ????
+#      RETURNS:  True value on success, false value on failure
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub authenticateFromDB {
+    my ( $self, $login, %args ) = @_;
 
-    if ( $row_count != 1 ) {
+    my ( $username, $password ) = @$login{qw(username password)};
 
-        # :TODO:07/09/2011 23:58:04:es: Consider using
-        # SGX::Abstract::Exception::User::Login to send the error message
-        #
+    # default: true
+    my $reset_session =
+      ( exists $args{reset_session} )
+      ? $args{reset_session}
+      : 1;
+
+    my $error_string;
+    my $error = ( $args{error_string} ) ? $args{error_string} : \$error_string;
+
+    #---------------------------------------------------------------------------
+    #  get user info triple from the database
+    #---------------------------------------------------------------------------
+    my $query =
+      ( defined $password )
+      ? 'select level, full_name, email from users where uname=? and pwd=?'
+      : 'select level, full_name, email from users where uname=?';
+
+    my @params =
+        ( defined $password )
+      ? ( $username, sha1_hex($password) )
+      : ($username);
+
+    my $dbh       = $self->{dbh};
+    my $sth       = $dbh->prepare($query);
+    my $row_count = $sth->execute(@params);
+    if ( $row_count < 1 ) {
+
         # user not found in the database
         $sth->finish;
+        $self->destroy();
         $$error = 'Login incorrect';
         return;
     }
+    elsif ( $row_count > 1 ) {
+
+        # throw Internal::Duplicate exception
+        $sth->finish;
+        $self->destroy();
+        SGX::Abstract::Exception::Internal::Duplicate->throw(
+            error => "Expected one user record but encountered $row_count.\n" );
+    }
 
     # user found in the database
-    my ( $level, $full_name ) = $sth->fetchrow_array;
+    my ( $user_level, $user_full_name, $user_email ) = $sth->fetchrow_array;
     $sth->finish;
 
-    # get a new session handle. This will also delete the old session cookie
-    $self->destroy();
-    $self->start();
+    #---------------------------------------------------------------------------
+    #  authenticate
+    #---------------------------------------------------------------------------
+    # :TRICKY:08/08/2011 10:09:29:es: We invalidate previous session id by
+    # calling destroy() followed by start() to prevent Session Fixation
+    # vulnerability: https://www.owasp.org/index.php/Session_Fixation
 
-    # Login username and user level are sensitive data: store them remotely.
-    # Although newer browser support HTTP-only cookies (not visible to
-    # Javascript), we do not want the user to be able to "upgrade" his or her
-    # account by modifying the user level in the session cookie for example.
+    if ($reset_session) {
 
-    $self->session_store(
+        # get a new session handle. This will also delete the old session cookie
+        $self->destroy();
+        $self->start();
+    }
+
+    # Login username and user level are sensitive data: we only store them
+    # remotely as part of session data. Note: by setting user_level field in
+    # session data, we grant the owner of the current session access to the site
+    # under that specific authorization level. In other words, this is the
+    # specific line where the "magic" act of granting access happens. Note that
+    # we only grant access to a new session handle, destroying the old one.
+    return
+      unless $self->session_store(
         username   => $username,
-        user_level => $level
-    );
+        user_level => $user_level
+      );
 
-    # Have the username; can read the permanent cookie now. Note: read permanent
-    # cookie before setting session cookie fields here: this helps preserve the
-    # flow: database -> session -> (session_cookie, perm_cookie), since reading
-    # permanent cookie synchronizes everything in it with the session cookie.
-    $self->read_perm_cookie( username => $username );
+    # Note: read permanent cookie before setting session cookie fields here:
+    # this helps preserve the flow: database -> session -> (session_cookie,
+    # perm_cookie), since reading permanent cookie synchronizes everything in it
+    # with the session cookie.
+    $self->read_perm_cookie($username);
 
     # Full user name is not sensitive from database perspective and can be
     # stored on the cliend in a can be stored on the client in a session cookie.
     # Note that there is no need to store it in a permanent cookie on the client
     # because the authentication process will involve a database transaction
     # anyway and a full name can be looked up from there.
-    $self->session_cookie_store( full_name => $full_name );
-
-    #$self->restore;
+    $self->session_cookie_store(
+        full_name => $user_full_name,
+        email     => $user_email
+    );
 
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
+#       METHOD:  restore
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides SGX::Session::Cookie::restore
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub restore {
+    my ( $self, $id ) = @_;
+    return unless $self->SUPER::restore($id);
+
+    # do not perform all of the confirmation nonsense when dealing with sessions
+    # restored from cookies (i.e. for which no session id was provided).
+    return 1 unless defined($id);
+
+    # confirm username
+    my $username = $self->{session_stash}->{username};
+
+    #---------------------------------------------------------------------------
+    #  authenticate from username
+    #---------------------------------------------------------------------------
+    return $self->authenticateFromDB( { username => $username },
+        reset_session => 0 );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -290,7 +377,10 @@ sub authenticate {
 #                The email address must be marked as "confirmed" in the "users"
 #                table in the dataase.
 #       THROWS:  Exception::Class::DBI, SGX::Abstract::Exception::Internal::Mail
-#     COMMENTS:  none
+#     COMMENTS:
+# # :TODO:08/08/2011 12:26:07:es: rename this function to something else because
+# no password is actually being reset anymore.
+#
 #     SEE ALSO:  n/a
 #===============================================================================
 sub reset_password {
@@ -305,12 +395,15 @@ sub reset_password {
         return;
     }
 
+  # :TODO:08/08/2011 13:57:26:es: Can abstract out a method
+  # $self->getSingleUser($uname, {pwd => '...', email_confirmed => 0..1}) -- see
+  # similar code in $self->authenticateFromDB().
     my $dbh = $self->{dbh};
     my $sth = $dbh->prepare(
-        'select full_name, email from users where uname=? and email_confirmed=1'
+'select level, full_name, email from users where uname=? and email_confirmed=1'
     );
     my $rows_found = $sth->execute($username);
-    if ( $rows_found == 0 ) {
+    if ( $rows_found < 1 ) {
 
         # user not found in the database
         $sth->finish;
@@ -318,7 +411,7 @@ sub reset_password {
 'The user does not exist in the database or user email address has not been verified';
         return;
     }
-    elsif ( $rows_found != 1 ) {
+    elsif ( $rows_found > 1 ) {
 
         # should never happen
         $sth->finish;
@@ -327,18 +420,37 @@ sub reset_password {
     }
 
     # single user found in the database
-    my ( $user_full_name, $user_email ) = $sth->fetchrow_array;
+    my ( $user_level, $user_full_name, $user_email ) = $sth->fetchrow_array;
     $sth->finish;
 
-    # generate a 40-character string using hash on user IP and rand() function
-    my $new_pwd = sha1_hex( $ENV{REMOTE_ADDR} . rand );
+    #---------------------------------------------------------------------------
+    #  email a temporary access link
+    #---------------------------------------------------------------------------
 
-    #---------------------------------------------------------------------------
-    #  email the password
-    #---------------------------------------------------------------------------
+    my $hours_to_expire = 48;
+
+    my $s = SGX::Session::Session->new(
+        dbh       => $self->{dbh},
+        expire_in => 3600 * $hours_to_expire,
+        check_ip  => 1
+    );
+
+    $s->start();
+
+    # :TRICKY:08/08/2011 12:29:42:es: This is were we grant previously existing
+    # access level to a special URL and then send this URL to the user's email
+    # address.
+    $s->session_store(
+        username   => $username,
+        user_level => $user_level,
+        change_pwd => 1
+    );
+
+    return unless $s->commit();
+    my $session_id = $s->get_session_id();
 
     my $msg = Mail::Send->new(
-        Subject => "Your New $project_name Password",
+        Subject => "Your Request to Change Your $project_name Password",
         To      => $user_email
     );
     $msg->add( 'From', 'NOREPLY' );
@@ -348,17 +460,13 @@ sub reset_password {
     print $fh <<"END_RESET_PWD_MSG";
 Hi $user_full_name,
 
-This is your new $project_name password:
+Please follow the link below to login to $project_name where you can change your
+password to one of your preference:
 
-$new_pwd
+$login_uri&sid=$session_id
 
-Please copy the above password in full and follow the link below to login to
-$project_name and to change this password to one of your preference:
-
-$login_uri
-
-If you do not think you have requested a new password to be emailed to you,
-please notify the $project_name administrator.
+If you think you have received this email by mistake, please notify the
+$project_name administrator.
 
 - $project_name automatic mailer
 
@@ -368,18 +476,7 @@ END_RESET_PWD_MSG
       or SGX::Abstract::Exception::Internal::Mail->throw(
         error => 'Failed to send email message' );
 
- # :TODO:08/07/2011 17:30:44:es: create a late-expiring session here instead of
- # resetting the actual password.
-    my $rows_affected = $dbh->do( 'update users set pwd=? where uname=?',
-        undef, sha1_hex($new_pwd), $username );
-
-    if ( $rows_affected != 1 ) {
-        SGX::Abstract::Exception::Internal->throw( error =>
-"Expected to find one user with login $username but $rows_affected rows were updated\n"
-        );
-    }
-
-    return $rows_affected;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -413,10 +510,12 @@ END_reset_password_text
 sub change_password {
     my ( $self, %param ) = @_;
 
+    my $require_old = !defined( $self->{session_stash}->{change_pwd} );
+
     my ( $old_password, $new_password1, $new_password2, $error ) =
       @param{qw{old_password new_password1 new_password2 error}};
 
-    if ( !defined($old_password) || $old_password eq '' ) {
+    if ( $require_old && ( !defined($old_password) || $old_password eq '' ) ) {
         $$error = 'Old password not specified';
         return;
     }
@@ -436,8 +535,6 @@ sub change_password {
         $$error = 'The new and the old passwords you entered are the same.';
         return;
     }
-    $new_password1 = sha1_hex($new_password1);
-    $old_password  = sha1_hex($old_password);
     my $username = $self->{session_stash}->{username};
     if ( !defined($username) || $username eq '' ) {
         SGX::Abstract::Exception::Internal->throw( error =>
@@ -445,17 +542,28 @@ sub change_password {
         );
     }
 
-    my $rows_affected =
-      $self->{dbh}->do( 'update users set pwd=? where uname=? and pwd=?',
-        undef, $new_password1, $username, $old_password );
+    my $query =
+      ($require_old)
+      ? 'update users set pwd=? where uname=? and pwd=?'
+      : 'update users set pwd=? where uname=?';
 
-    if ( $rows_affected == 0 ) {
+    my @params =
+        ($require_old)
+      ? ( sha1_hex($new_password1), $username, sha1_hex($old_password) )
+      : ( sha1_hex($new_password1), $username );
+
+    my $dbh = $self->{dbh};
+    my $rows_affected = $dbh->do( $query, undef, @params );
+
+    if ( $rows_affected < 1 ) {
         $$error =
 'The password was not changed. Please try again and make sure you entered your old password correctly.';
+        return;
     }
     elsif ( $rows_affected > 1 ) {
         SGX::Abstract::Exception::Internal::Duplicate->throw( error =>
               "Expected one user record but encountered $rows_affected.\n" );
+        return;
     }
     return $rows_affected;
 }
@@ -698,7 +806,7 @@ sub send_verify_email {
     my $s = SGX::Session::Session->new(
         dbh       => $self->{dbh},
         expire_in => 3600 * $hours_to_expire,
-        check_ip  => 0
+        check_ip  => 1
     );
 
     $s->start();
@@ -707,6 +815,7 @@ sub send_verify_email {
     $s->session_store( username => $username );
 
     return unless $s->commit();
+    my $session_id = $s->get_session_id();
 
     #---------------------------------------------------------------------------
     #  email the confirmation link
@@ -720,7 +829,6 @@ sub send_verify_email {
     my $fh = $msg->open()
       or SGX::Abstract::Exception::Internal::Mail->throw(
         error => 'Failed to open default mailer' );
-    my $session_id = $s->get_session_id();
     print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $full_name,
 
@@ -809,11 +917,10 @@ sub perm_cookie_store {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub read_perm_cookie {
-    my ( $self, %param ) = @_;
+    my ( $self, $username ) = @_;
 
     # try to get the username from the parameter list first; if no username
     # given then turn to session data.
-    my $username = $param{username};
     $username = $self->{session_stash}->{username} unless defined($username);
 
     my $cookie_name = sha1_hex($username);
@@ -852,8 +959,8 @@ sub read_perm_cookie {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub is_authorized {
-
     my ( $self, $req_user_level ) = @_;
+
     if ( !defined( $self->{session_stash} ) ) {
         return;
     }
