@@ -96,8 +96,7 @@ sub dispatch {
       ? $q->param('b')
       : '';
 
-    print $self->getHTML();
-    return 1;
+    return $self->getHTML();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -141,7 +140,7 @@ sub dispatch_js {
                 id         => $q->param('id'),
                 deleteFrom => $q->param('deleteFrom')
             );
-            $self->redirectInternal('?a=manageExperiments');
+            $self->redirectInternal('?a=experiments');
         }
         case 'update' {
 
@@ -368,7 +367,7 @@ sub showExperiments_js {
       : uri_escape( $q->url( -absolute => 1, -query => 1 ) );
 
     my $deleteURL =
-      $q->url( -absolute => 1 ) . '?a=manageExperiments'    # top-level action
+      $q->url( -absolute => 1 ) . '?a=experiments'    # top-level action
       . '&b=delete'                    # second-level action
       . "&destination=$destination"    # current URI (encoded)
       . '&id=';    # resource id on which second-level action will be performed
@@ -612,7 +611,7 @@ sub getHTML {
             $q->dd(
                 $q->hidden(
                     -name  => 'a',
-                    -value => 'manageExperiments'
+                    -value => 'experiments'
                 ),
                 $q->submit(
                     -name  => 'b',

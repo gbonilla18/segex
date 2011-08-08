@@ -97,8 +97,7 @@ sub new {
 sub dispatch {
     my ($self) = @_;
 
-    print $self->getHTML();
-    return 1;
+    return $self->getHTML();
 }
 
 #===  CLASS METHOD  ============================================================

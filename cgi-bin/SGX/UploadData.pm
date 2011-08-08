@@ -56,7 +56,7 @@ sub new {
     my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
       @param{qw{dbh cgi user_session js_src_yui js_src_code}};
 
-    ${$param{title}} = 'Upload Data';
+    ${ $param{title} } = 'Upload Data';
 
     my $self = {
         _dbh         => $dbh,
@@ -151,16 +151,7 @@ sub dispatch {
 
     my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
 
-    #my $action =
-    #  ( defined $q->param('b') )
-    #  ? $q->param('b')
-    #  : '';
-
-    print $self->displayMessages();
-
-    # always show form
-    print $self->showForm();
-    return 1;
+    return ( $self->displayMessages(), $self->showForm() );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -189,18 +180,18 @@ sub displayMessages {
             $q->p( { -style => 'font-weight:bold;' }, $self->{_message} ),
             $q->p(
                 { -style => 'font-weight:bold;' },
-                'The uploaded data were placed in a new experiment under: '
-                  . $q->a(
+                'The uploaded data were placed in a new experiment under: ',
+                $q->a(
                     {
                         -href => $q->url( -absolute => 1 )
                           . sprintf(
-                            '?a=manageExperiments&b=Load&pid=%s&stid=%s',
+                            '?a=experiments&b=Load&pid=%s&stid=%s',
                             $self->{_pid}, $self->{_stid}
                           )
                     },
                     $self->{_PlatformStudyExperiment}
                       ->getPlatformStudyName( $self->{_pid}, $self->{_stid} )
-                  )
+                )
             )
           );
     }

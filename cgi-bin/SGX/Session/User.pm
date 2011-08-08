@@ -221,9 +221,12 @@ sub authenticate {
         return;
     }
 
+ # :TODO:08/07/2011 17:43:57:es: don't match on both username and password at
+ # the same time because this way we cannot distinguish random logins from an
+ # attacker from repeated logins from a user.
     my $sth =
       $self->{dbh}
-      ->prepare('select level,full_name from users where uname=? and pwd=?');
+      ->prepare('select level, full_name from users where uname=? and pwd=?');
     my $row_count = $sth->execute( $username, sha1_hex($password) );
 
     if ( $row_count != 1 ) {
@@ -338,7 +341,7 @@ sub reset_password {
         Subject => "Your New $project_name Password",
         To      => $user_email
     );
-    $msg->add( 'From', ('NOREPLY') );
+    $msg->add( 'From', 'NOREPLY' );
     my $fh = $msg->open()
       or SGX::Abstract::Exception::Internal::Mail->throw(
         error => 'Failed to open default mailer' );
@@ -360,11 +363,13 @@ please notify the $project_name administrator.
 - $project_name automatic mailer
 
 END_RESET_PWD_MSG
-    $fh->close
+
+    $fh->close()
       or SGX::Abstract::Exception::Internal::Mail->throw(
         error => 'Failed to send email message' );
 
- # :TODO:07/31/2011 15:18:30:es: consider using commit/rollback transaction here
+ # :TODO:08/07/2011 17:30:44:es: create a late-expiring session here instead of
+ # resetting the actual password.
     my $rows_affected = $dbh->do( 'update users set pwd=? where uname=?',
         undef, sha1_hex($new_pwd), $username );
 
@@ -374,8 +379,7 @@ END_RESET_PWD_MSG
         );
     }
 
-    return 1;
-
+    return $rows_affected;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -516,14 +520,13 @@ sub change_email {
     );
 
     if ( $rows_affected == 1 ) {
-        $self->send_verify_email(
+        return $self->send_verify_email(
             project_name => $project_name,
             full_name    => $full_name,
             username     => $username,
             email        => $email_address,
             login_uri    => $login_uri
         );
-        return 1;
     }
     elsif ( $rows_affected == 0 ) {
         $$error = <<"END_noEmailChangeMsg";
@@ -644,14 +647,13 @@ sub register_user {
         $phone
     );
 
-    $self->send_verify_email(
+    return $self->send_verify_email(
         project_name => $project_name,
         full_name    => $full_name,
         username     => $username,
         email        => $email_address,
         login_uri    => $login_uri
     );
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -714,7 +716,7 @@ sub send_verify_email {
         Subject => "Please confirm your email address with $project_name",
         To      => $email
     );
-    $msg->add( 'From', ('NOREPLY') );
+    $msg->add( 'From', 'NOREPLY' );
     my $fh = $msg->open()
       or SGX::Abstract::Exception::Internal::Mail->throw(
         error => 'Failed to open default mailer' );
@@ -736,7 +738,8 @@ the $project_name administrator if you keep receiving it.
 - $project_name automatic mailer
 
 END_CONFIRM_EMAIL_MSG
-    $fh->close
+
+    $fh->close()
       or SGX::Abstract::Exception::Internal::Mail->throw(
         error => 'Failed to send email message' );
 

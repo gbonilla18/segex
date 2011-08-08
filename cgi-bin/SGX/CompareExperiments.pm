@@ -26,7 +26,6 @@ use Switch;
 use URI::Escape;
 use JSON::XS;
 use Tie::IxHash;
-use SGX::Debug qw/assert/;
 use SGX::FindProbes;
 use SGX::Abstract::Exception;
 use SGX::Abstract::JSEmitter;
@@ -150,20 +149,14 @@ sub dispatch {
         case 'Compare' {
 
             # show results
-            print $self->getResultsHTML();
-
-            #print SGX::CompareExperiments::getResultsHTML( $q, DOWNLOADTFS );
+            return $self->getResultsHTML();
         }
         else {
 
             # default action: show form
-            print $self->getFormHTML();
-
-            #print SGX::CompareExperiments::getFormHTML( $q, FORM .
-            #    COMPAREEXPERIMENTS, COMPAREEXPERIMENTS );
+            return $self->getFormHTML();
         }
     }
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -209,7 +202,6 @@ END_PLATFORM_QUERY
     }
     my $sth      = $dbh->prepare($query_text);
     my $rowcount = $sth->execute(@query_params);
-    assert($rowcount);
 
     ### populate a Javascript hash with the content of the platform recordset
     my %json_platform;
@@ -240,7 +232,6 @@ qq{select stid, description, pid from study RIGHT JOIN ProjectStudy USING(stid) 
         );
         $rowcount = $sth->execute($curr_proj);
     }
-    assert($rowcount);
 
     ### populate a Javascript hash with the content of the study recordset
     my %json_study;
@@ -282,7 +273,6 @@ GROUP BY eid
 END_EXP_QUERY
         $rowcount = $sth->execute($curr_proj);
     }
-    assert($rowcount);
 
     ### populate the Javascript hash with the content of the experiment recordset
     while ( my @row = $sth->fetchrow_array ) {
@@ -493,7 +483,7 @@ sub getResultsJS {
         #warn "the code took:", timestr($td), "\n";
 
         # get list of probe record ids (rid)
-        my $probeList = $findProbes->getProbeList();
+        $probeList = $findProbes->getProbeList();
         $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
             ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
     }
@@ -501,7 +491,6 @@ sub getResultsJS {
 
         # if $q->param('terms') is not set, all other fields in Filter List
         # subsection don't matter
-        assert( !$q->param('upload_file') );
         my $findProbes = SGX::FindProbes->new(
             dbh          => $dbh,
             cgi          => $q,
@@ -515,7 +504,7 @@ sub getResultsJS {
         $findProbes->loadProbeData();
 
         # get list of probe record ids (rid)
-        my $probeList = $findProbes->getProbeList();
+        $probeList = $findProbes->getProbeList();
         $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
             ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
     }
@@ -594,17 +583,17 @@ END_query_fs
 
     my $sth_titles = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
     my $rowcount_titles = $sth_titles->execute();
+    #assert( $rowcount_titles == $exp_count );
 
-    assert( $rowcount_titles == $exp_count );
     my $ht = $sth_titles->fetchall_hashref('eid');
     $sth_titles->finish;
 
     my $rep_count = 0;
 
     # initialize the hash
-    my %hc = map { $_ => 0 } ( 0 .. ( $exp_count - 1 ) );
+    my %hc = map { $_ => 0 } ( 0 .. ( $rowcount_titles - 1 ) );
     foreach my $value ( values %$h ) {
-        for ( $i = 0 ; $i < $exp_count ; $i++ ) {
+        for ( $i = 0 ; $i < $rowcount_titles ; $i++ ) {
 
             # use of bitwise AND operator to test for bit presence
             $hc{$i} += $value->{c} if 1 << $i & $value->{fs};
@@ -613,7 +602,7 @@ END_query_fs
     }
 
     # Draw a 750x300 area-proportional Venn diagram using Google API if
-    # $exp_count is (2,3).
+    # $rowcount_titles is (2,3).
     #
     # http://code.google.com/apis/chart/types.html#venn
     # http://code.google.com/apis/chart/formats.html#data_scaling
@@ -621,7 +610,7 @@ END_query_fs
     my $out = '';
     my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
 
-    switch ($exp_count) {
+    switch ($rowcount_titles) {
         case 2 {
 
             # draw two circles
@@ -792,9 +781,9 @@ END_query_fs
             0 => $key,
             (
                 map { $_ => ( 1 << ( $_ - 1 ) & $h->{$key}->{fs} ) ? 'x' : '' }
-                  1 .. $exp_count
+                  1 .. $rowcount_titles
             ),
-            ( $exp_count + 1 ) => $h->{$key}->{c}
+            ( $rowcount_titles + 1 ) => $h->{$key}->{c}
           };
     }
     $out .= $js->define(

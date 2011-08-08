@@ -89,9 +89,7 @@ sub dispatch {
       : '';
 
     # regardless of action, show form
-    print $self->getFormHTML();
-
-    return 1;
+    return $self->getSwitchProjectFormHTML();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -244,7 +242,7 @@ sub getProjectName {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ChooseProject
-#       METHOD:  getFormHTML
+#       METHOD:  getSwitchProjectFormHTML
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Render the HTML form for changing current project
@@ -252,7 +250,7 @@ sub getProjectName {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getFormHTML {
+sub getSwitchProjectFormHTML {
     my $self = shift;
 
     my $q = $self->{_cgi};

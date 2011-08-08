@@ -242,7 +242,7 @@ sub init {
     #  build model
     #---------------------------------------------------------------------------
     my $all_platforms = ( exists $extra_platforms->{all} ) ? 1 : 0;
-    my $all_studies   = ( exists $extra_studies->{all} )   ? 1 : 0;
+    #my $all_studies   = ( exists $extra_studies->{all} )   ? 1 : 0;
 
     $self->getPlatforms( extra => $extra_platforms ) if $platform_info;
 
@@ -417,7 +417,7 @@ END_PLATFORMQUERY
     # first setup the model using platform info
     while ( $sth_platform->fetch ) {
 
-        # "Unassigned" study should exist ony
+        # "Unassigned" study should exist only
         # (a) on request,
         # (b) if there are actually unassigned studies (determined later)
         $model{$pid} = {
@@ -462,7 +462,7 @@ sub getPlatformStudy {
     my $all_platforms = $args{all_platforms};
 
     # default: false
-    my $all_studies = $args{all_studies};
+    #my $all_studies = $args{all_studies};
 
     #my $unassigned_name = $args{empty};
     #my %unassigned =

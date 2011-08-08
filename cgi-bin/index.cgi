@@ -11,20 +11,14 @@ use CGI 2.47 qw/-nosticky -private_tempfiles/;
 #use CGI::Pretty 2.47 qw/-nosticky/;
 use Switch;
 use URI::Escape;
-use Carp;
 use Tie::IxHash;
-
-#use Time::HiRes qw/clock/;
-use Data::Dumper;
 
 #---------------------------------------------------------------------------
 # Custom modules in SGX directory
 #---------------------------------------------------------------------------
 use lib qw/./;
-
-use SGX::Debug;     # all debugging code goes here
-use SGX::Config;    # all configuration for our project goes here
-
+use SGX::Debug;                    # all debugging code goes here
+use SGX::Config;                   # all configuration for our project goes here
 use SGX::Session::User 0.07;       # user authentication, sessions and cookies
 use SGX::Session::Session 0.08;    # email verification
 
@@ -48,6 +42,9 @@ $s->restore();                     # restore old session if it exists
 my $q = CGI->new();
 my $error_string;
 my $title;
+
+# :TODO:08/07/2011 16:05:55:es: Allow each page to specify its own CSS includes
+# aka it is currently done with Javascript source files.
 my $css = [
     { -src => YUI_BUILD_ROOT . '/reset-fonts/reset-fonts.css' },
     { -src => YUI_BUILD_ROOT . '/container/assets/skins/sam/container.css' },
@@ -92,19 +89,26 @@ use constant SHOWSCHEMA     => 'showSchema';
 use constant HELP           => 'help';
 use constant ABOUT          => 'about';
 
-# this table maps action names ('?a=' URL parameter) to module paths
+# map actions ('?a=' URL parameter) to modules
 my %dispatch_table = (
+
+    # :TODO:08/07/2011 20:39:03:es: come up with nouns to replace verbs for
+    # better REST conformance
+    #
+    # verbs
     uploadAnnot        => 'SGX::UploadAnnot',
     uploadData         => 'SGX::UploadData',
     chooseProject      => 'SGX::ChooseProject',
-    managePlatforms    => 'SGX::ManagePlatforms',
-    manageProjects     => 'SGX::ManageProjects',
-    manageStudies      => 'SGX::ManageStudies',
-    manageExperiments  => 'SGX::ManageExperiments',
     outputData         => 'SGX::OutputData',
     compareExperiments => 'SGX::CompareExperiments',
     findProbes         => 'SGX::FindProbes',
-    getTFS             => 'SGX::TFSDisplay'
+    getTFS             => 'SGX::TFSDisplay',
+
+    # nouns
+    platforms   => 'SGX::ManagePlatforms',
+    projects    => 'SGX::ManageProjects',
+    studies     => 'SGX::ManageStudies',
+    experiments => 'SGX::ManageExperiments',
 );
 
 my $loadModule;
@@ -113,7 +117,7 @@ my $action =
   ( defined( $q->url_param('a') ) ) ? $q->url_param('a') : DEFAULT_ACTION;
 
 #---------------------------------------------------------------------------
-#  This is our own super-cool custom action dispatcher and dynamic loader
+#  This is our own super-cool custom dispatcher and dynamic loader
 #---------------------------------------------------------------------------
 my $module = $dispatch_table{$action};
 if ( defined $module ) {
@@ -125,8 +129,7 @@ if ( defined $module ) {
         $module->new(%controller_context);
     } or do {
         my $error = $@;
-        die
-          "Error loading module $module. Error message returned was:\n\n$error";
+        die "Error loading module $module. The message returned was:\n\n$error";
     };
     if ( $loadModule->dispatch_js() ) {
         $content = \&module_show_html;
@@ -434,8 +437,8 @@ while ( defined($action) ) {
         }
         case ABOUT {
             $title   = 'About';
-            $content = \&about;
-            $action  = undef;     # final state
+            $content = \&about_text;
+            $action  = undef;          # final state
         }
         case QUIT {
 
@@ -447,85 +450,40 @@ while ( defined($action) ) {
 
             # default action -- DEFAULT_ACTION redirects here
             $title   = 'Main';
-            $content = \&main;
-            $action  = undef;    # final state
+            $content = \&main_text;
+            $action  = undef;         # final state
         }
     }
 }
 
-# flush the session data and prepare the cookie
-$s->commit();
+$s->commit();          # flushes the session data and prepares cookies
+$dbh->disconnect();    # do not disconnect before session data are committed
 
-# ===== HTML =============================================================
+#######################################################################################
 
-# Normally we can set more than one cookie like this:
-# print header(-type=>'text/html',-cookie=>[$cookie1,$cookie2]);
-# But because the session object takes over the array, have to do it this way:
-#   push @SGX::Session::User::cookies, $cookie2;
-# ... and then send the \@SGX::Session::User::cookies array reference to CGI::header() for example.
+# :TODO:08/07/2011 18:56:16:es: Currently the single point of output rule only
+# applies to HTTP response body (the formed HTML). It would be desirable to
+# make changes to existing code to have the same behavior apply to response
+# headers.
 
-my $menu_links = build_menu();
+# This is the only statement in the entire application that prints HTML body.
+print(
 
-print $q->header( -type => 'text/html', -cookie => $s->cookie_array() ),
-  cgi_start_html(),
-  $q->div(
-    { -id => 'header' },
-    $q->h1(
-        $q->a(
-            {
-                -href  => $q->url( -absolute => 1 ) . '?a=' . DEFAULT_ACTION,
-                -title => 'Segex home'
-            },
-            $q->img(
-                {
-                    src    => IMAGES_DIR . '/logo.png',
-                    width  => 448,
-                    height => 108,
-                    alt    => PROJECT_NAME,
-                    title  => PROJECT_NAME
-                }
-            )
-        )
-    ),
-    $q->ul( { -id => 'sidemenu' }, $q->li( build_sidemenu() ) )
-  ),
-  $q->div(
-    { -id => 'menu' },
-    map {
-        my $links = $menu_links->{$_};
-        if (@$links) {
-            $q->div( $q->h3($_), $q->ul( $q->li($links) ) );
-        }
-        else {
-            '';
-        }
-      } keys %$menu_links
-  );
+    # HTTP response header
+    $q->header( -type => 'text/html', -cookie => $s->cookie_array() ),
 
-print '<div id="content">';
+    # HTTP response body
+    (
+        cgi_start_html(),
+        content_header(),
 
-#---------------------------------------------------------------------------
-#  Don't delete commented-out block below: it is meant to be used for
-#  debugging user sessions.
-#---------------------------------------------------------------------------
-#print $q->pre("
-#cookies sent to user:
-#".Dumper($s->cookie_array())."
-#object stored in the \"sessions\" table in the database:
-#".Dumper($s->{session_stash})."
-#session expires after:    ".$s->{ttl}." seconds of inactivity
-#");
-
-# Main part
-&$content();
-
-### Ideally, would want to disconnect from the database before any HTML is printed
-### but for the purpose of fast integration, putting this statement here.
-$dbh->disconnect;
-
-print '</div>';
-print footer();
-print cgi_end_html();
+        # -- do not delete line below -- useful for debugging cookie sessions
+        #SGX::Debug::dump_cookies_sent_to_user($s),
+        $q->div( { -id => 'content' }, &$content() ),
+        content_footer(),
+        cgi_end_html()
+    )
+);
 
 #######################################################################################
 sub cgi_start_html {
@@ -579,14 +537,41 @@ sub cgi_end_html {
     return $q->end_html;
 }
 #######################################################################################
-sub main {
-    print SGX::Config::main_text($q);
-    return 1;
-}
-#######################################################################################
-sub about {
-    print SGX::Config::about_text( $q, showSchema => SHOWSCHEMA );
-    return 1;
+sub content_header {
+    my $menu_links = build_menu();
+    return $q->div(
+        { -id => 'header' },
+        $q->h1(
+            $q->a(
+                {
+                    -href => $q->url( -absolute => 1 ) . '?a=' . DEFAULT_ACTION,
+                    -title => 'Segex home'
+                },
+                $q->img(
+                    {
+                        src    => IMAGES_DIR . '/logo.png',
+                        width  => 448,
+                        height => 108,
+                        alt    => PROJECT_NAME,
+                        title  => PROJECT_NAME
+                    }
+                )
+            )
+        ),
+        $q->ul( { -id => 'sidemenu' }, $q->li( build_sidemenu() ) )
+      ),
+      $q->div(
+        { -id => 'menu' },
+        map {
+            my $links = $menu_links->{$_};
+            if (@$links) {
+                $q->div( $q->h3($_), $q->ul( $q->li($links) ) );
+            }
+            else {
+                '';
+            }
+          } keys %$menu_links
+      );
 }
 #######################################################################################
 sub form_error {
@@ -612,7 +597,8 @@ sub form_login {
       ( defined( $q->url_param('destination') ) )
       ? $q->url_param('destination')
       : uri_escape($uri);
-    print $q->start_form(
+
+    return $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=' 
           . LOGIN
@@ -620,16 +606,24 @@ sub form_login {
           . $destination,
         -onsubmit =>
           'return validate_fields(this, [\'username\',\'password\']);'
-      )
-      . $q->dl(
-        $q->dt( $q->label( { -for => 'username' }, 'Username:' ) ),
-        $q->dd( $q->textfield( -name => 'username', -id => 'username' ) ),
+      ),
+      $q->dl(
+        $q->dt( $q->label( { -for => 'username' }, 'Your login id:' ) ),
+        $q->dd(
+            $q->textfield(
+                -name      => 'username',
+                -id        => 'username',
+                -maxlength => 40,
+                -title     => 'Enter your login id'
+            )
+        ),
         $q->dt( $q->label( { -for => 'password' }, 'Password:' ) ),
         $q->dd(
             $q->password_field(
                 -name      => 'password',
                 -id        => 'password',
-                -maxlength => 40
+                -maxlength => 40,
+                -title     => 'Enter your login password'
             )
         ),
         $q->dt('&nbsp;'),
@@ -639,7 +633,8 @@ sub form_login {
                 -name  => 'login',
                 -id    => 'login',
                 -class => 'button black bigrounded',
-                -value => 'Login'
+                -value => 'Login',
+                -title => 'Click submit to login'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),
             $q->a(
@@ -647,24 +642,32 @@ sub form_login {
                     -href => $q->url( -absolute => 1 ) . '?a=' 
                       . FORM
                       . RESETPASSWORD,
-                    -title => 'Email me a new password'
+                    -title => <<"END_forgotPassword"
+Click here if you forgot your password. 
+END_forgotPassword
                 },
                 'I Forgot My Password'
             )
         )
-      ) . $q->end_form;
-    return;
+      ),
+      $q->end_form;
 }
 #######################################################################################
 sub form_resetPassword {
-    print $q->start_form(
+    return $q->start_form(
         -method   => 'POST',
         -action   => $q->url( -absolute => 1 ) . '?a=' . RESETPASSWORD,
         -onsubmit => 'return validate_fields(this, [\'username\']);'
-      )
-      . $q->dl(
-        $q->dt('Username:'),
-        $q->dd( $q->textfield( -name => 'username', -id => 'username' ) ),
+      ),
+      $q->dl(
+        $q->dt( $q->label( { -for => 'username' }, 'Your login id:' ) ),
+        $q->dd(
+            $q->textfield(
+                -name  => 'username',
+                -id    => 'username',
+                -title => 'Enter your login id'
+            )
+        ),
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
@@ -672,59 +675,35 @@ sub form_resetPassword {
                 -name  => 'resetPassword',
                 -id    => 'resetPassword',
                 -class => 'button black bigrounded',
-                -value => 'Email new password'
-            ),
-            $q->span( { -class => 'separator' }, ' / ' ),
-            $q->a(
-                {
-                    -href  => $q->url( -absolute => 1 ) . '?a=' . FORM . LOGIN,
-                    -title => 'Back to login page'
-                },
-                'Back'
+                -value => 'Reset my password',
+                -title => <<"END_forgotPassword"
+Click to issue a new password and send a message containing the new password to 
+the email address registered under your login name.
+END_forgotPassword
             )
         )
-      ) . $q->end_form;
-    return;
+      ),
+      $q->end_form;
 }
 #######################################################################################
 sub resetPassword_success {
-    print $q->p( $s->reset_password_text() )
-      . $q->p(
-        $q->a(
-            {
-                -href  => $q->url( -absolute => 1 ),
-                -title => 'Back to login page'
-            },
-            'Back'
-        )
-      );
-    return;
+    return $q->p( $s->reset_password_text() );
 }
 #######################################################################################
 sub registration_success {
-    print $q->p( $s->register_user_text() )
-      . $q->p(
-        $q->a(
-            {
-                -href  => $q->url( -absolute => 1 ),
-                -title => 'Back to login page'
-            },
-            'Back'
-        )
-      );
-    return;
+    return $q->p( $s->register_user_text() );
 }
 #######################################################################################
 sub form_changePassword {
 
     # user has to be logged in
-    print $q->start_form(
+    return $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=' . CHANGEPASSWORD,
         -onsubmit =>
 'return validate_fields(this, [\'old_password\',\'new_password1\',\'new_password2\']);'
-      )
-      . $q->dl(
+      ),
+      $q->dl(
         $q->dt('Old Password:'),
         $q->dd(
             $q->password_field(
@@ -761,58 +740,25 @@ sub form_changePassword {
                 -class => 'button black bigrounded',
                 -value => 'Change password',
                 -title => 'Submit form'
-            ),
-            $q->span( { -class => 'separator' }, ' / ' ),
-            $q->a(
-                {
-                    -href => $q->url( -absolute => 1 ) . '?a=' 
-                      . FORM
-                      . UPDATEPROFILE,
-                    -title => 'Back to my profile'
-                },
-                'Back'
             )
         )
-      ) . $q->end_form;
-    return;
+      ),
+      $q->end_form;
 }
 #######################################################################################
 sub changePassword_success {
-    print $q->p('You have successfully changed your password.')
-      . $q->p(
-        $q->a(
-            {
-                -href => $q->url( -absolute => 1 ) . '?a=' 
-                  . FORM
-                  . UPDATEPROFILE,
-                -title => 'Back to my profile'
-            },
-            'Back'
-        )
-      );
-    return;
+    return $q->p(
+        'Success! Your password has been changed to the new one you provided.');
 }
 #######################################################################################
 sub verifyEmail_success {
-    print $q->p('You email address has been verified.')
-      . $q->p(
-        $q->a(
-            {
-                -href => $q->url( -absolute => 1 ) . '?a=' 
-                  . FORM
-                  . UPDATEPROFILE,
-                -title => 'Back to my profile'
-            },
-            'Back'
-        )
-      );
-    return;
+    return $q->p('Success! You email address has been verified.');
 }
 #######################################################################################
 sub form_changeEmail {
 
     # user has to be logged in
-    print $q->h2('Change Email Address'),
+    return $q->h2('Change Email Address'),
       $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=' . CHANGEEMAIL,
@@ -832,17 +778,17 @@ sub form_changeEmail {
         $q->dt('New Email Address:'),
         $q->dd(
             $q->textfield(
-                -name => 'email1',
-                -id   => 'email1',
-                title => 'Enter your new email address'
+                -name  => 'email1',
+                -id    => 'email1',
+                -title => 'Enter your new email address'
             )
         ),
         $q->dt('Confirm New Address:'),
         $q->dd(
             $q->textfield(
-                -name => 'email2',
-                -id   => 'email2',
-                title => 'Confirm your new email address'
+                -name  => 'email2',
+                -id    => 'email2',
+                -title => 'Confirm your new email address'
             )
         ),
         $q->dt('&nbsp;'),
@@ -854,62 +800,37 @@ sub form_changeEmail {
                 -class => 'button black bigrounded',
                 -value => 'Change email',
                 -title => 'Submit form'
-            ),
-            $q->span( { -class => 'separator' }, ' / ' ),
-            $q->a(
-                {
-                    -href => $q->url( -absolute => 1 ) . '?a=' 
-                      . FORM
-                      . UPDATEPROFILE,
-                    -title => 'Back to my profile'
-                },
-                'Back'
             )
         )
       ),
       $q->end_form;
-    return 1;
 }
 #######################################################################################
 sub changeEmail_success {
-    print $q->p( $s->change_email_text() )
-      . $q->p(
-        $q->a(
-            {
-                -href => $q->url( -absolute => 1 ) . '?a=' 
-                  . FORM
-                  . UPDATEPROFILE,
-                -title => 'Back to my profile'
-            },
-            'Back'
-        )
-      );
-    return;
+    return $q->p( $s->change_email_text() );
 }
 #######################################################################################
 sub form_updateProfile {
 
-    # user has to be logged in
-    print $q->h2('My Profile');
-
-    if ( $s->is_authorized('user') ) {
-        print $q->p(
+    my $url_absolute = $q->url( -absolute => 1 );
+    return $q->h2('My Profile'),
+      (
+        ( $s->is_authorized('user') )
+        ? $q->p(
             $q->a(
                 {
-                    -href  => $q->url( -absolute => 1 ) . '?a=chooseProject',
+                    -href  => $url_absolute . '?a=chooseProject',
                     -title => 'Choose Project'
                 },
                 'Choose Project'
             )
-        );
-    }
-
-    print $q->p(
+          )
+        : ''
+      ),
+      $q->p(
         $q->a(
             {
-                -href => $q->url( -absolute => 1 ) . '?a=' 
-                  . FORM
-                  . CHANGEPASSWORD,
+                -href  => $url_absolute . '?a=' . FORM . CHANGEPASSWORD,
                 -title => 'Change Password'
             },
             'Change Password'
@@ -918,60 +839,92 @@ sub form_updateProfile {
       $q->p(
         $q->a(
             {
-                -href => $q->url( -absolute => 1 ) . '?a=' . FORM . CHANGEEMAIL,
+                -href  => $url_absolute . '?a=' . FORM . CHANGEEMAIL,
                 -title => 'Change Email'
             },
             'Change Email'
         )
       );
-    return;
 }
 #######################################################################################
 sub form_registerUser {
 
     # user cannot be logged in
-    print $q->start_form(
+    return $q->start_form(
         -method => 'POST',
         -action => $q->url( absolute => 1 ) . '?a=' . REGISTER,
         -onsubmit =>
 'return validate_fields(this, [\'username\',\'password1\',\'password2\',\'email1\',\'email2\',\'full_name\']);'
-      )
-      . $q->dl(
-        $q->dt('Username:'),
-        $q->dd( $q->textfield( -name => 'username', -id => 'username' ) ),
-        $q->dt('Password:'),
+      ),
+      $q->dl(
+        $q->dt( $q->label( { -for => 'username' }, 'Username:' ) ),
+        $q->dd(
+            $q->textfield(
+                -name  => 'username',
+                -id    => 'username',
+                -title => 'Enter your future login id'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'password1' }, 'Password:' ) ),
         $q->dd(
             $q->password_field(
                 -name      => 'password1',
                 -id        => 'password1',
-                -maxlength => 40
+                -maxlength => 40,
+                -title     => 'Enter your future password'
             )
         ),
-        $q->dt('Confirm Password:'),
+        $q->dt( $q->label( { -for => 'password2' }, 'Confirm Password:' ) ),
         $q->dd(
             $q->password_field(
                 -name      => 'password2',
                 -id        => 'password2',
-                -maxlength => 40
+                -maxlength => 40,
+                -title     => 'Type your password again for confirmation'
             )
         ),
-        $q->dt('Email:'),
-        $q->dd( $q->textfield( -name => 'email1', -id => 'email1' ) ),
-        $q->dt('Confirm Email:'),
-        $q->dd( $q->textfield( -name => 'email2', -id => 'email2' ) ),
-        $q->dt('Full Name:'),
-        $q->dd( $q->textfield( -name => 'full_name', -id => 'full_name' ) ),
-        $q->dt('Address:'),
+        $q->dt( $q->label( { -for => 'email1' }, 'Email:' ) ),
+        $q->dd(
+            $q->textfield(
+                -name  => 'email1',
+                -id    => 'email1',
+                -title => 'Enter your email address here (must be valid)'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'email2' }, 'Confirm Email:' ) ),
+        $q->dd(
+            $q->textfield(
+                -name  => 'email2',
+                -id    => 'email2',
+                -title => 'Type your email address again for confirmation'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'full_name' }, 'Full Name:' ) ),
+        $q->dd(
+            $q->textfield(
+                -name  => 'full_name',
+                -id    => 'full_name',
+                -title => 'Enter your first and last names here (optional)'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'address' }, 'Address:' ) ),
         $q->dd(
             $q->textarea(
                 -name    => 'address',
                 -id      => 'address',
                 -rows    => 10,
-                -columns => 50
+                -columns => 50,
+                -title   => 'Enter your contact address (optional)'
             )
         ),
-        $q->dt('Phone:'),
-        $q->dd( $q->textfield( -name => 'phone', -id => 'phone' ) ),
+        $q->dt( $q->label( { -for => 'phone' }, 'Contact Phone:' ) ),
+        $q->dd(
+            $q->textfield(
+                -name  => 'phone',
+                -id    => 'phone',
+                -title => 'Enter your contact phone number (optional)'
+            )
+        ),
         $q->dt('&nbsp;'),
         $q->dd(
             form_error($error_string),
@@ -979,23 +932,15 @@ sub form_registerUser {
                 -name  => 'registerUser',
                 -id    => 'registerUser',
                 -class => 'button black bigrounded',
-                -value => 'Register'
-            ),
-            $q->span( { -class => 'separator' }, ' / ' ),
-            $q->a(
-                {
-                    -href  => $q->url( -absolute => 1 ) . '?a=' . FORM . LOGIN,
-                    -title => 'Back to login page'
-                },
-                'Back'
+                -value => 'Register',
+                -title => 'Submit this registration form'
             )
         )
       ),
       $q->end_form;
-    return;
 }
 #######################################################################################
-sub footer {
+sub content_footer {
     return $q->div(
         { -id => 'footer' },
         $q->ul(
@@ -1015,7 +960,7 @@ sub footer {
 
 #######################################################################################
 sub schema {
-    print $q->img(
+    return $q->img(
         {
             src    => IMAGES_DIR . '/schema.png',
             width  => 720,
@@ -1024,37 +969,11 @@ sub schema {
             id     => 'schema'
         }
     );
-    return 1;
 }
 
 #######################################################################################
-#sub dump_table {
-#
-#    # prints out the entire table in tab-delimited format
-#    #
-#    my $table    = shift;
-#    my $sth      = $dbh->prepare(qq{SELECT * FROM $table});
-#    my $rowcount = $sth->execute();
-#
-#    # print the table head (fieldnames)
-#    print join( "\t", @{ $sth->{NAME} } ), "\n";
-#
-#    # print the data itself
-#    while ( my $row = $sth->fetchrow_arrayref ) {
-#
-#        # NULL elements become undefined -- replace those,
-#        # otherwise the error_log will overfill with warnings
-#        foreach (@$row) { $_ = '' unless defined; s/\t/ /; }
-#        print join( "\t", @$row ), "\n";
-#    }
-#    $sth->finish;
-#    return;
-#}
-
-#######################################################################################
 sub module_show_html {
-    $loadModule->dispatch();
-    return;
+    return $loadModule->dispatch();
 }
 
 #===  FUNCTION  ================================================================
@@ -1075,12 +994,9 @@ sub build_sidemenu {
         my $proj_name = $s->{session_cookie}->{proj_name};
         my $curr_proj = $s->{session_cookie}->{curr_proj};
         if ( defined($curr_proj) and $curr_proj ne '' ) {
-            $proj_name = $q->a(
-                {
-                    -href => "$url_prefix?a=manageProjects&b=edit&id=$curr_proj"
-                },
-                $proj_name
-            );
+            $proj_name =
+              $q->a( { -href => "$url_prefix?a=projects&b=edit&id=$curr_proj" },
+                $proj_name );
         }
         else {
             $proj_name = 'All Projects';
@@ -1094,13 +1010,13 @@ sub build_sidemenu {
           $q->span(
             { -style => 'color:#999' },
             "Current Project: $proj_name ("
-              . $q->a( { -href => $url_prefix . '?a=chooseProject' }, 'change' )
+              . $q->a( { -href => "$url_prefix?a=chooseProject" }, 'change' )
               . ')'
           );
         push @menu,
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . FORM . UPDATEPROFILE,
+                -href  => "$url_prefix?a=" . FORM . UPDATEPROFILE,
                 -title => 'My user profile.'
             },
             'My Profile'
@@ -1108,7 +1024,7 @@ sub build_sidemenu {
           . $q->span( { -class => 'separator' }, ' / ' )
           . $q->a(
             {
-                -href  => $url_prefix . '?a=' . LOGOUT,
+                -href  => "$url_prefix?a=" . LOGOUT,
                 -title => 'You are signed in as '
                   . $s->{session_stash}->{username}
                   . '. Click on this link to log out.'
@@ -1122,7 +1038,7 @@ sub build_sidemenu {
         push @menu,
           $q->a(
             {
-                -href  => $url_prefix . '?a=' . FORM . LOGIN,
+                -href  => "$url_prefix?a=" . FORM . LOGIN,
                 -title => 'Log in'
             },
             'Log in'
@@ -1130,7 +1046,7 @@ sub build_sidemenu {
           . $q->span( { -class => 'separator' }, ' / ' )
           . $q->a(
             {
-                -href => $q->url( -absolute => 1 ) . '?a=' . FORM . REGISTER,
+                -href  => "$url_prefix?a=" . FORM . REGISTER,
                 -title => 'Set up a new account'
             },
             'Sign up'
@@ -1139,7 +1055,7 @@ sub build_sidemenu {
     push @menu,
       $q->a(
         {
-            -href  => $url_prefix . '?a=' . ABOUT,
+            -href  => "$url_prefix?a=" . ABOUT,
             -title => 'About this site'
         },
         'About'
@@ -1147,13 +1063,64 @@ sub build_sidemenu {
     push @menu,
       $q->a(
         {
-            -href   => $url_prefix . '?a=' . HELP,
+            -href   => "$url_prefix?a=" . HELP,
             -title  => 'Help pages',
             -target => 'new'
         },
         'Help'
       );
     return \@menu;
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  about_text
+#      PURPOSE:  Show About page content
+#   PARAMETERS:  $q - CGI.pm object
+#                showSchema => $showSchema - action to display schema
+#      RETURNS:  array of strings formed using CGI object
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub about_text {
+    my (%param) = @_;
+    return $q->h2('About'),
+      $q->p(
+'The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to examine sexually dimorphic gene expression in mouse livers.'
+      ),
+      $q->p(
+'This SEGEX database provides public access to previously released datasets from the Waxman laboratory, and provides data mining tools and data visualization to query gene expression across several studies and experimental conditions.'
+      ),
+      $q->p(
+'Developed at Boston University as part of the BE768 Biologic Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.'
+      ),
+      $q->p(
+        $q->a(
+            { -href => $q->url( -absolute => 1 ) . '?a=' . SHOWSCHEMA },
+            'View database schema'
+        )
+      );
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  main_text
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub main_text {
+    my (%param) = @_;
+    return $q->p(
+'The SEGEX database will provide public access to previously released datasets from the Waxman laboratory, and data mining and visualization modules to query gene expression across several studies and experimental conditions.'
+      ),
+      $q->p(
+'This database was developed at Boston University as part of the BE768 Biological Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.'
+      );
 }
 
 #===  FUNCTION  ================================================================
@@ -1180,86 +1147,86 @@ sub build_menu {
     my $url_prefix = $q->url( -absolute => 1 );
 
     # add user options
-    if ( $s->is_authorized('user') ) {
+    return unless $s->is_authorized('user');
 
-        # view
-        push @{ $menu{$view} },
-          $q->a(
+    # Query
+    push @{ $menu{$view} },
+      (
+        $q->a(
             {
                 -href  => $url_prefix . '?a=compareExperiments',
-                -title => 'Select samples to compare'
+                -title => 'Compare multiple experiments for significant probes'
             },
             'Compare Experiments'
-          );
-        push @{ $menu{$view} },
-          $q->a(
+        ),
+        $q->a(
             {
-                -href  => $url_prefix . '?a=findProbes',
-                -title => 'Search for probes'
+                -href => $url_prefix . '?a=findProbes',
+                -title =>
+'Search for probes by probe ids, gene symbols, accession numbers'
             },
             'Find Probes'
-          );
-        push @{ $menu{$view} },
-          $q->a(
+        ),
+        $q->a(
             {
                 -href  => $url_prefix . '?a=outputData',
                 -title => 'Output Data'
             },
             'Output Data'
-          );
+        )
+      );
 
-        # upload
-        push @{ $menu{$upload} },
-          $q->a(
+    # Manage
+    push @{ $menu{$manage} },
+      (
+        $q->a(
+            {
+                -href  => $url_prefix . '?a=platforms',
+                -title => 'Manage Platforms'
+            },
+            'Manage Platforms'
+        ),
+        $q->a(
+            {
+                -href  => $url_prefix . '?a=experiments',
+                -title => 'Manage Experiments'
+            },
+            'Manage Experiments'
+        ),
+        $q->a(
+            {
+                -href  => $url_prefix . '?a=studies',
+                -title => 'Manage Studies'
+            },
+            'Manage Studies'
+        ),
+        $q->a(
+            {
+                -href  => $url_prefix . '?a=projects',
+                -title => 'Manage Projects'
+            },
+            'Manage Projects'
+        )
+      );
+
+    # Upload
+    push @{ $menu{$upload} },
+      (
+        $q->a(
             {
                 -href  => $url_prefix . '?a=uploadData',
                 -title => 'Upload data to a new experiment'
             },
             'Upload Data'
-          );
-        push @{ $menu{$upload} },
-          $q->a(
+        ),
+        $q->a(
             {
                 -href  => $url_prefix . '?a=uploadAnnot',
-                -title => 'Upload Probe Annotations'
+                -title => 'Upload probe annotations'
             },
             'Upload Annotation'
-          );
-
-        # manage
-        push @{ $menu{$manage} },
-          $q->a(
-            {
-                -href  => $url_prefix . '?a=managePlatforms',
-                -title => 'Manage Platforms'
-            },
-            'Manage Platforms'
-          );
-        push @{ $menu{$manage} },
-          $q->a(
-            {
-                -href  => $url_prefix . '?a=manageProjects',
-                -title => 'Manage Projects'
-            },
-            'Manage Projects'
-          );
-        push @{ $menu{$manage} },
-          $q->a(
-            {
-                -href  => $url_prefix . '?a=manageStudies',
-                -title => 'Manage Studies'
-            },
-            'Manage Studies'
-          );
-        push @{ $menu{$manage} },
-          $q->a(
-            {
-                -href  => $url_prefix . '?a=manageExperiments',
-                -title => 'Manage Experiments'
-            },
-            'Manage Experiments'
-          );
-    }
+        )
+      );
 
     # add admin options
     #if ($s->is_authorized('admin')) {

@@ -131,15 +131,14 @@ sub dispatch {
 
     switch ($action) {
         case 'Upload' {
-            print $self->LoadHTML();
+            return $self->LoadHTML();
         }
         else {
 
             # default action: show form
-            print $self->form_uploadAnnot();
+            return $self->form_uploadAnnot();
         }
     }
-    return 1;
 }
 
 #---------------------------------------------------------------------------
@@ -223,8 +222,7 @@ sub uploadAnnot {
     if ( @fields < 2 ) {
 
         # :TODO:07/12/2011 15:03:47:es: replace printing with exceptions here
-        print $q->p('Too few fields specified -- nothing to update.');
-        return;
+        die 'Too few fields specified -- nothing to update.';
     }
 
     #Create two hashes that hold hash{Long Name} = DBName
@@ -284,8 +282,7 @@ sub uploadAnnot {
       && !defined( $q->param('add') );
 
     if ( !$outside_have_reporter && !$outside_have_gene ) {
-        print $q->p('No core fields specified -- cannot proceed with update.');
-        return;
+        die 'No core fields specified -- cannot proceed with update.';
     }
 
     my $update_gene;
@@ -493,7 +490,7 @@ qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname 
     }
     my $count_lines = @lines;
 
-    print $q->p( sprintf( "%d lines processed.", $count_lines ) );
+    warn sprintf( "%d lines processed.", $count_lines );
 
     #Flag the platform as being annotated.
     return $dbh->do( 'UPDATE platform SET isAnnotated=1 WHERE pid=?',

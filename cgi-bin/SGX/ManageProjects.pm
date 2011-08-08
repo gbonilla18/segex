@@ -102,15 +102,14 @@ sub dispatch {
 
     switch ($action) {
         case 'edit' {
-            print $self->editProject();
+            return $self->editProject();
         }
         else {
 
             # default action: show Manage Projects main form
-            print $self->showProjects();
+            return $self->showProjects();
         }
     }
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -149,7 +148,7 @@ sub dispatch_js {
             $self->loadFromForm();
             $self->insertNewProject();
             $self->redirectInternal(
-                '?a=manageProjects&b=edit&id=' . $self->{_prid} );
+                '?a=projects&b=edit&id=' . $self->{_prid} );
         }
         case 'addExisting' {
             return unless $s->is_authorized('user');
@@ -181,26 +180,26 @@ sub dispatch_js {
                 }
             }
             $self->redirectInternal(
-                '?a=manageProjects&b=edit&id=' . $self->{_prid} );
+                '?a=projects&b=edit&id=' . $self->{_prid} );
         }
         case 'delete' {
             return unless $s->is_authorized('user');
             $self->loadFromForm();
             $self->deleteProject();
-            $self->redirectInternal('?a=manageProjects');
+            $self->redirectInternal('?a=projects');
         }
         case 'deleteStudy' {
             return unless $s->is_authorized('user');
             $self->loadFromForm();
             $self->removeStudy();
             $self->redirectInternal(
-                '?a=manageProjects&b=edit&id=' . $self->{_prid} );
+                '?a=projects&b=edit&id=' . $self->{_prid} );
         }
         case 'editSubmit' {
             return unless $s->is_authorized('user');
             $self->loadFromForm();
             $self->editSubmitProject();
-            $self->redirectInternal('?a=manageProjects');
+            $self->redirectInternal('?a=projects');
         }
         case 'edit' {
             return unless $s->is_authorized('user');
@@ -370,7 +369,7 @@ sub editProject_js {
     my $q         = $self->{_cgi};
     my $prid      = $self->{_prid};
     my $deleteURL = $q->url( absolute => 1 )
-      . "?a=manageProjects&b=deleteStudy&id=$prid&removstid=";
+      . "?a=projects&b=deleteStudy&id=$prid&removstid=";
 
     my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
     return $js->define(
@@ -457,8 +456,8 @@ sub showProjects_js {
     my $q = $self->{_cgi};
 
     my $url_prefix = $q->url( absolute => 1 );
-    my $deleteURL  = "$url_prefix?a=manageProjects&b=delete&id=";
-    my $editURL    = "$url_prefix?a=manageProjects&b=edit&id=";
+    my $deleteURL  = "$url_prefix?a=projects&b=delete&id=";
+    my $editURL    = "$url_prefix?a=projects&b=edit&id=";
 
     my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
     return $js->define(
@@ -479,7 +478,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
          * neighborhood that makes hammers using the hammer construction factory
          * spec sheet in CellUpdater.js 
          */
-        return createCellUpdater(field, "$url_prefix?a=manageProjects", "2");
+        return createCellUpdater(field, "$url_prefix?a=projects", "2");
     }
     YAHOO.widget.DataTable.Formatter.formatProjectDeleteLink = function(elCell, oRecord, oColumn, oData)
     {
@@ -698,7 +697,7 @@ sub showProjects {
       $q->h3( { -id => 'Add_Caption' }, 'Add Project' ),
       $q->start_form(
         -method   => 'POST',
-        -action   => "$url_prefix?a=manageProjects&b=add",
+        -action   => "$url_prefix?a=projects&b=add",
         -onsubmit => 'return validate_fields(this, ["name"]);'
       ),
       $q->dl(
@@ -867,12 +866,12 @@ sub editProject {
  #
     my $editSubmit =
         $q->url( -absolute => 1 )
-      . '?a=manageProjects&b=editSubmit&id='
+      . '?a=projects&b=editSubmit&id='
       . $self->{_prid};
 
     my $addExisting =
         $q->url( -absolute => 1 )
-      . '?a=manageProjects&b=addExisting&id='
+      . '?a=projects&b=addExisting&id='
       . $self->{_prid};
 
     return $q->h2('Editing Project'),

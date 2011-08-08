@@ -89,8 +89,7 @@ sub dispatch {
       ? $q->param('b')
       : '';
 
-    print $self->getTableHTML();
-    return 1;
+    return $self->getTableHTML();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -128,13 +127,13 @@ sub dispatch_js {
             return unless $s->is_authorized('user');
             $self->init();
             $self->insertNewPlatform();
-            $self->redirectInternal('?a=managePlatforms');
+            $self->redirectInternal('?a=platforms');
         }
         case 'delete' {
             return unless $s->is_authorized('user');
             $self->init();
             $self->deletePlatform();
-            $self->redirectInternal('?a=managePlatforms');
+            $self->redirectInternal('?a=platforms');
         }
         case 'update' {
 
@@ -443,7 +442,7 @@ sub getTableHTML {
       $q->h3( { -id => 'Add_Caption' }, 'Add Platform' ),
       $q->start_form(
         -method   => 'POST',
-        -action   => $q->url( -absolute => 1 ) . '?a=managePlatforms&b=add',
+        -action   => $q->url( -absolute => 1 ) . '?a=platforms&b=add',
         -onsubmit => 'return validate_fields(this, [\'pname\',\'species\']);'
       ),
       $q->dl(
@@ -523,12 +522,12 @@ YAHOO.util.Event.addListener(window, 'load', function() {
          * neighborhood that makes hammers using the hammer construction factory
          * spec sheet in CellUpdater.js 
          */
-        return createCellUpdater(field, "$url_prefix?a=managePlatforms", "4");
+        return createCellUpdater(field, "$url_prefix?a=platforms", "4");
     }
     
     YAHOO.widget.DataTable.Formatter.formatPlatformDeleteLink = function(elCell, oRecord, oColumn, oData) 
     {
-        elCell.innerHTML = '<a title="Delete Platform" onclick="alert(\\'This feature has been disabled till password protection can be implemented.\\');return false;" target="_self" href="$url_prefix?a=managePlatforms&b=delete&id=" + oData + "">Delete</a>';
+        elCell.innerHTML = '<a title="Delete Platform" onclick="alert(\\'This feature has been disabled till password protection can be implemented.\\');return false;" target="_self" href="$url_prefix?a=platforms&b=delete&id=" + oData + "">Delete</a>';
     };
     
     var myColumnDefs = [
@@ -661,8 +660,8 @@ sub editPlatform {
     print $q->h2('Editing Platform'),
       $q->start_form(
         -method => 'POST',
-        -action => $q->url( -absolute => 1 )
-          . '?a=managePlatforms&b=editSubmit&id='
+        -action => $q->url( -absolute => 1 ) . '?a=platforms' 
+          . '&b=editSubmit&id='
           . $self->{_pid},
         -onsubmit => 'return validate_fields(this, [\'pname\',\'species\']);'
       ),

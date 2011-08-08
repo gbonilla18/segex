@@ -37,6 +37,7 @@ use File::Temp;
 use SGX::Abstract::Exception;
 use SGX::Util qw/all_match trim min/;
 use SGX::Model::PlatformStudyExperiment;
+use Text::CSV;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
@@ -173,15 +174,14 @@ sub dispatch {
 
     switch ($action) {
         case 'Search' {
-            print $self->getResultTableHTML();
+            return $self->getResultTableHTML();
         }
         else {
 
             # default action: show form
-            print $self->getFormHTML();
+            return $self->getFormHTML();
         }
     }
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================

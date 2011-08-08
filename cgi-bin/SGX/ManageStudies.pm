@@ -120,33 +120,33 @@ sub dispatch_js {
             $self->loadFromForm();
             $self->insertNewStudy();
             $self->redirectInternal(
-                '?a=manageStudies&b=edit&id=' . $self->{_stid} );
+                '?a=studies&b=edit&id=' . $self->{_stid} );
         }
         case 'Assign Experiment' {
             return unless $s->is_authorized('user');
             $self->loadFromForm();
             $self->addExistingExperiment();
             $self->redirectInternal(
-                '?a=manageStudies&b=edit&id=' . $self->{_stid} );
+                '?a=studies&b=edit&id=' . $self->{_stid} );
         }
         case 'delete' {
             return unless $s->is_authorized('user');
             $self->loadFromForm();
             $self->deleteStudy();
-            $self->redirectInternal('?a=manageStudies');
+            $self->redirectInternal('?a=studies');
         }
         case 'deleteExperiment' {
             return unless $s->is_authorized('user');
             $self->loadFromForm();
             $self->removeExperiment();
             $self->redirectInternal(
-                '?a=manageStudies&b=edit&id=' . $self->{_stid} );
+                '?a=studies&b=edit&id=' . $self->{_stid} );
         }
         case 'Set Attributes' {
             return unless $s->is_authorized('user');
             $self->loadFromForm();
             $self->editSubmitStudy();
-            $self->redirectInternal('?a=manageStudies');
+            $self->redirectInternal('?a=studies');
         }
         case 'new' {
             return unless $s->is_authorized('user');
@@ -232,18 +232,17 @@ sub dispatch {
 
     switch ($action) {
         case 'edit' {
-            print $self->editStudy();
+            return $self->editStudy();
         }
         case 'new' {
-            print $self->form_createStudy();
+            return $self->form_createStudy();
         }
         else {
 
             # default action: show Manage Studies main form
-            print $self->showStudies();
+            return $self->showStudies();
         }
     }
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -537,7 +536,7 @@ sub showStudies {
     #---------------------------------------------------------------------------
     return $q->h2('Manage Studies'),
 
-      # Resource URI: /manageStudies
+      # Resource URI: /studies
       $q->start_form(
         -method => 'GET',
         -action => $q->url( -absolute => 1 )
@@ -553,7 +552,7 @@ sub showStudies {
         ),
         $q->dt('&nbsp;'),
         $q->dd(
-            $q->hidden( -name => 'a', -value => 'manageStudies' ),
+            $q->hidden( -name => 'a', -value => 'studies' ),
             $q->submit(
                 -name  => 'b',
                 -class => 'button black bigrounded',
@@ -580,10 +579,10 @@ sub form_createStudy {
     return
       $q->h3('Create New Study'),
 
-      # Resource URI: /manageStudies
+      # Resource URI: /studies
       $q->start_form(
         -method   => 'POST',
-        -action   => $q->url( -absolute => 1 ) . '?a=manageStudies',
+        -action   => $q->url( -absolute => 1 ) . '?a=studies',
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
@@ -662,8 +661,8 @@ sub getTableInformation {
     my $q = $self->{_cgi};
 
     my $url_prefix = $q->url( -absolute => 1 );
-    my $deleteURL  = $url_prefix . '?a=manageStudies&b=delete&id=';
-    my $editURL    = $url_prefix . '?a=manageStudies&b=edit&id=';
+    my $deleteURL  = $url_prefix . '?a=studies&b=delete&id=';
+    my $editURL    = $url_prefix . '?a=studies&b=edit&id=';
 
     return <<"END_TableInformation";
 function createExperimentCellUpdater(field) {
@@ -672,7 +671,7 @@ function createExperimentCellUpdater(field) {
      * neighborhood that makes hammers using the hammer construction factory
      * spec sheet in CellUpdater.js 
      */
-    return createCellUpdater(field, "$url_prefix?a=manageStudies", "4");
+    return createCellUpdater(field, "$url_prefix?a=studies", "4");
 }
 YAHOO.util.Event.addListener("StudyTable_astext", "click", export_table, JSStudyList, true);
 YAHOO.util.Event.addListener(window, 'load', function() {
@@ -806,11 +805,11 @@ sub editStudy {
         )
       ),
 
-      # Resource URI: /manageStudies/id
+      # Resource URI: /studies/id
       $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 )
-          . '?a=manageStudies&id='
+          . '?a=studies&id='
           . $self->{_stid},
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
@@ -860,11 +859,11 @@ sub editStudy {
         )
       ),
 
-      # Resource URI: /manageStudies/id
+      # Resource URI: /studies/id
       $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 )
-          . '?a=manageStudies&id='
+          . '?a=studies&id='
           . $self->{_stid}
       ),
       $q->dl(
@@ -924,7 +923,7 @@ sub getExperimentTableInformation {
     my $stid = $self->{_stid};
 
     my $deleteURL = $q->url( absolute => 1 )
-      . "?a=manageStudies&b=deleteExperiment&id=$stid&removeid=";
+      . "?a=studies&b=deleteExperiment&id=$stid&removeid=";
 
     return <<"END_ExperimentTableInformation";
 YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 

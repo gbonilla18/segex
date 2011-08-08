@@ -157,15 +157,14 @@ sub dispatch {
 
     switch ($action) {
         case 'Load' {
-            print $self->LoadHTML();
+            return $self->LoadHTML();
         }
         else {
 
             # default action: show form
-            print $self->showForm();
+            return $self->showForm();
         }
     }
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
