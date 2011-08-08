@@ -231,20 +231,74 @@ https://github.com/alexyoung/ico
 
 
 
-2. REST ARCHITECTURE
+2. RESTful ARCHITECTURE
 
-2.1 Form encoding
+2.1 Some basic facts:
+
+   * REST is the way to go; it is the only correct way to architecture web
+     applications. All other ways are either inherently worse or they eventually
+     end up mirroring REST in some strange and non-standard way.
+
+   * XHTML 1 and HTML 4 do not support all REST methods. For example, the only
+     allowed values of 'method=' attribute in web forms in XHTML 1 and HTML 4
+     are GET and POST. PUT and DELETE are not supported. 
+
+   * HTML5 supports all REST methods, however not all browsers currently in use 
+     support HTML5.
+
+   * Although REST places heavy emphasis on using correct methods for sending
+     requests, we can obtain nearly all of the benefits of RESTful architecture
+     without resorting to the use of PUT and DELETE methods. To do so, it is
+     enough to (a) indentify resources and express them as nouns, (b) use GET 
+     and POST methods (verbs) in a correct way, (c) apply HATEOAS (Hypermedia as
+     the Engine of Application State).
+
+
+2.2 CGI.pm
+
+According to recipe 1.8 in RESTful Web Services Cookbook, after creating a
+resource with POST, a response with code 201 (Created) and either a Location: or
+a Content-Location: header must be returned containing the URI of the newly
+creted resource. The Content-Location: header is returned only if the body of
+the response already includes a complete representation of the newly created
+resource and no redirect (which occurs when Location: is sent to client) is
+needed.
+
+    # Example of the first scenario using CGI.pm (Location:)
+    print $q->redirect(            # do redirect
+        -status => 201,            # 201 Created
+        -uri    => '/resource/1',  # sends Location: style header
+        -cookie => \@cookies
+    );
+
+    # Example of the second scenario using CGI.pm (Content-Location:)
+    print $q->header(                        # no redirect
+         -status           => 201,           # 201 Created
+         -content_location => '/resource/1', # Content-Location:
+         -cookie           => \@cookies
+    );
+
+For further reference, see the following sections in the HTTP 1.1 specification
+on Location: and Content-Location: style headers respectively:
+
+http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.14
+http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.30
+
+For reference on HTTP error codes, see REST cookbook, pp. 71-72.
+
+Note: Returning the URI of the newly created resource in a Location: or
+Content-Location: style header is a form of HATEOAS.
+
+
+2.3 Forms
 
 With CGI.pm, always pass "-enctype => 'application/x-www-form-urlencoded'"
 option to start_form() unless the form contains a file input field
 ("multipart/form-data" which is default in CGI.pm creates a binary stream which
-doubles the traffic)
+doubles the traffic).
 
-2.2 HTTP Error Codes
 
-For reference on HTTP error codes, see REST cookbook, pp. 71-72.
-
-2.3 GET vs POST
+2.4 GET vs POST
 
 For forms, prefer GET method to POST unless (1) submitting the form modifies a
 resource on the server, or (2) requires the user to upload a file (i.e. when
@@ -314,8 +368,13 @@ parameters thrown in too, then param() returns only the POSTed parameters and
 url_param() returns only the URL ones."
 http://www.garayed.com/perl/75096-cgi-pm-distinguish-between-post-get-3.html#post335175
 
+2.5 REST -- further reading
 
+http://martinfowler.com/articles/richardsonMaturityModel.html
+http://timelessrepo.com/haters-gonna-hateoas
+http://blog.steveklabnik.com/2011/07/03/nobody-understands-rest-or-http.html
 
+http://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
 
 
 

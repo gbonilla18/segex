@@ -642,9 +642,7 @@ sub form_login {
                     -href => $q->url( -absolute => 1 ) . '?a=' 
                       . FORM
                       . RESETPASSWORD,
-                    -title => <<"END_forgotPassword"
-Click here if you forgot your password. 
-END_forgotPassword
+                    -title => 'Click here if you forgot your password.'
                 },
                 'I Forgot My Password'
             )
@@ -1147,7 +1145,7 @@ sub build_menu {
     my $url_prefix = $q->url( -absolute => 1 );
 
     # add user options
-    return unless $s->is_authorized('user');
+    return \%menu unless $s->is_authorized('user');
 
     # Query
     push @{ $menu{$view} },
