@@ -43,7 +43,7 @@ BEGIN {
 
 #===  FUNCTION  ================================================================
 #         NAME:  get_cookies_sent_to_user
-#      PURPOSE:  
+#      PURPOSE:
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  ????
@@ -51,25 +51,29 @@ BEGIN {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub dump_cookies_sent_to_user 
-{
+sub dump_cookies_sent_to_user {
     my ($s) = @_;
-    return '<pre>' . sprintf(<<"END_COOKIE_BLOCK",
+
+    my $cookie_array  = Dumper($s->cookie_array()  || []);
+    my $session_stash = Dumper($s->{session_stash} || {});
+    my $ttl           = $s->{session_stash}->{ttl} || '?';
+    #my $ttl           = $s->{session_obj}->{ttl};
+
+    return <<"END_COOKIE_BLOCK";
+<pre>
 ------------------------------------------------------
 Cookies sent to user:
 
-%s
+$cookie_array
 ------------------------------------------------------
 Object stored in the "sessions" table in the database:
 
-%s
+$session_stash
 ------------------------------------------------------
-session expires after %d seconds of inactivity
+session expires after $ttl seconds of inactivity
 ------------------------------------------------------
+</pre>
 END_COOKIE_BLOCK
-    Dumper($s->cookie_array()),
-    Dumper($s->{session_stash}),
-    $s->{ttl}) . '</pre>';
 }
 
 1;

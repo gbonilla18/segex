@@ -485,7 +485,7 @@ print(
         content_header(),
 
         # -- do not delete line below -- useful for debugging cookie sessions
-        #SGX::Debug::dump_cookies_sent_to_user($s),
+        SGX::Debug::dump_cookies_sent_to_user($s),
         $q->div( { -id => 'content' }, &$content() ),
         content_footer(),
         cgi_end_html()
@@ -714,18 +714,18 @@ sub form_changePassword {
       $q->dl(
         ($require_old)
         ? (
-            $q->dt('Old Password:'),
+            $q->dt( $q->label( { -for => 'old_password' }, 'Old Password:' ) ),
             $q->dd(
                 $q->password_field(
                     -name      => 'old_password',
                     -id        => 'old_password',
                     -maxlength => 40,
-                    -title     => 'Enter your old password'
+                    -title     => 'Enter your old password here'
                 )
             )
           )
         : (),
-        $q->dt('New Password:'),
+        $q->dt( $q->label( { -for => 'new_password1' }, 'New Password:' ) ),
         $q->dd(
             $q->password_field(
                 -name      => 'new_password1',
@@ -734,13 +734,15 @@ sub form_changePassword {
                 -title => 'Enter the new password you would like to change to'
             )
         ),
-        $q->dt('Confirm New Password:'),
+        $q->dt(
+            $q->label( { -for => 'new_password2' }, 'Confirm New Password:' )
+        ),
         $q->dd(
             $q->password_field(
                 -name      => 'new_password2',
                 -id        => 'new_password2',
                 -maxlength => 40,
-                -title     => 'Confirm the new password'
+                -title     => 'Type the new password again to confirm it'
             )
         ),
         $q->dt('&nbsp;'),
@@ -751,7 +753,7 @@ sub form_changePassword {
                 -id    => 'changePassword',
                 -class => 'button black bigrounded',
                 -value => 'Change password',
-                -title => 'Submit form'
+                -title => 'Click to change your current password to the new one'
             )
         )
       ),

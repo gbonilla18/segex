@@ -148,7 +148,7 @@ $VERSION = '0.11';
 
 use base qw/SGX::Session::Cookie/;
 
-use Data::Dumper;
+#use Data::Dumper;
 use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
 use SGX::Abstract::Exception;
@@ -453,7 +453,7 @@ sub reset_password {
         Subject => "Your Request to Change Your $project_name Password",
         To      => $user_email
     );
-    $msg->add( 'From', 'NOREPLY' );
+    $msg->add( 'From', 'no-reply' );
     my $fh = $msg->open()
       or SGX::Abstract::Exception::Internal::Mail->throw(
         error => 'Failed to open default mailer' );
@@ -464,6 +464,8 @@ Please follow the link below to login to $project_name where you can change your
 password to one of your preference:
 
 $login_uri&sid=$session_id
+
+This link will expire in $hours_to_expire hours.
 
 If you think you have received this email by mistake, please notify the
 $project_name administrator.
@@ -491,9 +493,10 @@ END_RESET_PWD_MSG
 #===============================================================================
 sub reset_password_text {
     return <<"END_reset_password_text";
-A new password has been emailed to you. Once you receive the email message, you
-will be able to change the password sent to you by following the link in the
-email text.
+A message has been sent to your email address. Once you receive the message, you 
+will be able to login by clicking on the link provided. After clicking on the 
+link, please set up your new password immediately using the Change Password 
+form.
 END_reset_password_text
 }
 
@@ -531,7 +534,7 @@ sub change_password {
         $$error = 'New password and its confirmation do not match';
         return;
     }
-    if ( $new_password1 eq $old_password ) {
+    if ( $require_old and $new_password1 eq $old_password ) {
         $$error = 'The new and the old passwords you entered are the same.';
         return;
     }
@@ -565,7 +568,17 @@ sub change_password {
               "Expected one user record but encountered $rows_affected.\n" );
         return;
     }
-    return $rows_affected;
+   
+    # We try to shorten the time window where the user is allowed to change his
+    # or her password without having to enter the old password. We do this by
+    # allowing the user to change the password only once upon a reset password
+    # request. 
+    $self->session_delete(qw(change_pwd));
+    
+    # The cleanse() method basically changes the session id while keeping the
+    # same session data that we have currently set. Changing the session id will
+    # also automatically delete the old session cookie.
+    return $self->cleanse();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -825,7 +838,7 @@ sub send_verify_email {
         Subject => "Please confirm your email address with $project_name",
         To      => $email
     );
-    $msg->add( 'From', 'NOREPLY' );
+    $msg->add( 'From', 'no-reply' );
     my $fh = $msg->open()
       or SGX::Abstract::Exception::Internal::Mail->throw(
         error => 'Failed to open default mailer' );
@@ -840,8 +853,8 @@ $login_uri&sid=$session_id
 
 This link will expire in $hours_to_expire hours.
 
-If you have never heard of $project_name, please ignore this message or notify
-the $project_name administrator if you keep receiving it.
+If you think you have received this email by mistake, please notify the
+$project_name administrator.
 
 - $project_name automatic mailer
 

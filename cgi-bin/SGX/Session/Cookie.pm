@@ -155,10 +155,12 @@ sub restore {
     # first try to restore session from provided id
     if ( defined($id) && $self->SUPER::restore($id) ) {
         $self->{session_cookie} = { $SID_FIELD => $id };
-        $self->{session_cookie_modified} = 1;
+        #$self->{session_cookie_modified} = 1;
         return 1;
     }
-
+ # :TODO:08/08/2011 23:46:18:es: When restoring from ?sid= URI parameter,
+ # cookies are never fetched.
+ #
     # on failure, try to get id from cookies
     my %cookies = fetch CGI::Cookie;
     $self->{fetched_cookies} = \%cookies;
@@ -169,7 +171,7 @@ sub restore {
 
     if ( defined($id) && $self->SUPER::restore($id) ) {
         $self->{session_cookie} = \%session_cookie;
-        $self->{session_cookie_modified} = 1;
+        #$self->{session_cookie_modified} = 1;
         return 1;
     }
 

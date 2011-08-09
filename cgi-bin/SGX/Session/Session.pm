@@ -174,7 +174,7 @@ sub tie_session {
         );
     }
 
-    # Tie session_obj. Catch exceptions -- failure here is normal.
+    # Tie session_obj; catch tie exceptions
     my $ret = eval {
         tie %{ $self->{session_obj} }, 'Apache::Session::MySQL', $id,
           {
@@ -184,7 +184,7 @@ sub tie_session {
     };
     if ( $ret && !$@ ) {
         my $generated_id = $self->{session_obj}->{_session_id};
-        if ( defined($id) && !( $generated_id eq $id ) ) {
+        if ( defined($id) and $id ne $generated_id ) {
             SGX::Abstract::Exception::Internal::Session->throw(
                 error => 'Internal error' );
         }
@@ -203,14 +203,43 @@ sub tie_session {
 #  DESCRIPTION:  Stores key-value combinations to session object and updates
 #                session view
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  Counterpart to session_delete()
 #     SEE ALSO:  n/a
 #===============================================================================
 sub session_store {
     my ( $self, %param ) = @_;
+
+    my $session_obj   = $self->{session_obj};
+    my $session_stash = $self->{session_stash};
+
     while ( my ( $key, $value ) = each(%param) ) {
-        $self->{session_obj}->{$key}   = $value;
-        $self->{session_stash}->{$key} = $value;
+        $session_obj->{$key}   = $value;
+        $session_stash->{$key} = $value;
+    }
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::Session
+#       METHOD:  session_delete
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  Counterpart to session_store()
+#     SEE ALSO:  n/a
+#===============================================================================
+sub session_delete {
+    my ( $self, @keys ) = @_;
+
+    #$self->session_store(map { $_ => undef} @keys);
+
+    my $session_obj   = $self->{session_obj};
+    my $session_stash = $self->{session_stash};
+
+    foreach my $key (@keys) {
+        delete $session_obj->{$key};
+        delete $session_stash->{$key};
     }
     return 1;
 }
@@ -396,8 +425,44 @@ sub start {
     return $self->restore($id) if defined($id);
 
     # on failure start new session
-    return ($self->tie_session(undef) && $self->init_session() &&
-        $self->stash_session());
+    return ( $self->tie_session(undef)
+          && $self->init_session()
+          && $self->stash_session() );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::Session
+#       METHOD:  refresh_session_id
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  "Untaint" (cleanse) impure session (one whose id has been
+#                shared with the outside). Accomplishes this by deleting session
+#                object from the database store, creating a new one and
+#                populating the new object from the stash. Assumes that the
+#                session stash already contains a copy of session object.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub cleanse {
+    my ($self) = @_;
+
+    # delete session_obj and create a new one
+    tied( %{ $self->{session_obj} } )->delete;
+    untie( %{ $self->{session_obj} } );
+    $self->tie_session(undef);
+
+    # Copy all keys except _session_id from session_stash to session_obj.
+    # Likewise, copy _session_id from session_obj to session_stash
+    my $session_obj   = $self->{session_obj};
+    my $session_stash = $self->{session_stash};
+
+    $session_stash->{_session_id} = $session_obj->{_session_id};
+    while ( my ( $key, $value ) = each(%$session_stash) ) {
+        $session_obj->{$key} = $value;
+    }
+
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -472,30 +537,12 @@ sub now {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub commit {
-
     my $self = shift;
     if ( $self->session_is_tied() ) {
-        my $session_id = $self->get_session_id();
         untie( %{ $self->{session_obj} } );
         return 1;
     }
     return;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session::Session
-#       METHOD:  unset
-#   PARAMETERS:  ????
-#      RETURNS:  True on success
-#  DESCRIPTION:  Unset session variables
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub unset {
-    my $self = shift;
-    undef %{ $self->{session_stash} };
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -518,8 +565,9 @@ sub destroy {
         untie( %{ $self->{session_obj} } );
     }
 
-    # clear session data
-    return $self->unset();
+    # clear session data (results in empty anonymous hash)
+    undef %{ $self->{session_stash} };
+    return 1;
 }
 
 1;    # for require
