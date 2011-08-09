@@ -152,26 +152,25 @@ sub session_cookie_store {
 sub restore {
     my ($self, $id) = @_;
 
+    # Makes sure cookies are fetched when restoring from ?sid= URI parameter,
+    my %cookies = fetch CGI::Cookie;
+    $self->{fetched_cookies} = \%cookies;
+
     # first try to restore session from provided id
     if ( defined($id) && $self->SUPER::restore($id) ) {
         $self->{session_cookie} = { $SID_FIELD => $id };
-        #$self->{session_cookie_modified} = 1;
+        $self->{session_cookie_modified} = 1;
         return 1;
     }
- # :TODO:08/08/2011 23:46:18:es: When restoring from ?sid= URI parameter,
- # cookies are never fetched.
- #
-    # on failure, try to get id from cookies
-    my %cookies = fetch CGI::Cookie;
-    $self->{fetched_cookies} = \%cookies;
 
     # in scalar context, the result of CGI::Cookie::value is a scalar
     my %session_cookie = eval { $cookies{$SESSION_NAME}->value };
     $id = $session_cookie{$SID_FIELD};
-
     if ( defined($id) && $self->SUPER::restore($id) ) {
+
+        # do not set session_cookie_modified here to 1 -- otherwise a cookie
+        # will be sent every time a page is loaded.
         $self->{session_cookie} = \%session_cookie;
-        #$self->{session_cookie_modified} = 1;
         return 1;
     }
 
