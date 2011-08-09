@@ -568,13 +568,13 @@ sub change_password {
               "Expected one user record but encountered $rows_affected.\n" );
         return;
     }
-   
+
     # We try to shorten the time window where the user is allowed to change his
     # or her password without having to enter the old password. We do this by
     # allowing the user to change the password only once upon a reset password
-    # request. 
+    # request.
     $self->session_delete(qw(change_pwd));
-    
+
     # The cleanse() method basically changes the session id while keeping the
     # same session data that we have currently set. Changing the session id will
     # also automatically delete the old session cookie.
@@ -942,12 +942,20 @@ sub read_perm_cookie {
     # in hash context, CGI::Cookie::value returns a hash
     my %val = eval { $cookies_ref->{$cookie_name}->value };
 
-    #$self->{perm_cookie_value} = \%val;
     if (%val) {
 
         # copy all data from the permanent cookie to session cookie
         # so we don't have to read permanent cookie every time
         $self->session_cookie_store(%val);
+
+        # for each key/value combo, execute appropriate subroutine if "entailer"
+        # is found in the perm2cookie table
+        my $perm2session = $self->{perm2session};
+        while ( my ( $key, $value ) = each(%val) ) {
+            if (my $entailer = $perm2session->{$key}) {
+                $self->session_cookie_store( $entailer->($value) );
+            }
+        }
 
         # hash has members (is not empty)
         return 1;

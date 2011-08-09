@@ -112,8 +112,7 @@ sub new {
 
     my $self = {
         dbh           => $param{dbh},
-        expire_in     => $param{expire_in},
-        check_ip      => $param{check_ip},
+        %param,
         session_obj   => {},                  # actual session object
         session_stash => {}                   # shallow copy of session object
     };

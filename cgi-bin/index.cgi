@@ -29,10 +29,40 @@ use SGX::Session::Session 0.08;    # email verification
 my $softwareVersion = '0.2.4';
 
 my $dbh = sgx_db_connect();
+
+ # :TRICKY:08/09/2011 13:30:40:es: The following block of code is a bit of a
+ # hack (need to refactor).  When key/value pairs are copied from a permanent
+ # cookie to a session cookie, we want to set up an "event handler" that, upon
+ # encountering certain symbols in the permanent cookie, would execute some
+ # code. The code executed would, in its turn, produce key/value tuples that
+ # would be then stored in the session cookie.
+ #    The motivation of doing things this way (instead of simply including the
+ # code into SGX::Session::User) is that our event handling code may query
+ # different tables and/or databases that we do not want SGX::Session::User to
+ # know about. This way we implement separation of concerns.
+my $perm2session = {
+    curr_proj => sub {
+        # note that we are not using dbh from within User class -- in theory
+        # user and session tables could be stored in a separate database.
+        my $curr_proj = shift;
+        return (proj_name => '') unless defined($curr_proj);
+        my $sth = $dbh->prepare('SELECT prname FROM project WHERE prid=?');
+        my $rc  = $sth->execute($curr_proj);
+        if  ( $rc != 1 ) {
+            $sth->finish;
+            return (proj_name => '');
+        }
+        my ($full_name) = $sth->fetchrow_array;
+        $sth->finish;
+        return (proj_name => $full_name);
+    }
+};
+
 my $s   = SGX::Session::User->new(
     dbh       => $dbh,
     expire_in => 3600,             # expire in 3600 seconds (1 hour)
-    check_ip  => 1
+    check_ip  => 1,
+    perm2session => $perm2session
 );
 
 my $q = CGI->new();
@@ -55,6 +85,7 @@ my $css = [
     { -src => YUI_BUILD_ROOT . '/datatable/assets/skins/sam/datatable.css' },
     { -src => CSS_DIR . '/style.css' }
 ];
+
 
 my @js_src_yui;
 my @js_src_code = ( { -src => 'form.js' } );
@@ -172,10 +203,6 @@ while ( defined($action) ) {
             $s->authenticate( $q->param('username'), $q->param('password'),
                 \$error_string );
             if ( $s->is_authorized('unauth') ) {
-                require SGX::ChooseProject;
-                my $chooseProj = SGX::ChooseProject->new(%controller_context);
-                $chooseProj->init();
-                $chooseProj->changeToCurrent();
 
                 my $destination =
                   ( defined( $q->url_param('destination') ) )
@@ -485,7 +512,7 @@ print(
         content_header(),
 
         # -- do not delete line below -- useful for debugging cookie sessions
-        SGX::Debug::dump_cookies_sent_to_user($s),
+        #SGX::Debug::dump_cookies_sent_to_user($s),
         $q->div( { -id => 'content' }, &$content() ),
         content_footer(),
         cgi_end_html()
