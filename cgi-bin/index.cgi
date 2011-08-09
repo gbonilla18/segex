@@ -30,12 +30,11 @@ my $softwareVersion = '0.2.4';
 
 my $dbh = sgx_db_connect();
 
- # :TRICKY:08/09/2011 13:30:40:es: The following block of code is a bit of a
- # hack (need to refactor).  When key/value pairs are copied from a permanent
- # cookie to a session cookie, we want to set up an "event handler" that, upon
- # encountering certain symbols in the permanent cookie, would execute some
- # code. The code executed would, in its turn, produce key/value tuples that
- # would be then stored in the session cookie.
+ # :TRICKY:08/09/2011 13:30:40:es: When key/value pairs are copied from a
+ # permanent cookie to a session cookie, we want to set up an "event handler"
+ # that, upon encountering certain symbols in the permanent cookie, would
+ # execute some code. The code executed would, in its turn, produce key/value
+ # tuples that would be then stored in the session cookie.
  #    The motivation of doing things this way (instead of simply including the
  # code into SGX::Session::User) is that our event handling code may query
  # different tables and/or databases that we do not want SGX::Session::User to

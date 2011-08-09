@@ -127,12 +127,22 @@ sub dispatch_js {
         case 'CSV' {
             return unless $s->is_authorized('user');
 
+            #Clear our headers so all we get back is the CSV file.
+            print $self->{_cgi}->header(
+                -type       => 'text/csv',
+                -attachment => 'results.csv',
+                -cookie     => $s->cookie_array()
+            );
+
             $s->commit();
             $self->getPlatformData();
             $self->loadAllData();
 
             # :TODO:08/06/2011 14:25:39:es: instead of printing directly to
             # browser window in the function below, have it return a string
+            
+            # Dynamically load Text::CSV module (use require)
+
             $self->displayTFSInfoCSV();
 
             exit;
@@ -331,9 +341,7 @@ sub loadTFSData {
     #
     # :TODO:07/07/2011 12:38:40:es: SQL injection risk: no validation done
     # one _searchFilters before being inserted into WHERE statement.
-    # Fix this by writing a validate_numeric_list function which will take
-    # a string of comma-delimited numbers, split it, make sure every member
-    # is a number, and concatenate it again.
+    # Fix this by using prepare/execute with placeholders.
     my $probeListQuery =
       ( defined( $self->{_searchFilters} ) && $self->{_searchFilters} ne '' )
       ? " WHERE rid IN (" . $self->{_searchFilters} . ") "
@@ -710,28 +718,9 @@ END_queryCSV
 sub displayTFSInfoCSV {
     my $self = shift;
 
-    #Clear our headers so all we get back is the CSV file.
-    $self->{_UserSession}->commit() if defined( $self->{_UserSession} );
-    my $cookie_array =
-      ( defined $self->{_UserSession} )
-      ? $self->{_UserSession}->cookie_array()
-      : [];
-    print $self->{_cgi}->header(
-        -type       => 'text/csv',
-        -attachment => 'results.csv',
-        -cookie     => $cookie_array
-    );
-
     #Print a line to tell us what report this is.
-    my $workingProjectText =
-      ( defined( $self->{_WorkingProjectName} ) )
-      ? $self->{_WorkingProjectName}
-      : 'N/A';
-
-    my $generatedByText =
-      ( defined( $self->{_UserFullName} ) )
-      ? $self->{_UserFullName}
-      : '';
+    my $workingProjectText = $self->{_WorkingProjectName};
+    my $generatedByText = $self->{_UserFullName};
 
     #Print a line to tell us what report this is.
     print 'Compare Experiments Report,' . localtime() . "\n";

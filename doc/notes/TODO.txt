@@ -52,11 +52,6 @@ as in the "filter by list" section of Compare Experiments.
 *) One should be able to upload a file in Find Probes form just as it currently
 is in Compare Experiments.
 
-*) When verifying email, after clicking on URL in the email message, a login
-page will appear. If the login is incorrect from the first try, the system will
-"forget" that it was supposed to verify email and proceeds to show the main
-SEGEX page. This is a bug.
-
 *) Catch the exception that occurs on failure to connect to database (can test
 this easily by stopping MySQL daemon on Mac) and present the user with a page
 that describes what happened and encourages the user to send an email to the
@@ -82,9 +77,6 @@ the top).
 
 *) Links in Manage Studies should direct user directly from an upload data form
 (to a new experiment) with the given study preselected.
-
-*) :TODO:07/07/2011 12:38:40:es: in TFSDisplay.pm, SQL injection risk (need data
-validation).
 
 *) Make upload file headers optional in Upload Data to a new experiment
 
@@ -132,19 +124,7 @@ following hierarchy:
 	species -> platform -> study -> experiment
 It's four levels deep!
 
-*) Right now have two methods -- perm_cookie_store() and session_cookie_store()
-for cookie storage. They both take a direct hash. perm_cookie_store() saves data
-both to permanent cookie and session cookie, while session_cookie_store() saves
-data only in the session cookie. Rewrite this as follows: there should be only
-one method, called either cookie_store or client_store() that would take (1) a
-hash reference to the data currently passed as direct hash, (2) an optional
-parameter, make_permanent => ... that would ensure that data gets stored in the
-permanent cookie as well as in the session cookie (when this parameter is
-missing or set to false, data is store only in the session cookie), (3) possibly
-other parameters.
-
-*) Replace "Back to my profile" links etc with breadcrumbs. Breadcrumbs would
-also be useful for Manage* modules or any other hiearachies on the site.
+*) Implement breadcrumbs.
 
 *) Replace all occurrences of 'use constant' with equivalent funcitonality in 
 Readonly module:

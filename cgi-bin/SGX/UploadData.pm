@@ -40,6 +40,32 @@ use SGX::Abstract::Exception;
 use SGX::Model::PlatformStudyExperiment;
 use Scalar::Util qw/looks_like_number/;
 
+my @parser = (
+    sub {
+        ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) ? $1 : undef;
+    },
+    sub {
+        my ($x) = shift =~ /(.*)/;
+        looks_like_number($x) ? $x : undef;
+    },
+    sub {
+        my ($x) = shift =~ /(.*)/;
+        looks_like_number($x) ? $x : undef;
+    },
+    sub {
+        my ($x) = shift =~ /(.*)/;
+        looks_like_number($x) ? $x : undef;
+    },
+    sub {
+        my ($x) = shift =~ /(.*)/;
+        looks_like_number($x) ? $x : undef;
+    },
+    sub {
+        my ($x) = shift =~ /(.*)/;
+        looks_like_number($x) ? $x : undef;
+      }
+);
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
 #       METHOD:  new
@@ -611,31 +637,7 @@ sub sanitizeUploadFile {
         SGX::CSV::csv_rewrite(
             \@lines,
             $OUTPUTTOSERVER,
-            [
-                sub {
-                    ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) ? $1 : undef;
-                },
-                sub {
-                    my ($x) = shift =~ /(.*)/;
-                    looks_like_number($x) ? $x : undef;
-                },
-                sub {
-                    my ($x) = shift =~ /(.*)/;
-                    looks_like_number($x) ? $x : undef;
-                },
-                sub {
-                    my ($x) = shift =~ /(.*)/;
-                    looks_like_number($x) ? $x : undef;
-                },
-                sub {
-                    my ($x) = shift =~ /(.*)/;
-                    looks_like_number($x) ? $x : undef;
-                },
-                sub {
-                    my ($x) = shift =~ /(.*)/;
-                    looks_like_number($x) ? $x : undef;
-                  }
-            ],
+            \@parser,
             input_header => 1,
             csv_in_opts  => { sep_char => "\t", allow_whitespace => 1 }
         );
