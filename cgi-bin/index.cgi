@@ -39,6 +39,9 @@ my $dbh = sgx_db_connect();
  # code into SGX::Session::User) is that our event handling code may query
  # different tables and/or databases that we do not want SGX::Session::User to
  # know about. This way we implement separation of concerns.
+
+ # :TODO:08/09/2011 17:08:51:es: This code should be a part of SGX::Profile
+ # class.
 my $perm2session = {
     curr_proj => sub {
         # note that we are not using dbh from within User class -- in theory
@@ -121,11 +124,20 @@ use constant SHOWSCHEMA     => 'showSchema';
 use constant HELP           => 'help';
 use constant ABOUT          => 'about';
 
-# map actions ('?a=' URL parameter) to modules
+#---------------------------------------------------------------------------
+#  Dispatch table that associates action symbols ('?a=' URL parameter) with
+#  names of packages to which corresponding functionality is delegated. In
+#  combination with the dispatcher block below the table, we implement a
+#  Strategy pattern where modules listed below are ConcreteStrategies (exposing
+#  interface common to abstract class Strategy -- to be implemented) and the
+#  dispatch plus dispatcher are Context. CONSEQUENCES: (a) have all
+#  participating modules inherit from the same abstract class; (b) if possible,
+#  move the dispatcher code into a separate Context class.
+#---------------------------------------------------------------------------
 my %dispatch_table = (
 
     # :TODO:08/07/2011 20:39:03:es: come up with nouns to replace verbs for
-    # better REST conformance
+    # better RESTfullness
     #
     # verbs
     uploadAnnot        => 'SGX::UploadAnnot',
@@ -141,6 +153,10 @@ my %dispatch_table = (
     projects    => 'SGX::ManageProjects',
     studies     => 'SGX::ManageStudies',
     experiments => 'SGX::ManageExperiments',
+
+ # :TODO:08/09/2011 17:12:16:es: replace SGX::ChooseProject with SGX::Profile
+ # class: 
+ #  profile     => 'SGX::Profile',
 );
 
 my $loadModule;
