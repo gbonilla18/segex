@@ -46,7 +46,7 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     require SGX::Abstract::JSEmitter;
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
     $self->set_attributes(
         dom_table_id       => 'crudTable',
         dom_export_link_id => 'crudTable_astext',

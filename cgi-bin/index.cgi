@@ -77,14 +77,18 @@ sub make_link_creator {
             if ( defined $val ) {
                 my ( $label, $title ) = @$val;
                 $title = $label if not defined $title;
+                my $link_class =
+                  ( defined($current_action) && $action eq $current_action )
+                  ? 'pressed_link'
+                  : '';
                 push @result,
-                  (
-                    ( defined($current_action) && $action eq $current_action )
-                    ? $q->span( { -class => 'pressed_link' }, $label )
-                    : $q->a(
-                        { -href => "$url_prefix?a=$action", -title => $title },
-                        $label
-                    )
+                  $q->a(
+                    {
+                        -class => $link_class,
+                        -href  => "$url_prefix?a=$action",
+                        -title => $title
+                    },
+                    $label
                   );
             }
         }
@@ -272,6 +276,7 @@ if ( defined $module ) {
 
         # by default, we add cookies, unless -cookie=>undef
         %header_command = (
+
             #-status => 204,                  # 204 No Content -- default status
             -type   => '',                   # do not send Content-Type
             -cookie => $s->cookie_array(),
@@ -629,8 +634,8 @@ print(
     # HTTP response header
     $q->header(%header_command_body),
 
- # :TODO:10/05/2011 08:58:59:es: why can't cgi_start_html etc go into
- # Strategy::Base?
+    # :TODO:10/05/2011 08:58:59:es: why can't cgi_start_html etc go into
+    # Strategy::Base?
     # HTTP response body
     (
         cgi_start_html(),
