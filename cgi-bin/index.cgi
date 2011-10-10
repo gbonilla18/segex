@@ -175,6 +175,7 @@ my %dispatch_table = (
     projects    => 'SGX::ManageProjects',
     studies     => 'SGX::ManageStudies',
     experiments => 'SGX::ManageExperiments',
+    users       => 'SGX::ManageUsers',
 
     # :TODO:08/09/2011 17:12:16:es: replace SGX::ChooseProject with SGX::Profile
     # class:
@@ -1345,7 +1346,14 @@ sub build_menu {
                 -title => 'Manage Projects'
             },
             'Manage Projects'
-        )
+        ),
+        $q->a(
+            {
+                -href  => $url_prefix . '?a=users',
+                -title => 'Manage Users'
+            },
+            'Manage Users'
+        ),
       );
 
     # Upload

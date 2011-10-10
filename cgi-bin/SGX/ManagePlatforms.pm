@@ -70,10 +70,11 @@ sub new {
 # inner_join: Whether to add INNER JOIN clause to generated SQL.
         _table_defs => {
             'platform' => {
-                key     => [qw/pid/],
-                mutable => [qw/pname def_p_cutoff def_f_cutoff species/],
-                proto   => [qw/pname def_p_cutoff def_f_cutoff species/],
-                view    => [
+                key      => [qw/pid/],
+                mutable  => [qw/pname def_p_cutoff def_f_cutoff species/],
+                resource => 'platforms',
+                proto    => [qw/pname def_p_cutoff def_f_cutoff species/],
+                view     => [
                     qw/pname def_p_cutoff def_f_cutoff species/,
                     qw/COUNT(probe.rid) COUNT(probe.probe_sequence) COUNT(probe.location)/
                 ],
@@ -99,7 +100,8 @@ sub new {
             'study' => {
                 key       => [qw/stid/],
                 view      => [qw/description pubmed/],
-                mutable   => [],
+                mutable   => [qw/description pubmed/],
+                resource  => 'studies',
                 proto     => [],
                 selectors => [],
                 names     => [qw/description/],
@@ -108,7 +110,7 @@ sub new {
                     description => 'Description',
                     pubmed      => 'PubMed ID'
                 },
-                lookup  => { 'proj' => [ stid => 'stid' ] },
+                lookup     => { 'proj' => [ stid => 'stid' ] },
                 constraint => [ pid    => sub    { shift->{_id} } ]
             },
             'proj' => {
@@ -167,59 +169,15 @@ sub new {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub readrow_head {
-
     my $self = shift;
 
-    $self->_readrow_command()->();
+    # get data for given platform
+    $self->SUPER::readrow_head();
 
     my $table = 'study';
-    $self->_readall_command($table)->();
+    # add extra table showing studies
+    $self->generate_datatable( 'study', remove_row => [ 'unassign']);
 
-    push @{ $self->{_js_src_code} },
-      (
-        {
-            -code =>
-              $self->_head_data_table( $table, remove_row => ['unassign'] )
-        }
-      );
-
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  readall
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readall_head {
-
-    my $self = shift;
-
-    my $q = $self->{_cgi};
-
-    # delete 'prid' parameter when it is set to 'all'
-    $q->delete('pid')
-      if ( defined $q->param('pid') )
-      and ( $q->param('pid') eq 'all' );
-
-    my $table = $self->{_default_table};
-    $self->_readall_command($table)->();
-
-    push @{ $self->{_js_src_code} },
-      (
-        {
-            -code => $self->_head_data_table(
-                $table,
-                remove_row => ['delete'],
-                view_row   => ['edit']
-            )
-        }
-      );
     return 1;
 }
 
@@ -235,7 +193,7 @@ sub readall_head {
 #===============================================================================
 sub form_create_head {
     my $self = shift;
-    return if defined $self->{_id};    # no _id
+    return if defined $self->{_id};    # {_id} must not be set
 
     return 1;
 }

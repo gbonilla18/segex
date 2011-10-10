@@ -20,7 +20,7 @@ package SGX::Strategy::Base;
 use strict;
 use warnings;
 
-#use Data::Dumper;
+use Data::Dumper;
 use URI::Escape;
 
 #===  CLASS METHOD  ============================================================
@@ -87,22 +87,20 @@ sub get_uri {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_resource_uri {
-    my ( $self, %args ) = @_;
-    my ( $q, $action ) = @$self{qw/_cgi _ResourceName/};
+    my ( $self, %args )   = @_;
+    my ( $q,    $action ) = @$self{qw/_cgi _ResourceName/};
 
-    my %overridden = (
-        a => $action,
-        %args
-    );
-    my $base = $q->url( -absolute => 1 );
+    my %overridden = ( a => $action, %args );
     my @components;
     while ( my ( $key, $value ) = each %overridden ) {
-        if (defined $value) {
+        if ( defined $value ) {
             push @components, uri_escape($key) . '=' . uri_escape($value);
         }
     }
-    $base .= ( '?' . join( '&', @components ) ) if ( @components > 0 );
-    return $base;
+    my $ret =
+      $q->url( -absolute => 1 )
+      . ( ( @components > 0 ) ? '?' . join( '&', @components ) : '' );
+    return $ret;
 }
 
 #===  CLASS METHOD  ============================================================

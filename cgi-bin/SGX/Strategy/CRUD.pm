@@ -81,9 +81,7 @@ sub new {
 #===============================================================================
 sub get_resource_uri {
     my ( $self, %args ) = @_;
-    my $id = $self->{_id};
-    my %overridden = ( ( defined $id ) ? ( id => $id ) : (), %args );
-    return $self->SUPER::get_resource_uri(%overridden);
+    return $self->SUPER::get_resource_uri( id => $self->{_id}, %args );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -121,9 +119,12 @@ sub _dispatch_by {
 sub _head_data_table {
     my ( $self, $table, %args ) = @_;
 
-    #---------------------------------------------------------------------------
-    #  setup
-    #---------------------------------------------------------------------------
+   # :TODO:09/17/2011 10:18:14:es: parametrize this method such that it would be
+   # possible to have more than one DataTable control per page.
+   #
+   #---------------------------------------------------------------------------
+   #  setup
+   #---------------------------------------------------------------------------
     my ( $remove_row, $view_row ) = @args{qw/remove_row view_row/};
     my @deletePhrase = ( defined $remove_row ) ? @$remove_row : ('delete');
     push( @deletePhrase, $table ) if not defined $deletePhrase[1];
@@ -249,12 +250,19 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     #  YUI table definition
     #---------------------------------------------------------------------------
+    #
+    # Need to set a= and id= parameters because otherwise current settings will
+    # be used from {_ResourceName} and {_id}.
+    my $table_resource_uri = $self->get_resource_uri(
+        a  => $table_info->{resource},
+        id => undef
+    );
     my $onloadLambda = $js->lambda(
         $js->bind(
             [
                 $var->{resourceURIBuilder} => $js->apply(
                     'createResourceURIBuilder',
-                    [ $self->get_resource_uri(), \%resource_extra ]
+                    [ $table_resource_uri, \%resource_extra ]
                 ),
                 $var->{rowNameBuilder} =>
                   $js->apply( 'createRowNameBuilder', [ \@nameIndexes ] ),
@@ -419,6 +427,75 @@ sub dispatch_js {
     return ( defined $self->{_id} )
       ? $self->readrow_head
       : $self->readall_head;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  readrow_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub readrow_head {
+    my $self = shift;
+    $self->_readrow_command()->();
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  readall_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub readall_head {
+    my $self  = shift;
+    my $table = $self->{_default_table};
+    return $self->generate_datatable(
+        $table,
+        remove_row => ['delete'],
+        view_row   => ['edit']
+    );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  generate_datatable
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub generate_datatable {
+    my ( $self, $table, %extras ) = @_;
+    my ( $q, $table_defs ) = @$self{qw/_cgi _table_defs/};
+    my $table_info = $table_defs->{$table};
+
+    foreach my $selector ( @{ $table_info->{selectors} } ) {
+        if ( defined( $q->param($selector) ) && $q->param($selector) eq 'all' )
+        {
+
+            # delete CGI parameter if set to 'all' and name belongs to selectors
+            # array.
+            $q->delete($selector);
+        }
+    }
+
+    $self->_readall_command($table)->();
+
+    # generate all the neccessary Javascript for the YUI DataTable control
+    push @{ $self->{_js_src_code} },
+      ( { -code => $self->_head_data_table( $table, %extras ) } );
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1408,6 +1485,10 @@ sub _update_command {
     my ($self) = @_;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
+
+  # :TODO:09/15/2011 13:22:27:es:  fix this: there should be two default tables,
+  # one when {_id} is not set, and one when it is set.
+  #
     $table = $self->{_default_table} if not defined $table;
     return undef if not defined $table;
 
@@ -1427,6 +1508,7 @@ sub _update_command {
     my $assignment = join( ',',     map { "$_=?" } @fields_to_update );
     my $predicate  = join( ' AND ', map { "$_=?" } @key_copy );
     my $query = "UPDATE $table SET $assignment WHERE $predicate";
+
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
         warn $error;
@@ -1539,6 +1621,7 @@ sub _head_init {
         'paginator/assets/skins/sam/paginator.css',
         'datatable/assets/skins/sam/datatable.css'
       );
+    push @{ $self->{_css_src_code} }, ( +{ -src => 'CRUD.css' } );
     push @{ $self->{_js_src_yui} },
       (
         'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',

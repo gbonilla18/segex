@@ -284,12 +284,10 @@ dl, table, div.table_cont {
 	border-top:1px solid #000;
 	clear:both;
 }
-td.yui-dt-col-5 .yui-dt-liner {
-	width:100px;
-}
 
 /* word-wrap: break-word -- breaks long words such as DNA sequences */
 td.yui-dt-col-5 .yui-dt-liner {
+	width:100px;
 	white-space: pre-wrap; /* css-3 */
 	white-space: -moz-pre-wrap; /* Mozilla, since 1999 */
 	white-space: -pre-wrap; /* Opera 4-6 */

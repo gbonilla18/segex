@@ -68,6 +68,7 @@ sub new {
             'project' => {
                 key       => [qw/prid/],
                 mutable   => [qw/prname prdesc manager/],
+                resource  => 'projects',
                 view      => [qw/prname prdesc/],
                 proto     => [qw/prname prdesc manager/],
                 selectors => [qw/manager/],
@@ -82,10 +83,11 @@ sub new {
             },
             'study' => {
                 key       => [qw/stid/],
-                mutable   => [],
                 proto     => [],
                 selectors => [qw/pid/],
                 view      => [qw/description pubmed/],
+                mutable   => [qw/description pubmed pid/],
+                resource  => 'studies',
                 names     => [qw/description/],
                 labels    => {
                     stid        => 'No.',
@@ -151,62 +153,15 @@ sub new {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub readrow_head {
-
     my $self = shift;
 
-    $self->_readrow_command()->();
+    # get data for given project
+    $self->SUPER::readrow_head();
 
-    #  Sets up _Field_SymbolToIndex and _Field_SymbolToName
+    # add extra table showing studies
+    $self->generate_datatable( 'study',
+        remove_row => [ 'unassign' => 'ProjectStudy' ] );
 
-    my $table = 'study';
-    $self->_readall_command($table)->();
-
-    push @{ $self->{_js_src_code} },
-      (
-        {
-            -code => $self->_head_data_table(
-                $table, remove_row => [ 'unassign' => 'ProjectStudy' ]
-            )
-        }
-      );
-
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  readall
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readall_head {
-
-    my $self = shift;
-
-    my $q = $self->{_cgi};
-
-    # delete 'prid' parameter when it is set to 'all'
-    $q->delete('prid')
-      if ( defined $q->param('prid') )
-      and ( $q->param('prid') eq 'all' );
-
-    my $table = $self->{_default_table};
-    $self->_readall_command($table)->();
-
-    push @{ $self->{_js_src_code} },
-      (
-        {
-            -code => $self->_head_data_table(
-                $table,
-                remove_row => ['delete'],
-                view_row   => ['edit']
-            )
-        }
-      );
     return 1;
 }
 

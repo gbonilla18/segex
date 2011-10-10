@@ -80,6 +80,7 @@ sub new {
                 proto     => [qw/description pubmed pid/],
                 view      => [qw/description pubmed/],
                 mutable   => [qw/description pubmed pid/],    # note: pid !!!
+                resource  => 'studies',
                 selectors => [qw/pid/],
                 names     => [qw/description/],
                 labels    => {
@@ -107,9 +108,12 @@ sub new {
                 view => [
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
-                mutable => [],
-                proto   => [
+                mutable => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
+                ],
+                resource => 'experiments',
+                proto    => [
+                    qw/sample1 sample2 ExperimentDescription AdditionalInformation pid/
                 ],
                 selectors => [qw/pid/],
                 names     => [qw/sample1 sample2/],
@@ -171,23 +175,20 @@ sub new {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub readrow_head {
-
     my $self = shift;
 
-    $self->_readrow_command()->();
+    # get data for given experiment
+    $self->SUPER::readrow_head();
 
-    my $table = 'study';
-    $self->_readall_command($table)->();
+    # add extra table showing studies
+    $self->generate_datatable( 'study',
+        remove_row => [ 'unassign' => 'StudyExperiment' ] );
 
+    # add platform dropdown
     push @{ $self->{_js_src_code} },
       (
         { -src  => 'PlatformStudyExperiment.js' },
-        { -code => $self->get_pse_dropdown_js( platform_by_study => 1 ) },
-        {
-            -code => $self->_head_data_table(
-                $table, remove_row => [ 'unassign' => 'StudyExperiment' ]
-            )
-        }
+        { -code => $self->get_pse_dropdown_js( platform_by_study => 1 ) }
       );
 
     return 1;
@@ -204,19 +205,12 @@ sub readrow_head {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub readall_head {
-
     my $self = shift;
 
-    my $q = $self->{_cgi};
+    # view all rows
+    $self->SUPER::readall_head();
 
-    # delete 'pid' parameter when it is set to 'all'
-    $q->delete('pid')
-      if ( defined $q->param('pid') )
-      and ( $q->param('pid') eq 'all' );
-
-    my $table = $self->{_default_table};
-    $self->_readall_command($table)->();
-
+    # add platform dropdown
     push @{ $self->{_js_src_code} }, (
         { -src => 'PlatformStudyExperiment.js' },
         {
@@ -228,15 +222,9 @@ sub readall_head {
                 platform_by_study => 1,
                 extra_platforms   => { 'all' => { name => '@All Platforms' } }
             )
-        },
-        {
-            -code => $self->_head_data_table(
-                $table,
-                remove_row => ['delete'],
-                view_row   => ['edit']
-            )
         }
     );
+
     return 1;
 }
 
@@ -481,31 +469,53 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'platform' }, 'platform:' ) ),
+        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
             $q->popup_menu(
                 -id       => 'pid',
                 -disabled => 'disabled'
             )
         ),
-        $q->dt( $q->label( { -for => 'description' }, 'description:' ) ),
+        $q->dt( $q->label( { -for => 'sample1' }, 'sample1' ) ),
         $q->dd(
             $q->textfield(
-                -name      => 'description',
-                -id        => 'description',
-                -title     => 'Edit study description',
+                -name      => 'sample1',
+                -id        => 'sample1',
+                -title     => 'Sample 1 Name',
                 -maxlength => 100,
-                -value     => $self->{_id_data}->{description}
+                -value     => $self->{_id_data}->{sample1}
             )
         ),
-        $q->dt( $q->label( { -for => 'pubmed' }, 'pubmed:' ) ),
+        $q->dt( $q->label( { -for => 'sample2' }, 'sample2' ) ),
         $q->dd(
             $q->textfield(
-                -name      => 'pubmed',
-                -id        => 'pubmed',
-                -title     => 'Edit to change PubMed ID',
-                -maxlength => 20,
-                -value     => $self->{_id_data}->{pubmed}
+                -name      => 'sample2',
+                -id        => 'sample2',
+                -title     => 'Sample 2 Name',
+                -maxlength => 100,
+                -value     => $self->{_id_data}->{sample2}
+            )
+        ),
+        $q->dt(
+            $q->label( { -for => 'ExperimentDescription' }, 'Description' )
+        ),
+        $q->dd(
+            $q->textarea(
+                -name  => 'ExperimentDescription',
+                -id    => 'ExperimentDescription',
+                -title => 'Description',
+                -value => $self->{_id_data}->{ExperimentDescription}
+            )
+        ),
+        $q->dt(
+            $q->label( { -for => 'AdditionalInformation' }, 'Additional Info' )
+        ),
+        $q->dd(
+            $q->textarea(
+                -name  => 'AdditionalInformation',
+                -id    => 'AdditionalInformation',
+                -title => 'Additional Info',
+                -value => $self->{_id_data}->{AdditionalInformation}
             )
         ),
         $q->dt('&nbsp;'),

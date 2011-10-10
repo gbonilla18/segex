@@ -79,7 +79,8 @@ sub new {
                 key       => [qw/stid/],
                 proto     => [qw/description pubmed pid/],
                 view      => [qw/description pubmed/],
-                mutable   => [qw/description pubmed pid/],    # note: pid !!!
+                mutable   => [qw/description pubmed pid/],
+                resource  => 'studies',
                 selectors => [qw/pid/],
                 names     => [qw/description/],
                 labels    => {
@@ -88,7 +89,7 @@ sub new {
                     pubmed      => 'PubMed',
                     pid         => 'Platform'
                 },
-                lookup => { platform => [ pid => 'pid' ] }
+                lookup => { platform => [ pid => 'pid' ] },
             },
             'platform' => {
                 key    => [qw/pid/],
@@ -101,8 +102,11 @@ sub new {
                 view => [
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
-                mutable => [],
-                proto   => [
+                mutable => [
+                    qw/sample1 sample2 ExperimentDescription AdditionalInformation/
+                ],
+                resource => 'experiments',
+                proto    => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
                 selectors => [],
@@ -165,23 +169,20 @@ sub new {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub readrow_head {
-
     my $self = shift;
 
-    $self->_readrow_command()->();
+    # get data for given study
+    $self->SUPER::readrow_head();
 
-    my $table = 'experiment';
-    $self->_readall_command($table)->();
+    # add extra table showing experiments
+    $self->generate_datatable( 'experiment',
+        remove_row => [ 'unassign' => 'StudyExperiment' ] );
 
+    # add platform dropdown
     push @{ $self->{_js_src_code} },
       (
         { -src  => 'PlatformStudyExperiment.js' },
-        { -code => $self->get_pse_dropdown_js( platform_by_study => 1 ) },
-        {
-            -code => $self->_head_data_table(
-                $table, remove_row => [ 'unassign' => 'StudyExperiment' ]
-            )
-        }
+        { -code => $self->get_pse_dropdown_js( platform_by_study => 1 ) }
       );
 
     return 1;
@@ -198,37 +199,22 @@ sub readrow_head {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub readall_head {
-
     my $self = shift;
 
-    my $q = $self->{_cgi};
+    # view all rows
+    $self->SUPER::readall_head();
 
-    # delete 'pid' parameter when it is set to 'all'
-    $q->delete('pid')
-      if ( defined $q->param('pid') )
-      and ( $q->param('pid') eq 'all' );
-
-    my $table = $self->{_default_table};
-    $self->_readall_command($table)->();
-
+    # add platform dropdown
     push @{ $self->{_js_src_code} }, (
         { -src => 'PlatformStudyExperiment.js' },
         {
             -code => $self->get_pse_dropdown_js(
-
-                # default: show all studies or studies for a specific platform
                 platforms       => 1,
                 extra_platforms => { 'all' => { name => '@All Platforms' } }
             )
-        },
-        {
-            -code => $self->_head_data_table(
-                $table,
-                remove_row => ['delete'],
-                view_row   => ['edit']
-            )
         }
     );
+
     return 1;
 }
 
@@ -477,7 +463,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'platform' }, 'platform:' ) ),
+        $q->dt( $q->label( { -for => 'pid' }, 'platform:' ) ),
         $q->dd(
             $q->popup_menu(
                 -id       => 'pid',
