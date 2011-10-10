@@ -497,17 +497,15 @@ sub get_pse_dropdown_js {
         %args
     );
 
-    my $js = $self->{_js_emitter};
+    my ( $q, $js ) = @$self{qw/_cgi _js_emitter/};
 
-    my $q = $self->{_cgi};
-    my $pid;
-    if ( defined $self->{_id} ) {
-
-        # If a study is set, use the corresponding platform while ignoring the
-        # platform parameter.
-        $pid = $pse->getPlatformFromStudy( $self->{_id} );
-    }
-    $pid = $q->param('pid') if not defined $pid;
+    # If a study is set, use the corresponding platform while ignoring the
+    # platform parameter.
+    my $stid = $q->param('stid');
+    my $pid =
+      ( defined $stid )
+      ? $pse->getPlatformFromStudy($stid)
+      : $q->param('pid');
 
     return $js->bind(
         [
@@ -525,7 +523,9 @@ sub get_pse_dropdown_js {
                         'study' => {
                             elementId => 'stid',
                             element   => undef,
-                            selected  => {}
+                            selected  => ( defined $stid )
+                            ? { $stid => undef }
+                            : {}
                         }
                       )
                     : ()

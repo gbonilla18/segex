@@ -81,7 +81,6 @@ use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  This is the constructor
@@ -106,7 +105,6 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  getter method
@@ -120,7 +118,6 @@ sub get_ByPlatform {
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -136,7 +133,6 @@ sub get_ByStudy {
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  stid
 #      RETURNS:  pid
 #  DESCRIPTION:
@@ -146,11 +142,11 @@ sub get_ByStudy {
 #===============================================================================
 sub getPlatformFromStudy {
     my ( $self, $stid ) = @_;
-    return $self->{_ByStudy}->{$stid}->{pid};
+    my $stid_info = ( defined($stid) ? $self->{_ByStudy}->{$stid} : undef );
+    return ( defined($stid_info) ? $stid_info->{pid} : undef );
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -166,7 +162,6 @@ sub getPlatformNameFromPID {
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -181,7 +176,6 @@ sub getPlatformStudyName {
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:
 #       platforms          => T/F - whether to add platform info such as
@@ -341,7 +335,6 @@ sub init {
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  extra => {
 #                   'all' => { name => '@All Platforms', species => undef },
 #                   ''    => { name => '@Unassigned', species => undef }
@@ -443,7 +436,6 @@ END_PLATFORMQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  extra => {
 #                    '' => { name => '@Unassigned' }
@@ -547,7 +539,6 @@ END_STUDYQUERY
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
 #  DESCRIPTION:
@@ -626,7 +617,6 @@ END_EXPERIMENTQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
