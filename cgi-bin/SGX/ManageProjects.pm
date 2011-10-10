@@ -75,7 +75,7 @@ sub new {
                         parser => 'number'
                     },
                     manager => {
-                        label        => 'Managing User',
+                        label        => 'Created By',
                         parser       => 'number',
                         __type__     => 'popup_menu',
                         __tie__      => [ users => 'uid' ],
@@ -124,9 +124,9 @@ sub new {
                 view      => [qw/full_name/],
                 names     => [qw/full_name/],
                 meta      => {
-                    uid   => { label => 'ID', parser => 'number' },
-                    uname => { label => 'Login ID' },
-                    full_name => { label => 'Managing User' }
+                    uid       => { label => 'ID', parser => 'number' },
+                    uname     => { label => 'Login ID' },
+                    full_name => { label => 'Created By' }
                 },
             },
             'platform' => {
