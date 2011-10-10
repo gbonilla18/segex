@@ -460,7 +460,8 @@ sub dispatch_js {
 # "tied" to external tables, we don't need to perfom join/lookup queries on
 # those other tables when forming HTML page. Note: {key} will always get
 # selected together with {view} when displaying a page. When generating a Create
-# page, on the other hand, {key} will not be added to {proto}.
+# page, on the other hand, {key} will not be added to {proto}. Using {key} and
+# {view} lists will also allow us to preserve order...
 #
 #     SEE ALSO:  n/a
 #===============================================================================
