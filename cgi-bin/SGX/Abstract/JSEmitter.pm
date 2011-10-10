@@ -182,7 +182,9 @@ sub register_var {
     my ( $self, $prefix, $ids ) = @_;
     tie my %barewords => 'Safe::Hash';
     %barewords =
-      map { $ids->[$_] => $self->literal( $prefix . $_ ) } 0 .. $#$ids;
+        ( $self->{pretty} )
+      ? ( map { $_ => $self->literal($_) } @$ids )
+      : ( map { $ids->[$_] => $self->literal( $prefix . $_ ) } 0 .. $#$ids );
     return \%barewords;
 }
 
@@ -194,7 +196,7 @@ sub register_var {
 #  DESCRIPTION:  Example:
 #
 #       $self->literal('ee')->('e')->('ppppp')->('er','re','r')->();
-#   
+#
 #   evaluates to (note empty parantheses needed for termination):
 #
 #       ee.e.ppppp.er.re.r
@@ -213,10 +215,10 @@ sub register_var {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub literal {
-    my ( $self, @rest ) = @_;                                                                         
-    return sub {                                                                            
-         my $tmp = join( '.', @rest, @_ );
-         return (@_) ? $self->literal( $tmp ) : $tmp;                         
+    my ( $self, @rest ) = @_;
+    return sub {
+        my $tmp = join( '.', @rest, @_ );
+        return (@_) ? $self->literal($tmp) : $tmp;
     };
 }
 

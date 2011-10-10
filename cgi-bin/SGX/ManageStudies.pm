@@ -99,7 +99,7 @@ sub new {
                         -disabled => 'disabled'
                     }
                 },
-                lookup => { platform => [ pid => 'pid' ] },
+                lookup => [ platform => [ pid => 'pid' ] ],
             },
             'platform' => {
                 key   => [qw/pid/],
@@ -114,7 +114,7 @@ sub new {
             'experiment' => {
                 key  => [qw/eid/],
                 view => [
-                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation data_count/
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
                 resource => 'experiments',
                 proto    => [
@@ -130,16 +130,24 @@ sub new {
                     sample2 => { label => 'Sample 2' },
                     ExperimentDescription => { label => 'Description' },
                     AdditionalInformation => { label => 'Additional Info' },
-                    data_count            => {
-                        __sql__ => 'COUNT(microarray.eid)',
+                },
+                join => [
+                    StudyExperiment => [ eid => 'eid' ],
+                    data_count      => [ eid => 'eid', { join_type => 'LEFT' } ]
+                ]
+            },
+            data_count => {
+                table => 'microarray',
+                key   => [qw/eid rid/],
+                view  => [qw/probe_count/],
+                meta  => {
+                    probe_count => {
+                        __sql__ => 'COUNT(data_count.rid)',
                         label   => 'Probe Count',
                         parser  => 'number'
                     },
                 },
-                join => [
-                    StudyExperiment => [ eid => 'eid' ],
-                    microarray      => [ eid => 'eid', { join_type => 'LEFT' } ]
-                ]
+                group_by => [qw/eid/]
             }
         },
         _default_table => 'study',

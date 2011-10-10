@@ -29,7 +29,7 @@ use List::Util qw/max/;
 use Data::Dumper;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Debug;
-use SGX::Util qw/inherit_hash/;
+use SGX::Util qw/inherit_hash array2hash/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
@@ -158,8 +158,9 @@ sub _head_data_table {
     $table = $self->{_default_table} if not defined($table);
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table};
-    my ( $this_keys, $this_view, $this_name_symbols, $this_resource ) =
-      @$table_info{qw/key view names resource/};
+    my ( $this_keys, $this_join, $this_name_symbols, $this_resource ) =
+      @$table_info{qw/key join names resource/};
+    my ( $this_meta, $this_view ) = @$self{qw/_this_meta _this_view/};
     my %resource_extra = (
         ( map { $_ => $_ } @$this_keys[ 1 .. $#$this_keys ] ),
         ( (@$this_keys) ? ( id => $this_keys->[0] ) : () )
@@ -181,12 +182,22 @@ sub _head_data_table {
     my $lookupTables = $var->{lookupTables};
     my $dataLookup   = $var->{data}->('lookup');
 
+# views in joined tables
+#my @join_copy = @$this_join;
+#my @joined_fields;
+#while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
+#    my $opts   = $info->[2];
+#    my $view   = $opts->{view} || $table_defs->{$other_table_alias}->{view} || [];
+#    push @joined_fields, @$view;
+#}
+#warn Dumper(\@joined_fields);
+
     my @column_defs = (
 
         # default table view (default table referred to by an empty string)
         ( map { $column->( [ undef, $_ ] ) } @$this_view ),
 
-        # views in left_joined tables
+        # views in lookup tables (stored in {_other})
         (
             map {
                 my $other_table       = $_;
@@ -287,15 +298,15 @@ sub _head_data_table {
                     [ $var->{data} ]
                 ),
                 $var->{cellUpdater} => $js->apply(
-                    'cellUpdater',
+                    'createCellUpdater',
                     [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
                 ),
                 $var->{cellDropdown} => $js->apply(
-                    'cellDropdown',
+                    'createCellDropdown',
                     [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
                 ),
                 $var->{cellDropdownDirect} => $js->apply(
-                    'cellDropdownDirect',
+                    'createCellDropdownDirect',
                     [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
                 )
             ],
@@ -373,7 +384,7 @@ sub _head_data_table {
                         records => $self->getJSRecords(),
                         headers => $self->getJSHeaders(),
                         fields  => [ keys %$s2n ],
-                        meta    => $self->export_meta($table),
+                        meta    => $self->export_meta($this_meta),
                         lookup  => $self->{_this_lookup}
                     },
                     $var->{lookupTables}
@@ -458,8 +469,8 @@ sub dispatch_js {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub export_meta {
-    my ( $self, $table ) = @_;
-    my $meta = $self->{_table_defs}->{$table}->{meta} || {};
+    my ( $self, $meta ) = @_;
+    $meta = {} if not defined $meta;
     my %export_meta;
     while ( my ( $key, $value ) = each %$meta ) {
         my %export_value;
@@ -747,7 +758,9 @@ sub _head_column_def {
 
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table};
-    my ( $meta, $table_lookup ) = @$table_info{qw/meta lookup/};
+    my ( $meta, $lookup ) = @$table_info{qw/meta lookup/};
+    my $table_lookup = array2hash($lookup);
+
     my %mutable =
       map { $_ => 1 } $self->_get_mutable( table_info => $table_info );
 
@@ -960,16 +973,22 @@ sub _lookup_prepare {
     my $table_info = $table_defs->{$table_alias};
     my ( $this_meta, $lookup ) = @$table_info{qw/meta lookup/};
 
-    my %left_join_sth;    # hash of statement handles for lookup
-    if ($lookup) {
+    my %lookup_join_sth;    # hash of statement handles for lookup
+    if ( my @lookup_copy = @{ $lookup || [] } ) {
         my $_other = $self->{_other};
 
-        while ( my ( $left_table_alias, $val ) = each(%$lookup) ) {
+        while ( my ( $lookup_table_alias, $val ) =
+            splice( @lookup_copy, 0, 2 ) )
+        {
+
+            #while ( my ( $lookup_table_alias, $val ) = each(%$lookup) ) {
             my ( $this_field, $other_field ) = @$val;
 
             # we ignore {} optional data
-            my $opts = $table_defs->{$left_table_alias};
+            my $opts = $table_defs->{$lookup_table_alias};
 
+            # modify $composite_labels such that fields on which we join are
+            # always SELECTed.
             if ( defined($composite_labels)
                 && !exists( $composite_labels->{$this_field} ) )
             {
@@ -984,29 +1003,31 @@ sub _lookup_prepare {
             my $other_select_fields =
               _get_view_labels( [ @$other_key, @$other_view ], $other_meta );
 
-            my ( $left_query, $left_params ) =
-              $self->_build_select( $left_table_alias, $other_select_fields,
+            # :TRICKY:09/28/2011 12:27:23:es: _build_select modifies
+            # $other_select_fields
+            my ( $lookup_query, $lookup_params ) =
+              $self->_build_select( $lookup_table_alias, $other_select_fields,
                 $opts );
 
-            #warn $left_query;
+            #warn $lookup_query;
 
-            $left_join_sth{$left_table_alias} =
-              [ $dbh->prepare($left_query), $left_params ];
+            $lookup_join_sth{$lookup_table_alias} =
+              [ $dbh->prepare($lookup_query), $lookup_params ];
 
             # fields below will be exported to JS
-            $_other->{$left_table_alias} = {}
-              if not defined( $_other->{$left_table_alias} );
-            my $js_store = ( $_other->{$left_table_alias} );
+            $_other->{$lookup_table_alias} = {}
+              if not defined( $_other->{$lookup_table_alias} );
+            my $js_store = ( $_other->{$lookup_table_alias} );
             $js_store->{symbol2name} = $other_select_fields;
             $js_store->{symbol2index} =
               _symbol2index_from_symbol2name($other_select_fields);
             $js_store->{index2symbol} = [ keys %$other_select_fields ];
             $js_store->{key}          = $other_key;
             $js_store->{view}         = $other_view;
-            $js_store->{meta}         = $self->export_meta($left_table_alias);
+            $js_store->{meta}         = $self->export_meta($other_meta);
         }
     }
-    return \%left_join_sth;
+    return \%lookup_join_sth;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1020,9 +1041,9 @@ sub _lookup_prepare {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _lookup_execute {
-    my ( $self, $left_join_sth ) = @_;
+    my ( $self, $lookup_join_sth ) = @_;
     my $_other = $self->{_other};
-    while ( my ( $otable, $val ) = each %$left_join_sth ) {
+    while ( my ( $otable, $val ) = each %$lookup_join_sth ) {
         my ( $osth, $oparams ) = @$val;
         my $rc = $osth->execute(@$oparams);
         $_other->{$otable}->{index2name} = $osth->{NAME};
@@ -1063,13 +1084,9 @@ sub _readall_command {
     # in-SQL but instead run a separate query. For inner joins, we add predicate
     # to the main SQL query.
 
-    my $left_join_sth =
+    # :TRICKY:09/28/2011 12:25:52:es: _lookup_prepare modifies $composite_labels
+    my $lookup_join_sth =
       $self->_lookup_prepare( $table_alias, $composite_labels );
-
-    $self->{_this_symbol2name} = $composite_labels;
-    $self->{_this_symbol2index} =
-      _symbol2index_from_symbol2name($composite_labels);
-    $self->{_this_lookup} = $table_info->{lookup};
 
     # If _id is not set, rely on selectors only. If _id is set, use
     # default_table._id *and* selectors on the second table.
@@ -1077,10 +1094,17 @@ sub _readall_command {
     my ( $this_key, $default_key ) =
       ( $key->[0], $table_defs->{$default_table}->{key}->[0] );
 
-    # return both query and parameter array
+    # :TRICKY:09/28/2011 12:26:49:es: _build_select modifies $composite_labels
+    my $new_opts = inherit_hash( { group_by => $key }, $table_info );
     my ( $query, $params ) =
-      $self->_build_select( $table_alias, $composite_labels,
-        inherit_hash( { group_by => $key }, $table_info ) );
+      $self->_build_select( $table_alias, $composite_labels, $new_opts );
+
+    $self->{_this_symbol2name} = $composite_labels;
+    $self->{_this_symbol2index} =
+      _symbol2index_from_symbol2name($composite_labels);
+    $self->{_this_lookup} = array2hash( $new_opts->{lookup} );
+    $self->{_this_view}   = $new_opts->{view};
+    $self->{_this_meta}   = $new_opts->{meta};
 
     #warn $query;
     #warn Dumper($params);
@@ -1101,7 +1125,7 @@ sub _readall_command {
         $self->{_this_data}       = $sth->fetchall_arrayref;
         $sth->finish;
 
-        $self->_lookup_execute($left_join_sth);
+        $self->_lookup_execute($lookup_join_sth);
 
         return $rc;
     };
@@ -1277,9 +1301,12 @@ sub _build_join {
           if ( $this_field !~ m/\./ );
 
         my $other_table_defs = $table_defs->{$other_table_alias} || {};
-        my %cascade_other = ( %$other_table_defs, %$opts );
 
-        my $other_table = $cascade_other{table};
+        # :TODO:09/28/2011 12:43:04:es: use inherit_hash for statement below
+        #my %cascade_other = ( %$other_table_defs, %$opts );
+        inherit_hash( $opts, $other_table_defs );
+
+        my $other_table = $opts->{table};
         $other_table =
           ( !defined($other_table) || $other_table eq $other_table_alias )
           ? $other_table_alias
@@ -1287,11 +1314,11 @@ sub _build_join {
 
         my ( $join_pred, $join_params, $constr, $mod_join_type ) =
           $self->_build_predicate(
-            $other_table_alias => \%cascade_other,
+            $other_table_alias => $opts,
             'AND'
           );
         push @{ $cascade->{constraint} }, @$constr;
-        my $join_type = $cascade_other{join_type} || 'LEFT';
+        my $join_type = $opts->{join_type} || 'LEFT';
         $join_type = $mod_join_type if defined $mod_join_type;
 
         if ( $join_type ne '' ) {
@@ -1302,6 +1329,72 @@ sub _build_join {
         }
     }
     return ( join( ' ', @query_components ), \@exec_params );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _buld_select_fields
+#   PARAMETERS:  ????
+#      RETURNS:  hash: sql => alias
+#  DESCRIPTION:  Pull select fields from {view} of joined tables
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _buld_select_fields {
+    my ( $self, $symbol2name, $table_alias => $cascade ) = @_;
+
+    my ( $join, $this_view, $this_meta ) = @$cascade{qw/join view meta/};
+    my $table_defs = $self->{_table_defs};
+
+    # not using this_table->{view} here because may need extra fields for
+    # lookups not present in the {view}.
+    my %ret;
+    my $ret_t = tie( %ret, 'Tie::IxHash' );
+    %ret =
+      map {
+        my $field_meta = $this_meta->{$_}       || {};
+        my $sql_col    = $field_meta->{__sql__} || $_;
+        (
+            _valid_SQL_identifier($sql_col)
+            ? "$table_alias.$sql_col"
+            : $sql_col
+          ) => $symbol2name->{$_}
+      } keys %$symbol2name;
+
+    my @join_copy = @{ $join || [] };
+    while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
+
+        my $opts = $info->[2] || {};
+        my $other_table_defs = $table_defs->{$other_table_alias} || {};
+
+        # :TODO:09/28/2011 12:43:04:es: use inherit_hash for statement below
+        #my %cascade_other = ( %$other_table_defs, %$opts );
+        inherit_hash( $opts, $other_table_defs );
+
+        my ( $other_view, $other_meta ) = @$opts{qw/view meta/};
+
+        foreach my $field_alias (@$other_view) {
+            my $field_meta = $other_meta->{$field_alias} || {};
+            my $sql_col    = $field_meta->{__sql__}      || $field_alias;
+            my $symbol =
+              _valid_SQL_identifier($sql_col)
+              ? "$other_table_alias.$sql_col"
+              : $sql_col;
+            my $label = $field_meta->{label} || $field_alias;
+
+            # do not select the same data twice
+            if ( not exists $ret{$symbol} ) {
+                $symbol2name->{$field_alias} = $label;
+                $ret{$symbol} = $label;
+
+                # also modify cascade {view} and {meta}
+                push @$this_view, $field_alias;
+                $this_meta->{$field_alias} = $field_meta;
+            }
+        }
+    }
+    return \%ret;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1326,22 +1419,19 @@ sub _build_select {
     my @exec_params;
 
     # SELECT
+    my $select_hash =
+      $self->_buld_select_fields( $symbol2name, $table_alias => $cascade );
     push @query_components, 'SELECT ' . join(
         ',',
         map {
-            my $this_meta = $meta->{$_} || {};
-            my $this_sql  = $this_meta->{__sql__};
-            my $sql_col   = ( defined $this_sql ) ? $this_sql : $_;
-            (
-                _valid_SQL_identifier($sql_col) ? "$table_alias.$sql_col"
-                : $sql_col
-              )
+            my $alias = $select_hash->{$_};
+            $_
               . (
-                defined( $symbol2name->{$_} )
-                ? ' AS ' . $dbh->quote( $symbol2name->{$_} )
+                ( defined $alias and $_ ne $alias )
+                ? ' AS ' . $dbh->quote($alias)
                 : ''
-              );
-          } keys %$symbol2name
+              )
+          } keys %$select_hash
       )
       . ' FROM '
       . ( ( $table ne $table_alias ) ? "$table AS $table_alias" : $table );
@@ -1402,7 +1492,7 @@ sub _readrow_command {
       "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
     #warn "getting lookups for $table_alias";
-    #my $left_join_sth = $self->_lookup_prepare($table_alias);
+    #my $lookup_join_sth = $self->_lookup_prepare($table_alias);
 
  # :TODO:09/26/2011 01:57:43:es: Also need to perform lookup for readrow_command
  # in some cases...
@@ -1422,7 +1512,7 @@ sub _readrow_command {
         $self->{_id_data} = $sth->fetchrow_hashref;
         $sth->finish;
 
-        #$self->_lookup_execute($left_join_sth);
+        #$self->_lookup_execute($lookup_join_sth);
 
         return $rc;
     };
@@ -1828,7 +1918,7 @@ sub _head_init {
 #       METHOD:  _body_edit_fields
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:
+#  DESCRIPTION:  Helps generate a Create/Update HTML form
 #       THROWS:  no exceptions
 #     COMMENTS:  PerlCritic: Subroutine "_body_edit_fields" with high complexity
 #     score (22).  Consider refactoring  (Severity: 3)
@@ -1849,15 +1939,18 @@ sub _body_edit_fields {
     my $fields       = $table_info->{proto};
 
     # :TODO:09/24/2011 17:32:20:es:  use inherit_hash here
-    my %fields_meta = map {
-        $_ => +{ %{ $default_meta->{$_} || {} }, %{ $args_meta->{$_} || {} } }
-    } @$fields;
+    #my %fields_meta = map {
+    #    $_ => +{ %{ $default_meta->{$_} || {} }, %{ $args_meta->{$_} || {} } }
+    #} @$fields;
+    my $fields_meta =
+      +{ map { $_ => inherit_hash( $args_meta->{$_}, $default_meta->{$_} ) }
+          @$fields };
 
     my @tmp;
     my $id_data = $self->{_id_data} || {};
 
     foreach my $symbol (@$fields) {
-        my $meta = $fields_meta{$symbol} || {};
+        my $meta = $fields_meta->{$symbol} || {};
         my %cgi_meta = map { $_ => $meta->{$_} } grep { /^-/ } keys %$meta;
         delete $cgi_meta{-disabled} if $unlimited_mode;
         my $method = $meta->{__type__} || 'textfield';

@@ -9,7 +9,7 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK =
   qw/trim max min bounds label_format replace all_match count_gtzero
-  inherit_hash enum_array/;
+  inherit_hash enum_array array2hash/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -53,6 +53,21 @@ sub all_match {
     return ( $args{ignore_undef} )
       ? sub { !defined || m/$regex/ || return for @_; return 1 }
       : sub { ( defined && m/$regex/ ) || return for @_; return 1 };
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  array2hash
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub array2hash {
+    my %hash = @{ shift || [] };
+    return \%hash;
 }
 
 #===  FUNCTION  ================================================================
@@ -187,8 +202,7 @@ sub trim {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub inherit_hash {
-    my ( $x, $y ) = @_;
-    $x = {} if not defined $x;
+    my ( $x, $y ) = ( shift || {}, shift || {} );
     foreach my $ykey ( keys %$y ) {
         my $yval = $y->{$ykey};
         if ( exists $x->{$ykey} ) {
@@ -218,6 +232,7 @@ sub enum_array {
     my $i = 0;
     return +{ map { $_ => $i++ } @$_ };
 }
+
 #---------------------------------------------------------------------------
 #  analogue to built-in keys function, except for lists, not hashes
 #---------------------------------------------------------------------------
@@ -231,6 +246,5 @@ sub enum_array {
 #sub _list_values {
 #    @_[ grep { $_ % 2 } 0 .. $#_ ];
 #}
-
 
 1;

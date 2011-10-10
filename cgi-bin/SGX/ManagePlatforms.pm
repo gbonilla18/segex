@@ -68,8 +68,7 @@ sub new {
                 resource => 'platforms',
                 proto    => [qw/pname def_p_cutoff def_f_cutoff species/],
                 view     => [
-                    qw/pname def_p_cutoff def_f_cutoff species probes_total
-                      probes_with_sequences probes_with_locations/,
+                    qw/pname def_p_cutoff def_f_cutoff species/
                 ],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/pname species/],
@@ -86,22 +85,7 @@ sub new {
                         parser     => 'number',
                         -maxlength => 20
                     },
-                    species      => { label => 'Species', -maxlength => 100 },
-                    probes_total => {
-                        __sql__ => 'COUNT(probe.rid)',
-                        label   => 'Probe Count',
-                        parser  => 'number'
-                    },
-                    probes_with_sequences => {
-                        __sql__ => 'COUNT(probe.probe_sequence)',
-                        label   => 'Probe Sequences',
-                        parser  => 'number'
-                    },
-                    probes_with_locations => {
-                        __sql__ => 'COUNT(probe.location)',
-                        label   => 'Locations',
-                        parser  => 'number'
-                    }
+                    species      => { label => 'Species', -maxlength => 100 }
                 },
                 join => [ probe => [ pid => 'pid', { join_type => 'LEFT' } ] ]
             },
@@ -124,7 +108,8 @@ sub new {
                         label   => 'Locations',
                         parser  => 'number'
                     }
-                }
+                },
+                group_by => [qw/pid/]
             },
             'study' => {
                 key      => [qw/stid/],
@@ -138,7 +123,7 @@ sub new {
                     description => { label => 'Description' },
                     pubmed      => { label => 'PubMed ID' }
                 },
-                lookup     => { proj_brief => [ stid => 'stid' ] },
+                lookup     => [ proj_brief => [ stid => 'stid' ] ],
                 constraint => [ pid        => sub    { shift->{_id} } ]
             },
             proj_brief => {

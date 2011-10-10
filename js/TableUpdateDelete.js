@@ -14,7 +14,7 @@ function highlightEditableCell(oArgs) {
         this.highlightCell(elCell); 
     } 
 };
-function createCellDropdown(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
+function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
             // existing value is the same as the new one -- no need to send 
@@ -55,7 +55,7 @@ function createCellDropdown(transformed_data, field, resourceURIBuilder, updateD
         asyncSubmitter: submitter
     });
 }
-function cellDropdown(resourceURIBuilder, rowNameBuilder) {
+function createCellDropdown(resourceURIBuilder, rowNameBuilder) {
     return function(table_info, field, subName) {
         var updateDataBuilder = function(field, newValue) {
             return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
@@ -67,18 +67,18 @@ function cellDropdown(resourceURIBuilder, rowNameBuilder) {
             var val = this_data[key][sub_col];
             transformed_data.push({ label: val, value: key});
         }
-        return createCellDropdown(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+        return createCellDropdownCreator(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
     };
 }
-function cellDropdownDirect(resourceURIBuilder, rowNameBuilder) {
+function createCellDropdownDirect(resourceURIBuilder, rowNameBuilder) {
     return function(field, rename_array) {
         var updateDataBuilder = function(field, newValue) {
             return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
         };
-        return createCellDropdown(rename_array, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+        return createCellDropdownCreator(rename_array, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
     };
 }
-function createCellUpdater(field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
+function createCellUpdaterCreator(field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
             // existing value is the same as the new one -- no need to send 
@@ -116,13 +116,13 @@ function createCellUpdater(field, resourceURIBuilder, updateDataBuilder, rowName
         asyncSubmitter: submitter
     });
 }
-function cellUpdater(resourceURIBuilder, rowNameBuilder) {
+function createCellUpdater(resourceURIBuilder, rowNameBuilder) {
     return function(field) {
         /* uses createCellUpdater in TableUpdateDelete.js */
         var updateDataBuilder = function(field, newValue) {
             return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
         };
-        return createCellUpdater(field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+        return createCellUpdaterCreator(field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
     };
 }
 

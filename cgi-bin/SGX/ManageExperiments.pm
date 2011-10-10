@@ -88,7 +88,7 @@ sub new {
                         -disabled => 'disabled'
                     },
                 },
-                lookup => { platform => [ pid => 'pid' ] },
+                lookup => [ platform => [ pid => 'pid' ] ],
                 join   => [
                     StudyExperiment => [
                         stid => 'stid',
@@ -104,7 +104,7 @@ sub new {
                 meta      => {
                     description => {
                         __sql__ => 'study.description',
-                        label  => 'Study(-ies)'
+                        label   => 'Study(-ies)'
                     }
                 },
                 join =>
@@ -122,7 +122,7 @@ sub new {
             'experiment' => {
                 key  => [qw/eid/],
                 view => [
-                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation data_count/
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
                 resource => 'experiments',
                 proto    => [
@@ -152,11 +152,7 @@ sub new {
                         label => 'Additional Info',
                         -size => 55
                     },
-                    data_count => {
-                        __sql__ => 'COUNT(microarray.eid)',
-                        label   => 'Probe Count',
-                        parser  => 'number'
-                    },
+
                     pid => {
                         label     => 'Platform',
                         parser    => 'number',
@@ -164,7 +160,7 @@ sub new {
                         -disabled => 'disabled'
                     }
                 },
-                lookup => {
+                lookup => [
                     (
 
                         # No need to display study column if specific study is
@@ -181,14 +177,28 @@ sub new {
                         ? ()
                         : ( 'platform' => [ 'pid' => 'pid' ] )
                     )
-                },
+                ],
                 join => [
                     StudyExperiment => [
                         eid => 'eid',
                         { selectors => { stid => 'stid' } }
                     ],
-                    microarray => [ eid => 'eid', { join_type => 'LEFT' } ]
-                ]
+                    data_count => [ eid => 'eid' ]
+                ],
+            },
+            data_count => {
+                table => 'microarray',
+                key   => [qw/eid rid/],
+                view  => [qw/probe_count/],
+                meta  => {
+                    probe_count => {
+                        __sql__ => 'COUNT(data_count.rid)',
+                        label   => 'Probe Count',
+                        parser  => 'number'
+                    },
+                },
+                join_type => 'LEFT',
+                group_by  => [qw/eid/]
             }
         },
         _default_table => 'experiment',
@@ -433,7 +443,8 @@ sub form_assign_body {
         'read'   => [ undef,         'Edit Experiment' ],
         'create' => [ 'form_assign', 'Assign Studies' ]
       ),
-      $q->h3('Assign Studies'), $q->dl(
+      $q->h3('Assign Studies'),
+      $q->dl(
         $q->dt( $q->label( { -for => 'pid' }, 'From platform:' ) ),
         $q->dd(
             $q->popup_menu(

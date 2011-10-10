@@ -85,7 +85,7 @@ sub new {
                     },
                     prdesc => { label => 'Description' }
                 },
-                lookup => { users => [ manager => 'uid' ] }
+                lookup => [ users => [ manager => 'uid' ] ]
             },
             'study' => {
                 key => [qw/stid/],
@@ -102,7 +102,7 @@ sub new {
                     pubmed      => { label => 'PubMed ID' },
                     pid         => { label => 'Platform', parser => 'number' }
                 },
-                lookup => { platform     => [ pid  => 'pid' ] },
+                lookup => [ platform     => [ pid  => 'pid' ] ],
                 join   => [ ProjectStudy => [ stid => 'stid' ] ]
             },
             'users' => {
