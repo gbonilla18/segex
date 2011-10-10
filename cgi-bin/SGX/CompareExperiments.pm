@@ -459,7 +459,7 @@ sub getResultsJS {
 
         # parse uploaded file (highly likely to fail!)
         my $fh = $q->upload('upload_file')
-          or SGX::Abstract::Exception::User->throw(
+          or SGX::Exception::User->throw(
             error => "Failed to upload file.\n" );
 
         my $ok = eval { $findProbes->init($fh) } || 0;

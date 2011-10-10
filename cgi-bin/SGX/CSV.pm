@@ -85,7 +85,7 @@ use SGX::Abstract::Exception;
 #                   FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 #                   LINES TERMINATED BY '\n' STARTING BY ''
 #
-#       THROWS:  SGX::Abstract::Exception::User
+#       THROWS:  SGX::Exception::User
 #     COMMENTS:  n/a
 #
 #     SEE ALSO:  perldoc Text::CSV
@@ -153,7 +153,7 @@ sub csv_rewrite {
 
         # check total number of fields present
         if ( ( my $fc = @fields ) < $req_fields ) {
-            SGX::Abstract::Exception::User->throw( error =>
+            SGX::Exception::User->throw( error =>
 "Only $fc field(s) found ($req_fields required) at line $line_num\n"
             );
         }
@@ -163,7 +163,7 @@ sub csv_rewrite {
         foreach ( 0 .. ( $req_fields - 1 ) ) {
             my $parsed_value = $parse->[$_]->( shift @fields );
             unless ( defined $parsed_value ) {
-                SGX::Abstract::Exception::User->throw(
+                SGX::Exception::User->throw(
                         error => "Cannot parse input value at line $line_num column "
                       . ( $_ + 1 )
                       . "\n" );
@@ -177,7 +177,7 @@ sub csv_rewrite {
 
     # check for errors
     if ( my $error = $csv_in->error_diag() ) {
-        SGX::Abstract::Exception::User->throw( error => $error );
+        SGX::Exception::User->throw( error => $error );
     }
 
     # return number of records written

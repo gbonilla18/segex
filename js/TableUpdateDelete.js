@@ -20,7 +20,7 @@ function highlightEditableCell(oArgs) {
         this.highlightCell(elCell); 
     } 
 };
-function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
+function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
             // existing value is the same as the new one -- no need to send 
@@ -47,7 +47,7 @@ function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, 
             "POST", 
             resourceURI,
             callbackObject, 
-            updateDataBuilder(field, newValue)
+            getUpdateQuery(field, newValue)
         );
     };
     return new YAHOO.widget.DropdownCellEditor({
@@ -58,7 +58,7 @@ function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, 
 }
 function createCellDropdown(resourceURIBuilder, rowNameBuilder) {
     return function(lookup_table, update_field, name_field) {
-        var updateDataBuilder = function(update_field, newValue) {
+        var getUpdateQuery = function(update_field, newValue) {
             return "b=ajax_update&" + update_field + "=" + encodeURIComponent(newValue);
         };
         // TODO: instead of sending name_field as a parameter, rely on 'names'
@@ -72,18 +72,18 @@ function createCellDropdown(resourceURIBuilder, rowNameBuilder) {
             transformed_data.push({ label: value[name_column], value: value[index_column]});
         }
 
-        return createCellDropdownCreator(transformed_data, update_field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+        return createCellDropdownCreator(transformed_data, update_field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
 function createCellDropdownDirect(resourceURIBuilder, rowNameBuilder) {
     return function(field, rename_array) {
-        var updateDataBuilder = function(field, newValue) {
+        var getUpdateQuery = function(field, newValue) {
             return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
         };
-        return createCellDropdownCreator(rename_array, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+        return createCellDropdownCreator(rename_array, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
-function createCellUpdaterCreator(field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
+function createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
             // existing value is the same as the new one -- no need to send 
@@ -108,7 +108,7 @@ function createCellUpdaterCreator(field, resourceURIBuilder, updateDataBuilder, 
             "POST", 
             resourceURI,
             callbackObject, 
-            updateDataBuilder(field, newValue)
+            getUpdateQuery(field, newValue)
         );
     };
     return new YAHOO.widget.TextareaCellEditor({
@@ -119,10 +119,10 @@ function createCellUpdaterCreator(field, resourceURIBuilder, updateDataBuilder, 
 function createCellUpdater(resourceURIBuilder, rowNameBuilder) {
     return function(field) {
         /* uses createCellUpdater in TableUpdateDelete.js */
-        var updateDataBuilder = function(field, newValue) {
+        var getUpdateQuery = function(field, newValue) {
             return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
         };
-        return createCellUpdaterCreator(field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+        return createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
 

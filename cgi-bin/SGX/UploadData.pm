@@ -426,7 +426,7 @@ END_TEXT2
 #      RETURNS:  ????
 #  DESCRIPTION:  Main upload function: high-level control over
 #                sanitizeUploadFile() and loadToDatabase() methods
-#       THROWS:  SGX::Abstract::Exception::Internal, Exception::Class::DBI
+#       THROWS:  SGX::Exception::Internal, Exception::Class::DBI
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -452,7 +452,7 @@ sub uploadData {
 
         # Notify user of User exception; rethrow Internal and other types of
         # exceptions.
-        if ( $exception->isa('SGX::Abstract::Exception::User') ) {
+        if ( $exception->isa('SGX::Exception::User') ) {
             $self->{_error_message} =
               'There was a problem with your input: ' . $exception->error;
         }
@@ -484,7 +484,7 @@ sub uploadData {
             $dbh->rollback;
             $self->loadToDatabase_finish($sth_hash);
 
-            if ( $exception->isa('SGX::Abstract::Exception::User') ) {
+            if ( $exception->isa('SGX::Exception::User') ) {
 
                 # Catch User exceptions
                 $self->{_error_message} = sprintf(
@@ -546,7 +546,7 @@ END_PARTIAL_SUCCESS
             else {
 
                 # shouldn't happen
-                SGX::Abstract::Exception::Internal->throw(
+                SGX::Exception::Internal->throw(
                     error => sprintf(
                         "Platform contains %d probes but %d were loaded\n",
                         $totalProbes, $recordsLoaded
@@ -594,7 +594,7 @@ sub probesPerPlatform {
 #      RETURNS:  Number of valid records found (also duplicated to _validRecords
 #                field)
 #  DESCRIPTION:  validate and rewrite the uploaded file
-#       THROWS:  SGX::Abstract::Exception::Internal, SGX::Abstract::Exception::User
+#       THROWS:  SGX::Exception::Internal, SGX::Exception::User
 #     COMMENTS:   # :TODO:07/08/2011 12:55:45:es: Make headers optional
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -605,12 +605,12 @@ sub sanitizeUploadFile {
 
     # The is the file handle of the uploaded file.
     my $uploadedFile = $q->upload('file')
-      or SGX::Abstract::Exception::User->throw(
+      or SGX::Exception::User->throw(
         error => "Failed to upload file.\n" );
 
     #Open file we are writing to server.
     open my $OUTPUTTOSERVER, '>', $outputFileName
-      or SGX::Abstract::Exception::Internal->throw(
+      or SGX::Exception::Internal->throw(
         error => "Could not open $outputFileName for writing: $!\n" );
 
     # Read uploaded file in "slurp" mode (at once), and break it on the
@@ -652,7 +652,7 @@ sub sanitizeUploadFile {
     }
     elsif ( $recordsValid < 1 ) {
         close($OUTPUTTOSERVER);
-        SGX::Abstract::Exception::User->throw(
+        SGX::Exception::User->throw(
             error => "No records found in input file\n" );
     }
     close($OUTPUTTOSERVER);
@@ -755,7 +755,7 @@ END_insertExperiment
 #                duplicated as _recordsInserted field). Fills _eid field
 #                (corresponds to the id of the added experiment).
 #  DESCRIPTION:  Runs SQL statements
-#       THROWS:  SGX::Abstract::Exception::Internal, SGX::Abstract::Exception::User,
+#       THROWS:  SGX::Exception::Internal, SGX::Exception::User,
 #                Exception::Class::DBI
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -769,7 +769,7 @@ sub loadToDatabase_execute {
         qw(createTable loadData insertExperiment insertStudyExperiment insertResponse)
       };
 
-    SGX::Abstract::Exception::User->throw(
+    SGX::Exception::User->throw(
         error => "Sample 1 name is the same as that of sample 2\n" )
       if ( $self->{_sample1} eq $self->{_sample2} );
 
@@ -787,7 +787,7 @@ sub loadToDatabase_execute {
 
     # Check that experiment was actually added
     if ( $experimentsAdded < 1 ) {
-        SGX::Abstract::Exception::Internal->throw(
+        SGX::Exception::Internal->throw(
             error => "Failed to create new experiment\n" );
     }
 
@@ -804,7 +804,7 @@ sub loadToDatabase_execute {
 
     # If no rows were loaded, bail out ASAP
     if ( $rowsLoaded < 1 ) {
-        SGX::Abstract::Exception::Internal->throw(
+        SGX::Exception::Internal->throw(
             error => "No rows were loaded into temporary table\n" );
     }
 
@@ -816,7 +816,7 @@ sub loadToDatabase_execute {
     # Check row counts; throw error if too few or too many records were
     # inserted into the microarray/response table
     if ( my $extraRecords = $rowsLoaded - $recordsInserted ) {
-        SGX::Abstract::Exception::User->throw(
+        SGX::Exception::User->throw(
             error => sprintf(
                 <<"END_WRONGPLATFORM",
 The input file contains %d records absent from the platform you entered.
@@ -827,7 +827,7 @@ END_WRONGPLATFORM
         );
     }
     elsif ( $recordsInserted > $rowsLoaded ) {
-        SGX::Abstract::Exception::Internal->throw(
+        SGX::Exception::Internal->throw(
             error => "More probe records were updated than rows uploaded\n" );
     }
 

@@ -629,6 +629,8 @@ print(
     # HTTP response header
     $q->header(%header_command_body),
 
+ # :TODO:10/05/2011 08:58:59:es: why can't cgi_start_html etc go into
+ # Strategy::Base?
     # HTTP response body
     (
         cgi_start_html(),

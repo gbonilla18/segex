@@ -64,7 +64,7 @@ BEGIN {
         my ($symbol) = @_;
         ( $symbol =~ m/^[a-zA-Z_\$][0-9a-zA-Z_\$]*$/
               and not exists $reserved_words{$symbol} )
-          or SGX::Abstract::Exception::Internal::JS->throw( error =>
+          or SGX::Exception::Internal::JS->throw( error =>
               "Symbol name $symbol is not a valid ECMA 262 identifier\n" );
         return $symbol;
     }
@@ -83,7 +83,7 @@ BEGIN {
         my ($symbol) = @_;
         ( $symbol =~ m/^[a-zA-Z_\$][\.0-9a-zA-Z_\$]*$/
               and not exists $reserved_words{$symbol} )
-          or SGX::Abstract::Exception::Internal::JS->throw(
+          or SGX::Exception::Internal::JS->throw(
             error => "Symbol name $symbol is not a valid ECMA 262 chain\n" );
         return $symbol;
     }
@@ -169,7 +169,7 @@ sub false {
     sub FETCH {
         my ( $self, $key ) = @_;
         exists $self->{$key}
-          or SGX::Abstract::Exception::Internal::JS->throw(
+          or SGX::Exception::Internal::JS->throw(
             error => "Symbol '$key' absent from id hash" );
         return $self->{$key};
     }
@@ -394,7 +394,7 @@ sub _evaluate {
     else {
 
         # not a scalar
-        SGX::Abstract::Exception::Internal::JS->throw(
+        SGX::Exception::Internal::JS->throw(
             error => "Invalid reftype $key_ref in bind symbol" );
     }
     return;
@@ -424,7 +424,7 @@ sub json_encode {
 #                CODE blocks (anonymous subroutines) are executed if found,
 #                allowing us to encode not only literal object representations,
 #                but also function calls, etc.
-#       THROWS:  SGX::Abstract::Exception::Internal::JS, JSON
+#       THROWS:  SGX::Exception::Internal::JS, JSON
 #     COMMENTS:  Circular references will cause this method to hang (i.e. we do
 #                not break on reaching maximum depth, unlike what JSON module
 #                does).
@@ -475,7 +475,7 @@ sub encode {
         # try to use JSON module first and fail on error
         my $ret = eval { $self->json_encode($value); };
         if ( my $error = $@ ) {
-            SGX::Abstract::Exception::Internal::JS->throw( error => $error );
+            SGX::Exception::Internal::JS->throw( error => $error );
         }
         return $ret;
     }

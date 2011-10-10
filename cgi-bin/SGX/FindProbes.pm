@@ -228,7 +228,7 @@ sub init {
 
         # check for errors
         if ( my $error = $csv_in->error_diag() ) {
-            SGX::Abstract::Exception::User->throw( error => $error );
+            SGX::Exception::User->throw( error => $error );
         }
     }
     else {
@@ -248,7 +248,7 @@ sub init {
 #      RETURNS:  ????
 #  DESCRIPTION:  Gets full user name from session and full project name from CGI
 #                parameters or session in that order. Also sets project id.
-#       THROWS:  SGX::Abstract::Exception::Internal, Class::Exception::DBI
+#       THROWS:  SGX::Exception::Internal, Class::Exception::DBI
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -290,7 +290,7 @@ sub getSessionOverrideCGI {
                 $self->{_WorkingProjectName} = '';
             }
             else {
-                SGX::Abstract::Exception::Internal->throw( error =>
+                SGX::Exception::Internal->throw( error =>
 "More than one result returned where unique was expected\n"
                 );
             }
@@ -344,7 +344,7 @@ sub _setSearchPredicate {
             $qtext = ( @$items > 0 ) ? [ join( '|', @$items ) ] : [];
         }
         else {
-            SGX::Abstract::Exception::Internal->throw(
+            SGX::Exception::Internal->throw(
                 error => "Invalid match value $match\n" );
         }
     }
@@ -928,7 +928,7 @@ END_BROWSER_NOTICE
 #                tmp_table => $tmpTable - uploaded table to join on
 #      RETURNS:  true value
 #  DESCRIPTION:  Fills _InsideTableQuery field
-#       THROWS:  SGX::Abstract::Exception::User
+#       THROWS:  SGX::Exception::User
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================

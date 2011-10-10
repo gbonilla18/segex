@@ -164,7 +164,7 @@ sub dispatch_js {
             push @$js_src_code, { -code => $self->displayTFSInfo() };
         }
         else {
-            SGX::Abstract::Exception::Internal->throw( error =>
+            SGX::Exception::Internal->throw( error =>
                   "Do not know how to handle parameter value get=$action.\n" );
         }
     }
@@ -253,7 +253,7 @@ sub loadDataFromSubmission {
 #      RETURNS:  ????
 #  DESCRIPTION:  Gets full user name from session and full project name from CGI
 #                parameters or session in that order. Also sets project id.
-#       THROWS:  SGX::Abstract::Exception::Internal, Class::Exception::DBI
+#       THROWS:  SGX::Exception::Internal, Class::Exception::DBI
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -295,7 +295,7 @@ sub getSessionOverrideCGI {
                 $self->{_WorkingProjectName} = '';
             }
             else {
-                SGX::Abstract::Exception::Internal->throw( error =>
+                SGX::Exception::Internal->throw( error =>
 "More than one result returned where unique was expected\n"
                 );
             }

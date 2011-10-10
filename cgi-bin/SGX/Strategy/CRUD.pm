@@ -660,6 +660,7 @@ sub default_delete {
 sub default_update {
     my $self = shift;
     my $q    = $self->{_cgi};
+    warn 'default update called: ' . $self->get_full_current_uri();
     $self->_update_command()->();
     $q->delete_all();
     return;

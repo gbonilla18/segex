@@ -8,12 +8,12 @@
 #  Here we declare our exception hierarchy zoo.
 #
 #  For now, the top two branches in the hierarchy are
-#  SGX::Abstract::Exception::User and SGX::Abstract::Exception::Internal. They
+#  SGX::Exception::User and SGX::Exception::Internal. They
 #  are meant to describe two general classes of errors: user errors and internal
 #  errors. User errors are caused by bad user input or improper interaction and
 #  they are excepted to happen during normal use (albeit not very often).
 #  Internal errors are caused by unexpected internal state and should never
-#  happen; in case they do happen, we throw SGX::Abstract::Exception::Internal.
+#  happen; in case they do happen, we throw SGX::Exception::Internal.
 #
 #        FILES:  ---
 #         BUGS:  ---
@@ -43,26 +43,26 @@ use warnings;
 # security risk.
 #
 use Exception::Class (
-    'SGX::Abstract::Exception::User' => {
+    'SGX::Exception::User' => {
         description =>
           'Error potentially caused by bad user input (to be displayed to user)'
     },
-    'SGX::Abstract::Exception::Internal' =>
+    'SGX::Exception::Internal' =>
       { description => 'Internal error (to be hidden from user)' },
-    'SGX::Abstract::Exception::Internal::JS' => {
-        isa         => 'SGX::Abstract::Exception::Internal',
+    'SGX::Exception::Internal::JS' => {
+        isa         => 'SGX::Exception::Internal',
         description => 'Cannot form Javascript'
     },
-    'SGX::Abstract::Exception::Internal::Mail' => {
-        isa         => 'SGX::Abstract::Exception::Internal',
+    'SGX::Exception::Internal::Mail' => {
+        isa         => 'SGX::Exception::Internal',
         description => 'Mailer error'
     },
-    'SGX::Abstract::Exception::Internal::Session' => {
-        isa         => 'SGX::Abstract::Exception::Internal',
+    'SGX::Exception::Internal::Session' => {
+        isa         => 'SGX::Exception::Internal',
         description => 'Session-related error'
     },
-    'SGX::Abstract::Exception::Internal::Duplicate' => {
-        isa         => 'SGX::Abstract::Exception::Internal',
+    'SGX::Exception::Internal::Duplicate' => {
+        isa         => 'SGX::Exception::Internal',
         description => 'Two or more records encountered where one was expected'
     }
 );
