@@ -213,8 +213,7 @@ sub form_assign_head {
         {
             -code => $self->get_pse_dropdown_js(
                 extra_projects => {
-                    'all' => { name => '@All Projects' },
-                    ''    => { name => '@Unassigned Studies' }
+                    'all' => { name => '@All Projects' }
                 },
                 projects         => 1,
                 project_by_study => 1,

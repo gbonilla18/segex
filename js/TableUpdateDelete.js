@@ -134,7 +134,7 @@ function createEditFormatter(verb, noun, resourceURIBuilder) {
     };
 }
 
-function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder) {
+function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder, item_name) {
     var verb = buttonValue.toLowerCase();
 
     var handleSuccess = function(o) {
@@ -157,7 +157,7 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
         // strip double and single quotes from row name
         var name = rowNameBuilder(record);
         var resourceURI = resourceURIBuilder(record);
-        if (!confirm("Are you sure you want to " + verb + " '" + name + "' from " + resourceURI + "?")) { return false; }
+        if (!confirm("Are you sure you want to " + verb + " " + item_name + " `" + name + "`?")) { return false; }
 
         var callbackObject = {
             success:handleSuccess,

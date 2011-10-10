@@ -129,10 +129,11 @@ sub _head_data_table {
     #  setup
     #---------------------------------------------------------------------------
     my ( $remove_row, $view_row ) = @args{qw/remove_row view_row/};
+    my $item_name = $self->get_item_name($table);
     my @deletePhrase = ( defined $remove_row ) ? @$remove_row : ('delete');
-    push( @deletePhrase, $table ) if not defined $deletePhrase[1];
+    push( @deletePhrase, $item_name ) if not defined $deletePhrase[1];
     my @editPhrase = ( defined $view_row ) ? @$view_row : ('edit');
-    push( @editPhrase, $table ) if not defined $editPhrase[1];
+    push( @editPhrase, $item_name ) if not defined $editPhrase[1];
 
     my $js  = $self->{_js_emitter};
     my $s2n = $self->{_this_symbol2name};
@@ -359,7 +360,8 @@ sub _head_data_table {
                                         : $var->{resourceURIBuilder}
                                     ),
                                     $var->{deleteDataBuilder},
-                                    $var->{rowNameBuilder}
+                                    $var->{rowNameBuilder},
+                                    $self->get_item_name($table)
                                 ]
                             )
                           )

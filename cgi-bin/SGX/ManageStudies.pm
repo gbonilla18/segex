@@ -238,8 +238,7 @@ sub default_head {
             -code => $self->get_pse_dropdown_js(
                 platforms       => 1,
                 extra_platforms => {
-                    'all' => { name => '@All Platforms' },
-                    ''    => { name => '@Unassigned Studies' }
+                    'all' => { name => '@All Platforms' }
                 }
             )
         }
