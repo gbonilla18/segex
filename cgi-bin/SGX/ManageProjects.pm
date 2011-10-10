@@ -77,10 +77,14 @@ sub new {
                 selectors => { manager => 'manager' },
                 names     => [qw/prname/],
                 labels    => {
-                    prid   => 'No.',
-                    prname => 'Name',
-                    prdesc => 'Description',
-                    uname  => 'Managing User'
+                    prid    => 'No.',
+                    prname  => 'Name',
+                    prdesc  => 'Description',
+                    manager => 'Managing User'
+                },
+                meta => {
+                    prid    => 'number',
+                    manager => 'number'
                 },
                 lookup => { users => [ manager => 'uid' ] }
             },
@@ -100,6 +104,10 @@ sub new {
                     pubmed      => 'PubMed ID',
                     pid         => 'Platform'
                 },
+                meta => {
+                    stid => 'number',
+                    pid  => 'number'
+                },
                 lookup => { platform     => [ pid  => 'pid' ] },
                 join   => [ ProjectStudy => [ stid => 'stid' ] ]
             },
@@ -111,13 +119,15 @@ sub new {
                     uid       => 'ID',
                     uname     => 'Login ID',
                     full_name => 'Managing User'
-                }
+                },
+                meta => { uid => 'number' }
             },
             'platform' => {
                 key    => [qw/pid/],
                 view   => [qw/pname species/],
                 names  => [qw/pname/],
-                labels => { pname => 'Platform', species => 'Species' }
+                labels => { pname => 'Platform', species => 'Species' },
+                meta => { pid => 'number' }
             },
         },
         _default_table => 'project',

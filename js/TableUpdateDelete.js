@@ -221,11 +221,17 @@ function expandJoinedFields(mainTable, lookupTables) {
             tmp[lookup_by] = [ [lookupTable, obj] ];
         }
     }
+    // if joined field not editable (no dropdown formatter), make it sortable.
     var mainTable_fields = mainTable.fields,
     mainTable_records = mainTable.records,
-    num_records = mainTable_records.length;
+    num_records = mainTable_records.length,
+    mainTable_meta = mainTable.meta;
     for (var k = 0, num_fields = mainTable_fields.length; k < num_fields; k++) {
         var field = mainTable_fields[k];
+        if (field in mainTable_meta) {
+            // replace with object containing parser
+            mainTable_fields[k] = { key: field, parser: mainTable_meta[field] };
+        }
         if (field in tmp) {
             var objArray = tmp[field];
             var extra_col_count = 0;
@@ -234,13 +240,20 @@ function expandJoinedFields(mainTable, lookupTables) {
                 var lookupTable = tuple[0],
                 obj = tuple[1];
                 var extra_fields = obj.index2symbol.slice(1);
+                var extra_meta = obj.meta;
                 for (var m = 0, extra_len = extra_fields.length; m < extra_len; m++) {
                     extra_fields[m] = lookupTable + '.' + extra_fields[m];
                 }
                 var extra_fields_len = extra_fields.length;
                 extra_col_count += extra_fields_len;
                 for (var f = 0; f < extra_fields_len; f++) {
-                    mainTable_fields.push(extra_fields[f]);
+                    var join_field = extra_fields[f];
+                    // either plain field name or object containing parser
+                    mainTable_fields.push(
+                        (join_field in extra_meta) 
+                        ? { key: join_field, parser: extra_meta[join_field] } 
+                        : join_field
+                    );
                 }
             }
             // now for each record in data array, add field value for the

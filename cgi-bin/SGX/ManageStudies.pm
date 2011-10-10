@@ -91,13 +91,18 @@ sub new {
                     pubmed      => 'PubMed',
                     pid         => 'Platform'
                 },
+                meta => {
+                    stid => 'number',
+                    pid  => 'number'
+                },
                 lookup => { platform => [ pid => 'pid' ] },
             },
             'platform' => {
                 key    => [qw/pid/],
                 view   => [qw/pname species/],
                 names  => [qw/pname/],
-                labels => { pname => 'Platform', species => 'Species' }
+                labels => { pname => 'Platform', species => 'Species' },
+                meta => { pid => 'number' }
             },
             'experiment' => {
                 key  => [qw/eid/],
@@ -120,6 +125,7 @@ sub new {
                     ExperimentDescription => 'Description',
                     AdditionalInformation => 'Additional Info'
                 },
+                meta   => { eid             => 'number' },
                 lookup => { microarray      => [ eid => 'eid' ] },
                 join   => [ StudyExperiment => [ eid => 'eid' ] ]
             },
@@ -131,6 +137,10 @@ sub new {
                 labels  => {
                     eid        => 'No.',
                     'COUNT(1)' => 'Probe Count'
+                },
+                meta => {
+                    eid        => 'number',
+                    'COUNT(1)' => 'number'
                 },
                 join => [ StudyExperiment => [ eid => 'eid' ] ]
             }

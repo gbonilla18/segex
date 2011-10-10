@@ -152,12 +152,13 @@ sub _head_data_table {
     #  (Javascript) needs this.
     #---------------------------------------------------------------------------
     $table = $self->{_default_table} if not defined($table);
-    my $table_defs     = $self->{_table_defs};
-    my $table_info     = $table_defs->{$table};
-    my $keys           = $table_info->{key};
+    my $table_defs = $self->{_table_defs};
+    my $table_info = $table_defs->{$table};
+    my ( $this_keys, $this_meta, $this_view, $this_names, $this_resource ) =
+      @$table_info{qw/key meta view names resource/};
     my %resource_extra = (
-        ( map { $_ => $_ } @$keys[ 1 .. $#$keys ] ),
-        ( (@$keys) ? ( id => $keys->[0] ) : () )
+        ( map { $_ => $_ } @$this_keys[ 1 .. $#$this_keys ] ),
+        ( (@$this_keys) ? ( id => $this_keys->[0] ) : () )
     );
 
     #---------------------------------------------------------------------------
@@ -176,7 +177,7 @@ sub _head_data_table {
     my @column_defs = (
 
         # default table view (default table referred to by an empty string)
-        ( map { $column->( [ undef, $_ ] ) } @{ $table_info->{view} } ),
+        ( map { $column->( [ undef, $_ ] ) } @$this_view ),
 
         # views in left_joined tables
         (
@@ -225,7 +226,7 @@ sub _head_data_table {
     #  Which fields can be used to "name" rows -- createRowNameBuilder
     #  (Javascript) needs this
     #---------------------------------------------------------------------------
-    my @nameIndexes = grep { exists $s2n->{$_} } @{ $table_info->{names} };
+    my @nameIndexes = grep { exists $s2n->{$_} } @$this_names;
 
     #---------------------------------------------------------------------------
     #  Arguments supplied to createDeleteDataBuilder (Javascript): table - table
@@ -249,7 +250,7 @@ sub _head_data_table {
     # Need to set a= and id= parameters because otherwise current settings will
     # be used from {_ResourceName} and {_id}.
     my $table_resource_uri = $self->get_resource_uri(
-        a  => $table_info->{resource},
+        a  => $this_resource,
         id => undef
     );
     my $onloadLambda = $js->lambda(
@@ -350,7 +351,8 @@ sub _head_data_table {
                         caption => 'Showing all Studies',
                         records => $self->getJSRecords(),
                         headers => $self->getJSHeaders(),
-                        fields  => $self->_head_response_schema()
+                        fields  => [ keys %$s2n ],
+                        meta    => $this_meta || {}
                     },
                     $var->{lookupTables}
                 ]
@@ -677,20 +679,6 @@ sub ajax_create {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _head_response_schema
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub _head_response_schema {
-    return [ keys %{ shift->{_this_symbol2name} } ];
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _head_column_def
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -771,8 +759,7 @@ sub _head_column_def {
                 push @ajax_editor,
                   ( editor => $js->apply( $cell_updater, [$symbol] ) );
             }
-            elsif (defined($cell_dropdown)
-                && defined($mytable)
+            elsif (defined($mytable)
                 && defined($propagate_key)
                 && $mutable{$propagate_key}
                 && defined( $table_defs->{$mytable}->{names} )
@@ -923,8 +910,8 @@ sub _readall_command {
             }
 
             my $left_table_info = $table_defs->{$left_table_alias};
-            my ( $other_view, $other_labels ) =
-              @$left_table_info{qw/view labels/};
+            my ( $other_view, $other_labels, $other_meta ) =
+              @$left_table_info{qw/view labels meta/};
 
             # prepend key field
             my $other_select_fields =
@@ -942,6 +929,7 @@ sub _readall_command {
               _symbol2index_from_symbol2name($other_select_fields);
             $_other->{$left_table_alias}->{index2symbol} =
               [ keys %$other_select_fields ];
+            $_other->{$left_table_alias}->{meta} = $other_meta || {};
             $_other->{$left_table_alias}->{lookup_by} = $this_field;
         }
     }
@@ -1182,11 +1170,10 @@ sub _build_join {
     while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
 
         my ( $this_field, $other_field, $opts ) = @$info;
+        $opts = {} if not defined $opts;
         $this_field = "$table_alias.$this_field" if ( $this_field !~ m/\./ );
 
-        $opts = {} if not defined $opts;
-
-        my $other_table_defs = $table_defs->{$other_table_alias};
+        my $other_table_defs = $table_defs->{$other_table_alias} || {};
         my %cascade_other = ( %$other_table_defs, %$opts );
 
         my $other_table = $cascade_other{table};

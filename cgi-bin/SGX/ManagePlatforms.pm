@@ -91,6 +91,14 @@ sub new {
                     'COUNT(probe.probe_sequence)' => 'Probe Sequences',
                     'COUNT(probe.location)'       => 'Locations'
                 },
+                meta => {
+                    pid                           => 'number',
+                    def_p_cutoff                  => 'number',
+                    def_f_cutoff                  => 'number',
+                    'COUNT(probe.rid)'            => 'number',
+                    'COUNT(probe.probe_sequence)' => 'number',
+                    'COUNT(probe.location)'       => 'number'
+                },
                 join => [ probe => [ pid => 'pid' ] ]
             },
             probe => {
@@ -111,18 +119,20 @@ sub new {
                     description => 'Description',
                     pubmed      => 'PubMed ID'
                 },
-                lookup     => { 'proj' => [ stid => 'stid' ] },
-                constraint => [ pid    => sub    { shift->{_id} } ]
+                meta       => { stid       => 'number' },
+                lookup     => { proj_brief => [ stid => 'stid' ] },
+                constraint => [ pid        => sub { shift->{_id} } ]
             },
-            'proj' => {
-                table =>
-                  '(SELECT * FROM ProjectStudy INNER JOIN project USING(prid))',
-                key     => [qw/stid prid/],
-                mutable => [],
-                selectors => {}, # table key to the left, URI param to the right
-                view   => [qw/prname/],
-                names  => [qw/prname/],
-                labels => { prname => 'Project(s)' }
+            proj_brief => {
+                table => 'ProjectStudy',
+                key   => [qw/'stid prid'/],
+                view  => ['GROUP_CONCAT(prname SEPARATOR ", ")'],
+                labels =>
+                  { 'GROUP_CONCAT(prname SEPARATOR ", ")' => 'Project(s)' },
+                meta => { 'GROUP_CONCAT(prname SEPARATOR ", ")' => 'number' },
+                join =>
+                  [ project => [ prid => 'prid', { join_type => 'INNER' } ] ],
+                group_by => [qw/stid/]
             },
             'experiment' => {
                 key     => [qw/eid/],

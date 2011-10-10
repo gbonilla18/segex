@@ -96,6 +96,7 @@ sub new {
                     pubmed      => 'PubMed',
                     pid         => 'Platform',
                 },
+                meta => { stid => 'number', 'pid' => 'number' },
                 lookup => { platform => [ pid => 'pid' ] },
                 join   => [
                     StudyExperiment => [
@@ -111,6 +112,8 @@ sub new {
                 labels => {
                     'GROUP_CONCAT(description SEPARATOR ", ")' => 'Study(-ies)'
                 },
+                meta =>
+                  { 'GROUP_CONCAT(description SEPARATOR ", ")' => 'number' },
                 join =>
                   [ 'study' => [ stid => 'stid', { join_type => 'INNER' } ] ],
                 group_by => [qw/eid/]
@@ -144,6 +147,7 @@ sub new {
                     ExperimentDescription => 'Description',
                     AdditionalInformation => 'Additional Info'
                 },
+                meta   => { eid => 'number' },
                 lookup => {
                     microarray => [ eid => 'eid' ],
                     (
@@ -166,6 +170,7 @@ sub new {
                     eid        => 'No.',
                     'COUNT(1)' => 'Probe Count'
                 },
+                meta => { eid => 'number', 'COUNT(1)' => 'number' },
                 join => [
                     StudyExperiment => [ eid => 'eid' ],
 

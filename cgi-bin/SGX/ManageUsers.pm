@@ -59,7 +59,8 @@ sub new {
         _table_defs => {
             'users' => {
                 key       => [qw/uid/],
-                selectors => { uname => 'uname' }, # table key to the left, URI param to the right
+                selectors => { uname => 'uname' }
+                ,    # table key to the left, URI param to the right
                 proto =>
                   [qw/uname full_name address phone level email_confirmed/],
                 view =>
@@ -75,6 +76,10 @@ sub new {
                     phone           => 'Phone',
                     level           => 'Permissions',
                     email_confirmed => 'Email Confirmed'
+                },
+                meta => {
+                    uid             => 'number',
+                    email_confirmed => 'number'
                 }
             }
         },
