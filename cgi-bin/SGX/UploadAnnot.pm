@@ -31,8 +31,8 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
+use Carp;
 use Data::Dumper;
-use Switch;
 use JSON::XS;
 use SGX::Model::PlatformStudyExperiment;
 use Text::CSV;
@@ -101,7 +101,7 @@ sub default_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadAnnot
-#       METHOD:  dispatch
+#       METHOD:  Upload_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  executes appropriate method for the given action
@@ -110,15 +110,11 @@ sub default_head {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub Upload_body {
-    my ($self) = @_;
-    return $self->LoadHTML();
-}
+    my $self = shift;
+    my $q    = $self->{_cgi};
 
-sub default_body {
-    my ($self) = @_;
-
-    # default action: show form
-    return $self->form_uploadAnnot();
+    return $q->p( { -id => 'caption' },
+        sprintf( "%d lines processed", $self->{_count_lines} ) );
 }
 
 #===  FUNCTION  ================================================================
@@ -198,7 +194,7 @@ sub uploadAnnot {
     if ( @fields < 2 ) {
 
         # :TODO:07/12/2011 15:03:47:es: replace printing with exceptions here
-        die 'Too few fields specified -- nothing to update.';
+        croak 'Too few fields specified -- nothing to update.';
     }
 
     #Create two hashes that hold hash{Long Name} = DBName
@@ -217,7 +213,7 @@ sub uploadAnnot {
 
         # if the assertion below fails, the field specified by the user
         # either doesn't exist or is protected.
-        die if !( $probe_fields{$_} || $gene_fields{$_} );
+        croak if !( $probe_fields{$_} || $gene_fields{$_} );
 
         if ( $probe_fields{$_} ) {
             $col{ $probe_fields{$_} } = $i;
@@ -258,7 +254,7 @@ sub uploadAnnot {
       && !defined( $q->param('add') );
 
     if ( !$outside_have_reporter && !$outside_have_gene ) {
-        die 'No core fields specified -- cannot proceed with update.';
+        croak 'No core fields specified -- cannot proceed with update.';
     }
 
     my $update_gene;
@@ -466,7 +462,9 @@ qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname 
     }
     my $count_lines = @lines;
 
-    warn sprintf( "%d lines processed.", $count_lines );
+    $self->{_count_lines} = $count_lines;
+
+    #carp sprintf( "%d lines processed.", $count_lines );
 
     #Flag the platform as being annotated.
     return $dbh->do( 'UPDATE platform SET isAnnotated=1 WHERE pid=?',
@@ -475,7 +473,7 @@ qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname 
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::UploadAnnot
-#       METHOD:  form_uploadAnnot
+#       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Show form for data upload
@@ -483,7 +481,7 @@ qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname 
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub form_uploadAnnot {
+sub default_body {
 
     my $self = shift;
     my $dbh  = $self->{_dbh};

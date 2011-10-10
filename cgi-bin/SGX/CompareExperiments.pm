@@ -24,7 +24,6 @@ use base qw/SGX::Strategy::Base/;
 
 #use Benchmark;
 #use Data::Dumper;
-use Switch;
 use URI::Escape;
 use JSON::XS;
 use Tie::IxHash;
@@ -69,6 +68,16 @@ sub new {
     return $self;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  Compare_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub Compare_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
@@ -90,6 +99,16 @@ sub Compare_head {
     push @$js_src_code, { -code => $self->getResultsJS() };
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  default_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
@@ -108,20 +127,6 @@ sub default_head {
         +{ -code => $self->getFormJS() },
         +{ -src  => 'FormCompareExperiments.js' }
       );
-}
-
-sub Compare_body {
-    my $self = shift;
-
-    # show results
-    return $self->getResultsHTML();
-}
-
-sub default_body {
-    my $self = shift;
-
-    # default action: show form
-    return $self->getFormHTML();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -259,7 +264,7 @@ END_form_compareExperiments_js
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  getFormHTML
+#         NAME:  default_body
 #      PURPOSE:  return HTML for Form in Compare Experiments
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -268,7 +273,7 @@ END_form_compareExperiments_js
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getFormHTML {
+sub default_body {
 
     #my ( $q, $form_action, $submit_action ) = @_;
     my ($self) = @_;
@@ -575,106 +580,100 @@ END_query_fs
     my $out = '';
     my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
 
-    switch ($rowcount_titles) {
-        case 2 {
+    if ( $rowcount_titles == 2 ) {
 
-            # draw two circles
-            my @c;
-            for ( $i = 1 ; $i < 4 ; $i++ ) {
+        # draw two circles
+        my @c;
+        for ( $i = 1 ; $i < 4 ; $i++ ) {
 
-                # replace undefined values with zeros
-                push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
-            }
-            my $AB = $c[2];
-            my ( $A, $B ) = ( $hc{0}, $hc{1} );
+            # replace undefined values with zeros
+            push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
+        }
+        my $AB = $c[2];
+        my ( $A, $B ) = ( $hc{0}, $hc{1} );
 
-            #assert( $A == $c[0] + $AB );
-            #assert( $B == $c[1] + $AB );
+        #assert( $A == $c[0] + $AB );
+        #assert( $B == $c[1] + $AB );
 
-            my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
-            my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
+        my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
+        my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
 
-            # scale must be equal to the area of the largest circle
-            my $scale = max( $A, $B );
-            my @nums = ( $A, $B, 0, $AB );
-            my $qstring =
-                'cht=v&amp;chd=t:'
-              . join( ',', @nums )
-              . '&amp;chds=0,'
-              . $scale
-              . '&amp;chs=750x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='
-              . uri_escape( "$currentEID1. " . $ht->{$currentEID1}->{title} )
-              . '|'
-              . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
+        # scale must be equal to the area of the largest circle
+        my $scale = max( $A, $B );
+        my @nums = ( $A, $B, 0, $AB );
+        my $qstring =
+            'cht=v&amp;chd=t:'
+          . join( ',', @nums )
+          . '&amp;chds=0,'
+          . $scale
+          . '&amp;chs=750x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='
+          . uri_escape( "$currentEID1. " . $ht->{$currentEID1}->{title} ) . '|'
+          . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
 
-            $out .= $js->bind(
-                [
-                    venn =>
+        $out .= $js->bind(
+            [
+                venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
-                ],
-                declare => 1
-            );
+            ],
+            declare => 1
+        );
+    }
+    elsif ( $rowcount_titles == 3 ) {
+
+        # draw three circles
+        my @c;
+        for ( $i = 1 ; $i < 8 ; $i++ ) {
+
+            # replace undefined values with zeros
+            push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
         }
-        case 3 {
+        my $ABC = $c[6];
+        my $AB  = $c[2] + $ABC;
+        my $AC  = $c[4] + $ABC;
+        my $BC  = $c[5] + $ABC;
+        my ( $A, $B, $C ) = ( $hc{0}, $hc{1}, $hc{2} );
 
-            # draw three circles
-            my @c;
-            for ( $i = 1 ; $i < 8 ; $i++ ) {
+        my $chart_title =
+          ( count_gtzero( $A, $B, $C ) > 2 )
+          ? 'Significant+Probes+(Approx.)'
+          : 'Significant+Probes';
 
-                # replace undefined values with zeros
-                push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
-            }
-            my $ABC = $c[6];
-            my $AB  = $c[2] + $ABC;
-            my $AC  = $c[4] + $ABC;
-            my $BC  = $c[5] + $ABC;
-            my ( $A, $B, $C ) = ( $hc{0}, $hc{1}, $hc{2} );
+        #assert( $A == $c[0] + $c[2] + $c[4] + $ABC );
+        #assert( $B == $c[1] + $c[2] + $c[5] + $ABC );
+        #assert( $C == $c[3] + $c[4] + $c[5] + $ABC );
 
-            my $chart_title =
-              ( count_gtzero( $A, $B, $C ) > 2 )
-              ? 'Significant+Probes+(Approx.)'
-              : 'Significant+Probes';
+        my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
+        my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
+        my ( $currentSTID3, $currentEID3 ) = split( /\|/, $eids[2] );
 
-            #assert( $A == $c[0] + $c[2] + $c[4] + $ABC );
-            #assert( $B == $c[1] + $c[2] + $c[5] + $ABC );
-            #assert( $C == $c[3] + $c[4] + $c[5] + $ABC );
+        # scale must be equal to the area of the largest circle
+        my $scale = max( $A, $B, $C );
+        my @nums = ( $A, $B, $C, $AB, $AC, $BC, $ABC );
+        my $qstring =
+            'cht=v&amp;chd=t:'
+          . join( ',', @nums )
+          . '&amp;chds=0,'
+          . $scale
+          . "&amp;chs=750x300&chtt=$chart_title&amp;chco=ff0000,00ff00,0000ff&amp;chdl="
+          . uri_escape(
+            sprintf( '%d. %s', $currentEID1, $ht->{$currentEID1}->{title} ) )
+          . '|'
+          . uri_escape(
+            sprintf( '%d. %s', $currentEID2, $ht->{$currentEID2}->{title} ) )
+          . '|'
+          . uri_escape(
+            sprintf( '%d. %s', $currentEID3, $ht->{$currentEID3}->{title} ) );
 
-            my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
-            my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
-            my ( $currentSTID3, $currentEID3 ) = split( /\|/, $eids[2] );
-
-            # scale must be equal to the area of the largest circle
-            my $scale = max( $A, $B, $C );
-            my @nums = ( $A, $B, $C, $AB, $AC, $BC, $ABC );
-            my $qstring =
-                'cht=v&amp;chd=t:'
-              . join( ',', @nums )
-              . '&amp;chds=0,'
-              . $scale
-              . "&amp;chs=750x300&chtt=$chart_title&amp;chco=ff0000,00ff00,0000ff&amp;chdl="
-              . uri_escape(
-                sprintf( '%d. %s', $currentEID1, $ht->{$currentEID1}->{title} )
-              )
-              . '|'
-              . uri_escape(
-                sprintf( '%d. %s', $currentEID2, $ht->{$currentEID2}->{title} )
-              )
-              . '|'
-              . uri_escape(
-                sprintf( '%d. %s', $currentEID3, $ht->{$currentEID3}->{title} )
-              );
-
-            $out .= $js->bind(
-                [
-                    venn =>
+        $out .= $js->bind(
+            [
+                venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
-                ],
-                declare => 1
-            );
-        }
-        else {
-            $out .= $js->bind( [ venn => '' ], declare => 1 );
-        }
+            ],
+            declare => 1
+        );
+    }
+    else {
+        $out .= $js->bind( [ venn => '' ], declare => 1 );
     }
 
     # Summary table -------------------------------------
@@ -813,19 +812,18 @@ YAHOO.util.Event.addListener(window, "load", function() {
     return $out;
 }
 
-#===  FUNCTION  ================================================================
-#         NAME:  getResultsHTML
-#      PURPOSE:  Get HTML for result display
-#   PARAMETERS:  $q - CGI.pm object
-#                $action - action to be performed on results (DOWNLOADTFS)
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  Compare_body
+#   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  ????
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getResultsHTML {
-    my ($self) = @_;
+sub Compare_body {
+    my $self = shift;
 
     my $q = $self->{_cgi};
 

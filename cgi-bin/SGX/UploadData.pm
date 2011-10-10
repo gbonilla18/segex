@@ -37,7 +37,6 @@ use SGX::CSV;
 use Data::Dumper;
 use File::Temp;
 use Carp;
-use Switch;
 use SGX::Abstract::Exception;
 use SGX::Model::PlatformStudyExperiment;
 use Scalar::Util qw/looks_like_number/;
@@ -104,7 +103,7 @@ sub new {
 
     $self->register_actions(
         'head' => { Upload => 'Upload_head' },
-        'body' => { Upload => 'Upload_body' }
+        'body' => { Upload => 'default_body' }
     );
 
     my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
@@ -144,6 +143,16 @@ sub Upload_head {
     push @$js_src_code, { -code => $self->getDropDownJS() };
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadData
+#       METHOD:  default_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub default_head {
     my ($self) = @_;
     my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
@@ -155,7 +164,7 @@ sub default_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  dispatch
+#       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -163,11 +172,6 @@ sub default_head {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub Upload_body {
-    my $self = shift;
-    return ( $self->displayMessages(), $self->showForm() );
-}
-
 sub default_body {
     my $self = shift;
     return ( $self->displayMessages(), $self->showForm() );

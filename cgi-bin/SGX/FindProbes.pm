@@ -144,8 +144,8 @@ sub Search_head {
     push @{ $self->{_css_src_yui} },
       (
         'paginator/assets/skins/sam/paginator.css',
-        'container/assets/skins/sam/container.css',
-        'datatable/assets/skins/sam/datatable.css'
+        'datatable/assets/skins/sam/datatable.css',
+        'container/assets/skins/sam/container.css'
       );
     push @$js_src_yui,
       (
@@ -803,21 +803,18 @@ sub Search_body {
     return @ret;
 }
 
-#===  FUNCTION  ================================================================
-#         NAME:  default_body
-#      PURPOSE:  display Find Probes form
-#   PARAMETERS:  $q - CGI object
-#                $action - name of the top-level action
-#                $curr_proj - current working project
-#      RETURNS:  List of strings representing HTML entities. The list can be
-#      printed directly by calling `print @list'.
-#  DESCRIPTION:  ????
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  default_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_body {
-    my ($self) = @_;
+    my $self = shift;
 
     my $q         = $self->{_cgi};
     my $curr_proj = $self->{_WorkingProject};

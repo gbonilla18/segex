@@ -32,7 +32,6 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use Switch;
 use JSON::XS;
 use SGX::Model::PlatformStudyExperiment;
 
@@ -76,6 +75,16 @@ sub new {
     return $self;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  Load_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub Load_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
@@ -97,6 +106,16 @@ sub Load_head {
     push @$js_src_code, { -code => $self->runReport_js() };
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  default_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
@@ -120,16 +139,6 @@ sub default_head {
     push @$js_src_code, { -code => $self->getDropDownJS() };
 }
 
-sub Load_body {
-    my $self = shift;
-    return $self->LoadHTML();
-}
-
-sub default_body {
-    my $self = shift;
-    return $self->showForm();
-}
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::OutputData
 #       METHOD:  init
@@ -149,8 +158,7 @@ sub init {
     $self->{_stid} = $q->param('stid');
 
     # required
-    my @eids = $q->param('eid');
-    $self->{_eidList} = \@eids;
+    $self->{_eidList} = [ $q->param('eid') ];
 }
 
 #===  CLASS METHOD  ============================================================
@@ -251,7 +259,7 @@ sub getJSHeaders {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  OutputData
-#       METHOD:  showForm
+#       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Draw the javascript and HTML for the experiment table
@@ -259,7 +267,7 @@ sub getJSHeaders {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub showForm {
+sub default_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
@@ -378,7 +386,7 @@ END_ret
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::OutputData
-#       METHOD:  LoadHTML
+#       METHOD:  Load_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Return basic HTML frame for YUI DataTable control
@@ -386,7 +394,7 @@ END_ret
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub LoadHTML {
+sub Load_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
@@ -432,7 +440,7 @@ sub runReport_js {
 
  # :TODO:07/12/2011 10:00:04:es: rewrite export_table() Javascript function such
  # that it assumes that .headers field is in the same format as DataTable column
- # definitions. Then switch column definition code everytwhere from being
+ # definitions. Then change column definition code everytwhere from being
  # hardcoded into Javascript to being Perl-generated and JSON-encoded.
  #
  # Also conider treating DataSource responseSchema.fields the same way.

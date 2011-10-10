@@ -32,7 +32,6 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 use Data::Dumper;
-use Switch;
 
 #use DBI;
 {

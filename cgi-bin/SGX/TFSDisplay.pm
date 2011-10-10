@@ -31,7 +31,6 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 #use Data::Dumper;
-use Switch;
 use Math::BigInt;
 use JSON::XS;
 use SGX::Abstract::Exception;
@@ -92,11 +91,16 @@ sub new {
     return $self;
 }
 
-sub default_body {
-    my $self = shift;
-    return $self->getHTML();
-}
-
+#===  CLASS METHOD  ============================================================
+#        CLASS:  TFSDisplay
+#       METHOD:  CSV_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub CSV_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
@@ -124,6 +128,16 @@ sub CSV_head {
     exit;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  TFSDisplay
+#       METHOD:  default_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Override CRUD default_head
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
@@ -131,6 +145,11 @@ sub default_head {
     return
       unless $s->is_authorized('user');
 
+    push @{ $self->{_css_src_yui} },
+      (
+        'paginator/assets/skins/sam/paginator.css',
+        'datatable/assets/skins/sam/datatable.css'
+      );
     push @$js_src_yui,
       (
         'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
@@ -145,7 +164,7 @@ sub default_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  TFSDisplay
-#       METHOD:  getHTML
+#       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -153,7 +172,7 @@ sub default_head {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getHTML {
+sub default_body {
     my $self = shift;
 
     my $q = $self->{_cgi};
