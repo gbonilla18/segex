@@ -642,7 +642,7 @@ END_query_fs
               . '|'
               . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
 
-            $out .= $js->define(
+            $out .= $js->bind(
                 {
                     venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
@@ -699,7 +699,7 @@ END_query_fs
                 sprintf( '%d. %s', $currentEID3, $ht->{$currentEID3}->{title} )
               );
 
-            $out .= $js->define(
+            $out .= $js->bind(
                 {
                     venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
@@ -708,7 +708,7 @@ END_query_fs
             );
         }
         else {
-            $out .= $js->define(
+            $out .= $js->bind(
                 {
                     venn => ''
                 },
@@ -733,7 +733,7 @@ END_query_fs
           };
     }
 
-    $out .= $js->define(
+    $out .= $js->bind(
         {
             rep_count => $rep_count,
             eid       => join( ',', @eids ),
@@ -786,7 +786,7 @@ END_query_fs
             ( $rowcount_titles + 1 ) => $h->{$key}->{c}
           };
     }
-    $out .= $js->define(
+    $out .= $js->bind(
         {
             tfs => {
                 caption =>

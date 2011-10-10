@@ -96,6 +96,7 @@ $VERSION = '0.11';
 use base qw/SGX::Session::Session/;
 use CGI::Cookie;
 use File::Basename;
+use Data::Dumper;
 
 # some (constant) globals
 my $SESSION_NAME = 'session';

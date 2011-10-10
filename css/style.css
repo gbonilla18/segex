@@ -362,3 +362,12 @@ td.yui-dt-col-5 .yui-dt-liner {
 .highlight {
 	background-color: #ff0;
 }
+#cr_menu {
+	display:block;
+}
+#cr_menu li {
+	color:#777;
+	margin-right:1em;
+	display:block;
+	float:left;
+}

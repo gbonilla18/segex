@@ -13,6 +13,7 @@ use Carp;    # croak exported automatically
 use Switch;
 use URI::Escape;
 use Tie::IxHash;
+use Data::Dumper;
 
 #---------------------------------------------------------------------------
 # Custom modules in SGX directory
@@ -28,100 +29,6 @@ use SGX::Session::Session 0.08;    # email verification
 #---------------------------------------------------------------------------
 my $softwareVersion = '0.2.4';
 
-my $dbh = sgx_db_connect();
-
- # :TRICKY:08/09/2011 13:30:40:es: 
- 
- # When key/value pairs are copied from a permanent cookie to a session cookie,
- # we may want to execute some code, depending on which symbols we encounter in
- # the permanent cookie. The code executed would, in its turn, produce key/value
- # tuples that would be then stored in the session cookie. At the same time, the
- # code directly copying the key/value pairs may not know which symbols it will
- # encounter. 
- 
- # This is similar to the Visitor pattern except that Visitor operates on
- # objects (and executes methods depending on the classes of objects it
- # encounters), and our class operates on key-value pairs (which of course can
- # be represented as objects but we choose not to, since key symbols are already
- # unique and clearly defined). While in the Visitor pattern, the double
- # dispatch that occurs depends on the type of Visitor passed and on the type of
- # object being operated on, in our case the double dispatch depends on the type
- # of Visitor passed and on the key symbols encountered.
- 
- # The motivation of doing things this way (instead of simply including the code
- # into SGX::Session::User) is that our event handling code may query different
- # tables and/or databases that we do not want SGX::Session::User to know about.
- # This way we implement separation of concerns.
-
- # :TODO:08/09/2011 17:08:51:es: This code should be a part of SGX::Profile
- # class.
-my $perm2session = {
-    curr_proj => sub {
-        # note that we are not using dbh from within User class -- in theory
-        # user and session tables could be stored in a separate database.
-        my $curr_proj = shift;
-        return (proj_name => '') unless defined($curr_proj);
-        my $sth = $dbh->prepare('SELECT prname FROM project WHERE prid=?');
-        my $rc  = $sth->execute($curr_proj);
-        if  ( $rc != 1 ) {
-            $sth->finish;
-            return (proj_name => '');
-        }
-        my ($full_name) = $sth->fetchrow_array;
-        $sth->finish;
-        return (proj_name => $full_name);
-    }
-};
-
-my $s   = SGX::Session::User->new(
-    dbh       => $dbh,
-    expire_in => 3600,             # expire in 3600 seconds (1 hour)
-    check_ip  => 1,
-    perm2session => $perm2session
-);
-
-my $q = CGI->new();
-
-$s->restore( $q->param('sid') );    # restore old session if it exists
-
-#---------------------------------------------------------------------------
-#  Main
-#---------------------------------------------------------------------------
-my $error_string;
-my $title;
-
-# :TODO:08/07/2011 16:05:55:es: Allow each page to specify its own CSS includes
-# aka it is currently done with Javascript source files.
-my $css = [
-    { -src => YUI_BUILD_ROOT . '/reset-fonts/reset-fonts.css' },
-    { -src => YUI_BUILD_ROOT . '/container/assets/skins/sam/container.css' },
-    { -src => YUI_BUILD_ROOT . '/button/assets/skins/sam/button.css' },
-    { -src => YUI_BUILD_ROOT . '/paginator/assets/skins/sam/paginator.css' },
-    { -src => YUI_BUILD_ROOT . '/datatable/assets/skins/sam/datatable.css' },
-    { -src => CSS_DIR . '/style.css' }
-];
-
-
-my @js_src_yui;
-my @js_src_code = ( { -src => 'form.js' } );
-
-my %controller_context = (
-    dbh          => $dbh,
-    cgi          => $q,
-    user_session => $s,
-    js_src_yui   => \@js_src_yui,
-    js_src_code  => \@js_src_code,
-    title        => \$title
-);
-
-# this will be a reference to a subroutine that displays the main content
-my $content;
-
-# Action constants can evaluate to anything, but must be different from already defined actions.
-# One can also use an enum structure to formally declare the input alphabet of all possible actions,
-# but then the URIs would not be human-readable anymore.
-# ===== User Management ==================================
-# this is simply a prefix, FORM.WHATEVS does NOT do the function, just show input form.
 use constant FORM           => 'form_';
 use constant LOGIN          => 'login';
 use constant LOGOUT         => 'logout';
@@ -136,7 +43,109 @@ use constant QUIT           => 'quit';
 use constant SHOWSCHEMA     => 'showSchema';
 use constant HELP           => 'help';
 use constant ABOUT          => 'about';
+use constant ERROR_PAGE     => 'error';
 
+my $q = CGI->new();
+
+my $action =
+  ( defined( $q->url_param('a') ) ) ? $q->url_param('a') : DEFAULT_ACTION;
+
+my $dbh = eval { sgx_db_connect() } or do { $action = ERROR_PAGE };
+
+# :TRICKY:08/09/2011 13:30:40:es:
+
+# When key/value pairs are copied from a permanent cookie to a session cookie,
+# we may want to execute some code, depending on which symbols we encounter in
+# the permanent cookie. The code executed would, in its turn, produce key/value
+# tuples that would be then stored in the session cookie. At the same time, the
+# code directly copying the key/value pairs may not know which symbols it will
+# encounter.
+
+# This is similar to the Visitor pattern except that Visitor operates on
+# objects (and executes methods depending on the classes of objects it
+# encounters), and our class operates on key-value pairs (which of course can
+# be represented as objects but we choose not to, since key symbols are already
+# unique and clearly defined). While in the Visitor pattern, the double
+# dispatch that occurs depends on the type of Visitor passed and on the type of
+# object being operated on, in our case the double dispatch depends on the type
+# of Visitor passed and on the key symbols encountered.
+
+# The motivation of doing things this way (instead of simply including the code
+# into SGX::Session::User) is that our event handling code may query different
+# tables and/or databases that we do not want SGX::Session::User to know about.
+# This way we implement separation of concerns.
+
+# :TODO:08/09/2011 17:08:51:es: This code should be a part of SGX::Profile
+# class.
+my $perm2session = {
+    curr_proj => sub {
+
+        # note that we are not using dbh from within User class -- in theory
+        # user and session tables could be stored in a separate database.
+        my $curr_proj = shift;
+        return ( proj_name => '' ) unless defined($curr_proj);
+        my $sth = $dbh->prepare('SELECT prname FROM project WHERE prid=?');
+        my $rc  = $sth->execute($curr_proj);
+        if ( $rc != 1 ) {
+            $sth->finish;
+            return ( proj_name => '' );
+        }
+        my ($full_name) = $sth->fetchrow_array;
+        $sth->finish;
+        return ( proj_name => $full_name );
+      }
+};
+
+my $s = SGX::Session::User->new(
+    dbh          => $dbh,
+    expire_in    => 3600,           # expire in 3600 seconds (1 hour)
+    check_ip     => 1,
+    perm2session => $perm2session
+);
+
+$s->restore( $q->param('sid') );    # restore old session if it exists
+
+#---------------------------------------------------------------------------
+#  Main
+#---------------------------------------------------------------------------
+my $error_string;
+my $html_title;
+
+# :TODO:08/07/2011 16:05:55:es: Allow each page to specify its own CSS includes
+# aka it is currently done with Javascript source files.
+#my $css = [
+#    { -src => YUI_BUILD_ROOT . '/container/assets/skins/sam/container.css' },
+#    { -src => YUI_BUILD_ROOT . '/button/assets/skins/sam/button.css' },
+#    { -src => YUI_BUILD_ROOT . '/paginator/assets/skins/sam/paginator.css' },
+#    { -src => YUI_BUILD_ROOT . '/datatable/assets/skins/sam/datatable.css' },
+#];
+
+my @js_src_yui;
+my @css_src_yui = ('reset-fonts/reset-fonts.css');
+
+my @js_src_code  = ( { -src => 'form.js' } );
+my @css_src_code = ( { -src => 'style.css' } );
+
+my %header_command;
+
+my %controller_context = (
+    dbh          => $dbh,
+    cgi          => $q,
+    user_session => $s,
+
+    #js_src_yui   => \@js_src_yui,
+    #js_src_code  => \@js_src_code,
+    #title        => \$html_title,
+    #header       => \%header_x
+);
+
+# this will be a reference to a subroutine that displays the main content
+my $content;
+
+# Action constants can evaluate to anything, but must be different from already defined actions.
+# One can also use an enum structure to formally declare the input alphabet of all possible actions,
+# but then the URIs would not be human-readable anymore.
+# ===== User Management ==================================
 #---------------------------------------------------------------------------
 #  Dispatch table that associates action symbols ('?a=' URL parameter) with
 #  names of packages to which corresponding functionality is delegated. In
@@ -167,15 +176,12 @@ my %dispatch_table = (
     studies     => 'SGX::ManageStudies',
     experiments => 'SGX::ManageExperiments',
 
- # :TODO:08/09/2011 17:12:16:es: replace SGX::ChooseProject with SGX::Profile
- # class: 
- #  profile     => 'SGX::Profile',
+    # :TODO:08/09/2011 17:12:16:es: replace SGX::ChooseProject with SGX::Profile
+    # class:
+    #  profile     => 'SGX::Profile',
 );
 
 my $loadModule;
-
-my $action =
-  ( defined( $q->url_param('a') ) ) ? $q->url_param('a') : DEFAULT_ACTION;
 
 #---------------------------------------------------------------------------
 #  This is our own super-cool custom dispatcher and dynamic loader
@@ -187,18 +193,43 @@ if ( defined $module ) {
         # convert Perl path to system path and load the file
         ( my $file = $module ) =~ s/::/\//g;
         require "$file.pm";    ## no critic
-        $module->new(%controller_context);
+        $module->new( selector => $action, %controller_context );
     } or do {
         my $error = $@;
         croak
           "Error loading module $module. The message returned was:\n\n$error";
     };
     if ( $loadModule->dispatch_js() ) {
+        push @js_src_yui,   $loadModule->get_yui_js_head();
+        push @js_src_code,  $loadModule->get_js_head();
+        push @css_src_yui,  $loadModule->get_yui_css_head();
+        push @css_src_code, $loadModule->get_css_head();
+
+        %header_command = ( %header_command, $loadModule->get_header() );
+        $html_title = $loadModule->get_title();
+
+        # do print header + body
         $content = \&module_show_html;
-        $action  = undef;                # final state
+
+        $action = undef;    # final state
     }
     else {
-        $action = FORM . LOGIN;
+
+        # print a header with no body and exit
+        $s->commit();
+
+        # by default, we add cookies, unless -cookie=>undef
+        %header_command = (
+            -status => 204,                  # 204 No Content -- default status
+            -type   => '',                   # do not send Content-Type
+            -cookie => $s->cookie_array(),
+            $loadModule->get_header()
+        );
+
+        print $q->header(%header_command);
+        exit(1);
+
+        #$action = FORM . LOGIN;
     }
 }
 
@@ -222,9 +253,9 @@ while ( defined($action) ) {
                 $action = DEFAULT_ACTION;
             }
             else {
-                $title   = 'Login';
-                $content = \&form_login;
-                $action  = undef;          # final state
+                $html_title = 'Login';
+                $content    = \&form_login;
+                $action     = undef;          # final state
             }
         }
         case LOGIN {
@@ -280,9 +311,9 @@ while ( defined($action) ) {
                 $action = FORM . CHANGEPASSWORD;
             }
             else {
-                $title   = 'Reset Password';
-                $content = \&form_resetPassword;
-                $action  = undef;                  # final state
+                $html_title = 'Reset Password';
+                $content    = \&form_resetPassword;
+                $action     = undef;                  # final state
             }
         }
         case RESETPASSWORD {
@@ -301,9 +332,9 @@ while ( defined($action) ) {
                     )
                   )
                 {
-                    $title   = 'Reset Password';
-                    $content = \&resetPassword_success;
-                    $action  = undef;                     # final state
+                    $html_title = 'Reset Password';
+                    $content    = \&resetPassword_success;
+                    $action     = undef;                     # final state
                 }
                 else {
                     $action = FORM . RESETPASSWORD;
@@ -312,9 +343,9 @@ while ( defined($action) ) {
         }
         case FORM . CHANGEPASSWORD {
             if ( $s->is_authorized('unauth') ) {
-                $title   = 'Change Password';
-                $content = \&form_changePassword;
-                $action  = undef;                         # final state
+                $html_title = 'Change Password';
+                $content    = \&form_changePassword;
+                $action     = undef;                         # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -335,9 +366,9 @@ while ( defined($action) ) {
                     )
                   )
                 {
-                    $title   = 'Change Password';
-                    $content = \&changePassword_success;
-                    $action  = undef;                      # final state
+                    $html_title = 'Change Password';
+                    $content    = \&changePassword_success;
+                    $action     = undef;                      # final state
                 }
                 else {
                     $action = FORM . CHANGEPASSWORD;
@@ -349,9 +380,9 @@ while ( defined($action) ) {
         }
         case FORM . CHANGEEMAIL {
             if ( $s->is_authorized('unauth') ) {
-                $title   = 'Change Email';
-                $content = \&form_changeEmail;
-                $action  = undef;                # final state
+                $html_title = 'Change Email';
+                $content    = \&form_changeEmail;
+                $action     = undef;                # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -371,9 +402,9 @@ while ( defined($action) ) {
                     )
                   )
                 {
-                    $title   = 'Change Email';
-                    $content = \&changeEmail_success;
-                    $action  = undef;                   # final state
+                    $html_title = 'Change Email';
+                    $content    = \&changeEmail_success;
+                    $action     = undef;                   # final state
                 }
                 else {
                     $action = FORM . CHANGEEMAIL;
@@ -388,9 +419,9 @@ while ( defined($action) ) {
                 $action = DEFAULT_ACTION;
             }
             else {
-                $title   = 'Sign up';
-                $content = \&form_registerUser;
-                $action  = undef;                 # final state
+                $html_title = 'Sign up';
+                $content    = \&form_registerUser;
+                $action     = undef;                 # final state
             }
         }
         case REGISTER {
@@ -415,9 +446,9 @@ while ( defined($action) ) {
                     )
                   )
                 {
-                    $title   = 'Registration';
-                    $content = \&registration_success;
-                    $action  = undef;                    # final state
+                    $html_title = 'Registration';
+                    $content    = \&registration_success;
+                    $action     = undef;                    # final state
                 }
                 else {
                     $action = FORM . REGISTER;
@@ -426,9 +457,9 @@ while ( defined($action) ) {
         }
         case FORM . UPDATEPROFILE {
             if ( $s->is_authorized('unauth') ) {
-                $title   = 'My Profile';
-                $content = \&form_updateProfile;
-                $action  = undef;                        # final state
+                $html_title = 'My Profile';
+                $content    = \&form_updateProfile;
+                $action     = undef;                        # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -446,9 +477,9 @@ while ( defined($action) ) {
                 );
                 if ( $t->restore( $q->param('sid') ) ) {
                     if ( $s->verify_email( $t->{session_stash}->{username} ) ) {
-                        $title   = 'Email Verification';
-                        $content = \&verifyEmail_success;
-                        $action  = undef;                   # final state
+                        $html_title = 'Email Verification';
+                        $content    = \&verifyEmail_success;
+                        $action     = undef;                   # final state
                     }
                     else {
                         $action = DEFAULT_ACTION;
@@ -471,9 +502,9 @@ while ( defined($action) ) {
     #---------------------------------------------------------------------------
         case SHOWSCHEMA {
             if ( $s->is_authorized('user') ) {
-                $title   = 'Database Schema';
-                $content = \&schema;
-                $action  = undef;               # final state
+                $html_title = 'Database Schema';
+                $content    = \&schema;
+                $action     = undef;               # final state
             }
             else {
                 $action = FORM . LOGIN;
@@ -497,10 +528,15 @@ while ( defined($action) ) {
             );
             $action = QUIT;
         }
+        case ERROR_PAGE {
+            $html_title = 'Error';
+            $content    = \&error_page;
+            $action     = undef;
+        }
         case ABOUT {
-            $title   = 'About';
-            $content = \&about_text;
-            $action  = undef;          # final state
+            $html_title = 'About';
+            $content    = \&about_text;
+            $action     = undef;          # final state
         }
         case QUIT {
 
@@ -511,15 +547,15 @@ while ( defined($action) ) {
         else {
 
             # default action -- DEFAULT_ACTION redirects here
-            $title   = 'Main';
-            $content = \&main_text;
-            $action  = undef;         # final state
+            $html_title = 'Main';
+            $content    = \&main_text;
+            $action     = undef;         # final state
         }
     }
 }
 
-$s->commit();          # flushes the session data and prepares cookies
-$dbh->disconnect();    # do not disconnect before session data are committed
+$s->commit();    # flushes the session data and prepares cookies
+eval { $dbh->disconnect() }; # do not disconnect before session data are committed
 
 #######################################################################################
 
@@ -528,11 +564,18 @@ $dbh->disconnect();    # do not disconnect before session data are committed
 # make changes to existing code to have the same behavior apply to response
 # headers.
 
+my %header_command_body = (
+    -status => 200,                  # 200 OK
+    -type   => 'text/html',          # do not send Content-Type
+    -cookie => $s->cookie_array(),
+    %header_command
+);
+
 # This is the only statement in the entire application that prints HTML body.
 print(
 
     # HTTP response header
-    $q->header( -type => 'text/html', -cookie => $s->cookie_array() ),
+    $q->header(%header_command_body),
 
     # HTTP response body
     (
@@ -565,9 +608,21 @@ sub cgi_start_html {
         push @js, $_;
     }
 
+    my @css;
+    foreach (@css_src_yui) {
+        push @css, { -type => 'text/css', -src => YUI_BUILD_ROOT . '/' . $_ };
+    }
+    foreach (@css_src_code) {
+        $_->{-type} = 'text/css';
+        if ( defined( $_->{-src} ) ) {
+            $_->{-src} = CSS_DIR . '/' . $_->{-src};
+        }
+        push @css, $_;
+    }
+
     return $q->start_html(
-        -title  => PROJECT_NAME . " : $title",
-        -style  => $css,
+        -title  => PROJECT_NAME . " : $html_title",
+        -style  => \@css,
         -script => \@js,
         -class  => 'yui-skin-sam',
         -head   => [
@@ -650,6 +705,7 @@ sub form_error {
 }
 #######################################################################################
 sub form_login {
+
     my $uri = $q->url( -absolute => 1, -query => 1 );
 
     # do not want to logout immediately after login
@@ -1143,6 +1199,20 @@ sub build_sidemenu {
 }
 
 #===  FUNCTION  ================================================================
+#         NAME:  error_page
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub error_page {
+    return $q->h2('Error'), $q->p('Could not connect to database.');
+}
+
+#===  FUNCTION  ================================================================
 #         NAME:  about_text
 #      PURPOSE:  Show About page content
 #   PARAMETERS:  $q - CGI.pm object
@@ -1154,7 +1224,6 @@ sub build_sidemenu {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub about_text {
-    my (%param) = @_;
     return $q->h2('About'),
       $q->p(
 'The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to examine sexually dimorphic gene expression in mouse livers.'

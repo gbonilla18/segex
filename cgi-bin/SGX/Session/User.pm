@@ -148,7 +148,7 @@ $VERSION = '0.11';
 
 use base qw/SGX::Session::Cookie/;
 
-#use Data::Dumper;
+use Data::Dumper;
 use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
 use SGX::Abstract::Exception;
@@ -352,6 +352,7 @@ sub restore {
     # do not perform all of the confirmation nonsense when dealing with sessions
     # restored from cookies (i.e. for which no session id was provided).
     return 1 unless defined($id);
+
 
     # confirm username
     my $username = $self->{session_stash}->{username};

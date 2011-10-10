@@ -305,21 +305,26 @@ resource on the server, or (2) requires the user to upload a file (i.e. when
 file upload control is present) or (3) sends large textual data to server (i.e.
 when textarea control is present or when hidden fields in the form could contain
 large amounts of data).  Because URL parameters in the 'action' attribute of a
-form element may interfere with form input fields, instead of doing
-action="?x=blah" we should instead create a hidden field in the form that stores
-the desired value of "x". The above applies for GET forms only -- for POST
-forms, it is okay to specify URL parameters in the 'action' attribute directly
-as long as they are read with url_param on processing. 
+form element may interfere with form input fields, instead of specifying input
+data in the action attribute of the form element, we should instead create a
+hidden field in the form that stores the desired value of "x". The above applies
+for GET forms only -- for POST forms, it is okay to specify URL parameters in
+the 'action' attribute directly as long as they are read with url_param() CGI
+method on processing. 
 
-The above entails that top-level and second-level "resources" should be read
-using CGI::url_param() while all other non-RESTful state information should be
-read using CGI::param(). Correct use of url_param and param would reflect the
-conceptual separation between "resource" and "state".
+Which brings us to the question which information should be read using param()
+and which using url_param() CGI method. The above entails that top-level and
+second-level "resources" should be read using CGI::url_param() while all other
+non-RESTful state information should be read using CGI::param(). Correct use of
+url_param and param would reflect the conceptual separation between "resource"
+and "state". Resources should be determined by looking up url_param() and state
+should be modified by reading param().
 
-Alternative approach is possible: use 'action' attribute for URL parameters that
-identify unique and relatively permanent resources that are accessed more or
-less often. Such resources are, for example, first-level branches ('a='
-parameter) and ids of items in a collection.
+Which brings us to the question of how to identify resources when everything can
+be represented as state. By 'resource' we mean locations that are accessed more
+or less often or situations that occur more or less often and which tend to
+persist more than other stateful behaviors. Resources are, for example,
+first-level branches ('a=' parameter) and ids of items in a collection.
 
 Plain URLs *must not* be used to affect resource states.  Here is a very short
 reason why: any plain link should be crawlable, regardless of whether it is
@@ -348,19 +353,17 @@ suggests to identify commonly used search criteria and expose those queries as
 separate resources."
 http://nicksda.apotomo.de/2011/06/rails-misapprehensions-query-parameters-are-restful/
 
-"[Speaking of POST...] The param() method will always return the contents of the
-POSTed fill-out form, ignoring the URL's query string. To retrieve URL
-parameters, call the url_param() method. ... The main difference is that
-url_param() allows you to read the parameters, but not set them. ... If you try
-to mix a URL query string with a form submitted with the GET method, the results
-will not be what you expect."
-http://perldoc.perl.org/CGI.html#MIXING-POST-AND-URL-PARAMETERS
-
 Perl documentation suggests that for GET forms, URL query string in the 'action'
 attribute should not contain URL parameters because they may interfere with
 input field names present in the form. For POST names, those parameters are
 guaranteed not to interfere with field names because of the url_param/param
-separation.
+separation: "[Speaking of POST...] The param() method will always return the
+contents of the POSTed fill-out form, ignoring the URL's query string. To
+retrieve URL parameters, call the url_param() method. ... The main difference is
+that url_param() allows you to read the parameters, but not set them. ... If you
+try to mix a URL query string with a form submitted with the GET method, the
+results will not be what you expect."
+http://perldoc.perl.org/CGI.html#MIXING-POST-AND-URL-PARAMETERS
 
 "If the form was submitted with GET, both param() and url_param() return the
 parameters from the URL. If the form was submitted with POST but also had URL
@@ -368,7 +371,13 @@ parameters thrown in too, then param() returns only the POSTed parameters and
 url_param() returns only the URL ones."
 http://www.garayed.com/perl/75096-cgi-pm-distinguish-between-post-get-3.html#post335175
 
-2.5 REST -- further reading
+2.5 REST -- errors
+
+Input validation faliure: 400 Bad Request.
+Double submit: Return 409 Conflict.
+
+
+2.6 REST -- further reading
 
 http://martinfowler.com/articles/richardsonMaturityModel.html
 http://timelessrepo.com/haters-gonna-hateoas

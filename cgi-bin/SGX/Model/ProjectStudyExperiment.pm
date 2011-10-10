@@ -1,23 +1,23 @@
 #
 #===============================================================================
 #
-#         FILE:  PlatformStudyExperiment.pm
+#         FILE:  ProjectStudyExperiment.pm
 #
-#  DESCRIPTION:  This is a model class for setting up the data in the platform,
+#  DESCRIPTION:  This is a model class for setting up the data in the project,
 #                study, and experiment tables in easy-to-use Perl data
 #                structures.
 #
 #                /* Result of composition of var StudyExperiment and
-#                * var PlatformExperiment */
+#                * var ProjectExperiment */
 #
-#                var platformStudyExperiment = {
+#                var projectStudyExperiment = {
 #
-#                   /*** Platforms enumerated by their ids ***/
+#                   /*** Projects enumerated by their ids ***/
 #                   '13': {
 #
 #                       /* Study section. Only experiment ids are listed for
 #                        * each study. Note that the 'experiments' field of each
-#                        * study has the same structure as the platform-wide
+#                        * study has the same structure as the project-wide
 #                        * 'experiments' field. This allows us to write code
 #                        * that is ignorant of where the experiment object came
 #                        * from. */
@@ -69,18 +69,18 @@
 #     REVISION:  ---
 #===============================================================================
 
-package SGX::Model::PlatformStudyExperiment;
+package SGX::Model::ProjectStudyExperiment;
 
 use strict;
 use warnings;
 
 #use SGX::Debug qw/assert/;
-#use Data::Dumper;
+use Data::Dumper;
 use Hash::Merge qw/merge/;
 use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
+#        CLASS:  ProjectStudyExperiment
 #       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -96,7 +96,7 @@ sub new {
 
     my $self = {
         _dbh        => $dbh,
-        _ByPlatform => {},
+        _ByProject => {},
         _ByStudy    => {}
     };
 
@@ -105,22 +105,22 @@ sub new {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  get_ByPlatform
+#        CLASS:  ProjectStudyExperiment
+#       METHOD:  get_ByProject
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  getter method for _ByPlatform
+#  DESCRIPTION:  getter method for _ByProject
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub get_ByPlatform {
+sub get_ByProject {
     my $self = shift;
-    return $self->{_ByPlatform};
+    return $self->{_ByProject};
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
+#        CLASS:  ProjectStudyExperiment
 #       METHOD:  get_ByStudy
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -135,23 +135,23 @@ sub get_ByStudy {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatformFromStudy
+#        CLASS:  ProjectStudyExperiment
+#       METHOD:  getProjectFromStudy
 #   PARAMETERS:  stid
-#      RETURNS:  pid
+#      RETURNS:  prid
 #  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getPlatformFromStudy {
+sub getProjectFromStudy {
     my ( $self, $stid ) = @_;
-    return $self->{_ByStudy}->{$stid}->{pid};
+    return $self->{_ByStudy}->{$stid}->{prid};
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatformNameFromPID
+#        CLASS:  ProjectStudyExperiment
+#       METHOD:  getProjectNameFromPID
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -159,14 +159,14 @@ sub getPlatformFromStudy {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getPlatformNameFromPID {
-    my ( $self, $pid ) = @_;
-    return $self->{_ByPlatform}->{$pid}->{name};
+sub getProjectNameFromPID {
+    my ( $self, $prid ) = @_;
+    return $self->{_ByProject}->{$prid}->{name};
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatformStudyName
+#        CLASS:  ProjectStudyExperiment
+#       METHOD:  getProjectStudyName
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -174,18 +174,18 @@ sub getPlatformNameFromPID {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getPlatformStudyName {
-    my ( $self, $pid, $stid ) = @_;
-    return $self->{_ByPlatform}->{$pid}->{studies}->{$stid}->{name} . ' \ '
-      . $self->{_ByPlatform}->{$pid}->{name};
+sub getProjectStudyName {
+    my ( $self, $prid, $stid ) = @_;
+    return $self->{_ByProject}->{$prid}->{studies}->{$stid}->{name} . ' \ '
+      . $self->{_ByProject}->{$prid}->{name};
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
+#        CLASS:  ProjectStudyExperiment
 #       METHOD:  init
 #   PARAMETERS:
-#       platforms          => T/F - whether to add platform info such as
-#                                   species and platform name
+#       projects          => T/F - whether to add project info such as
+#                                   prdesc and project name
 #       studies            => T/F - whether to add study info such as study description
 #       experiments        => T/F - whether to add experiment info
 #                                   (names of sample 1 and sample 2)
@@ -193,10 +193,10 @@ sub getPlatformStudyName {
 #                                   under given name will always show up in
 #                                   the list. If false, "@Unassigned" study
 #                                   will show up only in special cases.
-#       empty_platform     => str/F - if true, a special platform will show
+#       empty_project     => str/F - if true, a special project will show
 #                                   up in the list.
-#       platform_by_study  => T/F - whether to store info about
-#                                   which platform a study belongs to on a
+#       project_by_study  => T/F - whether to store info about
+#                                   which project a study belongs to on a
 #                                   per-study basis (_ByStudy hash).
 #      RETURNS:  HASHREF of merged data structure
 #  DESCRIPTION:
@@ -211,7 +211,7 @@ sub init {
     #  process argument hash
     #---------------------------------------------------------------------------
     # defaulting to "no"
-    my $platform_info = $args{platforms};
+    my $project_info = $args{projects};
 
     # defaulting to "no"
     my $study_info = $args{studies};
@@ -223,15 +223,15 @@ sub init {
     my $extra_studies = $args{extra_studies};
 
     # defaulting to "no"
-    my $extra_platforms = $args{extra_platforms};
+    my $extra_projects = $args{extra_projects};
 
     # defaulting to "no"
-    my $platform_by_study = $args{platform_by_study};
+    my $project_by_study = $args{project_by_study};
 
-    # when platform_by_study is set, both platforms and studies will be set to
+    # when project_by_study is set, both projects and studies will be set to
     # one
-    if ($platform_by_study) {
-        $platform_info = 1;
+    if ($project_by_study) {
+        $project_info = 1;
         $study_info    = 1;
     }
 
@@ -240,30 +240,30 @@ sub init {
       ? $args{default_study_name}
       : '@Unassigned Experiments';
 
-    my $default_platform_name =
-      ( exists $args{default_platform_name} )
-      ? $args{default_platform_name}
+    my $default_project_name =
+      ( exists $args{default_project_name} )
+      ? $args{default_project_name}
       : '@Unassigned Experiments';
 
     #---------------------------------------------------------------------------
     #  build model
     #---------------------------------------------------------------------------
-    my $all_platforms = ( exists $extra_platforms->{all} ) ? 1 : 0;
+    my $all_projects = ( exists $extra_projects->{all} ) ? 1 : 0;
 
     #my $all_studies   = ( exists $extra_studies->{all} )   ? 1 : 0;
 
-    $self->getPlatforms( extra => $extra_platforms ) if $platform_info;
+    $self->getProjects( extra => $extra_projects ) if $project_info;
 
-    # we didn't define getStudy() because getPlatformStudy() accomplishes the
-    # same goal (there is a one-to-many relationship between platforms and
+    # we didn't define getStudy() because getProjectStudy() accomplishes the
+    # same goal (there is a one-to-many relationship between projects and
     # studies).
-    $self->getPlatformStudy(
-        reverse_lookup => $platform_by_study,
+    $self->getProjectStudy(
+        reverse_lookup => $project_by_study,
         extra          => $extra_studies,
-        all_platforms  => $all_platforms
+        all_projects  => $all_projects
     ) if $study_info;
 
-    $self->getExperiments( all_platforms => $all_platforms )
+    $self->getExperiments( all_projects => $all_projects )
       if $experiment_info;
 
     if ( $study_info && $experiment_info ) {
@@ -272,49 +272,49 @@ sub init {
 
     #---------------------------------------------------------------------------
     #  Assign experiments from under studies and place them under studies that
-    #  are under platforms. This code will be executed only when we initialize
+    #  are under projects. This code will be executed only when we initialize
     #  the object with the following parameters:
     #
-    #  platforms => 1, studies => 1, experiments => 1
+    #  projects => 1, studies => 1, experiments => 1
     #---------------------------------------------------------------------------
-    if ( $platform_info && $study_info && $experiment_info ) {
-        my $model   = $self->{_ByPlatform};
+    if ( $project_info && $study_info && $experiment_info ) {
+        my $model   = $self->{_ByProject};
         my $studies = $self->{_ByStudy};
 
         # Also determine which experiment ids do not belong to any study. Do
-        # this by obtaining a list of all experiments in the platform (keys
-        # %{$platform->{experiments}}) and subtracting from it experiments
+        # this by obtaining a list of all experiments in the project (keys
+        # %{$project->{experiments}}) and subtracting from it experiments
         # belonging to each study as we iterate over the list of all studies in
-        # the platform.
+        # the project.
         #
         my $this_empty_study =
           ( defined($extra_studies) && defined( $extra_studies->{''} ) )
           ? $extra_studies->{''}->{name}
           : $default_study_name;
 
-        my $this_empty_platform =
-          ( defined($extra_platforms) && defined( $extra_platforms->{''} ) )
-          ? $extra_platforms->{''}->{name}
-          : $default_platform_name;
+        my $this_empty_project =
+          ( defined($extra_projects) && defined( $extra_projects->{''} ) )
+          ? $extra_projects->{''}->{name}
+          : $default_project_name;
 
-        foreach my $platform ( values %$model ) {
+        foreach my $project ( values %$model ) {
 
             # populate %unassigned hash initially with all experiments for the
-            # platform
+            # project
             my %unassigned =
-              map { $_ => {} } keys %{ $platform->{experiments} };
+              map { $_ => {} } keys %{ $project->{experiments} };
 
-            # initialize $platform->{studies} (must always be present)
-            $platform->{studies} ||= {};
-            $platform->{name}    ||= $this_empty_platform;
-            $platform->{species} ||= undef;
+            # initialize $project->{studies} (must always be present)
+            $project->{studies} ||= {};
+            $project->{name}    ||= $this_empty_project;
+            $project->{prdesc} ||= undef;
 
             # cache "studies" field
-            my $platformStudies = $platform->{studies};
-            foreach my $study ( keys %$platformStudies ) {
+            my $projectStudies = $project->{studies};
+            foreach my $study ( keys %$projectStudies ) {
                 my $studyExperiments =
                   ( $studies->{$study}->{experiments} || {} );
-                $platformStudies->{$study}->{experiments} = $studyExperiments;
+                $projectStudies->{$study}->{experiments} = $studyExperiments;
 
                 # delete assigned experiments from unassigned
                 delete @unassigned{ keys %$studyExperiments };
@@ -323,11 +323,11 @@ sub init {
             # if %unassigned hash is not empty, add "Unassigned" study to
             # studies
             if (%unassigned) {
-                if ( exists $platformStudies->{''} ) {
-                    $platformStudies->{''}->{experiments} = \%unassigned;
+                if ( exists $projectStudies->{''} ) {
+                    $projectStudies->{''}->{experiments} = \%unassigned;
                 }
                 else {
-                    $platformStudies->{''} = {
+                    $projectStudies->{''} = {
                         experiments => \%unassigned,
                         name        => $this_empty_study
                     };
@@ -340,23 +340,23 @@ sub init {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatforms
+#        CLASS:  ProjectStudyExperiment
+#       METHOD:  getProjects
 #   PARAMETERS:  extra => {
-#                   'all' => { name => '@All Platforms', species => undef },
-#                   ''    => { name => '@Unassigned', species => undef }
+#                   'all' => { name => '@All Projects', prdesc => undef },
+#                   ''    => { name => '@Unassigned', prdesc => undef }
 #                }
 #      RETURNS:  HASHREF to model
 #
 #  DESCRIPTION:  Builds a nested data structure that describes which studies
-#                belong to which platform. The list of studies for each platform
+#                belong to which project. The list of studies for each project
 #                contains a null member meant to represent Unassigned studies.
 #                The data structure is meant to be encoded as JSON.
 #
-#                var platformStudy = {
+#                var projectStudy = {
 #                  '13': {
 #                     'name': 'Mouse Agilent 123',
-#                     'species': 'Mouse',
+#                     'prdesc': 'Mouse',
 #                     'studies': {
 #                       '108': { 'name': 'Study XX' },
 #                       '120': { 'name': 'Study YY' },
@@ -364,8 +364,8 @@ sub init {
 #                     }
 #                   },
 #                  '14': {
-#                     'name': 'Platform 456',
-#                     'species': 'Human',
+#                     'name': 'Project 456',
+#                     'prdesc': 'Human',
 #                     'studies': {
 #                        '12': { 'name': 'Study abc' },
 #                        ''  : { 'name': 'Unassigned' }
@@ -389,68 +389,69 @@ sub init {
 #                relationships between studies and experiments and a list of
 #                experiments, which can be composited in afterwards.
 #===============================================================================
-sub getPlatforms {
+sub getProjects {
     my ( $self, %args ) = @_;
 
-    my $extra_platforms =
+    my $extra_projects =
       ( defined $args{extra} )
       ? $args{extra}
       : {};
 
     #my $unassigned_name = $args{empty};
-    #my %extra_platforms =
+    #my %extra_projects =
     #    ( defined $unassigned_name )
-    #  ? ( '' => { name => "\@$unassigned_name", species => undef } )
+    #  ? ( '' => { name => "\@$unassigned_name", prdesc => undef } )
     #  : ();
 
     # cache the database handle
     my $dbh = $self->{_dbh};
 
-    # query to get platform info
-    my $sth_platform = $dbh->prepare(<<"END_PLATFORMQUERY");
+    # query to get project info
+    my $sth_project = $dbh->prepare(<<"END_PLATFORMQUERY");
 SELECT
-    pid,
-    pname,
-    species
-FROM platform
+    prid,
+    prname,
+    prdesc
+FROM project
 END_PLATFORMQUERY
-    my $rc_platform = $sth_platform->execute;
+    my $rc_project = $sth_project->execute;
 
-    my ( $pid, $pname, $species );
-    $sth_platform->bind_columns( undef, \$pid, \$pname, \$species );
+    my ( $prid, $prname, $prdesc );
+    $sth_project->bind_columns( undef, \$prid, \$prname, \$prdesc );
 
     # what is returned
-    my %model = (%$extra_platforms);
+    my %model = (%$extra_projects);
 
-    # first setup the model using platform info
-    while ( $sth_platform->fetch ) {
+    # first setup the model using project info
+    while ( $sth_project->fetch ) {
 
         # "Unassigned" study should exist only
         # (a) on request,
         # (b) if there are actually unassigned studies (determined later)
-        $model{$pid} = {
-            name    => $pname,
-            species => $species
+        $model{$prid} = {
+            name    => $prname,
+            prdesc => $prdesc
         };
     }
 
-    $sth_platform->finish;
+    $sth_project->finish;
 
-    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # Merge in the hash we just built. If $self->{_ByProject} is undefined,
     # this simply sets it to \%model
-    $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
+    $self->{_ByProject} = merge( \%model, $self->{_ByProject} );
+
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatformStudy
+#        CLASS:  ProjectStudyExperiment
+#       METHOD:  getProjectStudy
 #   PARAMETERS:  extra => {
 #                    '' => { name => '@Unassigned' }
 #                }
 #                               whose id is a zero-length string.
 #                reverse_lookup => true/false  - whether to store info about
-#                               which platform a study belongs to on a per-study
+#                               which project a study belongs to on a per-study
 #                               basis (_ByStudy hash).
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -458,7 +459,7 @@ END_PLATFORMQUERY
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getPlatformStudy {
+sub getProjectStudy {
     my ( $self, %args ) = @_;
 
     my $extra_studies =
@@ -467,7 +468,7 @@ sub getPlatformStudy {
       : {};
 
     # default: false
-    my $all_platforms = $args{all_platforms};
+    my $all_projects = $args{all_projects};
 
     # default: false
     #my $all_studies = $args{all_studies};
@@ -490,32 +491,33 @@ sub getPlatformStudy {
     # query to get study info
     my $sth_study = $dbh->prepare(<<"END_STUDYQUERY");
 SELECT
-    pid,
+    prid,
     stid,
     description
 FROM study
+LEFT JOIN ProjectStudy USING(stid)
 END_STUDYQUERY
     my $rc_study = $sth_study->execute;
-    my ( $pid, $stid, $study_desc );
-    $sth_study->bind_columns( undef, \$pid, \$stid, \$study_desc );
+    my ( $prid, $stid, $study_desc );
+    $sth_study->bind_columns( undef, \$prid, \$stid, \$study_desc );
 
     my %reverse_model;
 
     # complete the model using study info
     while ( $sth_study->fetch ) {
-        $pid = '' if not defined $pid;
-        if ( exists $model{$pid} ) {
-            $model{$pid}->{studies}->{$stid}->{name} = $study_desc;
+        $prid = '' if not defined $prid;
+        if ( exists $model{$prid} ) {
+            $model{$prid}->{studies}->{$stid}->{name} = $study_desc;
         }
         else {
-            $model{$pid} =
+            $model{$prid} =
               { studies =>
                   merge( { $stid => { name => $study_desc } }, $extra_studies )
               };
         }
 
-        # if there is an 'all' platform, add every study to it
-        if ($all_platforms) {
+        # if there is an 'all' project, add every study to it
+        if ($all_projects) {
             if ( exists $model{all} ) {
                 $model{all}->{studies}->{$stid}->{name} = $study_desc;
             }
@@ -530,18 +532,18 @@ END_STUDYQUERY
         }
         if ($reverse_lookup) {
             if ( exists $reverse_model{$stid} ) {
-                $reverse_model{$stid}->{pid} = $pid;
+                $reverse_model{$stid}->{prid} = $prid;
             }
             else {
-                $reverse_model{$stid} = { pid => $pid };
+                $reverse_model{$stid} = { prid => $prid };
             }
         }
     }
     $sth_study->finish;
 
-    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # Merge in the hash we just built. If $self->{_ByProject} is undefined,
     # this simply sets it to \%model
-    $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
+    $self->{_ByProject} = merge( \%model, $self->{_ByProject} );
     if ($reverse_lookup) {
         $self->{_ByStudy} = merge( \%reverse_model, $self->{_ByStudy} );
     }
@@ -549,7 +551,7 @@ END_STUDYQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
+#        CLASS:  ProjectStudyExperiment
 #       METHOD:  getExperiments
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
@@ -564,7 +566,7 @@ sub getExperiments {
     my ( $self, %args ) = @_;
 
     # default: false
-    my $all_platforms = $args{all_platforms};
+    my $all_projects = $args{all_projects};
 
     # cache the database handle
     my $dbh = $self->{_dbh};
@@ -572,39 +574,37 @@ sub getExperiments {
     # what is returned
     my %model;
 
-    # query to get platform info (know nothing about studies at this point)
+    # query to get project info (know nothing about studies at this point)
     my $sth_experiment = $dbh->prepare(<<"END_EXPERIMENTQUERY");
 SELECT
-    pid,
     eid,
     sample1,
     sample2
 FROM experiment
 END_EXPERIMENTQUERY
     my $rc_experiment = $sth_experiment->execute;
-    my ( $pid, $eid, $sample1, $sample2 );
-    $sth_experiment->bind_columns( undef, \$pid, \$eid, \$sample1, \$sample2 );
+    my ( $eid, $sample1, $sample2 );
+    $sth_experiment->bind_columns( undef, \$eid, \$sample1, \$sample2 );
 
-    # add experiments to platforms
+    # add experiments to projects
     while ( $sth_experiment->fetch ) {
 
         # an experiment may not have any pid, in which case we add it to empty
-        # platform
-        my $this_pid = ( defined($pid) ) ? $pid : '';
-        if ( exists $model{$this_pid} ) {
-            $model{$this_pid}->{experiments}->{$eid} = {
+        # project
+        if ( exists $model{all} ) {
+            $model{all}->{experiments}->{$eid} = {
                 sample1 => $sample1,
                 sample2 => $sample2
             };
         }
         else {
-            $model{$this_pid} =
+            $model{all} =
               { experiments =>
                   { $eid => { sample1 => $sample1, sample2 => $sample2 } } };
         }
 
-        # if there is an 'all' platform, add every experiment to it
-        if ($all_platforms) {
+        # if there is an 'all' project, add every experiment to it
+        if ($all_projects) {
             if ( exists $model{all} ) {
                 $model{all}->{experiments}->{$eid} = {
                     sample1 => $sample1,
@@ -622,14 +622,14 @@ END_EXPERIMENTQUERY
 
     $sth_experiment->finish;
 
-    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # Merge in the hash we just built. If $self->{_ByProject} is undefined,
     # this simply sets it to \%model
-    $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
+    $self->{_ByProject} = merge( \%model, $self->{_ByProject} );
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
+#        CLASS:  ProjectStudyExperiment
 #       METHOD:  getStudyExperiment
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model

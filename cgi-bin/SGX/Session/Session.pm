@@ -111,10 +111,10 @@ sub new {
     );
 
     my $self = {
-        dbh           => $param{dbh},
+        dbh => $param{dbh},
         %param,
-        session_obj   => {},                  # actual session object
-        session_stash => {}                   # shallow copy of session object
+        session_obj   => {},    # actual session object
+        session_stash => {}     # shallow copy of session object
     };
     bless $self, $class;
     return $self;
@@ -174,24 +174,22 @@ sub tie_session {
     }
 
     # Tie session_obj; catch tie exceptions
-    my $ret = eval {
+    eval {
         tie %{ $self->{session_obj} }, 'Apache::Session::MySQL', $id,
           {
             Handle     => $self->{dbh},
             LockHandle => $self->{dbh},
           };
+        1;
+    } or do {
+        return;    # return false on error
     };
-    if ( $ret && !$@ ) {
-        my $generated_id = $self->{session_obj}->{_session_id};
-        if ( defined($id) and $id ne $generated_id ) {
-            SGX::Abstract::Exception::Internal::Session->throw(
-                error => 'Internal error' );
-        }
-        return 1;
+    my $generated_id = $self->{session_obj}->{_session_id};
+    if ( defined($id) and $id ne $generated_id ) {
+        SGX::Abstract::Exception::Internal::Session->throw(
+            error => 'Generated session id does not match requested' );
     }
-    else {
-        return;
-    }
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================

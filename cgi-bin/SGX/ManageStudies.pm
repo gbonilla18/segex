@@ -10,6 +10,7 @@ Grouping of functions for managing studies.
 
 =head1 AUTHORS
 Michael McDuffie
+Eugene Scherba
 
 =head1 SEE ALSO
 
@@ -29,10 +30,9 @@ package SGX::ManageStudies;
 use strict;
 use warnings;
 
-#use Carp::Assert;
-use Switch;
-use Scalar::Util qw/looks_like_number/;
-use SGX::Abstract::JSEmitter;
+use base qw/SGX::Strategy::CRUD/;
+
+use SGX::Abstract::JSEmitter qw/true false/;
 use SGX::Abstract::Exception;
 use SGX::Model::PlatformStudyExperiment;
 
@@ -41,297 +41,172 @@ use SGX::Model::PlatformStudyExperiment;
 #       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
+#  DESCRIPTION:  Override parent constructor; add attributes to object instance
 #       THROWS:  no exceptions
-#     COMMENTS:  In Perl, class attributes cannot be inherited, which means we
-#                should not use them for anything that is very specific to the
-#                problem domain of the given class.
+#     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
+    my ( $class, @param ) = @_;
 
-    my ( $class, %param ) = @_;
+    my $self = $class->SUPER::new(@param);
 
-    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
-      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+    $self->_set_attributes(
 
-    ${ $param{title} } = 'Manage Studies';
+# _table_defs: hash with keys corresponding to the names of tables handled by this module.
+#
+# key:        Fields that uniquely identify rows
+# names:      Fields which identify rows in user-readable manner (row name will be
+#             formed by concatenating values with a slash)
+# mutable:    Fields that can be modified independently of each other (or other elements).
+# proto:      Fields that are filled out on insert/creation of new records.
+# view:       Fields to display.
+# selectors:  Fields which, when present in CGI::param list, can narrow down
+#             output.
+#
+# labels:     What to call each field
+# left_join:  Whether to query additional tablesi emulating SQL join. If present, joins
+#             will be performed on the corresponding fields.
+# inner_join: Whether to add INNER JOIN clause to generated SQL.
+        _table_defs => {
+            'StudyExperiment' => {
+                key     => [qw/stid eid/],
+                mutable => [],
+                proto   => [qw/stid eid/]
+            },
+            'study' => {
+                key       => [qw/stid/],
+                proto     => [qw/description pubmed pid/],
+                view      => [qw/description pubmed/],
+                mutable   => [qw/description pubmed/],
+                selectors => [qw/pid/],
+                names     => [qw/description/],
+                labels    => {
+                    stid        => 'No.',
+                    description => 'Description',
+                    pubmed      => 'PubMed',
+                    pid         => 'Platform'
+                },
+                left_join => { platform => [ pid => 'pid' ] }
+            },
+            'platform' => {
+                key    => [qw/pid/],
+                view   => [qw/pname species/],
+                names  => [qw/pname/],
+                labels => { pname => 'Platform', species => 'Species' }
+            },
+            'experiment' => {
+                key  => [qw/eid/],
+                view => [
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
+                ],
+                mutable   => [],
+                proto     => [],
+                selectors => [],
+                names     => [qw/sample1 sample2/],
+                labels    => {
+                    eid                   => 'No.',
+                    sample1               => 'Sample 1',
+                    sample2               => 'Sample 2',
+                    ExperimentDescription => 'Description',
+                    AdditionalInformation => 'Additional Info'
+                },
+                left_join  => { microarray => [ eid => 'eid' ] },
+                inner_join => {
+                    'StudyExperiment' => [
+                        eid => 'eid',
+                        {
 
-    my $self = {
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s,
-        _js_src_yui  => $js_src_yui,
-        _js_src_code => $js_src_code,
+                         #-table => 'StudyExperiment', # in case key is an alias
+                            -constraint => {
+                                stid => sub { shift->{_id} }
+                            }
+                        }
+                    ]
+                }
+            },
+            'microarray' => {
+                key     => [qw/eid rid/],
+                view    => [qw/COUNT(1)/],
+                proto   => [],
+                mutable => [],
+                labels  => {
+                    eid        => 'No.',
+                    'COUNT(1)' => 'Probe Count'
+                },
+                inner_join => {
+                    StudyExperiment => [
+                        eid => 'eid',
+                        {
+                            -constraint => {
+                                stid => sub { shift->{_id} }
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        _default_table => 'study',
+        _title         => 'Manage Studies',
 
-        # model
         _PlatformStudyExperiment =>
-          SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
+          SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
 
-        _ExpFieldNames      => undef,
-        _ExpData            => undef,
-        _deleteEid          => undef,
-        _FieldNames         => undef,
-        _Data               => undef,
-        _stid               => undef,
-        _description        => undef,
-        _pubmed             => undef,
-        _pid                => undef,
-        _SelectedExperiment => undef
-    };
+        _id      => undef,
+        _id_data => {},
+    );
+
+    $self->_register_actions(
+        'head' => {
+            form_create => 'form_create_head',
+            form_assign => 'form_assign_head'
+        },
+        'body' => {
+            form_create => 'form_create_body',
+            form_assign => 'form_assign_body'
+        }
+    );
 
     bless $self, $class;
     return $self;
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::ManageStudies
-#       METHOD:  dispatch_js
+#        CLASS:  ManageStudies
+#       METHOD:  readrow
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  Must not print to browser window
+#     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub dispatch_js {
+sub readrow_head {
 
-    my ($self) = @_;
-    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+    my $self = shift;
 
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
+    $self->_readrow_command()->();
 
-    push @$js_src_yui,
+    my $table = 'experiment';
+    $self->_readall_command($table)->();
+
+    push @{ $self->{_js_src_code} },
       (
-        'yahoo-dom-event/yahoo-dom-event.js', 'connection/connection-min.js',
-        'dragdrop/dragdrop-min.js',           'container/container-min.js',
-        'element/element-min.js',             'datasource/datasource-min.js',
-        'paginator/paginator-min.js',         'datatable/datatable-min.js',
-        'selector/selector-min.js'
+        { -src  => 'PlatformStudyExperiment.js' },
+        { -code => $self->get_pse_dropdown_js( platform_by_study => 1 ) },
+        {
+            -code => $self->_head_data_table(
+                $table, 'StudyExperiment', 'unassign', 0
+            )
+        }
       );
 
-    switch ($action) {
-        case 'Create Study' {
-            return unless $s->is_authorized('user');
-            $self->loadFromForm();
-            $self->insertNewStudy();
-            $self->redirectInternal(
-                '?a=studies&b=edit&id=' . $self->{_stid} );
-        }
-        case 'Assign Experiment' {
-            return unless $s->is_authorized('user');
-            $self->loadFromForm();
-            $self->addExistingExperiment();
-            $self->redirectInternal(
-                '?a=studies&b=edit&id=' . $self->{_stid} );
-        }
-        case 'delete' {
-            return unless $s->is_authorized('user');
-            $self->loadFromForm();
-            $self->deleteStudy();
-            $self->redirectInternal('?a=studies');
-        }
-        case 'deleteExperiment' {
-            return unless $s->is_authorized('user');
-            $self->loadFromForm();
-            $self->removeExperiment();
-            $self->redirectInternal(
-                '?a=studies&b=edit&id=' . $self->{_stid} );
-        }
-        case 'Set Attributes' {
-            return unless $s->is_authorized('user');
-            $self->loadFromForm();
-            $self->editSubmitStudy();
-            $self->redirectInternal('?a=studies');
-        }
-        case 'new' {
-            return unless $s->is_authorized('user');
-            $self->{_PlatformStudyExperiment}->init( platforms => 1 );
-            $self->loadFromForm();
-
-            push @$js_src_code,
-              (
-                +{ -src  => 'PlatformStudyExperiment.js' },
-                +{ -code => $self->getJSPlatformDropdown() }
-              );
-        }
-        case 'update' {
-
-            # ajax_update takes care of authorization...
-            $self->ajax_update(
-                valid_fields => [qw{description pubmed}],
-                table        => 'study',
-                key          => 'stid'
-            );
-        }
-        case 'edit' {
-            return unless $s->is_authorized('user');
-            $self->{_PlatformStudyExperiment}->init(
-                platforms         => 1,
-                platform_by_study => 1,
-                studies           => 1,
-                experiments       => 1
-            );
-            $self->loadFromForm();
-            $self->loadSingleStudy();
-            $self->loadAllExperimentsFromStudy();
-
-            push @$js_src_code,
-              (
-                +{ -src  => 'PlatformStudyExperiment.js' },
-                +{ -code => $self->getJSPlatformStudyExperimentDropdown() },
-                +{ -code => $self->editStudy_js() }
-              );
-        }
-        else {
-
-            # default: show all studies or studies for a specific platform
-            return unless $s->is_authorized('user');
-            $self->{_PlatformStudyExperiment}->init(
-                platforms       => 1,
-                extra_platforms => { 'all' => { name => '@All Platforms' } }
-            );
-            $self->loadFromForm();
-            $self->loadAllStudies();
-
-            push @$js_src_code,
-              (
-                +{ -src  => 'CellUpdater.js' },
-                +{ -src  => 'PlatformStudyExperiment.js' },
-                +{ -code => $self->getJSPlatformDropdown() },
-                +{ -code => $self->showStudies_js() }
-              );
-        }
-    }
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageStudies
-#       METHOD:  dispatch
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Dispatches actions sent to ManageStudies
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch {
-    my ($self) = @_;
-
-    my $q = $self->{_cgi};
-
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
-
-    switch ($action) {
-        case 'edit' {
-            return $self->editStudy();
-        }
-        case 'new' {
-            return $self->form_createStudy();
-        }
-        else {
-
-            # default action: show Manage Studies main form
-            return $self->showStudies();
-        }
-    }
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
-#       METHOD:  ajax_update
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Update part of CRUD operations. This is a *very generic* method
-#                handling AJAX request -- basically update a key-value pair in a
-#                specified row in the table.
-#       THROWS:  no exceptions
-#     COMMENTS:  :TODO:07/04/2011 16:48:45:es: Abstract out this method into a
-#                base class for SGX modules.
-#                :TODO:07/28/2011 00:38:55:es: Abstract out the model part of
-#                this method into the model composable of the abstract class.
-#     SEE ALSO:  n/a
-#===============================================================================
-sub ajax_update {
-
-    my ( $self, %args ) = @_;
-
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
-
-    my $valid_fields = $args{valid_fields};
-    my $table        = $args{table};
-    my $column       = $args{key};
-
-    my %is_valid_field = map { $_ => 1 } @$valid_fields;
-
-    if ( !$s->is_authorized('user') ) {
-
-        # Send 401 Unauthorized header
-        print $q->header( -status => 401 );
-        $s->commit;    # must commit session before exit
-        exit(0);
-    }
-    my $field = $q->param('field');
-    if ( !defined($field) || $field eq '' || !$is_valid_field{$field} ) {
-
-        # Send 400 Bad Request header
-        print $q->header( -status => 400 );
-        $s->commit;    # must commit session before exit
-        exit(0);
-    }
-
-    # after field name has been checked against %valid_fields hash, it
-    # is safe to fill it in directly:
-    my $query = "update $table set $field=? where $column=?";
-
-    # :TODO:07/27/2011 23:42:00:es: implement transactional updates. Separate
-    # statement preparation from execution.
-
-    # Note that when $q->param('value') is undefined, DBI should fill in
-    # NULL into the corresponding placeholder.
-    my $rc =
-      eval { $dbh->do( $query, undef, $q->param('value'), $q->param('id') ); }
-      || 0;
-
-    if ( $rc > 0 ) {
-
-        # Normal condition -- at least some rows were updated:
-        # Send 200 OK header
-        print $q->header( -status => 200 );
-        $s->commit;    # must commit session before exit
-        exit(1);
-    }
-    elsif ( my $exception = $@ ) {
-
-        # Error condition -- no rows updated:
-        # Send 400 Bad Request header
-        print $q->header( -status => 400 );
-        $s->commit;    # must commit session before exit
-        $exception->throw();
-    }
-    else {
-
-        # Normal condition -- no rows updated:
-        # Send 404 Not Found header
-        print $q->header( -status => 404 );
-        $s->commit;    # must commit session before exit
-        exit(0);
-    }
-    $s->commit;        # must commit session before exit
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
-#       METHOD:  redirectInternal
+#       METHOD:  readall
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -339,193 +214,61 @@ sub ajax_update {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub redirectInternal {
-    my ( $self, $query ) = @_;
-    my ( $q,    $s )     = @$self{qw{_cgi _UserSession}};
+sub readall_head {
 
-    # redirect if we know where to... will send a redirect header, so
-    # commit the session to data store now
-    my $redirectURI =
-      ( defined $q->url_param('destination') )
-      ? $q->url( -base     => 1 ) . uri_unescape( $q->url_param('destination') )
-      : $q->url( -absolute => 1 ) . $query;
-
-    $s->commit();
-    print $q->redirect(
-        -uri    => $redirectURI,
-        -status => 302,                 # 302 Found
-        -cookie => $s->cookie_array()
-    );
-    return 1;
-}
-#######################################################################################
-sub loadAllStudies {
-    my $self = shift;
-
-    my $dbh = $self->{_dbh};
-
-    my $predicate    = '';
-    my @query_params = ();
-    if ( defined( $self->{_pid} ) && looks_like_number( $self->{_pid} ) ) {
-        $predicate = 'WHERE platform.pid=?';
-        push @query_params, $self->{_pid};
-    }
-
-    my $query = <<"END_loadAllStudies";
-SELECT 
-    stid,
-    description,
-    pubmed,
-    platform.pid,
-    platform.pname,
-    platform.species 
-FROM study 
-INNER JOIN platform USING(pid)
-$predicate
-GROUP BY stid
-END_loadAllStudies
-
-    my $sth = $dbh->prepare($query);
-    my $rc  = $sth->execute(@query_params);
-    $self->{_FieldNames} = $sth->{NAME};
-    $self->{_Data}       = $sth->fetchall_arrayref;
-    $sth->finish;
-
-    return 1;
-}
-
-#######################################################################################
-sub loadSingleStudy {
-
-    #Grab object and id from URL.
-    my $self = shift;
-
-    my $dbh = $self->{_dbh};
-
-    my $stid = $self->{_stid};
-
-    #Run the SQL and get the data into the object.
-    my $sth = $dbh->prepare(<<"END_loadSingleStudy");
-SELECT 
-    stid,
-    description,
-    pubmed,
-    platform.pid,
-    platform.pname,
-    platform.species 
-FROM study 
-INNER JOIN platform USING(pid) 
-WHERE stid=? 
-GROUP BY stid
-END_loadSingleStudy
-    my $rc = $sth->execute($stid);
-    $self->{_Data} = $sth->fetchall_arrayref;
-
-    foreach ( @{ $self->{_Data} } ) {
-        $self->{_description} = $_->[1];
-        $self->{_pubmed}      = $_->[2];
-        $self->{_pid}         = $_->[3];
-    }
-
-    $sth->finish;
-    return 1;
-}
-
-#######################################################################################
-#Loads all expriments from a specific study.
-sub loadAllExperimentsFromStudy {
-    my $self = shift;
-
-    my $dbh = $self->{_dbh};
-
-    my $sth = $dbh->prepare(<<"END_ExperimentsQuery");
-SELECT 
-    experiment.eid,
-    study.pid,
-    experiment.sample1,
-    experiment.sample2,
-    COUNT(1),
-    ExperimentDescription,
-    AdditionalInformation,
-    study.description,
-    platform.pname
-FROM experiment 
-NATURAL JOIN StudyExperiment
-NATURAL JOIN study
-INNER JOIN platform ON platform.pid = study.pid
-LEFT JOIN microarray ON microarray.eid = experiment.eid
-WHERE study.stid = ?
-GROUP BY experiment.eid
-ORDER BY experiment.eid ASC
-END_ExperimentsQuery
-
-    my $rc = $sth->execute( $self->{_stid} );
-    $self->{_ExpFieldNames} = $sth->{NAME};
-    $self->{_ExpData}       = $sth->fetchall_arrayref;
-    $sth->finish;
-    return 1;
-}
-
-#######################################################################################
-#Load the data from the submitted form.
-sub loadFromForm {
     my $self = shift;
 
     my $q = $self->{_cgi};
 
-    # id is always a URL parameter
-    my $stid = $q->url_param('id');
-    if ( defined $stid ) {
-        $self->{_stid} = $stid;
+    # delete 'pid' parameter when it is set to 'all'
+    $q->delete('pid')
+      if ( defined $q->param('pid') )
+      and ( $q->param('pid') eq 'all' );
 
-        # If a study is set, use the corresponding platform while ignoring the
-        # platform parameter. Also update the _pid field with the platform id
-        # obtained from the lookup by study id.
-        my $pid;
-        if ( $self->{_PlatformStudyExperiment} ) {
-            $pid =
-              $self->{_PlatformStudyExperiment}->getPlatformFromStudy($stid);
-        }
-        $self->{_pid} = ( defined $pid ) ? $pid : $q->param('pid');
-    }
+    my $table = $self->{_default_table};
+    $self->_readall_command($table)->();
 
-    $self->{_description}        = $q->param('description');
-    $self->{_pubmed}             = $q->param('pubmed');
-    $self->{_pid}                = $q->param('pid');
-    $self->{_SelectedExperiment} = $q->param('eid');
+    push @{ $self->{_js_src_code} }, (
+        { -src => 'PlatformStudyExperiment.js' },
+        {
+            -code => $self->get_pse_dropdown_js(
 
-    # first try to get from POST, then from the URL
-    $self->{_deleteEid} = $q->param('removeid');
-    $self->{_deleteEid} = $q->url_param('removeid')
-      if not defined $self->{_deleteEid};
+                # default: show all studies or studies for a specific platform
+                platforms       => 1,
+                extra_platforms => { 'all' => { name => '@All Platforms' } }
+            )
+        },
+        { -code => $self->_head_data_table( $table, undef, 'delete', 1 ) }
+    );
+    return 1;
+}
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageStudies
+#       METHOD:  form_create
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub form_create_head {
+    my $self = shift;
+    return if defined $self->{_id};    # no _id
+
+    push @{ $self->{_js_src_code} },
+      (
+        { -src  => 'PlatformStudyExperiment.js' },
+        { -code => $self->get_pse_dropdown_js( platforms => 1 ) }
+      );
     return 1;
 }
 
 #######################################################################################
 #PRINTING HTML AND JAVASCRIPT STUFF
 #######################################################################################
-sub showStudies_js {
-
-    # Form Javascript for the study table.
-    my $self = shift;
-
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
-
-    return $js->define(
-        {
-            JSStudyList => {
-                caption => 'Showing all Studies',
-                records => $self->getJSRecords(),
-                headers => $self->getJSHeaders()
-            }
-        },
-        declare => 1
-    ) . $self->getTableInformation();
-}
-
-#######################################################################################
-sub showStudies {
+sub readall_body {
 
     # Form HTML for the study table.
     my $self = shift;
@@ -534,27 +277,28 @@ sub showStudies {
     #---------------------------------------------------------------------------
     #  Platform dropdown
     #---------------------------------------------------------------------------
-    return $q->h2('Manage Studies'),
+    my $resource_uri = $self->get_resource_uri();
+    return $q->h2( $self->{_title} ),
+      $self->_body_create_read_menu(
+        'read'   => [ undef,         'View Existing' ],
+        'create' => [ 'form_create', 'Create New' ]
+      ),
 
       # Resource URI: /studies
-      $q->start_form(
-        -method => 'GET',
-        -action => $q->url( -absolute => 1 )
-      ),
+      $self->_view_start_get_form(),
       $q->dl(
-        $q->dt('Platform:'),
+        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
             $q->popup_menu(
                 -name  => 'pid',
                 -id    => 'pid',
-                -title => 'Choose platform'
+                -title => 'Choose platform',
             )
         ),
         $q->dt('&nbsp;'),
         $q->dd(
-            $q->hidden( -name => 'a', -value => 'studies' ),
+            $self->_view_hidden_resource(),
             $q->submit(
-                -name  => 'b',
                 -class => 'button black bigrounded',
                 -value => 'Load',
                 -title => 'Get studies for the selected platform'
@@ -567,54 +311,64 @@ sub showStudies {
     #  Table showing all studies in all platforms
     #---------------------------------------------------------------------------
       $q->h3( { -id => 'caption' }, '' ),
-      $q->div( $q->a( { -id => 'StudyTable_astext' }, 'View as plain text' ) ),
-      $q->div( { -id => 'StudyTable' }, '' );
+      $q->div(
+        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
+      $q->div( { -id => $self->{dom_table_id} }, '' );
 }
 #######################################################################################
-sub form_createStudy {
+sub form_create_body {
 
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    return
+    return $q->h2( $self->{_title} ),
+      $self->_body_create_read_menu(
+        'read'   => [ undef,         'View Existing' ],
+        'create' => [ 'form_create', 'Create New' ]
+      ),
       $q->h3('Create New Study'),
 
       # Resource URI: /studies
       $q->start_form(
         -method   => 'POST',
-        -action   => $q->url( -absolute => 1 ) . '?a=studies',
+        -action   => $self->get_resource_uri(),
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $q->dt('description:'),
+        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name  => 'pid',
+                -id    => 'pid',
+                -title => 'Choose platform'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'description' }, 'Description:' ) ),
         $q->dd(
             $q->textfield(
                 -name      => 'description',
                 -id        => 'description',
-                -maxlength => 100
+                -maxlength => 100,
+                -title     => 'Enter brief study escription (up to 100 letters)'
             )
         ),
-        $q->dt('pubmed:'),
+        $q->dt( $q->label( { -for => 'pubmed' }, 'PubMed ID:' ) ),
         $q->dd(
             $q->textfield(
                 -name      => 'pubmed',
                 -id        => 'pubmed',
-                -maxlength => 20
+                -maxlength => 20,
+                -title     => 'Enter PubMed ID'
             )
         ),
-        $q->dt('platform:'),
-        $q->dd(
-            $q->popup_menu(
-                -name => 'pid',
-                -id   => 'pid'
-            )
-        ),
+
         $q->dt('&nbsp;'),
         $q->dd(
+            $q->hidden( -name => 'b', -value => 'create' ),
             $q->submit(
-                -name  => 'b',
                 -class => 'button black bigrounded',
-                -value => 'Create Study'
+                -value => 'Create Study',
+                -title => 'Create a new study'
             )
         )
       ),
@@ -622,185 +376,58 @@ sub form_createStudy {
 }
 
 #######################################################################################
-sub getJSRecords {
+sub form_assign_head {
     my $self = shift;
+    return if not defined $self->{_id};    # _id must be present
+    $self->_readrow_command()->();
 
-    # declare data sources and options
-    my $data     = $self->{_Data};          # data source
-    my @columns  = ( 1, 2, 4, 5, 0, 0 );    # columns to include in output
-    my $sort_col = 3;                       # column to sort on
-
-    #stid,description,pubmed,platform.pid,platform.pname,platform.species
-
-    # :TODO:08/02/2011 01:15:25:es: the body of this function (containing the
-    # loop) is relatively generic -- see also getJSExperimentRecords() method in
-    # this class.  Can abstract out the body into a function called
-    # encodeColumns() or something similar.
-
-    my @tmp;
-    foreach my $row ( sort { $a->[$sort_col] cmp $b->[$sort_col] } @$data ) {
-        my $i = 0;
-        push @tmp, +{ map { $i++ => $_ } @$row[@columns] };
-    }
-    return \@tmp;
-}
-
-#######################################################################################
-sub getJSHeaders {
-    my $self = shift;
-    return $self->{_FieldNames};
-}
-
-#######################################################################################
-sub getTableInformation {
-    my $self = shift;
-
-    #my $arrayRef = $self->{_FieldNames};
-    #my @names     = @$arrayRef;
-
-    my $q = $self->{_cgi};
-
-    my $url_prefix = $q->url( -absolute => 1 );
-    my $deleteURL  = $url_prefix . '?a=studies&b=delete&id=';
-    my $editURL    = $url_prefix . '?a=studies&b=edit&id=';
-
-    return <<"END_TableInformation";
-function createExperimentCellUpdater(field) {
-    /*
-     * this functions makes a hammer after it first builds a factory in the
-     * neighborhood that makes hammers using the hammer construction factory
-     * spec sheet in CellUpdater.js 
-     */
-    return createCellUpdater(field, "$url_prefix?a=studies", "4");
-}
-YAHOO.util.Event.addListener("StudyTable_astext", "click", export_table, JSStudyList, true);
-YAHOO.util.Event.addListener(window, 'load', function() {
-    YAHOO.widget.DataTable.Formatter.formatStudyDeleteLink = function(elCell, oRecord, oColumn, oData) 
-    {
-        elCell.innerHTML = '<a title="Delete Study" target="_self" onclick="return deleteConfirmation();" href="$deleteURL' + oData + '">Delete</a>';
-    }
-    YAHOO.widget.DataTable.Formatter.formatStudyEditLink = function(elCell, oRecord, oColumn, oData) 
-    {
-        elCell.innerHTML = '<a title="Edit Study" target="_self" href="$editURL' + oData + '">Edit</a>';
-    }
-    
-    var myColumnDefs = [
-        {key:"0", sortable:true, resizeable:true, label:"Description", editor:createExperimentCellUpdater("description")},
-        {key:"1", sortable:true, resizeable:true, label:"PubMed", editor:createExperimentCellUpdater("pubmed")},
-        {key:"2", sortable:true, resizeable:true, label:"Platform"}, 
-        {key:"3", sortable:true, resizeable:true, label:"Species"},
-        {key:"4", sortable:false, resizeable:true, label:"Delete Study",formatter:"formatStudyDeleteLink"},
-        {key:"5", sortable:false, resizeable:true, label:"Edit Study",formatter:"formatStudyEditLink"}
-    ];
-
-    var myDataSource         = new YAHOO.util.DataSource(JSStudyList.records);
-    myDataSource.responseType     = YAHOO.util.DataSource.TYPE_JSARRAY;
-    myDataSource.responseSchema     = {fields: ["0","1","2","3","4","5"]};
-    var myData_config         = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
-    var myDataTable         = new YAHOO.widget.DataTable("StudyTable", myColumnDefs, myDataSource, myData_config);
-
-    // Set up editing flow 
-    var highlightEditableCell = function(oArgs) { 
-        var elCell = oArgs.target; 
-        if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
-        this.highlightCell(elCell); 
-        } 
-    }; 
-
-    myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
-    myDataTable.subscribe("cellMouseoutEvent", myDataTable.onEventUnhighlightCell); 
-    myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
-
-});
-END_TableInformation
-}
-
-#######################################################################################
-#ADD/DELETE/EDIT METHODS
-#######################################################################################
-sub insertNewStudy {
-    my $self = shift;
-
-    my $dbh = $self->{_dbh};
-    my $sth = $dbh->prepare(
-        'INSERT INTO study (description, pubmed, pid) VALUES (?, ?, ?)');
-    my $rc =
-      $sth->execute( $self->{_description}, $self->{_pubmed}, $self->{_pid} );
-    $sth->finish;
-    $self->{_stid} = $dbh->{mysql_insertid};
-    return 1;
-}
-
-#######################################################################################
-sub deleteStudy {
-    my $self = shift;
-
-    # :TODO:08/01/2011 17:07:09:es: ON DELETE CASCADE should remove the need to
-    # delete from StudyExperiment.
-    my $dbh = $self->{_dbh};
-    my @deleteStatements = map { $dbh->prepare($_) } (
-        'DELETE FROM StudyExperiment WHERE stid=?',
-        'DELETE FROM study WHERE stid=?'
-    );
-
-    foreach my $sth (@deleteStatements) {
-        $sth->execute( $self->{_stid} );
-        $sth->finish;
-    }
-    return 1;
-}
-
-#######################################################################################
-sub removeExperiment {
-    my $self = shift;
-
-    my $dbh = $self->{_dbh};
-
-    my $sth =
-      $dbh->prepare('DELETE FROM StudyExperiment WHERE stid=? AND eid=?');
-    my $rc = $sth->execute( $self->{_stid}, $self->{_deleteEid} );
-    $sth->finish;
-
-    if ( $rc != 1 ) {
-        SGX::Abstract::Exception::Internal->throw(
-            error => "Expected one record but $rc were removed\n" );
-    }
-    return 1;
-}
-
-#######################################################################################
-sub editStudy_js {
-    my $self = shift;
-
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
-    return $js->define(
+    push @{ $self->{_js_src_code} },
+      (
+        { -src => 'PlatformStudyExperiment.js' },
         {
-            JSExperimentList => {
-                records => $self->getJSExperimentRecords(),
-                headers => $self->getJSExperimentHeaders()
-            }
-        },
-        declare => 1
-    ) . $self->getExperimentTableInformation();
+            -code => $self->get_pse_dropdown_js(
+                platforms         => 1,
+                platform_by_study => 1,
+                studies           => 1,
+                experiments       => 1
+            )
+        }
+      );
 
+    return 1;
 }
 #######################################################################################
-sub editStudy {
+sub form_assign_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
     #---------------------------------------------------------------------------
-    #  Form: Set Study Attributes
+    #  Form: Assign Experiment to this Study
     #---------------------------------------------------------------------------
-    return $q->h2('Editing Study'), $q->h3('Set Study Attributes'),
 
+    return $q->h2('Editing Study'),
+
+      $self->_body_create_read_menu(
+        'read'   => [ undef,         'Edit Study' ],
+        'create' => [ 'form_assign', 'Assign Experiments' ]
+      ),
+      $q->h3('Assign Experiments:'),
       $q->dl(
-        $q->dt( $q->label( { -for => 'platform' }, 'platform:' ) ),
+        $q->dt( $q->label( { -for => 'pid' }, 'From platform:' ) ),
         $q->dd(
             $q->popup_menu(
-                -name     => 'pid',
                 -id       => 'pid',
                 -disabled => 'disabled'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'stid' }, 'From study:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name   => 'stid',
+                -id     => 'stid',
+                -title  => qq/Choose a study/,
+                -values => [],
+                -labels => {}
             )
         )
       ),
@@ -808,19 +435,74 @@ sub editStudy {
       # Resource URI: /studies/id
       $q->start_form(
         -method => 'POST',
-        -action => $q->url( -absolute => 1 )
-          . '?a=studies&id='
-          . $self->{_stid},
+        -action => $self->get_resource_uri()
+      ),
+      $q->dl(
+        $q->dt( $q->label( { -for => 'eid' }, 'Experiment:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name     => 'eid',
+                -id       => 'eid',
+                -multiple => 'multiple',
+                -title =>
+qq/You can select multiple experiments here by holding down Control or Command key before clicking./,
+                -size   => 7,
+                -values => [],
+                -labels => {}
+            )
+        ),
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->hidden( -name => 'table', -value => 'StudyExperiment' ),
+            $q->hidden( -name => 'b',     -value => 'assign' ),
+            $q->submit(
+                -class => 'button black bigrounded',
+                -value => 'Assign',
+                -title => qq/Assign selected experiment to this study/
+            )
+        )
+      ),
+      $q->end_form;
+}
+#######################################################################################
+sub readrow_body {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    #---------------------------------------------------------------------------
+    #  Form: Set Study Attributes
+    #---------------------------------------------------------------------------
+    # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
+    return $q->h2('Editing Study'),
+
+      $self->_body_create_read_menu(
+        'read'   => [ undef,         'Edit Study' ],
+        'create' => [ 'form_assign', 'Assign Experiments' ]
+      ),
+      $q->h3('Set Study Attributes'),
+
+      # Resource URI: /studies/id
+      $q->start_form(
+        -method   => 'POST',
+        -action   => $self->get_resource_uri(),
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
+        $q->dt( $q->label( { -for => 'platform' }, 'platform:' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -id       => 'pid',
+                -disabled => 'disabled'
+            )
+        ),
         $q->dt( $q->label( { -for => 'description' }, 'description:' ) ),
         $q->dd(
             $q->textfield(
                 -name      => 'description',
                 -id        => 'description',
+                -title     => 'Edit study description',
                 -maxlength => 100,
-                -value     => $self->{_description}
+                -value     => $self->{_id_data}->{description}
             )
         ),
         $q->dt( $q->label( { -for => 'pubmed' }, 'pubmed:' ) ),
@@ -828,60 +510,18 @@ sub editStudy {
             $q->textfield(
                 -name      => 'pubmed',
                 -id        => 'pubmed',
+                -title     => 'Edit to change PubMed ID',
                 -maxlength => 20,
-                -value     => $self->{_pubmed}
+                -value     => $self->{_id_data}->{pubmed}
             )
         ),
         $q->dt('&nbsp;'),
         $q->dd(
+            $q->hidden( -name => 'b', -value => 'update' ),
             $q->submit(
-                -name  => 'b',
                 -class => 'button black bigrounded',
-                -value => 'Set Attributes'
-            )
-        )
-      ),
-      $q->end_form,
-
-    #---------------------------------------------------------------------------
-    #  Form: Assign Experiment to this Study
-    #---------------------------------------------------------------------------
-      $q->h3('Assign Experiment to this Study'),
-      $q->dl(
-        $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -name   => 'stid',
-                -id     => 'stid',
-                -values => [],
-                -labels => {}
-            )
-        )
-      ),
-
-      # Resource URI: /studies/id
-      $q->start_form(
-        -method => 'POST',
-        -action => $q->url( -absolute => 1 )
-          . '?a=studies&id='
-          . $self->{_stid}
-      ),
-      $q->dl(
-        $q->dt( $q->label( { -for => 'eid' }, 'Experiment:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -name   => 'eid',
-                -id     => 'eid',
-                -values => [],
-                -labels => {}
-            )
-        ),
-        $q->dt('&nbsp;'),
-        $q->dd(
-            $q->submit(
-                -name  => 'b',
-                -class => 'button black bigrounded',
-                -value => 'Assign Experiment'
+                -value => 'Set Attributes',
+                -title => 'Change study attributes'
             )
         )
       ),
@@ -890,188 +530,154 @@ sub editStudy {
     #---------------------------------------------------------------------------
     #  Experiments table
     #---------------------------------------------------------------------------
-      $q->h3('Showing Experiments in this Study'),
-      $q->div( { -style => 'clear:both;', -id => 'ExperimentTable' } );
+      $q->h3('All Experiments in the Study'),
+      $q->div(
+        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
+      $q->div( { -style => 'clear:both;', -id => $self->{dom_table_id} } );
 }
 
 #######################################################################################
-sub addExistingExperiment {
-    my $self = shift;
+sub get_pse_dropdown_js {
+    my ( $self, %args ) = @_;
 
-    my $dbh = $self->{_dbh};
+    my $pse = $self->{_PlatformStudyExperiment};
+    $pse->init(
+        platforms => 1,
+        %args
+    );
 
-    my $sth =
-      $dbh->prepare('INSERT INTO StudyExperiment (eid, stid) VALUES (?,?)');
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
 
-    my $rc = $sth->execute( $self->{_SelectedExperiment}, $self->{_stid} );
-    $sth->finish;
+    my $q = $self->{_cgi};
+    my $pid;
+    if ( defined $self->{_id} ) {
 
-    if ( $rc != 1 ) {
-        SGX::Abstract::Exception::Internal->throw(
-            error => "Expected one record but $rc were inserted\n" );
+        # If a study is set, use the corresponding platform while ignoring the
+        # platform parameter.
+        $pid = $pse->getPlatformFromStudy( $self->{_id} );
     }
-    return $rc;
-}
+    $pid = $q->param('pid') if not defined $pid;
 
-#######################################################################################
-sub getExperimentTableInformation {
-    my $self = shift;
-
-    #my $arrayRef = $self->{_ExpFieldNames};
-    #my @names    = @$arrayRef;
-    my $q    = $self->{_cgi};
-    my $stid = $self->{_stid};
-
-    my $deleteURL = $q->url( absolute => 1 )
-      . "?a=studies&b=deleteExperiment&id=$stid&removeid=";
-
-    return <<"END_ExperimentTableInformation";
-YAHOO.widget.DataTable.Formatter.formatExperimentDeleteLink = function(elCell, oRecord, oColumn, oData) 
-{
-    elCell.innerHTML = '<a title="Remove" onclick="return deleteConfirmation({itemName: \\\'experiment\\\'});" target="_self" href="$deleteURL' + oData + '">Remove</a>';
-};
-
-var myExperimentColumnDefs = [
-    {key:"3", sortable:true, resizeable:true, label:"Experiment Number"},
-    {key:"0", sortable:true, resizeable:true, label:"Sample 1"},
-    {key:"1", sortable:true, resizeable:true, label:"Sample 2"},
-    {key:"2", sortable:true, resizeable:true, label:"Probe Count"},
-    {key:"5", sortable:false, resizeable:true, label:"Experiment Description"},
-    {key:"6", sortable:false, resizeable:true, label:"Additional Information"},
-    {key:"3", sortable:false, resizeable:true, label:"Remove Experiment",formatter:"formatExperimentDeleteLink"}
-];
-
-YAHOO.util.Event.addListener(window, 'load', function(){
-    var myDataSourceExp            = new YAHOO.util.DataSource(JSExperimentList.records);
-    myDataSourceExp.responseType   = YAHOO.util.DataSource.TYPE_JSARRAY;
-    myDataSourceExp.responseSchema = {fields: ["0","1","2","3","4","5","6"]};
-    var myData_configExp           = {paginator: new YAHOO.widget.Paginator({rowsPerPage: 50})};
-    var myDataTableExp             = new YAHOO.widget.DataTable("ExperimentTable", myExperimentColumnDefs, myDataSourceExp, myData_configExp);
-});
-END_ExperimentTableInformation
-}
-
-#######################################################################################
-sub getJSExperimentRecords {
-
-    #Print the Java Script records for the experiment.
-    my $self = shift;
-
-    my $data     = $self->{_ExpData};          # data source
-    my @columns  = ( 2, 3, 4, 0, 0, 5, 6 );    # columns to include in output
-    my $sort_col = 3;                          # column to sort on
-
-    #eid,pid,sample1,sample2,count(1),ExperimentDescription,AdditionalInfo
-
-    # :TODO:08/02/2011 01:15:25:es: the body of this function (containing the
-    # loop) is relatively generic -- see also getJSRecords() method in this
-    # class.  Can abstract out the body into a function called encodeColumns()
-    # or something similar.
-
-    my @tmp;
-    foreach my $row (@$data) {
-        my $i = 0;
-        push @tmp, +{ map { $i++ => $_ } @$row[@columns] };
-    }
-    return \@tmp;
-}
-
-#######################################################################################
-sub getJSExperimentHeaders {
-    my $self = shift;
-    return $self->{_ExpFieldNames};
-}
-#######################################################################################
-sub getJSPlatformDropdown {
-    my $self = shift;
-
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
-
-    my $pid = $self->{_pid};
-
-    return $js->define(
-        {
+    return $js->bind(
+        [
             PlatfStudyExp =>
               $self->{_PlatformStudyExperiment}->get_ByPlatform(),
             currentSelection => {
                 'platform' => {
+                    elementId => 'pid',
                     element   => undef,
-                    selected  => ( defined $pid ) ? { $pid => undef } : {},
-                    elementId => 'pid'
-                }
-            }
-        },
-        declare => 1
-    ) . <<"END_ret";
-YAHOO.util.Event.addListener(window, 'load', function() {
-    populatePlatform.apply(currentSelection);
-});
-END_ret
-}
-#######################################################################################
-sub getJSPlatformStudyExperimentDropdown {
-    my $self = shift;
-
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
-
-    my $pid  = $self->{_pid};
-    my $stid = $self->{_stid};
-
-    return $js->define(
-        {
-            PlatfStudyExp =>
-              $self->{_PlatformStudyExperiment}->get_ByPlatform(),
-            currentSelection => {
-                'platform' => {
-                    element   => undef,
-                    selected  => ( defined $pid ) ? { $pid => undef } : {},
-                    elementId => 'pid'
+                    selected  => ( defined $pid ) ? { $pid => undef } : {}
                 },
-                'study' => {
-                    element   => undef,
-                    selected  => ( defined $stid ) ? { $stid => undef } : {},
-                    elementId => 'stid'
-                },
-                'experiment' => {
-                    element   => undef,
-                    selected  => {},
-                    elementId => 'eid'
-                }
+                (
+                    ( $args{studies} )
+                    ? (
+                        'study' => {
+                            elementId => 'stid',
+                            element   => undef,
+                            selected  => {}
+                        }
+                      )
+                    : ()
+                ),
+                (
+                    ( $args{experiments} )
+                    ? (
+                        'experiment' => {
+                            elementId => 'eid',
+                            element   => undef,
+                            selected  => {}
+                        }
+                      )
+                    : ()
+                )
             }
-        },
+        ],
         declare => 1
-    ) . <<"END_ret";
-YAHOO.util.Event.addListener(window, 'load', function() {
-    populatePlatform.apply(currentSelection);
-    populatePlatformStudy.apply(currentSelection);
-    populateStudyExperiment.apply(currentSelection);
-});
-YAHOO.util.Event.addListener('pid', 'change', function() {
-    populatePlatformStudy.apply(currentSelection);
-    populateStudyExperiment.apply(currentSelection);
-});
-YAHOO.util.Event.addListener('stid', 'change', function() {
-    populateStudyExperiment.apply(currentSelection);
-});
-END_ret
-}
-
-#######################################################################################
-sub editSubmitStudy {
-    my $self = shift;
-
-    my $dbh = $self->{_dbh};
-    my $sth =
-      $dbh->prepare('UPDATE study SET description=?, pubmed=? WHERE stid=?');
-    my $rc =
-      $sth->execute( $self->{_description}, $self->{_pubmed}, $self->{_stid} );
-    $sth->finish;
-
-    if ( $rc != 1 ) {
-        SGX::Abstract::Exception::Internal->throw(
-            error => "Expected one record but $rc were updated\n" );
-    }
-    return 1;
+      )
+      . $js->apply(
+        'YAHOO.util.Event.addListener',
+        [
+            sub { 'window' },
+            'load',
+            $js->lambda(
+                $js->apply(
+                    'populatePlatform.apply', [ sub { 'currentSelection' } ],
+                ),
+                (
+                    ( $args{studies} )
+                    ? (
+                        $js->apply(
+                            'populatePlatformStudy.apply',
+                            [ sub { 'currentSelection' } ],
+                        )
+                      )
+                    : ()
+                ),
+                (
+                    ( $args{studies} && $args{experiments} )
+                    ? (
+                        $js->apply(
+                            'populateStudyExperiment.apply',
+                            [ sub { 'currentSelection' } ],
+                        )
+                      )
+                    : ()
+                )
+            )
+        ],
+      )
+      . (
+        ( $args{studies} || $args{experiments} )
+        ? (
+            $js->apply(
+                'YAHOO.util.Event.addListener',
+                [
+                    'pid', 'change',
+                    $js->lambda(
+                        (
+                            ( $args{studies} )
+                            ? (
+                                $js->apply(
+                                    'populatePlatformStudy.apply',
+                                    [ sub { 'currentSelection' } ],
+                                )
+                              )
+                            : ()
+                        ),
+                        (
+                            ( $args{studies} && $args{experiments} )
+                            ? (
+                                $js->apply(
+                                    'populateStudyExperiment.apply',
+                                    [ sub { 'currentSelection' } ],
+                                )
+                              )
+                            : ()
+                        )
+                    )
+                ],
+            )
+          )
+        : ''
+      )
+      . (
+        ( $args{studies} && $args{experiments} )
+        ? (
+            $js->apply(
+                'YAHOO.util.Event.addListener',
+                [
+                    'stid', 'change',
+                    $js->lambda(
+                        $js->apply(
+                            'populateStudyExperiment.apply',
+                            [ sub { 'currentSelection' } ],
+                        )
+                    )
+                ],
+            )
+          )
+        : ''
+      );
 }
 
 1;

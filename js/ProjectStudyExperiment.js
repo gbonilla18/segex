@@ -60,30 +60,28 @@ function clearDropDown(obj) {
     return oldWidth;
 }
 /******************************************************************
-* populatePlatform()
+* populateProject()
 * This function is typically run only once, on page load
 ******************************************************************/
-function populatePlatform()
+function populateProject()
 {
-    var platform = this.platform;
-    var platforms = (platform.element === null)
-    ? (platform.element = document.getElementById(platform.elementId))
-    : platform.element;
+    var project = this.project;
+    var projects = (project.element === null)
+    ? (project.element = document.getElementById(project.elementId))
+    : project.element;
 
     // First remove all existing option elements -- need to do this even though
-    // platform drop-down list is never repopulated after page loads. This is
+    // project drop-down list is never repopulated after page loads. This is
     // because it seems that some browsers (Firefox, Safari) automatically add
     // an option to the dropdown that was present in the same control before
     // page load.
-    var oldWidth = clearDropDown(platforms);
+    var oldWidth = clearDropDown(projects);
 
-    // sort by platform name
+    // sort by project name
     var tuples = [];
-    for (var i in PlatfStudyExp) {
-        var platformNode = PlatfStudyExp[i];
-        var content = (platformNode.species !== null)
-        ? platformNode.name + ' \\ ' + platformNode.species
-        : platformNode.name;
+    for (var i in ProjStudyExp) {
+        var projectNode = ProjStudyExp[i];
+        var content = projectNode.name;
         tuples.push([i, content]);
     }
     // generic tuple sort (sort hash by value)
@@ -94,16 +92,16 @@ function populatePlatform()
     });
 
     // build dropdown box
-    buildDropDown(platforms, tuples, platform.selected, oldWidth);
+    buildDropDown(projects, tuples, project.selected, oldWidth);
 }
 
 /******************************************************************/
-function populatePlatformStudy()
+function populateProjectStudy()
 {
-    var platform = this.platform;
-    var platforms = (platform.element === null)
-    ? (platform.element = document.getElementById(platform.elementId))
-    : platform.element;
+    var project = this.project;
+    var projects = (project.element === null)
+    ? (project.element = document.getElementById(project.elementId))
+    : project.element;
 
     var study = this.study;
     var studies = (study.element === null)
@@ -114,9 +112,9 @@ function populatePlatformStudy()
     var oldWidth = clearDropDown(studies);
 
     // now add new ones
-    var pid = getSelectedValue(platforms);
+    var pid = getSelectedValue(projects);
     if (typeof pid !== 'undefined') {
-        var study_data = PlatfStudyExp[pid].studies;
+        var study_data = ProjStudyExp[pid].studies;
 
         // sort by study id
         var tuples = [];
@@ -138,11 +136,11 @@ function populatePlatformStudy()
 /******************************************************************/
 function populateStudyExperiment()
 {
-    var platform = this.platform;
-    var platforms = (platform.element === null)
-    ? (platform.element = document.getElementById(platform.elementId))
-    : platform.element;
-    var pid = getSelectedValue(platforms);
+    var project = this.project;
+    var projects = (project.element === null)
+    ? (project.element = document.getElementById(project.elementId))
+    : project.element;
+    var pid = getSelectedValue(projects);
 
     var study = this.study;
     var studies = (study.element === null)
@@ -160,14 +158,14 @@ function populateStudyExperiment()
 
     // now add new ones
     if (typeof pid !== 'undefined' && typeof stid !== 'undefined') {
-        var platformNode = PlatfStudyExp[pid];
+        var projectNode = ProjStudyExp[pid];
 
-        // When we need to use experiments from all studies in given platform, 
-        // we simply point to 'experiments' property of parent platform.
+        // When we need to use experiments from all studies in given project, 
+        // we simply point to 'experiments' property of parent project.
         var experiment_ids = (stid === 'all') 
-        ? platformNode.experiments 
-        : platformNode.studies[stid].experiments;
-        var experiment_data = platformNode.experiments;
+        ? projectNode.experiments 
+        : projectNode.studies[stid].experiments;
+        var experiment_data = projectNode.experiments;
 
         // sort by experiment id
         var tuples = [];
@@ -175,9 +173,9 @@ function populateStudyExperiment()
             var experimentNode = experiment_data[i];
             var content = i + '. ';
             if (typeof(experimentNode) !== 'undefined') {
-                // no experiment info for given eid among platform data -- this
+                // no experiment info for given eid among project data -- this
                 // typically would mean that the experiment in question has been
-                // assigned to the study but not the platform -- this is not
+                // assigned to the study but not the project -- this is not
                 // supposed to happen but we consider the possibility anyway.
                 content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
             }
