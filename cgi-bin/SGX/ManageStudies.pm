@@ -32,6 +32,7 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
+use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception;
 use SGX::Model::PlatformStudyExperiment;
 
@@ -49,6 +50,7 @@ sub new {
     my ( $class, @param ) = @_;
 
     my $self = $class->SUPER::new(@param);
+    my $q    = $self->{_cgi};
 
     $self->set_attributes(
 
@@ -99,11 +101,21 @@ sub new {
                         __type__     => 'popup_menu',
                         parser       => 'number',
                         __readonly__ => 1,
-                        __tie__      => [ platform => 'pid' ],
-                        __hidden__   => 1
+                        __tie__      => [
+                            (
+                                looks_like_number( $q->param('pid') ) ? ()
+                                : ( platform => 'pid' )
+                            )
+                        ],
+                        __hidden__ => 1
                     }
                 },
-                lookup => [ platform => [ pid => 'pid' ] ],
+                lookup => [
+                    (
+                        looks_like_number( $q->param('pid') ) ? ()
+                        : ( platform => [ pid => 'pid' ] )
+                    )
+                ],
             },
             'platform' => {
                 key   => [qw/pid/],

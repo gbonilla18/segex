@@ -165,11 +165,13 @@ sub new {
                         label    => 'Platform',
                         parser   => 'number',
                         __type__ => 'popup_menu',
-                        __tie__  => (
-                            looks_like_number( $q->param('pid') )
-                            ? undef
-                            : [ platform => 'pid' ]
-                        ),
+                        __tie__  => [
+                            (
+                                looks_like_number( $q->param('pid') )
+                                ? ()
+                                : ( platform => 'pid' )
+                            )
+                        ],
                         __readonly__ => 1,
                         __hidden__   => 1
                     }
