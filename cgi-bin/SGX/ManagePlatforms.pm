@@ -60,12 +60,8 @@ sub new {
 # proto:      Fields that are filled out on insert/creation of new records.
 # view:       Fields to display.
 # selectors:  Fields which, when present in CGI::param list, can narrow down
-#             output.
-#
-# labels:     What to call each field
-# left_join:  Whether to query additional tablesi emulating SQL join. If present, joins
-#             will be performed on the corresponding fields.
-# inner_join: Whether to add INNER JOIN clause to generated SQL.
+#             output. Format: { URI => SQL }.
+# meta:       Additional field info.
         _table_defs => {
             'platform' => {
                 key      => [qw/pid/],
@@ -109,6 +105,27 @@ sub new {
                 },
                 join => [ probe => [ pid => 'pid', { join_type => 'LEFT' } ] ]
             },
+            probe => {
+                key  => [qw/pid/],
+                view => [qw/probes_total probe_sequences probe_locations/],
+                meta => {
+                    probes_total => {
+                        __sql__ => 'COUNT(probe.rid)',
+                        label   => 'Probe Count',
+                        parser  => 'number'
+                    },
+                    probe_sequences => {
+                        __sql__ => 'COUNT(probe.probe_sequence)',
+                        label   => 'Probe Sequences',
+                        parser  => 'number'
+                    },
+                    probe_locations => {
+                        __sql__ => 'COUNT(probe.location)',
+                        label   => 'Locations',
+                        parser  => 'number'
+                    }
+                }
+            },
             'study' => {
                 key      => [qw/stid/],
                 view     => [qw/description pubmed/],
@@ -126,23 +143,21 @@ sub new {
             },
             proj_brief => {
                 table => 'ProjectStudy',
-                key   => [qw/'stid prid'/],
-                view  => [qw/project_names/],
+                key   => [qw/stid prid/],
+                view  => [qw/prname/],
                 meta  => {
-                    project_names => {
-                        __sql__ =>
-'GROUP_CONCAT(prname ORDER BY prname ASC SEPARATOR ", ")',
-                        label => 'Project(s)'
+                    prname => {
+                        __sql__ => 'project.prname',
+                        label   => 'Project(s)'
                     }
                 },
                 join =>
-                  [ project => [ prid => 'prid', { join_type => 'INNER' } ] ],
-                group_by => [qw/stid/]
+                  [ project => [ prid => 'prid', { join_type => 'INNER' } ] ]
             },
             'experiment' => {
-                key     => [qw/eid/],
-                view    => [qw/sample1 sample2/],
-                proto   => [],
+                key   => [qw/eid/],
+                view  => [qw/sample1 sample2/],
+                proto => [],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/sample1 sample2/]
             },
@@ -261,7 +276,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'pname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(mode => 'create'),
+        $self->_body_edit_fields( mode => 'create' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -384,7 +399,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'pname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(mode => 'update'),
+        $self->_body_edit_fields( mode => 'update' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),

@@ -60,12 +60,8 @@ sub new {
 # proto:      Fields that are filled out on insert/creation of new records.
 # view:       Fields to display.
 # selectors:  Fields which, when present in CGI::param list, can narrow down
-#             output.
-#
-# labels:     What to call each field
-# left_join:  Whether to query additional tables emulating SQL join. If present, joins
-#             will be performed on the corresponding fields.
-# inner_join: Whether to add INNER JOIN clause to generated SQL.
+#             output. Format: { URI => SQL }.
+# meta:       Additional field info.
         _table_defs => {
             'StudyExperiment' => {
                 key        => [qw/stid eid/],

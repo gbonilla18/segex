@@ -188,6 +188,7 @@ sub trim {
 #===============================================================================
 sub inherit_hash {
     my ( $x, $y ) = @_;
+    $x = {} if not defined $x;
     foreach my $ykey ( keys %$y ) {
         my $yval = $y->{$ykey};
         if ( exists $x->{$ykey} ) {
@@ -217,5 +218,19 @@ sub enum_array {
     my $i = 0;
     return +{ map { $_ => $i++ } @$_ };
 }
+#---------------------------------------------------------------------------
+#  analogue to built-in keys function, except for lists, not hashes
+#---------------------------------------------------------------------------
+#sub _list_keys {
+#    @_[ grep { !( $_ % 2 ) } 0 .. $#_ ];
+#}
+
+#---------------------------------------------------------------------------
+#  analogue to built-in values function, except for lists, not hashes
+#---------------------------------------------------------------------------
+#sub _list_values {
+#    @_[ grep { $_ % 2 } 0 .. $#_ ];
+#}
+
 
 1;

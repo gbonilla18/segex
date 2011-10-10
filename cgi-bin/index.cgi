@@ -751,11 +751,11 @@ sub form_login {
     # do not want to logout immediately after login
     $uri = $q->url( -absolute => 1 )
       if $uri =~ m/(?:&|\?|&amp;)a=${\LOGOUT}(?:\z|&|#)/;
-    my $destination =
-      ( defined( $q->url_param('destination') ) )
-      ? $q->url_param('destination')
-      : uri_escape($uri);
-
+    my $destination = uri_escape(
+        ( defined $q->url_param('destination') )
+        ? $q->url_param('destination')
+        : $uri
+    );
     return $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=' 

@@ -22,6 +22,7 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
+use Carp;
 use JSON;
 use Tie::IxHash;
 use List::Util qw/max/;
@@ -178,6 +179,7 @@ sub _head_data_table {
     );
 
     my $lookupTables = $var->{lookupTables};
+    my $dataLookup   = $var->{data}->('lookup');
 
     my @column_defs = (
 
@@ -188,12 +190,14 @@ sub _head_data_table {
         (
             map {
                 my $other_table       = $_;
-                my $lookupTable_other = $lookupTables->($other_table);
+                my $lookupTable_other = $lookupTables->($_);
+                my $dataLookup_other  = $dataLookup->($_);
                 map {
                     $column->(
                         [ $other_table, $_ ],
                         formatter => $js->apply(
-                            'createJoinFormatter', [ $lookupTable_other, $_ ]
+                            'createJoinFormatter',
+                            [ $dataLookup_other, $lookupTable_other, $_ ]
                         )
                       )
                   } @{ $table_defs->{$other_table}->{view} }
@@ -369,7 +373,8 @@ sub _head_data_table {
                         records => $self->getJSRecords(),
                         headers => $self->getJSHeaders(),
                         fields  => [ keys %$s2n ],
-                        meta    => $self->export_meta($table)
+                        meta    => $self->export_meta($table),
+                        lookup  => $self->{_this_lookup}
                     },
                     $var->{lookupTables}
                 ]
@@ -581,7 +586,7 @@ sub get_id {
         $self->{_id} = $id;    # cache the id
         return $id;
     }
-    return undef;
+    return;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -726,7 +731,8 @@ sub ajax_create {
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  PerlCritic: Subroutine "_head_column_def" with high complexity score
+#     (36).  Consider refactoring  (Severity: 3)
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _head_column_def {
@@ -938,6 +944,95 @@ sub getJSHeaders {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  lookup_prepare
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _lookup_prepare {
+    my ( $self, $table_alias, $composite_labels ) = @_;
+
+    # now add all fields on which we are joining if they are absent
+    my ( $dbh, $table_defs ) = @$self{qw/_dbh _table_defs/};
+    my $table_info = $table_defs->{$table_alias};
+    my ( $this_meta, $lookup ) = @$table_info{qw/meta lookup/};
+
+    my %left_join_sth;    # hash of statement handles for lookup
+    if ($lookup) {
+        my $_other = $self->{_other};
+
+        while ( my ( $left_table_alias, $val ) = each(%$lookup) ) {
+            my ( $this_field, $other_field ) = @$val;
+
+            # we ignore {} optional data
+            my $opts = $table_defs->{$left_table_alias};
+
+            if ( defined($composite_labels)
+                && !exists( $composite_labels->{$this_field} ) )
+            {
+                $composite_labels->{$this_field} =
+                  $this_meta->{$this_field}->{label};
+            }
+
+            my ( $other_key, $other_view, $other_meta ) =
+              @$opts{qw/key view meta/};
+
+            # prepend key field(s)
+            my $other_select_fields =
+              _get_view_labels( [ @$other_key, @$other_view ], $other_meta );
+
+            my ( $left_query, $left_params ) =
+              $self->_build_select( $left_table_alias, $other_select_fields,
+                $opts );
+
+            #warn $left_query;
+
+            $left_join_sth{$left_table_alias} =
+              [ $dbh->prepare($left_query), $left_params ];
+
+            # fields below will be exported to JS
+            $_other->{$left_table_alias} = {}
+              if not defined( $_other->{$left_table_alias} );
+            my $js_store = ( $_other->{$left_table_alias} );
+            $js_store->{symbol2name} = $other_select_fields;
+            $js_store->{symbol2index} =
+              _symbol2index_from_symbol2name($other_select_fields);
+            $js_store->{index2symbol} = [ keys %$other_select_fields ];
+            $js_store->{key}          = $other_key;
+            $js_store->{view}         = $other_view;
+            $js_store->{meta}         = $self->export_meta($left_table_alias);
+        }
+    }
+    return \%left_join_sth;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _lookup_execute
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _lookup_execute {
+    my ( $self, $left_join_sth ) = @_;
+    my $_other = $self->{_other};
+    while ( my ( $otable, $val ) = each %$left_join_sth ) {
+        my ( $osth, $oparams ) = @$val;
+        my $rc = $osth->execute(@$oparams);
+        $_other->{$otable}->{index2name} = $osth->{NAME};
+        $_other->{$otable}->{records}    = $osth->fetchall_arrayref;
+        $osth->finish;
+    }
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _readall_command
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -947,17 +1042,16 @@ sub getJSHeaders {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _readall_command {
-    my ( $self, $table_alias, %args ) = @_;
+    my ( $self, $table_alias ) = @_;
 
-    my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
+    my ( $dbh, $q, $table_defs ) = @$self{qw{_dbh _cgi _table_defs}};
 
     my $default_table = $self->{_default_table};
-    $table_alias = $default_table
-      if ( !defined($table_alias) || $table_alias eq '' );
+    $table_alias = $default_table if not $table_alias;
+    return if not defined $table_alias;
 
-    my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table_alias};
-    return undef if not $table_info;
+    return if not $table_info;
 
     my ( $key, $this_meta, $this_view ) = @$table_info{qw/key meta view/};
 
@@ -965,56 +1059,17 @@ sub _readall_command {
     my $composite_labels =
       _get_view_labels( [ @$key, @$this_view ], $this_meta );
 
-    my %left_join_sth;    # hash of statement handles for lookup
-
     # :TRICKY:09/06/2011 19:22:20:es: For left joins, we do not perform joins
     # in-SQL but instead run a separate query. For inner joins, we add predicate
     # to the main SQL query.
-    
-    # now add all fields on which we are joining if they are absent
-    my $lookup =
-      ( defined $args{lookup} )
-      ? $args{lookup}
-      : $table_info->{lookup};
-    if ($lookup) {
-        my $_other = $self->{_other};
 
-        while ( my ( $left_table_alias, $val ) = each(%$lookup) ) {
-            my ( $this_field, $other_field, $opts ) = @$val;
-            $opts = {} if not defined $opts;
-
-            if ( not exists $composite_labels->{$this_field} ) {
-                $composite_labels->{$this_field} =
-                  $this_meta->{$this_field}->{label};
-            }
-
-            my $left_table_info = $table_defs->{$left_table_alias};
-            my ( $other_view, $other_meta ) = @$left_table_info{qw/view meta/};
-
-            # prepend key field
-            my $other_select_fields =
-              _get_view_labels( [ $other_field, @$other_view ], $other_meta );
-
-            my ( $left_query, $left_params ) =
-              $self->_build_select( $left_table_alias, $other_select_fields,
-                { %$opts, group_by => [$other_field] } );
-
-            $left_join_sth{$left_table_alias} =
-              [ $dbh->prepare($left_query), $left_params ];
-            $_other->{$left_table_alias}->{symbol2name} = $other_select_fields;
-            $_other->{$left_table_alias}->{symbol2index} =
-              _symbol2index_from_symbol2name($other_select_fields);
-            $_other->{$left_table_alias}->{index2symbol} =
-              [ keys %$other_select_fields ];
-            $_other->{$left_table_alias}->{meta} =
-              $self->export_meta($left_table_alias);
-            $_other->{$left_table_alias}->{lookup_by} = $this_field;
-        }
-    }
+    my $left_join_sth =
+      $self->_lookup_prepare( $table_alias, $composite_labels );
 
     $self->{_this_symbol2name} = $composite_labels;
     $self->{_this_symbol2index} =
       _symbol2index_from_symbol2name($composite_labels);
+    $self->{_this_lookup} = $table_info->{lookup};
 
     # If _id is not set, rely on selectors only. If _id is set, use
     # default_table._id *and* selectors on the second table.
@@ -1023,22 +1078,17 @@ sub _readall_command {
       ( $key->[0], $table_defs->{$default_table}->{key}->[0] );
 
     # return both query and parameter array
-    my ( $query, $params ) = $self->_build_select(
-        $table_alias,
-        $composite_labels,
-        {
-            group_by => $key,
-            %args
-        }
-    );
+    my ( $query, $params ) =
+      $self->_build_select( $table_alias, $composite_labels,
+        inherit_hash( { group_by => $key }, $table_info ) );
 
     #warn $query;
     #warn Dumper($params);
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        warn $error;
-        return undef;
+        carp $error;
+        return;
     };
 
     # separate preparation from execution because we may want to send different
@@ -1051,34 +1101,10 @@ sub _readall_command {
         $self->{_this_data}       = $sth->fetchall_arrayref;
         $sth->finish;
 
-        my $_other = $self->{_other};
-        while ( my ( $otable, $val ) = each %left_join_sth ) {
-            my ( $osth, $oparams ) = @$val;
-            $rc = $osth->execute(@$oparams);
-            $_other->{$otable}->{index2name} = $osth->{NAME};
-            $_other->{$otable}->{data} =
-              _data_transform( $osth->fetchall_arrayref );
-            $osth->finish;
-        }
+        $self->_lookup_execute($left_join_sth);
+
         return $rc;
     };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _data_transform
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Transform $ARRAY1 = [ [ 61, 41174 ], [ 62, 50072, ... ] ];
-#                into      $HASH1 = { 61 => [ 41174 ], 62 => [ 50072, ... ] };
-#
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub _data_transform {
-    my $arrayref = shift;
-    return +{ map { shift(@$_) => $_ } @$arrayref };
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1134,20 +1160,6 @@ sub _valid_SQL_identifier {
     return shift =~ m/^[a-zA-Z_][0-9a-zA-Z_\$]*$/;
 }
 
-#---------------------------------------------------------------------------
-#  analogue to built-in keys function, except for lists, not hashes
-#---------------------------------------------------------------------------
-sub _list_keys {
-    @_[ grep { !( $_ % 2 ) } 0 .. $#_ ];
-}
-
-#---------------------------------------------------------------------------
-#  analogue to built-in values function, except for lists, not hashes
-#---------------------------------------------------------------------------
-sub _list_values {
-    @_[ grep { $_ % 2 } 0 .. $#_ ];
-}
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _build_predicate
@@ -1197,7 +1209,7 @@ sub _build_predicate {
     my $q         = $self->{_cgi};
     my $other_sel = $obj->{selectors} || {};
     my $other_key = $obj->{key} || [];
-    my %selectors = ($other_sel) ? %$other_sel : ();
+    my %selectors = %$other_sel;
     if ( lc($prefix) eq 'and' ) {
         foreach my $special_field ( grep { defined } @$other_sel{@$other_key} )
         {
@@ -1304,8 +1316,9 @@ sub _build_join {
 #===============================================================================
 sub _build_select {
     my ( $self, $table_alias, $symbol2name, $cascade ) = @_;
-    my ( $dbh, $table_defs ) = @$self{qw/_dbh _table_defs/};
-    inherit_hash( $cascade, $table_defs->{$table_alias} );
+    my $dbh = $self->{_dbh};
+
+    #inherit_hash( $cascade, $table_defs->{$table_alias} );
     my $table = $cascade->{table} || $table_alias;
     my $meta  = $cascade->{meta}  || {};
 
@@ -1366,32 +1379,37 @@ sub _build_select {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _readrow_command {
-    my ($self) = @_;
+    my ( $self, $table_alias ) = @_;
     return if not defined $self->{_id};
 
-    my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
-    my $table = $self->{_default_table};
-    return undef if not defined $table;
+    my ( $dbh, $q, $table_defs ) = @$self{qw{_dbh _cgi _table_defs}};
+    my $default_table = $self->{_default_table};
+    $table_alias = $default_table if not $table_alias;
+    return if not defined $table_alias;
 
-    my $table_info = $self->{_table_defs}->{$table};
-    return undef if not $table_info;
+    my $table_info = $table_defs->{$table_alias};
+    return if not $table_info;
 
     my ( $key, $fields ) = @$table_info{qw/key proto/};
     my @key_copy = @$key;
 
     return if @key_copy != 1;
 
+    my $table = $table_info->{table} || $table_alias;
     my $predicate = join( ' AND ', map { "$_=?" } @key_copy );
     my $read_fields = join( ',', @$fields );
-    my $query = "SELECT $read_fields FROM $table WHERE $predicate";
+    my $query =
+      "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
+    #warn "getting lookups for $table_alias";
+    #my $left_join_sth = $self->_lookup_prepare($table_alias);
 
  # :TODO:09/26/2011 01:57:43:es: Also need to perform lookup for readrow_command
  # in some cases...
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        warn $error;
-        return undef;
+        carp $error;
+        return;
     };
 
     my @params =
@@ -1403,6 +1421,9 @@ sub _readrow_command {
         my $rc = $sth->execute(@params);
         $self->{_id_data} = $sth->fetchrow_hashref;
         $sth->finish;
+
+        #$self->_lookup_execute($left_join_sth);
+
         return $rc;
     };
 }
@@ -1423,10 +1444,10 @@ sub _delete_command {
     my $table = $q->param('table');
     $table = $self->{_default_table}
       if ( !defined($table) || $table eq '' );
-    return undef if not defined $table;
+    return if not defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};
-    return undef if not $table_info;
+    return if not $table_info;
 
     my $key       = $table_info->{key};
     my @key_copy  = @$key;
@@ -1436,8 +1457,8 @@ sub _delete_command {
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        warn $error;
-        return undef;
+        carp $error;
+        return;
     };
 
     # separate preparation from execution because we may want to send different
@@ -1463,16 +1484,16 @@ sub _assign_command {
     my ($self) = @_;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
-    return undef if not defined $table;
+    return if not defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};
-    return undef if not $table_info;
+    return if not $table_info;
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
     my $id  = $self->{_id};
     my $key = $table_info->{key};
-    return undef if ( !defined($id) || @$key != 2 );
+    return if ( !defined($id) || @$key != 2 );
 
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
@@ -1485,8 +1506,8 @@ sub _assign_command {
     my $query      = "INSERT IGNORE INTO $table ($assignment) VALUES (?,?)";
     my $sth        = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        warn $error;
-        return undef;
+        carp $error;
+        return;
     };
 
     my @param_set = ( $q->param( $key->[1] ) );
@@ -1518,10 +1539,10 @@ sub _create_command {
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
     $table = $self->{_default_table} if not defined $table;
-    return undef if not defined $table;
+    return if not defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};
-    return undef if not $table_info;
+    return if not $table_info;
 
     my $id = $self->{_id};
 
@@ -1549,8 +1570,8 @@ sub _create_command {
     my $query = "INSERT INTO $table ($assignment) VALUES ($placeholders)";
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        warn $error;
-        return undef;
+        carp $error;
+        return;
     };
 
     my $translate_val = $self->_get_param_values($meta);
@@ -1657,10 +1678,10 @@ sub _update_command {
     # tables, one when {_id} is not set, and one when it is set.
     #
     $table = $self->{_default_table} if not defined $table;
-    return undef if not defined $table;
+    return if not defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};
-    return undef if not $table_info;
+    return if not $table_info;
 
     my ( $key, $meta ) = @$table_info{qw/key meta/};
 
@@ -1680,8 +1701,8 @@ sub _update_command {
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        warn $error;
-        return undef;
+        carp $error;
+        return;
     };
 
     my $translate_val = $self->_get_param_values($meta);
@@ -1809,7 +1830,8 @@ sub _head_init {
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  PerlCritic: Subroutine "_body_edit_fields" with high complexity
+#     score (22).  Consider refactoring  (Severity: 3)
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _body_edit_fields {
@@ -1839,13 +1861,13 @@ sub _body_edit_fields {
         my %cgi_meta = map { $_ => $meta->{$_} } grep { /^-/ } keys %$meta;
         delete $cgi_meta{-disabled} if $unlimited_mode;
         my $method = $meta->{__type__} || 'textfield';
-        my $label = $meta->{label} || $symbol;
+        my $label  = $meta->{label}    || $symbol;
         $cgi_meta{-title} ||= (
             ( $method eq 'textfield' )
             ? 'Enter'
             : ( ( $method eq 'popup_menu' ) ? 'Choose' : 'Set' )
         ) . " $label";
-        if ($method eq 'checkbox') {
+        if ( $method eq 'checkbox' ) {
             push @tmp,
               (
                 $q->dt('&nbsp;') => $q->dd(
@@ -1865,12 +1887,12 @@ sub _body_edit_fields {
                 )
               );
         }
-        elsif ($method eq 'popup_menu') {
+        elsif ( $method eq 'popup_menu' ) {
             my @values;
             my %labels;
             my $dropdownOptions = $meta->{dropdownOptions};
             foreach my $property (@$dropdownOptions) {
-                my ($p_val, $p_lab) = @$property{qw/value label/};
+                my ( $p_val, $p_lab ) = @$property{qw/value label/};
                 push @values, $p_val;
                 $labels{$p_val} = $p_lab;
             }
@@ -1878,10 +1900,10 @@ sub _body_edit_fields {
               (
                 $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
                     $q->$method(
-                        -id    => $symbol,
-                        -name  => $symbol,
-                        -values => \@values,
-                        -labels => \%labels,
+                        -id      => $symbol,
+                        -name    => $symbol,
+                        -values  => \@values,
+                        -labels  => \%labels,
                         -default => $id_data->{$symbol},
                         %cgi_meta
                     )

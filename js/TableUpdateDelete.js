@@ -201,12 +201,16 @@ function createDeleteFormatter(verb, noun) {
         elCell.innerHTML = cellContent;
     };
 }
-function createJoinFormatter(table_info, field) {
-    var sub_col = table_info.symbol2index[field] - 1;
+function createJoinFormatter(join_info, table_info, field) {
+    var this_field = join_info[0];
+    var other_field = join_info[1];
+    var sub_col = table_info.symbol2index[field] - table_info.key.length;
+    var root = table_info.lookup_by[other_field];
+
     return function(elCell, oRecord, oColumn, oData) {
 
         // this also gets executed after we update a cell via AJAX
-        var sub_record = table_info.data[oData];
+        var sub_record = root[oData];
         elCell.innerHTML = (typeof sub_record !== "undefined") ? sub_record[sub_col] : '';
     };
 }
@@ -228,13 +232,17 @@ function newDataSourceFromArrays(struct) {
 }
 function expandJoinedFields(mainTable, lookupTables) {
     var tmp = {};
-    for (var lookupTable in lookupTables) {
+    var mainTable_lookup = mainTable.lookup;
+    for (var lookupTable in mainTable_lookup) {
+        var  val = mainTable_lookup[lookupTable];
         var obj = lookupTables[lookupTable];
-        var lookup_by = obj.lookup_by;
-        if (lookup_by in tmp) {
-            tmp[lookup_by].push([lookupTable, obj]);
+        obj.lookup_by = {};
+        var this_lookup = val[0];
+        var lookupField = val[1];
+        if (this_lookup in tmp) {
+            tmp[this_lookup].push([lookupTable, lookupField, obj]);
         } else {
-            tmp[lookup_by] = [ [lookupTable, obj] ];
+            tmp[this_lookup] = [ [lookupTable, lookupField, obj] ];
         }
     }
     var mainTable_fields = mainTable.fields,
@@ -251,14 +259,21 @@ function expandJoinedFields(mainTable, lookupTables) {
             var objArray = tmp[field];
             var extra_col_count = 0;
             for (var l = 0, obj_len = objArray.length; l < obj_len; l++) {
-                var tuple = objArray[l];
-                var lookupTable = tuple[0],
-                obj = tuple[1];
-                var extra_fields = obj.index2symbol.slice(1);
+                var triple = objArray[l];
+                var lookupTable = triple[0];
+                var lookupField = triple[1];
+                var obj = triple[2];
+
+
+                var extra_key_len = obj.key.length;
+                var extra_fields = obj.view;
                 var extra_meta = obj.meta;
+
+                // prepend table name to every field from view
                 for (var m = 0, extra_len = extra_fields.length; m < extra_len; m++) {
                     extra_fields[m] = lookupTable + '.' + extra_fields[m];
                 }
+
                 var extra_fields_len = extra_fields.length;
                 extra_col_count += extra_fields_len;
                 for (var f = 0; f < extra_fields_len; f++) {
@@ -270,6 +285,26 @@ function expandJoinedFields(mainTable, lookupTables) {
                         : join_field
                     );
                 }
+
+                // setup 'data' property in lookupTable
+                var data = {};
+                var lookupTable_records = obj.records;
+                var lookupIndex = obj.symbol2index[lookupField];
+                for (var r = 0, len = lookupTable_records.length; r < len; r++) {
+                    var record = lookupTable_records[r];
+                    var data_slice = record.slice(extra_key_len);
+                    var key_val = record[lookupIndex];
+                    if (key_val in data) {
+                        var this_array = data[key_val];
+                        for (var c = 0, clen = this_array.length; c < clen; c++) {
+                            // zip on commas
+                            this_array[c] = this_array[c] + ', ' + data_slice[c];
+                        }
+                    } else {
+                        data[key_val] = data_slice;
+                    }
+                }
+                obj.lookup_by[lookupField] = data;
             }
             // For each record in data array, add field value for the
             // corresponding join field.  TODO: if joined field not editable (no
@@ -313,12 +348,6 @@ function createRowNameBuilder(nameColumns) {
         return names.join(" / ");
     };
 }
-
-//function createUpdateHandler() {
-//    return function (ev) {
-//        console.log(ev);
-//    };
-//}
 
 function subscribeEnMasse(el, obj) {
     for (var event in obj) {

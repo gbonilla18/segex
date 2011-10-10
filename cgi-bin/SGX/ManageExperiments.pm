@@ -62,12 +62,8 @@ sub new {
 # proto:      Fields that are filled out on insert/creation of new records.
 # view:       Fields to display.
 # selectors:  Fields which, when present in CGI::param list, can narrow down
-#             output.
-#
-# labels:     What to call each field
-# left_join:  Whether to query additional tables emulating SQL join. If present, joins
-#             will be performed on the corresponding fields.
-# inner_join: Whether to add INNER JOIN clause to generated SQL.
+#             output. Format: { URI => SQL }.
+# meta:       Additional field info.
         _table_defs => {
             'StudyExperiment' => {
                 key       => [qw/eid stid/],
@@ -102,19 +98,17 @@ sub new {
             },
             study_brief => {
                 table     => 'StudyExperiment',
-                view      => [qw/study_names/],
+                key       => [qw/eid stid/],
+                view      => [qw/description/],
                 selectors => { stid => 'stid' },
                 meta      => {
-                    study_names => {
-                        __sql__ =>
-'GROUP_CONCAT(description ORDER BY description ASC SEPARATOR ", ")',
-                        label  => 'Study(-ies)',
-                        parser => 'number'
+                    description => {
+                        __sql__ => 'study.description',
+                        label  => 'Study(-ies)'
                     }
                 },
                 join =>
-                  [ 'study' => [ stid => 'stid', { join_type => 'INNER' } ] ],
-                group_by => [qw/eid/]
+                  [ 'study' => [ stid => 'stid', { join_type => 'INNER' } ] ]
             },
             'platform' => {
                 key   => [qw/pid/],

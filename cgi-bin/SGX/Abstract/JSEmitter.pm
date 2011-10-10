@@ -179,9 +179,7 @@ sub false {
 #  uses Safe::Hash as defined above
 #---------------------------------------------------------------------------
 sub register_var {
-
     my ( $self, $prefix, $ids ) = @_;
-
     tie my %barewords => 'Safe::Hash';
     %barewords =
       map { $ids->[$_] => $self->literal( $prefix . $_ ) } 0 .. $#$ids;
@@ -193,28 +191,32 @@ sub register_var {
 #       METHOD:  literal
 #   PARAMETERS:  ????
 #      RETURNS:  Returns a lambda capable of adding identifiers to chain.
-#  DESCRIPTION:
+#  DESCRIPTION:  Example:
+#
+#       $self->literal('ee')->('e')->('ppppp')->('er','re','r')->();
+#   
+#   evaluates to (note empty parantheses needed for termination):
+#
+#       ee.e.ppppp.er.re.r
+#
+#   Intermediate values can be cached:
+#
+#        my $cache = $self->literal('ee')->('e');
+#        $cache->('test')->();
+#
+#    evaluates to:
+#
+#        ee.e.test
+#
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub literal {
-    my ( $self, $name ) = @_;
-
-    return sub {
-        my $name1 = $name;
-        my $sub_A;
-        $sub_A = sub {
-            if (@_) {
-                $name1 =
-                  join( '.', $name1, map { _validate_identifier($_) } @_ );
-                return $sub_A;
-            }
-            else {
-                return $name1;
-            }
-        };
-        return (@_) ? $sub_A->(@_) : $name;
+    my ( $self, @rest ) = @_;                                                                         
+    return sub {                                                                            
+         my $tmp = join( '.', @rest, @_ );
+         return (@_) ? $self->literal( $tmp ) : $tmp;                         
     };
 }
 
@@ -244,7 +246,7 @@ sub init {
     );
 
     my $type_declaration = 'var ';
-    $self->{def_template} =
+    $self->{function_template} =
       ($arg_pretty) ? "function %s(%s) {\n%s}" : 'function %s(%s){%s}';
     $self->{assignment_operator} = ($arg_pretty) ? ' = ' : '=';
     $self->{line_terminator}     = ($arg_pretty) ? ";\n" : ';';
@@ -322,7 +324,7 @@ sub bind {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub def {
+sub defun {
     my ( $self, $id, $param, $statements ) = @_;
     if ( defined $id ) {
         _validate_identifier($id);
@@ -333,7 +335,7 @@ sub def {
     $param = [] if not defined($param);
     return sub {
         return sprintf(
-            $self->{def_template},
+            $self->{function_template},
             $id,
             join( $self->{list_separator}, map { $self->encode($_) } @$param ),
             join(
@@ -356,7 +358,7 @@ sub def {
 #===============================================================================
 sub lambda {
     my ( $self, @args ) = @_;
-    return $self->def( undef, shift(@args), \@args );
+    return $self->defun( undef, shift(@args), \@args );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -494,7 +496,7 @@ sub apply {
     my $separator  = $self->{list_separator};
     my $arguments  = join( $separator, map { $self->encode($_) } @$list );
 
-    # by returning a subroutine reference, we delay execution
+    # by returning a subroutine reference, we can delay execution
     my $code = $prefix . _evaluate($id) . "($arguments)";
     return ( wantarray() )
       ? sub { $code }
