@@ -26,6 +26,7 @@ use JSON;
 use Tie::IxHash;
 use List::Util qw/max/;
 use Data::Dumper;
+use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
@@ -165,10 +166,10 @@ sub _head_data_table {
         js_emitter    => $js,
         cell_updater  => $var->{cellUpdater},
         cell_dropdown => $var->{cellDropdown},
-        left_join     => $var->{leftJoin}
+        lookup        => $var->{leftJoin}
     );
 
-    my $left_join_info = $table_info->{left_join};
+    my $left_join_info = $table_info->{lookup};
     my $leftJoin       = $var->{leftJoin};
 
     my @column_defs = (
@@ -650,7 +651,7 @@ sub _head_column_def {
     my $js            = $args{js_emitter};
     my $cell_updater  = $args{cell_updater};
     my $cell_dropdown = $args{cell_dropdown};
-    my $leftJoin      = $args{left_join};
+    my $leftJoin      = $args{lookup};
 
     my $TRUE  = $js->true;
     my $FALSE = $js->false;
@@ -671,11 +672,11 @@ sub _head_column_def {
         my ( $datum, %extra_definitions ) = @_;
         my ( $mytable, $symbol ) = ( defined $datum ) ? @$datum : ( '', undef );
 
-        # determine key value of left_join table if dealing with such
+        # determine key value of lookup table if dealing with such
         my $propagate_key;
         my $propagate_index;
         if ( $mytable ne '' ) {
-            $propagate_key   = $table_info->{left_join}->{$mytable}->[0];
+            $propagate_key   = $table_info->{lookup}->{$mytable}->[0];
             $propagate_index = $s2i->{$propagate_key};
         }
 
@@ -842,21 +843,21 @@ sub _readall_command {
     my $composite_labels =
       _get_ordered_hash( [ @$key, @$this_view ], $this_labels );
 
-    my %left_join_sth;    # hash of statement handles for left_join
+    my %left_join_sth;    # hash of statement handles for lookup
 
     # :TRICKY:09/06/2011 19:22:20:es: For left joins, we do not perform joins
     # in-SQL but instead run a separate query. For inner joins, we add predicate
     # to the main SQL query.
 
     # now add all fields on which we are joining if they are absent
-    my $left_join =
-      ( defined $args{left_join} )
-      ? $args{left_join}
-      : $table_info->{left_join};
-    if ($left_join) {
+    my $lookup =
+      ( defined $args{lookup} )
+      ? $args{lookup}
+      : $table_info->{lookup};
+    if ($lookup) {
         my $_other = $self->{_other};
 
-        while ( my ( $left_table_alias, $val ) = each(%$left_join) ) {
+        while ( my ( $left_table_alias, $val ) = each(%$lookup) ) {
             my ( $this_field, $other_field, $opts ) = @$val;
             $opts = {} if not defined $opts;
 
@@ -896,11 +897,15 @@ sub _readall_command {
       ( $key->[0], $table_defs->{$default_table}->{key}->[0] );
 
     # build a constraint-like object
-    my @main_constraint = map {
-        $_ => sub {
-            $q->param($_);
-          }
-    } grep { defined $q->param($_) } @$selectable;
+    my $existing_constr = $table_info->{constraint} || [];
+    my @main_constraint = (
+        @$existing_constr,
+        map {
+            $_ => sub {
+                $q->param($_);
+              }
+          } grep { defined $q->param($_) } @$selectable
+    );
 
     # return both query and parameter array
     my ( $query, $params ) = $self->_build_select(
@@ -1040,6 +1045,7 @@ sub _list_values {
 #===============================================================================
 sub _build_predicate {
     my ( $self, $table_alias, $obj, $prefix ) = @_;
+    my $dbh = $self->{_dbh};
     my $__pred;
     my @exec_params;
 
@@ -1055,7 +1061,8 @@ sub _build_predicate {
                 push @exec_params, $constr_value->($self);
             }
             else {
-                push @pred_and, "$table_alias.$constr_field=$constr_value";
+                push @pred_and,
+                  "$table_alias.$constr_field=" . $dbh->quote($constr_value);
             }
         }
 
@@ -1071,6 +1078,52 @@ sub _build_predicate {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _build_join
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _build_join {
+    my ( $self, $table_alias, $cascade, $join_type ) = @_;
+
+    my $join_symb = lc($join_type) . '_join';
+
+    my $join = $cascade->{$join_symb};
+    return ( '', [] ) if not defined $join;
+    my $table_defs = $self->{_table_defs};
+
+    my @query_components;
+    my @exec_params;
+
+    while ( my ( $other_table_alias, $info ) = each %$join ) {
+
+        my ( $this_field, $other_field, $opts ) = @$info;
+        $opts = {} if not defined $opts;
+
+        my %cascade_other = ( %{ $table_defs->{$other_table_alias} }, %$opts );
+
+        my $other_table = $cascade_other{table};
+        $other_table =
+          ( !defined($other_table) || $other_table eq $other_table_alias )
+          ? $other_table_alias
+          : "$other_table AS $other_table_alias";
+
+        my $pred =
+"$join_type JOIN $other_table ON $table_alias.$this_field=$other_table_alias.$other_field";
+
+        my ( $inner_pred, $inner_params ) =
+          $self->_build_predicate( $other_table_alias, \%cascade_other, 'AND' );
+        push @query_components, "$pred $inner_pred";
+        push @exec_params,      @$inner_params;
+    }
+    return ( join( ' ', @query_components ), \@exec_params );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _build_select
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -1080,14 +1133,8 @@ sub _build_predicate {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _build_select {
-
     my ( $self, $table_alias, $symbol2name, $obj ) = @_;
-
-    #---------------------------------------------------------------------------
-    #  _build_select
-    #---------------------------------------------------------------------------
-    my $dbh = $self->{_dbh};
-
+    my $dbh        = $self->{_dbh};
     my $table_defs = $self->{_table_defs};
     my %cascade    = ( %{ $table_defs->{$table_alias} }, %$obj );
     my $table      = $cascade{table};
@@ -1111,33 +1158,15 @@ sub _build_select {
       . ' FROM '
       . ( ( $table ne $table_alias ) ? "$table AS $table_alias" : $table );
 
-    # INNER JOIN
-    if ( my $inner_join = $cascade{inner_join} ) {
-
-        while ( my ( $other_table_alias, $info ) = each %$inner_join ) {
-
-            my ( $this_field, $other_field, $opts ) = @$info;
-            $opts = {} if not defined $opts;
-
-            my %cascade_other =
-              ( %{ $table_defs->{$other_table_alias} }, %$opts );
-
-            my $other_table = $cascade_other{table};
-            $other_table =
-              ( !defined($other_table) || $other_table eq $other_table_alias )
-              ? $other_table_alias
-              : "$other_table AS $other_table_alias";
-
-            my $pred =
-"INNER JOIN $other_table ON $table_alias.$this_field=$other_table_alias.$other_field";
-
-            my ( $inner_pred, $inner_params ) =
-              $self->_build_predicate( $other_table_alias, \%cascade_other,
-                'AND' );
-            push @query_components, "$pred $inner_pred";
-            push @exec_params,      @$inner_params;
-        }
-    }
+    # JOINS
+    my ( $inner_pred, $inner_params ) =
+      $self->_build_join( $table_alias, \%cascade, 'INNER' );
+    push @query_components, $inner_pred;
+    push @exec_params,      @$inner_params;
+    my ( $left_pred, $left_params ) =
+      $self->_build_join( $table_alias, \%cascade, 'LEFT' );
+    push @query_components, $left_pred;
+    push @exec_params,      @$left_params;
 
     # WHERE
     my ( $where_pred, $where_params ) =

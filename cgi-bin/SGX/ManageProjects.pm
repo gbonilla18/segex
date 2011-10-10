@@ -59,24 +59,59 @@ sub new {
 # proto: fields that are filled out on insert/creation of new records.
         _table_defs => {
             'ProjectStudy' => {
-                key     => [qw/prid stid/],
-                mutable => [],
-                proto   => [qw/prid stid/]
+                key        => [qw/prid stid/],
+                view       => [],
+                mutable    => [],
+                proto      => [qw/prid stid/],
+                constraint => [ prid => sub { shift->{_id} } ]
             },
             'project' => {
-                key     => [qw/prid/],
-                mutable => [qw/prname prdesc/],
-                proto   => [qw/prname prdesc manager/],
-                indexed => [qw/manager/],
-                names   => [qw/prname/],
+                key       => [qw/prid/],
+                mutable   => [qw/prname prdesc manager/],
+                view      => [qw/prname prdesc/],
+                proto     => [qw/prname prdesc manager/],
+                selectors => [qw/manager/],
+                names     => [qw/prname/],
+                labels    => {
+                    prid   => 'No.',
+                    prname => 'Name',
+                    prdesc => 'Description',
+                    uname  => 'Managing User'
+                },
+                lookup => { users => [ manager => 'uid' ] }
             },
             'study' => {
-                key     => [qw/stid/],
-                mutable => [],
-                proto   => [],
-                indexed => [],
-                names   => [qw/description/]
-            }
+                key       => [qw/stid/],
+                mutable   => [],
+                proto     => [],
+                selectors => [qw/pid/],
+                view      => [qw/description pubmed/],
+                names     => [qw/description/],
+                labels    => {
+                    stid        => 'No.',
+                    description => 'Description',
+                    pubmed      => 'PubMed ID',
+                    pid         => 'Platform'
+                },
+                lookup     => { platform     => [ pid  => 'pid' ] },
+                inner_join => { ProjectStudy => [ stid => 'stid' ] }
+            },
+            'users' => {
+                key    => [qw/uid/],
+                view   => [qw/full_name/],
+                names  => [qw/full_name/],
+                labels => {
+                    uid       => 'ID',
+                    uname     => 'Login ID',
+                    full_name => 'Managing User'
+                }
+            },
+            'platform' => {
+                key    => [qw/pid/],
+                view   => [qw/pname species/],
+                names  => [qw/pname/],
+                labels => { pname => 'Platform', species => 'Species' }
+            },
         },
         _default_table => 'project',
         _title         => 'Manage Projects',
@@ -122,25 +157,16 @@ sub readrow_head {
     $self->_readrow_command()->();
 
     #  Sets up _Field_SymbolToIndex and _Field_SymbolToName
-    $self->_readall_setup(
-        stid        => 'No.',
-        description => 'Description',
-        pubmed      => 'PubMed ID',
-        pname       => 'Platform'
-    );
 
     my $table = 'study';
-
-    $self->_readall_command( <<"END_StudiesQuery", $table )->();
-INNER JOIN ProjectStudy USING(stid)
-LEFT JOIN platform USING(pid)
-END_StudiesQuery
+    $self->_readall_command($table)->();
 
     push @{ $self->{_js_src_code} },
       (
         {
-            -code =>
-              $self->_head_data_table( $table, 'ProjectStudy', 'unassign', 0 )
+            -code => $self->_head_data_table(
+                $table, remove_row => [ 'unassign' => 'ProjectStudy' ]
+            )
         }
       );
 
@@ -168,19 +194,19 @@ sub readall_head {
       if ( defined $q->param('prid') )
       and ( $q->param('prid') eq 'all' );
 
-    $self->_readall_setup(
-        prid   => 'No.',
-        prname => 'Name',
-        prdesc => 'Description',
-        uname  => 'Managing User'
-    );
-
     my $table = $self->{_default_table};
-    $self->_readall_command( "LEFT JOIN users ON $table.manager = users.uid",
-        $table )->();
+    $self->_readall_command($table)->();
 
     push @{ $self->{_js_src_code} },
-      ( { -code => $self->_head_data_table( $table, undef, 'delete', 1 ) } );
+      (
+        {
+            -code => $self->_head_data_table(
+                $table,
+                remove_row => ['delete'],
+                view_row   => ['edit']
+            )
+        }
+      );
     return 1;
 }
 
@@ -290,9 +316,9 @@ sub form_assign_head {
         { -src => 'ProjectStudyExperiment.js' },
         {
             -code => $self->get_pse_dropdown_js(
-                extra_projects   => { 
+                extra_projects => {
                     'all' => { name => '@All Projects' },
-                    '' => { name => '@Unassigned Studies' }
+                    ''    => { name => '@Unassigned Studies' }
                 },
                 projects         => 1,
                 project_by_study => 1,
@@ -446,9 +472,8 @@ sub get_pse_dropdown_js {
     $prid = $q->param('prid') if not defined $prid;
 
     return $js->bind(
-        {
-            ProjStudyExp =>
-              $self->{_ProjectStudyExperiment}->get_ByProject(),
+        [
+            ProjStudyExp => $self->{_ProjectStudyExperiment}->get_ByProject(),
             currentSelection => {
                 'project' => {
                     elementId => 'prid',
@@ -478,23 +503,22 @@ sub get_pse_dropdown_js {
                     : ()
                 )
             }
-        },
+        ],
         declare => 1
       )
-      . $js->call(
+      . $js->apply(
         'YAHOO.util.Event.addListener',
         [
             sub { 'window' },
             'load',
             $js->lambda(
-                $js->call(
-                    'populateProject.apply',
-                    [ sub { 'currentSelection' } ],
+                $js->apply(
+                    'populateProject.apply', [ sub { 'currentSelection' } ],
                 ),
                 (
                     ( $args{projects} && $args{studies} )
                     ? (
-                        $js->call(
+                        $js->apply(
                             'populateProjectStudy.apply',
                             [ sub { 'currentSelection' } ],
                         )
@@ -507,7 +531,7 @@ sub get_pse_dropdown_js {
       . (
         ( $args{projects} || $args{studies} )
         ? (
-            $js->call(
+            $js->apply(
                 'YAHOO.util.Event.addListener',
                 [
                     'prid', 'change',
@@ -515,7 +539,7 @@ sub get_pse_dropdown_js {
                         (
                             ( $args{projects} && $args{studies} )
                             ? (
-                                $js->call(
+                                $js->apply(
                                     'populateProjectStudy.apply',
                                     [ sub { 'currentSelection' } ],
                                 )
@@ -524,26 +548,26 @@ sub get_pse_dropdown_js {
                         )
                     )
                 ]
-              )
+            )
           )
         : ''
       )
       . (
         ( $args{projects} && $args{studies} )
         ? (
-            $js->call(
+            $js->apply(
                 'YAHOO.util.Event.addListener',
                 [
                     'prid', 'change',
                     $js->lambda(
-                        $js->call(
+                        $js->apply(
                             'populateProjectStudy.apply',
                             [ sub { 'currentSelection' } ],
                             void => 1
                         )
                     )
                 ],
-              )
+            )
           )
         : ''
       );

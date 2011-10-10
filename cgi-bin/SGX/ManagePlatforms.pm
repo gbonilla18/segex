@@ -90,10 +90,10 @@ sub new {
                     'COUNT(probe.probe_sequence)' => 'Probe Sequences',
                     'COUNT(probe.location)'       => 'Locations'
                 },
-                inner_join => { probe => [ pid => 'pid' ] }
+                left_join => { probe => [ pid => 'pid' ] }
             },
             probe => {
-                key  => [qw/rid/],
+                key  => [qw//],
                 view => [],
             },
             'study' => {
@@ -108,7 +108,7 @@ sub new {
                     description => 'Description',
                     pubmed      => 'PubMed ID'
                 },
-                left_join  => { 'proj' => [ stid => 'stid' ] },
+                lookup  => { 'proj' => [ stid => 'stid' ] },
                 constraint => [ pid    => sub    { shift->{_id} } ]
             },
             'proj' => {

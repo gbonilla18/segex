@@ -202,7 +202,7 @@ function createJoinFormatter(table_info, field, joinColumn) {
         // this also gets executed after we update a cell via AJAX
         //var sub_record = table_info.data[oRecord.getData(joinColumn)];
         var sub_record = table_info.data[oData];
-        elCell.innerHTML = sub_record[sub_col];
+        elCell.innerHTML = (typeof sub_record !== "undefined") ? sub_record[sub_col] : '';
     };
 }
 

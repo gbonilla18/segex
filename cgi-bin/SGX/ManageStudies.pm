@@ -65,7 +65,7 @@ sub new {
 #             output.
 #
 # labels:     What to call each field
-# left_join:  Whether to query additional tablesi emulating SQL join. If present, joins
+# left_join:  Whether to query additional tables emulating SQL join. If present, joins
 #             will be performed on the corresponding fields.
 # inner_join: Whether to add INNER JOIN clause to generated SQL.
         _table_defs => {
@@ -90,7 +90,7 @@ sub new {
                     pubmed      => 'PubMed',
                     pid         => 'Platform'
                 },
-                left_join => { platform => [ pid => 'pid' ] }
+                lookup => { platform => [ pid => 'pid' ] }
             },
             'platform' => {
                 key    => [qw/pid/],
@@ -114,7 +114,7 @@ sub new {
                     ExperimentDescription => 'Description',
                     AdditionalInformation => 'Additional Info'
                 },
-                left_join  => { microarray      => [ eid => 'eid' ] },
+                lookup  => { microarray      => [ eid => 'eid' ] },
                 inner_join => { StudyExperiment => [ eid => 'eid' ] }
             },
             'microarray' => {
