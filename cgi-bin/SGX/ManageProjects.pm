@@ -56,7 +56,7 @@ sub new {
             'ProjectStudy' => {
                 key        => [qw/prid stid/],
                 view       => [],
-                fields     => [qw/prid stid/],
+                base       => [qw/prid stid/],
                 join_type  => 'INNER',
                 constraint => [ prid => sub { shift->{_id} } ]
             },
@@ -64,7 +64,7 @@ sub new {
                 key      => [qw/prid/],
                 resource => 'projects',
                 view     => [qw/prname prdesc/],
-                fields   => [qw/prname prdesc manager/],
+                base     => [qw/prname prdesc manager/],
 
                 # table key to the left, URI param to the right
                 selectors => { manager => 'manager' },
@@ -95,7 +95,7 @@ sub new {
                 # table key to the left, URI param to the right
                 selectors => { pid => 'pid' },
                 view      => [qw/description pubmed/],
-                fields    => [qw/description pubmed/],
+                base      => [qw/description pubmed/],
                 resource  => 'studies',
                 names     => [qw/description/],
                 meta      => {

@@ -66,8 +66,8 @@ sub new {
             'platform' => {
                 key      => [qw/pid/],
                 resource => 'platforms',
-                fields   => [qw/pname def_p_cutoff def_f_cutoff species/],
-                view     => [ qw/pname def_p_cutoff def_f_cutoff species/ ],
+                base     => [qw/pname def_p_cutoff def_f_cutoff species/],
+                view     => [qw/pname def_p_cutoff def_f_cutoff species/],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/pname species/],
                 meta  => {
@@ -112,7 +112,7 @@ sub new {
             'study' => {
                 key      => [qw/stid/],
                 view     => [qw/description pubmed/],
-                fields   => [qw/description pubmed/],
+                base     => [qw/description pubmed/],
                 resource => 'studies',
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/description/],
@@ -142,9 +142,9 @@ sub new {
                   [ project => [ prid => 'prid', { join_type => 'INNER' } ] ]
             },
             'experiment' => {
-                key    => [qw/eid/],
-                view   => [qw/sample1 sample2/],
-                fields => [],
+                key  => [qw/eid/],
+                view => [qw/sample1 sample2/],
+                base => [],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/sample1 sample2/]
             },

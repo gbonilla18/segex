@@ -56,7 +56,7 @@ sub new {
 
                 # table key to the left, URI param to the right
                 selectors => { uname => 'uname' },
-                fields     => [
+                base      => [
                     qw/uname full_name address phone level email email_confirmed/
                 ],
                 view => [

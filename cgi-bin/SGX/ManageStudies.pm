@@ -65,13 +65,13 @@ sub new {
         _table_defs => {
             'StudyExperiment' => {
                 key        => [qw/stid eid/],
-                fields     => [qw/stid eid/],
+                base       => [qw/stid eid/],
                 join_type  => 'INNER',
                 constraint => [ stid => sub { shift->{_id} } ]
             },
             'study' => {
                 key      => [qw/stid/],
-                fields   => [qw/description pubmed pid/],
+                base     => [qw/description pubmed pid/],
                 view     => [qw/description pubmed/],
                 resource => 'studies',
 
@@ -119,7 +119,7 @@ sub new {
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
                 resource => 'experiments',
-                fields   => [
+                base     => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
 

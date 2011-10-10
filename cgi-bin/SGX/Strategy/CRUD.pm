@@ -458,7 +458,7 @@ sub dispatch_js {
 # "tied" to external tables, we don't need to perfom join/look-up queries on
 # those other tables when forming HTML page. Note: {key} will always get
 # selected together with {view} when displaying a page. When generating a Create
-# page, on the other hand, {key} will not be added to {fields}. Using {key} and
+# page, on the other hand, {key} will not be added to {base}. Using {key} and
 # {view} lists will also allow us to preserve order...
 #
 # At the moment, adding key field, e.g. 'pid' to {view} causes numeric output to
@@ -995,9 +995,10 @@ sub _lookup_prepare {
     my ( $this_meta, $lookup )     = @$table_info{qw/meta lookup/};
 
     my $composite_labels = $args{labels};
-    my $type = $args{type} || 'fields';
+    my $fields = $args{fields} || 'base';
 
     #warn Dumper( _get_lookup($table_info, [keys %$composite_labels]) );
+    #warn Dumper( [ keys %$composite_labels ] );
 
     my %lookup_join_sth;    # hash of statement handles for looked-up tables
     my $_other = $self->{_other};
@@ -1112,7 +1113,7 @@ sub _readall_command {
     my $lookup_join_sth = $self->_lookup_prepare(
         $new_opts,
         labels => $composite_labels,
-        type   => 'view'
+        fields => 'view'
     );
 
     # If _id is not set, rely on selectors only. If _id is set, use
@@ -1491,20 +1492,19 @@ sub _readrow_command {
     my $table_info = $table_defs->{$table_alias};
     return if not $table_info;
 
-    my ( $key, $fields ) = @$table_info{qw/key fields/};
-    my @key_copy = @$key;
+    my ( $key, $fields ) = @$table_info{qw/key base/};
 
-    return if @key_copy != 1;
+    return if @$key != 1;
 
     my $table = $table_info->{table} || $table_alias;
-    my $predicate = join( ' AND ', map { "$_=?" } @key_copy );
+    my $predicate = join( ' AND ', map { "$_=?" } @$key );
     my $read_fields = join( ',', @$fields );
     my $query =
       "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
     #warn "getting lookups for $table_alias";
     my $lookup_join_sth =
-      $self->_lookup_prepare( $table_info, type => 'fields' );
+      $self->_lookup_prepare( $table_info, fields => 'base' );
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1512,7 +1512,7 @@ sub _readrow_command {
         return;
     };
 
-    my @params = ( $self->{_id}, ( map { $q->param($_) } cdr(@key_copy) ) );
+    my @params = ( $self->{_id}, ( map { $q->param($_) } cdr @$key ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1549,10 +1549,9 @@ sub _delete_command {
     return if not $table_info;
 
     my $key       = $table_info->{key};
-    my @key_copy  = @$key;
-    my $predicate = join( ' AND ', map { "$_=?" } @key_copy );
+    my $predicate = join( ' AND ', map { "$_=?" } @$key );
     my $query     = "DELETE FROM $table WHERE $predicate";
-    my @params    = ( $self->{_id}, ( map { $q->param($_) } cdr(@key_copy) ) );
+    my @params    = ( $self->{_id}, ( map { $q->param($_) } cdr @$key ) );
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1647,7 +1646,7 @@ sub _create_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
-    my ( $key, $meta, $fields ) = @$table_info{qw/key meta fields/};
+    my ( $key, $meta, $fields ) = @$table_info{qw/key meta base/};
     return if defined $id and @$key < 2;
 
     # If param($field) evaluates to undefined, then we do not set the field.
@@ -1656,13 +1655,12 @@ sub _create_command {
     # NULL.
     # Note: we make exception when inserting a record when resource id is
     # already present: in those cases we create links.
-    my @fields = @$fields;
 
     my $translate_key = $self->_get_param_keys($meta);
     my @assigned_fields =
         ( defined $id )
-      ? ( $fields[0], map { $translate_key->($_) } cdr(@fields) )
-      : map { $translate_key->($_) } @fields;
+      ? ( $fields->[0], map { $translate_key->($_) } cdr @$fields )
+      : map { $translate_key->($_) } @$fields;
 
     my $assignment = join( ',', @assigned_fields );
     my $placeholders = join( ',', map { '?' } @assigned_fields );
@@ -1676,7 +1674,7 @@ sub _create_command {
     my $translate_val = $self->_get_param_values($meta);
     my @params =
         ( defined $id )
-      ? ( $id, map { $translate_val->($_) } cdr(@assigned_fields) )
+      ? ( $id, map { $translate_val->($_) } cdr @assigned_fields )
       : map { $translate_val->($_) } @assigned_fields;
 
     # separate preparation from execution because we may want to send different
@@ -1744,7 +1742,7 @@ sub _get_param_values {
 #       METHOD:  _get_mutable
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Gets all fields from {fields} that not have -disabled key in
+#  DESCRIPTION:  Gets all fields from {base} that not have -disabled key in
 #                {meta}.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -1754,7 +1752,7 @@ sub _get_mutable {
     my ( $self, %args ) = @_;
     my $table_info = $args{table_info}
       || $self->{_table_defs}->{ $args{table_name} };
-    my ( $fields, $meta ) = @$table_info{qw/fields meta/};
+    my ( $fields, $meta ) = @$table_info{qw/base meta/};
     return grep { !$meta->{$_}->{__readonly__} } @$fields;
 }
 
@@ -1834,10 +1832,9 @@ sub _update_command {
     my @fields_to_update =
       map { $translate_key->($_) }
       $self->_get_mutable( table_info => $table_info );
-    my @key_copy = @$key;
 
     my $assignment = join( ',',     map { "$_=?" } @fields_to_update );
-    my $predicate  = join( ' AND ', map { "$_=?" } @key_copy );
+    my $predicate  = join( ' AND ', map { "$_=?" } @$key );
     my $query = "UPDATE $table SET $assignment WHERE $predicate";
 
     my $sth = eval { $dbh->prepare($query) } or do {
@@ -1848,7 +1845,7 @@ sub _update_command {
     my $translate_val = $self->_get_param_values($meta);
     my @params        = (
         ( map { $translate_val->($_) } @fields_to_update ),
-        $self->{_id}, ( map { $translate_val->($_) } cdr(@key_copy) )
+        $self->{_id}, ( map { $translate_val->($_) } cdr @$key )
     );
 
     # separate preparation from execution because we may want to send different
@@ -1985,7 +1982,7 @@ sub body_edit_fields {
     my $table_info   = $table_defs->{$table} || {};
     my $default_meta = $table_info->{meta}   || {};
     my $args_meta    = $args{meta}           || {};
-    my $fields       = $table_info->{fields};
+    my $fields       = $table_info->{base};
 
     my $fields_meta =
       +{ map { $_ => inherit_hash( $args_meta->{$_}, $default_meta->{$_} ) }
