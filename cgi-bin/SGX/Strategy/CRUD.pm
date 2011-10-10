@@ -453,17 +453,28 @@ sub dispatch_js {
 #  DESCRIPTION:  Given a table structure/hash, returns {lookup} component while
 #                adding to it all information from {meta}.
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  
+# :TODO:09/29/2011 20:27:16:es: Add parameter that would allow us to specify
+# which fields exactly get processed. For example, when displaying a table, we
+# only need fields from {view}, and if there are fields not in {view} that are
+# "tied" to external tables, we don't need to perfom join/lookup queries on
+# those other tables when forming HTML page. Note: {key} will always get
+# selected together with {view} when displaying a page. When generating a Create
+# page, on the other hand, {key} will not be added to {proto}.
+#
 #     SEE ALSO:  n/a
 #===============================================================================
-#sub get_lookup
-#{
-#    my $table_info = shift;
-#    my %lookup;
-#    my ($fields_meta, $table_lookup) = @$table_info{qw/meta lookup/};
-#    while (my ($field, $meta) = each %$fields_meta) {
-#        $lookup
+#sub _get_lookup {
+#    my $table_info = shift; 
+#    $table_info->{lookup} = [] if not defined $table_info->{lookup};
+#    my ( $fields_meta, $table_lookup ) = @$table_info{qw/meta lookup/};
+#
+#    while ( my ( $this_field, $this_meta ) = each %$fields_meta ) {
+#        my ( $other_table, $other_field ) = @{ $this_meta->{__tie__} || [] };    
+#        push @$table_lookup,
+#          ( $other_table => [ $this_field => $other_field ] );
 #    }
+#    return $table_lookup;
 #}
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
@@ -967,11 +978,10 @@ sub getJSHeaders {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _lookup_prepare {
-    my ( $self, $table_alias, $composite_labels ) = @_;
+    my ( $self, $table_info, $composite_labels ) = @_;
 
     # now add all fields on which we are joining if they are absent
     my ( $dbh, $table_defs ) = @$self{qw/_dbh _table_defs/};
-    my $table_info = $table_defs->{$table_alias};
     my ( $this_meta, $lookup ) = @$table_info{qw/meta lookup/};
 
     my %lookup_join_sth;    # hash of statement handles for lookup
@@ -1085,9 +1095,11 @@ sub _readall_command {
     # in-SQL but instead run a separate query. For inner joins, we add predicate
     # to the main SQL query.
 
+    my $new_opts = inherit_hash( { group_by => $key }, $table_info );
+
     # :TRICKY:09/28/2011 12:25:52:es: _lookup_prepare modifies $composite_labels
     my $lookup_join_sth =
-      $self->_lookup_prepare( $table_alias, $composite_labels );
+      $self->_lookup_prepare( $new_opts, $composite_labels );
 
     # If _id is not set, rely on selectors only. If _id is set, use
     # default_table._id *and* selectors on the second table.
@@ -1096,7 +1108,7 @@ sub _readall_command {
       ( $key->[0], $table_defs->{$default_table}->{key}->[0] );
 
     # :TRICKY:09/28/2011 12:26:49:es: _build_select modifies $composite_labels
-    my $new_opts = inherit_hash( { group_by => $key }, $table_info );
+    # as well as $new_opts
     my ( $query, $params ) =
       $self->_build_select( $table_alias, $composite_labels, $new_opts );
 
@@ -1297,17 +1309,14 @@ sub _build_join {
     while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
 
         my ( $this_field, $other_field, $opts ) = @$info;
-        $opts = {} if not defined $opts;
         $this_field = "$table_alias.$this_field"
           if ( $this_field !~ m/\./ );
 
         my $other_table_defs = $table_defs->{$other_table_alias} || {};
 
-        # :TODO:09/28/2011 12:43:04:es: use inherit_hash for statement below
-        #my %cascade_other = ( %$other_table_defs, %$opts );
-        inherit_hash( $opts, $other_table_defs );
+        my $new_opts = inherit_hash( $opts, $other_table_defs );
 
-        my $other_table = $opts->{table};
+        my $other_table = $new_opts->{table};
         $other_table =
           ( !defined($other_table) || $other_table eq $other_table_alias )
           ? $other_table_alias
@@ -1315,11 +1324,11 @@ sub _build_join {
 
         my ( $join_pred, $join_params, $constr, $mod_join_type ) =
           $self->_build_predicate(
-            $other_table_alias => $opts,
+            $other_table_alias => $new_opts,
             'AND'
           );
         push @{ $cascade->{constraint} }, @$constr;
-        my $join_type = $opts->{join_type} || 'LEFT';
+        my $join_type = $new_opts->{join_type} || 'LEFT';
         $join_type = $mod_join_type if defined $mod_join_type;
 
         if ( $join_type ne '' ) {
@@ -1366,14 +1375,11 @@ sub _buld_select_fields {
     my @join_copy = @{ $join || [] };
     while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
 
-        my $opts = $info->[2] || {};
         my $other_table_defs = $table_defs->{$other_table_alias} || {};
 
-        # :TODO:09/28/2011 12:43:04:es: use inherit_hash for statement below
-        #my %cascade_other = ( %$other_table_defs, %$opts );
-        inherit_hash( $opts, $other_table_defs );
+        my $new_opts = inherit_hash( $info->[2], $other_table_defs );
 
-        my ( $other_view, $other_meta ) = @$opts{qw/view meta/};
+        my ( $other_view, $other_meta ) = @$new_opts{qw/view meta/};
 
         foreach my $field_alias (@$other_view) {
             my $field_meta = $other_meta->{$field_alias} || {};
@@ -1412,7 +1418,6 @@ sub _build_select {
     my ( $self, $table_alias, $symbol2name, $cascade ) = @_;
     my $dbh = $self->{_dbh};
 
-    #inherit_hash( $cascade, $table_defs->{$table_alias} );
     my $table = $cascade->{table} || $table_alias;
     my $meta  = $cascade->{meta}  || {};
 
@@ -1493,7 +1498,7 @@ sub _readrow_command {
       "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
     #warn "getting lookups for $table_alias";
-    my $lookup_join_sth = $self->_lookup_prepare($table_alias);
+    my $lookup_join_sth = $self->_lookup_prepare($table_info);
 
  # :TODO:09/26/2011 01:57:43:es: Also need to perform lookup for readrow_command
  # in some cases...
@@ -1939,10 +1944,6 @@ sub _body_edit_fields {
     my $args_meta    = $args{meta}           || {};
     my $fields       = $table_info->{proto};
 
-    # :TODO:09/24/2011 17:32:20:es:  use inherit_hash here
-    #my %fields_meta = map {
-    #    $_ => +{ %{ $default_meta->{$_} || {} }, %{ $args_meta->{$_} || {} } }
-    #} @$fields;
     my $fields_meta =
       +{ map { $_ => inherit_hash( $args_meta->{$_}, $default_meta->{$_} ) }
           @$fields };
