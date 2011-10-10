@@ -30,15 +30,28 @@ my $softwareVersion = '0.2.4';
 
 my $dbh = sgx_db_connect();
 
- # :TRICKY:08/09/2011 13:30:40:es: When key/value pairs are copied from a
- # permanent cookie to a session cookie, we want to set up an "event handler"
- # that, upon encountering certain symbols in the permanent cookie, would
- # execute some code. The code executed would, in its turn, produce key/value
- # tuples that would be then stored in the session cookie.
- #    The motivation of doing things this way (instead of simply including the
- # code into SGX::Session::User) is that our event handling code may query
- # different tables and/or databases that we do not want SGX::Session::User to
- # know about. This way we implement separation of concerns.
+ # :TRICKY:08/09/2011 13:30:40:es: 
+ 
+ # When key/value pairs are copied from a permanent cookie to a session cookie,
+ # we may want to execute some code, depending on which symbols we encounter in
+ # the permanent cookie. The code executed would, in its turn, produce key/value
+ # tuples that would be then stored in the session cookie. At the same time, the
+ # code directly copying the key/value pairs may not know which symbols it will
+ # encounter. 
+ 
+ # This is similar to the Visitor pattern except that Visitor operates on
+ # objects (and executes methods depending on the classes of objects it
+ # encounters), and our class operates on key-value pairs (which of course can
+ # be represented as objects but we choose not to, since key symbols are already
+ # unique and clearly defined). While in the Visitor pattern, the double
+ # dispatch that occurs depends on the type of Visitor passed and on the type of
+ # object being operated on, in our case the double dispatch depends on the type
+ # of Visitor passed and on the key symbols encountered.
+ 
+ # The motivation of doing things this way (instead of simply including the code
+ # into SGX::Session::User) is that our event handling code may query different
+ # tables and/or databases that we do not want SGX::Session::User to know about.
+ # This way we implement separation of concerns.
 
  # :TODO:08/09/2011 17:08:51:es: This code should be a part of SGX::Profile
  # class.
@@ -137,7 +150,7 @@ use constant ABOUT          => 'about';
 my %dispatch_table = (
 
     # :TODO:08/07/2011 20:39:03:es: come up with nouns to replace verbs for
-    # better RESTfullness
+    # better RESTfulness
     #
     # verbs
     uploadAnnot        => 'SGX::UploadAnnot',
