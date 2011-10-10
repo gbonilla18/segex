@@ -1,3 +1,15 @@
+function sortNestedByColumn (tuples, column) {
+    tuples.sort(function (a, b) {
+        a = a[column];
+        b = b[column];
+        return a < b ? -1 : (a > b ? 1 : 0);
+    }); 
+}
+function sortNestedByColumnNumeric (tuples, column) {
+    tuples.sort(function (a, b) {
+        return a[column] - b[column];
+    }); 
+}
 /******************************************************************/
 function getSelectedValue(obj)
 {
@@ -84,12 +96,7 @@ function populateProject()
         var content = projectNode.name;
         tuples.push([i, content]);
     }
-    // generic tuple sort (sort hash by value)
-    tuples.sort(function(a, b) {
-        a = a[1];
-        b = b[1];
-        return a < b ? -1 : (a > b ? 1 : 0);
-    });
+    sortNestedByColumn(tuples, 1);
 
     // build dropdown box
     buildDropDown(projects, tuples, project.selected, oldWidth);
@@ -122,13 +129,7 @@ function populateProjectStudy()
             var content = study_data[i].name;
             tuples.push([i, content]);
         }
-        // generic tuple sort (sort hash by numeric key)
-        tuples.sort(function(a, b) {
-            //return a[0] - b[0];
-            a = a[1];
-            b = b[1];
-            return a < b ? -1 : (a > b ? 1 : 0);
-        });
+        sortNestedByColumn(tuples, 1);
 
         buildDropDown(studies, tuples, study.selected, oldWidth);
     }
@@ -181,10 +182,7 @@ function populateStudyExperiment()
             }
             tuples.push([i, content]);
         }
-        // generic tuple sort (sort hash by numeric key)
-        tuples.sort(function(a, b) {
-            return a[0] - b[0];
-        });
+        sortNestedByColumnNumeric(tuples, 0);
 
         // build dropdown box
         buildDropDown(experiments, tuples, experiment.selected, oldWidth);

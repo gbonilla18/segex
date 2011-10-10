@@ -363,3 +363,85 @@ function formatEmail(elLiner, oRecord, oColumn, oData) {
     elLiner.innerHTML = "<a href=\"mailto:" + oData + "\">" + oData + "</a>";
 };
 
+// returns a new array containing a specified subset of the old one
+function selectFromArray(array, subset) {
+    var subset_length = subset.length;
+    var result = new Array(subset_length);
+    for (var i = 0; i < subset_length; i++) {
+        result[i] = array[subset[i]];
+    }
+    return result;
+}
+
+function sortNestedByColumn (tuples, column) {
+    tuples.sort(function (a, b) {
+        a = a[column];
+        b = b[column];
+        return a < b ? -1 : (a > b ? 1 : 0);
+    });
+}
+
+function populateDropdowns(lookupTables, lookup, data) {
+    var inverseLookup = {};
+    forPairInList(lookup, function(table, fieldmap) {
+        var this_field = fieldmap[0];
+
+        // only use first lookup
+        if (!(this_field in inverseLookup)) {
+            var table_info = lookupTables[table];
+            var other_field = fieldmap[1];
+            var symbol2index = table_info.symbol2index;
+            var other_index = symbol2index[other_field];
+            var names = table_info.names;
+            if (names === null) {
+                // default to key field 
+                names = [other_field];
+            }
+            var name_indexes = [];
+            for (var i = 0, name_count = names.length; i < name_count; i++) {
+                name_indexes.push(symbol2index[names[i]]);
+            }
+            name_indexes.sort();
+
+            // now create a key-value structure mapping lookud up values of
+            // this_field to names in lookup table
+            var records = table_info.records;
+            var records_length = records.length;
+            var id_name = [['', '@None']];
+            for (var i = 0; i < records_length; i++) {
+                var record = records[i];
+                id_name.push([record[other_index], selectFromArray(record, name_indexes).join(' / ')]);
+            }
+            // generic tuple sort (sort hash by value)
+            sortNestedByColumn(id_name, 1);
+            inverseLookup[this_field] = {options: id_name, selected:data[this_field]};
+        }
+    });
+    return function() {
+        for (key in inverseLookup) {
+            var obj = document.getElementById(key);
+            if (obj !== null) {
+                var val = inverseLookup[key];
+                var selected = val.selected;
+                var tuples = val.options;
+                var tuples_length = tuples.length;
+
+                // default width
+                if (tuples_length === 0) {
+                    obj.style.width = '200px';
+                }
+                for (var i = 0; i < tuples_length; i++) {
+                    var key = tuples[i][0];
+                    var value = tuples[i][1];
+                    var option = document.createElement('option');
+                    option.setAttribute('value', key);
+                    if (typeof(selected) !== 'undefined' && key === selected) {
+                        option.selected = 'selected';
+                    }
+                    option.innerHTML = value;
+                    obj.appendChild(option);
+                }
+            }
+        }
+    };
+}

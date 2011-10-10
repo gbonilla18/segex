@@ -177,9 +177,11 @@ sub new {
                 names => [qw/sample1 sample2/]
             },
         },
-        _default_table => 'platform',
-        _title         => 'Manage Platforms',
-        _item_name     => 'Platform',
+        _default_table  => 'platform',
+        _readrow_tables => [ 'study' => {} ],
+
+        _title     => 'Manage Platforms',
+        _item_name => 'Platform',
 
         _id      => undef,
         _id_data => {},
@@ -190,40 +192,12 @@ sub new {
     );
 
     $self->register_actions(
-        'head' => {
-            form_assign => 'form_assign_head'
-        },
-        'body' => {
-            form_assign => 'form_assign_body'
-        }
+        'head' => { form_assign => 'form_assign_head' },
+        'body' => { form_assign => 'form_assign_body' }
     );
 
     bless $self, $class;
     return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  readrow
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readrow_head {
-    my $self = shift;
-
-    # get data for given platform
-    $self->SUPER::readrow_head();
-
-    my $table = 'study';
-
-    # add extra table showing studies
-    $self->generate_datatable( 'study' );
-
-    return 1;
 }
 
 #######################################################################################

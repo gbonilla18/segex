@@ -153,9 +153,13 @@ sub new {
                 group_by => [qw/eid/]
             }
         },
-        _default_table => 'study',
-        _title         => 'Manage Studies',
-        _item_name     => 'Study',
+        _default_table  => 'study',
+        _readrow_tables => [
+            'experiment' =>
+              { remove_row => [ 'unassign' => 'StudyExperiment' ] }
+        ],
+        _title     => 'Manage Studies',
+        _item_name => 'Study',
 
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
@@ -165,46 +169,12 @@ sub new {
     );
 
     $self->register_actions(
-        'head' => {
-            form_assign => 'form_assign_head'
-        },
-        'body' => {
-            form_assign => 'form_assign_body'
-        }
+        'head' => { form_assign => 'form_assign_head' },
+        'body' => { form_assign => 'form_assign_body' }
     );
 
     bless $self, $class;
     return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageStudies
-#       METHOD:  readrow
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readrow_head {
-    my $self = shift;
-
-    # get data for given study
-    $self->SUPER::readrow_head();
-
-    # add extra table showing experiments
-    $self->generate_datatable( 'experiment',
-        remove_row => [ 'unassign' => 'StudyExperiment' ] );
-
-    # add platform dropdown
-    push @{ $self->{_js_src_code} },
-      (
-        { -src  => 'PlatformStudyExperiment.js' },
-        { -code => $self->get_pse_dropdown_js( platform_by_study => 1 ) }
-      );
-
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -239,28 +209,6 @@ sub readall_head {
       );
 
     return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageStudies
-#       METHOD:  form_create_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub form_create_head {
-    my $self = shift;
-
-    # dropdowns
-    push @{ $self->{_js_src_code} },
-      (
-        { -src  => 'PlatformStudyExperiment.js' },
-        { -code => $self->get_pse_dropdown_js( platforms => 1 ) }
-      );
-    return $self->SUPER::form_create_head();
 }
 
 #######################################################################################

@@ -134,8 +134,10 @@ sub new {
             },
         },
         _default_table => 'project',
-        _title         => 'Manage Projects',
-        _item_name     => 'Project',
+        _readrow_tables =>
+          [ 'study' => { remove_row => [ 'unassign' => 'ProjectStudy' ] } ],
+        _title     => 'Manage Projects',
+        _item_name => 'Project',
 
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
@@ -147,39 +149,12 @@ sub new {
     );
 
     $self->register_actions(
-        'head' => {
-            form_assign => 'form_assign_head'
-        },
-        'body' => {
-            form_assign => 'form_assign_body'
-        }
+        'head' => { form_assign => 'form_assign_head' },
+        'body' => { form_assign => 'form_assign_body' }
     );
 
     bless $self, $class;
     return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  readrow
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readrow_head {
-    my $self = shift;
-
-    # get data for given project
-    $self->SUPER::readrow_head();
-
-    # add extra table showing studies
-    $self->generate_datatable( 'study',
-        remove_row => [ 'unassign' => 'ProjectStudy' ] );
-
-    return 1;
 }
 
 #######################################################################################

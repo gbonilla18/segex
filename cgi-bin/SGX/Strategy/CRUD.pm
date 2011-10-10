@@ -46,13 +46,21 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     require SGX::Abstract::JSEmitter;
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
     $self->set_attributes(
         dom_table_id       => 'crudTable',
         dom_export_link_id => 'crudTable_astext',
         _other             => {},
-        _js_emitter        => SGX::Abstract::JSEmitter->new( pretty => 1 )
+        _js_emitter        => $js,
+        _js_env            => $js->register_var( '_glob', [qw/lookupTables/] ),
+        _js_code           => []
     );
 
+    # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?
+    # E.g.:
+    #       form_create => { GET => form_create_head, POST => create_default },
+    #       form_assign => { _default => form_assign }
+    #
     # dispatch table for other requests (returning 1 results in response
     # without a body)
     $self->register_actions(
@@ -146,7 +154,7 @@ sub _head_data_table {
     my $var = $js->register_var(
         '_a',
         [
-            qw/data cellUpdater cellDropdown cellDropdownDirect DataTable lookupTables
+            qw/data cellUpdater cellDropdown cellDropdownDirect DataTable
               resourceURIBuilder rowNameBuilder deleteDataBuilder DataSource/
         ]
     );
@@ -169,17 +177,18 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     #  YUI column definitions
     #---------------------------------------------------------------------------
+
+    my $lookupTables = $self->{_js_env}->{lookupTables};
+
     my $column = $self->_head_column_def(
         table                => $table,
         js_emitter           => $js,
         data_table           => $var->{data},
         cell_updater         => $var->{cellUpdater},
         cell_dropdown        => $var->{cellDropdown},
-        lookup_tables        => $var->{lookupTables},
+        lookup_tables        => $lookupTables,
         cell_dropdown_direct => $var->{cellDropdownDirect}
     );
-
-    my $lookupTables = $var->{lookupTables};
 
     my @column_defs = (
 
@@ -366,7 +375,7 @@ sub _head_data_table {
                           )
                         : ()
                     )
-                },
+                }
             ]
         )
     );
@@ -376,8 +385,7 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     return $js->bind(
         [
-            $var->{lookupTables} => $self->{_other},
-            $var->{data}         => $js->apply(
+            $var->{data} => $js->apply(
                 'expandJoinedFields',
                 [
                     {
@@ -388,7 +396,7 @@ sub _head_data_table {
                         meta    => $self->_export_meta($this_meta),
                         lookup  => $self->{_this_lookup}
                     },
-                    $var->{lookupTables}
+                    $self->{_js_env}->{lookupTables}
                 ]
             )
         ],
@@ -420,10 +428,7 @@ sub _head_data_table {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub dispatch_js {
-    my ($self) = @_;
-
-    my ( $q, $js_src_yui, $js_src_code ) =
-      @$self{qw/_cgi _js_src_yui _js_src_code/};
+    my $self = shift;
 
     my $action = $self->get_dispatch_action();
 
@@ -450,12 +455,57 @@ sub dispatch_js {
     #
     return if $self->_dispatch_by( 'redirect', $action );
 
-    return 1 if $self->_dispatch_by( 'head', $action );    # show body
+    if ( $self->_dispatch_by( 'head', $action ) ) {
+        $self->_js_dump();
+        return 1;
+    }
 
     # default actions
-    return ( defined $self->{_id} )
-      ? $self->readrow_head
-      : $self->readall_head;
+    if (
+        ( defined $self->{_id} )
+        ? $self->readrow_head()
+        : $self->readall_head()
+      )
+    {
+        $self->_js_dump();
+        return 1;
+    }
+    return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _js_dump
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _js_dump {
+    my $self = shift;
+    my ( $js_src_code, $code ) = @$self{qw/_js_src_code _js_code/};
+    push @$js_src_code, +{ -code => join( "\n", @$code ) };
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _js_dump_lookups
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _js_dump_lookups {
+    my $self = shift;
+    my ( $js, $js_env, $code, $lookups ) =
+      @$self{qw/_js_emitter _js_env _js_code _other/};
+    unshift @$code,
+      '' . $js->bind( [ $js_env->{lookupTables} => $lookups ], declare => 1 );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -538,7 +588,18 @@ sub _export_meta {
 #===============================================================================
 sub readrow_head {
     my $self = shift;
+
+    # default table row
     $self->_readrow_command()->();
+
+    # other tables if any are specified
+    foreach ( tuples( $self->{_readrow_tables} ) ) {
+        my ( $table, $opts ) = @$_;
+        $self->generate_datatable( $table, %$opts );
+    }
+
+    $self->_js_dump_lookups();
+    $self->_js_populate_dropdowns();             # will use default table
     return 1;
 }
 
@@ -555,11 +616,14 @@ sub readrow_head {
 sub readall_head {
     my $self  = shift;
     my $table = $self->{_default_table};
-    return $self->generate_datatable(
+    my $ret   = $self->generate_datatable(
         $table,
         remove_row => ['delete'],
         view_row   => ['edit']
     );
+
+    $self->_js_dump_lookups();
+    return $ret;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -573,15 +637,14 @@ sub readall_head {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub generate_datatable {
-    my ( $self, $table, %extras ) = @_;
-    my ( $q, $table_defs ) = @$self{qw/_cgi _table_defs/};
+    my ( $self, $table,      %args ) = @_;
+    my ( $q,    $table_defs, $code ) = @$self{qw/_cgi _table_defs _js_code/};
     my $table_info = $table_defs->{$table};
 
     $self->_readall_command($table)->();
 
     # generate all the neccessary Javascript for the YUI DataTable control
-    push @{ $self->{_js_src_code} },
-      +{ -code => $self->_head_data_table( $table, %extras ) };
+    push @$code, $self->_head_data_table( $table, %args );
     return 1;
 }
 
@@ -1009,7 +1072,7 @@ sub getJSHeaders {
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  Fills out {_other}
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _lookup_prepare {
@@ -1045,7 +1108,8 @@ sub _lookup_prepare {
               $this_meta->{$this_field}->{label};
         }
 
-        my ( $other_key, $other_view, $other_meta ) = @$opts{qw/key view meta/};
+        my ( $other_key, $other_view, $other_meta, $other_names ) =
+          @$opts{qw/key view meta names/};
 
         # prepend key field(s)
         my $other_select_fields =
@@ -1072,6 +1136,7 @@ sub _lookup_prepare {
         $js_store->{index2symbol} = [ keys %$other_select_fields ];
         $js_store->{key}          = $other_key;
         $js_store->{view}         = $other_view;
+        $js_store->{names}        = $other_names;
         $js_store->{meta}         = $self->_export_meta($other_meta);
     }
     return \%lookup_join_sth;
@@ -2081,6 +2146,51 @@ sub form_create_head {
     my $self = shift;
     return if defined $self->{_id};    # no _id
 
+    #---------------------------------------------------------------------------
+    #  Lookups
+    #---------------------------------------------------------------------------
+    # using default table
+    my $lookup_join_sth =
+      $self->_lookup_prepare( $self->{_table_defs}->{ $self->{_default_table} },
+        fields => 'base' );
+    $self->_lookup_execute($lookup_join_sth);    # fills {_other}
+    $self->_js_dump_lookups();                   # dumps {_other}
+    $self->_js_populate_dropdowns();             # will use default table
+
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _js_populate_dropdowns
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _js_populate_dropdowns {
+    my $self       = shift;
+    my $table      = shift || $self->{_default_table};
+    my $table_info = $self->{_table_defs}->{$table};
+    my ( $js, $js_env, $code ) = @$self{qw/_js_emitter _js_env _js_code/};
+
+    #---------------------------------------------------------------------------
+    #  JS code
+    #---------------------------------------------------------------------------
+    push @$code, ''
+      . $js->apply(
+        'YAHOO.util.Event.addListener',
+        [
+            $js->literal('window'),
+            'load',
+            $js->apply(
+                'populateDropdowns',
+                [ $js_env->{lookupTables}, $table_info->{lookup}, $self->{_id_data} ]
+            )
+        ]
+      );
     return 1;
 }
 
@@ -2214,10 +2324,6 @@ sub body_edit_fields {
                     $labels{$p_val} = $p_lab;
                 }
             }
-
-            #else {
-            # # lookup table
-            #}
             push @tmp,
               (
                 $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
