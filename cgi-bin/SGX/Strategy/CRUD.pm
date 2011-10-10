@@ -26,6 +26,7 @@ use JSON;
 use Tie::IxHash;
 use List::Util qw/max/;
 use Data::Dumper;
+use Scalar::Util qw/looks_like_number/;
 use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
@@ -1086,6 +1087,8 @@ sub _build_predicate {
     my @exec_params;
     my @constr;
 
+    my $mod_join_type;
+
     if ( my $constraints = $obj->{constraint} ) {
         my @constr_copy = @$constraints;
 
@@ -1120,9 +1123,18 @@ sub _build_predicate {
     if ( lc($prefix) eq 'and' ) {
         foreach my $special_field ( grep { defined } @$other_sel{@$other_key} )
         {
-            if ( grep { $_ eq '' } $q->param($special_field) ) {
+            my $val = $q->param($special_field);
+            if ( defined($val) && $val eq '' ) {
+
+                # find unassigned records
+                $mod_join_type = 'LEFT';
                 push @constr, ( "$table_alias.$special_field" => undef );
                 delete $selectors{$special_field};
+            }
+            elsif ( !defined($val) || !looks_like_number($val) ) {
+
+                # find all records -- do not join
+                $mod_join_type = '';
             }
         }
     }
@@ -1143,7 +1155,7 @@ sub _build_predicate {
     my $pred =
       ( ( @pred_and > 0 ) ? "$prefix " : '' ) . join( ' AND ', @pred_and );
 
-    return ( $pred, \@exec_params, \@constr );
+    return ( $pred, \@exec_params, \@constr, $mod_join_type );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1182,19 +1194,21 @@ sub _build_join {
           ? $other_table_alias
           : "$other_table AS $other_table_alias";
 
-        my ( $join_pred, $join_params, $constr ) = $self->_build_predicate(
+        my ( $join_pred, $join_params, $constr, $mod_join_type ) =
+          $self->_build_predicate(
             $other_table_alias => \%cascade_other,
             'AND'
-        );
+          );
         push @{ $cascade->{constraint} }, @$constr;
         my $join_type = $cascade_other{join_type} || 'LEFT';
-        $join_type = 'LEFT' if ( @$constr > 1 );
+        $join_type = $mod_join_type if defined $mod_join_type;
 
-        my $pred =
+        if ( $join_type ne '' ) {
+            my $pred =
 "$join_type JOIN $other_table ON $this_field=$other_table_alias.$other_field";
-
-        push @query_components, "$pred $join_pred";
-        push @exec_params,      @$join_params;
+            push @query_components, "$pred $join_pred";
+            push @exec_params,      @$join_params;
+        }
     }
     return ( join( ' ', @query_components ), \@exec_params );
 }

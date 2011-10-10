@@ -80,8 +80,8 @@ use Hash::Merge qw/merge/;
 use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  new
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  This is the constructor
@@ -105,11 +105,11 @@ sub new {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  get_ByPlatform
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  getter method for _ByPlatform
+#  DESCRIPTION:  getter method
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -120,8 +120,8 @@ sub get_ByPlatform {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  get_ByStudy
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  getter method for _ByStudy
@@ -135,8 +135,8 @@ sub get_ByStudy {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatformFromStudy
+
+
 #   PARAMETERS:  stid
 #      RETURNS:  pid
 #  DESCRIPTION:
@@ -150,8 +150,8 @@ sub getPlatformFromStudy {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatformNameFromPID
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -165,8 +165,8 @@ sub getPlatformNameFromPID {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatformStudyName
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -181,8 +181,8 @@ sub getPlatformStudyName {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  init
+
+
 #   PARAMETERS:
 #       platforms          => T/F - whether to add platform info such as
 #                                   species and platform name
@@ -340,8 +340,8 @@ sub init {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatforms
+
+
 #   PARAMETERS:  extra => {
 #                   'all' => { name => '@All Platforms', species => undef },
 #                   ''    => { name => '@Unassigned', species => undef }
@@ -443,8 +443,8 @@ END_PLATFORMQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getPlatformStudy
+
+
 #   PARAMETERS:  extra => {
 #                    '' => { name => '@Unassigned' }
 #                }
@@ -461,10 +461,7 @@ END_PLATFORMQUERY
 sub getPlatformStudy {
     my ( $self, %args ) = @_;
 
-    my $extra_studies =
-      ( defined $args{extra} )
-      ? $args{extra}
-      : {};
+    my $extra_studies = $args{extra} || {};
 
     # default: false
     my $all_platforms = $args{all_platforms};
@@ -549,8 +546,8 @@ END_STUDYQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getExperiments
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
 #  DESCRIPTION:
@@ -629,8 +626,8 @@ END_EXPERIMENTQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  PlatformStudyExperiment
-#       METHOD:  getStudyExperiment
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
 #  DESCRIPTION:  create a structure describing which study has which experiments

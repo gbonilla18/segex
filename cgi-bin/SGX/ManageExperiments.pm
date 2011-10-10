@@ -73,7 +73,6 @@ sub new {
         _table_defs => {
             'StudyExperiment' => {
                 key       => [qw/eid stid/],
-                mutable   => [],
                 proto     => [qw/eid stid/],
                 join_type => 'INNER',
 
@@ -170,7 +169,7 @@ sub new {
                     }
                 },
                 lookup => {
-                    microarray => [ eid => 'eid' ],
+                    data_count => [ eid => 'eid' ],
                     (
                         looks_like_number( $q->param('stid') ) ? ()
                         : ( 'study_brief' => [ 'eid' => 'eid' ] )
@@ -182,22 +181,18 @@ sub new {
                 },
                 join => [ StudyExperiment => [ eid => 'eid' ] ]
             },
-            'microarray' => {
-                key     => [qw/eid rid/],
-                view    => [qw/COUNT(1)/],
-                proto   => [],
-                mutable => [],
-                meta    => {
+            'data_count' => {
+                table => 'experiment',
+                key   => [qw/eid/],
+                view  => [qw/COUNT(microarray.eid)/],
+                meta  => {
                     eid => { label => 'No.', parser => 'number' },
-                    'COUNT(1)' => { label => 'Probe Count', parser => 'number' }
+                    'COUNT(microarray.eid)' =>
+                      { label => 'Data Count', parser => 'number' }
                 },
                 join => [
                     StudyExperiment => [ eid => 'eid' ],
-
-                    # join below is not necessary but surprisingly it speeds up
-                    # listings by about four times when pid= is among the CGI
-                    # parameters!
-                    experiment => [ eid => 'eid', { join_type => 'INNER' } ]
+                    microarray => [ eid => 'eid', { join_type => 'LEFT' } ]
                 ]
             }
         },

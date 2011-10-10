@@ -80,8 +80,8 @@ use Hash::Merge qw/merge/;
 use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  new
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  This is the constructor
@@ -105,11 +105,11 @@ sub new {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  get_ByProject
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  getter method for _ByProject
+#  DESCRIPTION:  getter method
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -120,8 +120,8 @@ sub get_ByProject {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  get_ByStudy
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  getter method for _ByStudy
@@ -135,8 +135,8 @@ sub get_ByStudy {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  getProjectFromStudy
+
+
 #   PARAMETERS:  stid
 #      RETURNS:  prid
 #  DESCRIPTION:
@@ -150,8 +150,8 @@ sub getProjectFromStudy {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  getProjectNameFromPID
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -165,8 +165,8 @@ sub getProjectNameFromPID {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  getProjectStudyName
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -181,8 +181,8 @@ sub getProjectStudyName {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  init
+
+
 #   PARAMETERS:
 #       projects          => T/F - whether to add project info such as
 #                                   prdesc and project name
@@ -340,8 +340,8 @@ sub init {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  getProjects
+
+
 #   PARAMETERS:  extra => {
 #                   'all' => { name => '@All Projects', prdesc => undef },
 #                   ''    => { name => '@Unassigned', prdesc => undef }
@@ -444,8 +444,8 @@ END_PLATFORMQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  getProjectStudy
+
+
 #   PARAMETERS:  extra => {
 #                    '' => { name => '@Unassigned' }
 #                }
@@ -462,10 +462,7 @@ END_PLATFORMQUERY
 sub getProjectStudy {
     my ( $self, %args ) = @_;
 
-    my $extra_studies =
-      ( defined $args{extra} )
-      ? $args{extra}
-      : {};
+    my $extra_studies = $args{extra} || {};
 
     # default: false
     my $all_projects = $args{all_projects};
@@ -551,8 +548,8 @@ END_STUDYQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  getExperiments
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
 #  DESCRIPTION:
@@ -629,8 +626,8 @@ END_EXPERIMENTQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ProjectStudyExperiment
-#       METHOD:  getStudyExperiment
+
+
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
 #  DESCRIPTION:  create a structure describing which study has which experiments
