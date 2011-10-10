@@ -118,19 +118,19 @@ sub _dispatch_by {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _head_data_table {
-    my ( $self, $table, $del_table, $del_verb, $show_edit ) = @_;
+    my ( $self, $table, %args ) = @_;
 
     #---------------------------------------------------------------------------
     #  setup
     #---------------------------------------------------------------------------
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
-    my $s2i = $self->{_this_symbol2index};
+    my ( $remove_row, $view_row ) = @args{qw/remove_row view_row/};
+    my @deletePhrase = ( defined $remove_row ) ? @$remove_row : ('delete');
+    push( @deletePhrase, $table ) if not defined $deletePhrase[1];
+    my @editPhrase = ( defined $view_row ) ? @$view_row : ('edit');
+    push( @editPhrase, $table ) if not defined $editPhrase[1];
 
-    #---------------------------------------------------------------------------
-    #  Important parameters
-    #---------------------------------------------------------------------------
-    my @deletePhrase = ( $del_verb, $table );
-    my @editPhrase = ( 'edit', $table );
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+    my $s2i = $self->{_this_symbol2index};
 
     #---------------------------------------------------------------------------
     #  Compiling names to something like _a7, _a0. This way we don't have to
@@ -170,7 +170,8 @@ sub _head_data_table {
 
     my $left_join_info = $table_info->{left_join};
     my $leftJoin       = $var->{leftJoin};
-    my @column_defs    = (
+
+    my @column_defs = (
 
         # default table view (default table referred to by an empty string)
         ( map { $column->( [ '', $_ ] ) } @{ $table_info->{view} } ),
@@ -195,15 +196,20 @@ sub _head_data_table {
         ),
 
         # delete row
-        $column->(
-            undef,
-            label => join( ' ', @deletePhrase ),
-            formatter => $js->apply( 'createDeleteFormatter', [@deletePhrase] )
+        (
+            ($remove_row)
+            ? $column->(
+                undef,
+                label => join( ' ', @deletePhrase ),
+                formatter =>
+                  $js->apply( 'createDeleteFormatter', [@deletePhrase] )
+              )
+            : ()
         ),
 
         # edit row (optional)
         (
-            ($show_edit)
+            ($view_row)
             ? $column->(
                 undef,
                 label     => join( ' ', @editPhrase ),
@@ -230,7 +236,8 @@ sub _head_data_table {
     #  rows.
     #---------------------------------------------------------------------------
     my %del_table_args;
-    if ( defined $del_table ) {
+    if ($remove_row) {
+        my $del_table      = $deletePhrase[1];
         my $del_table_info = $self->{_table_defs}->{$del_table};
         my @symbols =
           grep { exists $s2i->{$_} } @{ $del_table_info->{key} };
@@ -250,8 +257,16 @@ sub _head_data_table {
                 ),
                 $var->{rowNameBuilder} =>
                   $js->apply( 'createRowNameBuilder', [ \@nameIndexes ] ),
-                $var->{deleteDataBuilder} =>
-                  $js->apply( 'createDeleteDataBuilder', [ \%del_table_args ] ),
+                (
+                    ($remove_row)
+                    ? (
+                        $var->{deleteDataBuilder} =>
+                          $js->apply( 'createDeleteDataBuilder',
+                            [ \%del_table_args ] )
+
+                      )
+                    : ()
+                ),
                 $var->{DataSource} => $js->apply(
                     'YAHOO.util.DataSource',
                     [ $var->{data}->('records') ],
@@ -304,14 +319,24 @@ sub _head_data_table {
                       $var->{DataTable}->('onEventUnhighlightCell'),
                     cellClickEvent =>
                       $var->{DataTable}->('onEventShowCellEditor'),
-                    buttonClickEvent => $js->apply(
-                        'createRowDeleter',
-                        [
-                            $deletePhrase[0],
-                            $var->{resourceURIBuilder},
-                            $var->{deleteDataBuilder},
-                            $var->{rowNameBuilder}
-                        ]
+
+                    #cellUpdateEvent => $js->apply(
+                    #    'createUpdateHandler', []
+                    #),
+                    (
+                        ($remove_row)
+                        ? (
+                            buttonClickEvent => $js->apply(
+                                'createRowDeleter',
+                                [
+                                    $deletePhrase[0],
+                                    $var->{resourceURIBuilder},
+                                    $var->{deleteDataBuilder},
+                                    $var->{rowNameBuilder}
+                                ]
+                            )
+                          )
+                        : ()
                     )
                 },
             ]
@@ -644,25 +669,29 @@ sub _head_column_def {
     #---------------------------------------------------------------------------
     return sub {
         my ( $datum, %extra_definitions ) = @_;
-        my ( $table, $symbol ) = ( defined $datum ) ? @$datum : ( '', undef );
+        my ( $mytable, $symbol ) = ( defined $datum ) ? @$datum : ( '', undef );
 
         # determine key value of left_join table if dealing with such
-        my $propagate_key = $table_info->{left_join}->{$table}->[0]
-          if $table ne '';
+        my $propagate_key;
+        my $propagate_index;
+        if ( $mytable ne '' ) {
+            $propagate_key   = $table_info->{left_join}->{$mytable}->[0];
+            $propagate_index = $s2i->{$propagate_key};
+        }
 
         my $index =
-          ( $table eq '' and defined($symbol) and defined( $s2i->{$symbol} ) )
+          ( $mytable eq '' and defined($symbol) and defined( $s2i->{$symbol} ) )
           ? $s2i->{$symbol}
           : (
-            ( defined $propagate_key ) ? $s2i->{$propagate_key}
+            ( defined $propagate_index ) ? $propagate_index
             : $extrasIndex++
           );
         my $label =
           ( defined $symbol )
           ? (
-            ( $table eq '' )
+            ( $mytable eq '' )
             ? $s2n->{$symbol}
-            : $_other->{$table}->{symbol2name}->{$symbol}
+            : $_other->{$mytable}->{symbol2name}->{$symbol}
           )
           : undef;
 
@@ -673,22 +702,22 @@ sub _head_column_def {
 
         if ( defined($symbol) ) {
             if (   defined($cell_updater)
-                && $table eq ''
+                && $mytable eq ''
                 && $mutable{$symbol} )
             {
                 push @ajax_editor,
                   ( editor => $js->apply( $cell_updater, [$symbol] ) );
             }
             elsif (defined($cell_dropdown)
-                && $table ne ''
+                && $mytable ne ''
                 && defined($propagate_key)
                 && $mutable{$propagate_key}
-                && @{ $table_defs->{$table}->{names} } == 1
-                && $table_defs->{$table}->{names}->[0] eq $symbol )
+                && @{ $table_defs->{$mytable}->{names} } == 1
+                && $table_defs->{$mytable}->{names}->[0] eq $symbol )
             {
 
          # display dropdown cell editor in case of the following: (a) we are
-         # working with a joined table ($table ne ''), (b) key of the joined
+         # working with a joined table ($mytable ne ''), (b) key of the joined
          # table is declared mutable in the main table, (c) current field of the
          # joined table is in {names} of joined table, (d) {names} consists of
          # only one field.
@@ -696,22 +725,22 @@ sub _head_column_def {
                   (
                     editor => $js->apply(
                         $cell_dropdown,
-                        [ $leftJoin->($table), $propagate_key, $symbol ]
+                        [ $leftJoin->($mytable), $propagate_key, $symbol ]
                     )
                   );
             }
         }
 
-    #---------------------------------------------------------------------------
-    #  return hash/object
-    #---------------------------------------------------------------------------
- # :BUG:09/11/2011 19:46:13:es: Current version of YUI (v2.8...?) has a bug: if
- # two columns have the same key (same data source field), sorting is broken
- # (actually kind of works but with some obvious problems).
+  #---------------------------------------------------------------------------
+  #  return hash/object
+  #---------------------------------------------------------------------------
+  # :BUG:09/11/2011 19:46:13:es: Current version of YUI (v2.8...?) has a bug: if
+  # two columns have the same key (same data source field), sorting is broken
+  # (actually kind of works but with some obvious problems).
         return {
             %default_column,
             key      => "$index",
-            sortable => ( defined($symbol) && $table eq '' ) ? $TRUE : $FALSE,
+            sortable => ( defined($symbol) && $mytable eq '' ) ? $TRUE : $FALSE,
             label    => $label,
             @ajax_editor,
             %extra_definitions
@@ -794,15 +823,16 @@ sub getJSHeaders {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _readall_command {
-    my ( $self, $table, %args ) = @_;
+    my ( $self, $table_alias, %args ) = @_;
 
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
 
     my $default_table = $self->{_default_table};
-    $table = $default_table if not defined $table;
+    $table_alias = $default_table
+      if ( !defined($table_alias) || $table_alias eq '' );
 
     my $table_defs = $self->{_table_defs};
-    my $table_info = $table_defs->{$table};
+    my $table_info = $table_defs->{$table_alias};
     return undef if not $table_info;
 
     my ( $key, $selectable, $this_labels, $this_view ) =
@@ -826,43 +856,31 @@ sub _readall_command {
     if ($left_join) {
         my $_other = $self->{_other};
 
-        #while ( my ( $this_field, $other ) = each(%$left_join) ) {
-        while ( my ( $table_alias, $val ) = each(%$left_join) ) {
+        while ( my ( $left_table_alias, $val ) = each(%$left_join) ) {
             my ( $this_field, $other_field, $opts ) = @$val;
+            $opts = {} if not defined $opts;
 
             if ( not exists $composite_labels->{$this_field} ) {
                 $composite_labels->{$this_field} = $this_labels->{$this_field};
             }
 
-           #my ( $other_table, $other_field ) = @$other{qw/-table -constraint/};
-            my ( $other_table, $constraint ) = @$opts{qw/-table -constraint/};
-            $other_table = $table_alias if not defined $other_table;
-
-            # right now doing nothing with constraints in left joins
-
-            # if $other_table ne $table_alias, then form SELECT statement like
-            # this: SELECT * FROM $other_table AS $table_alias
-
-            my $other_info = $table_defs->{$other_table};
-            my ( $other_view, $other_labels ) = @$other_info{qw/view labels/};
+            my $left_table_info = $table_defs->{$left_table_alias};
+            my ( $other_view, $other_labels ) =
+              @$left_table_info{qw/view labels/};
 
             # prepend key field
             my $other_select_fields =
               _get_ordered_hash( [ $other_field, @$other_view ],
                 $other_labels );
 
-            my $left_query = $self->_build_select(
-                $other_table, $other_select_fields,
-                group_by    => [ $other_table, $other_field ],
-                table_alias => $table_alias
-            );
+            my ( $left_query, $left_params ) =
+              $self->_build_select( $left_table_alias, $other_select_fields,
+                { %$opts, group_by => [$other_field] } );
 
-            $left_join_sth{$other_table} = [
-                $dbh->prepare($left_query),
-                $self->_build_select_params($other_table)
-            ];
-            $_other->{$other_table}->{symbol2name} = $other_select_fields;
-            $_other->{$other_table}->{symbol2index} =
+            $left_join_sth{$left_table_alias} =
+              [ $dbh->prepare($left_query), $left_params ];
+            $_other->{$left_table_alias}->{symbol2name} = $other_select_fields;
+            $_other->{$left_table_alias}->{symbol2index} =
               _symbol2index_from_symbol2name($other_select_fields);
         }
     }
@@ -877,31 +895,22 @@ sub _readall_command {
     my ( $this_key, $default_key ) =
       ( $key->[0], $table_defs->{$default_table}->{key}->[0] );
 
-    my @selectors = grep { defined( $q->param($_) ) } @$selectable;
+    # build a constraint-like object
+    my @main_constraint = map {
+        $_ => sub {
+            $q->param($_);
+          }
+    } grep { defined $q->param($_) } @$selectable;
 
-    my @where_clause = (
-        (
-              ( defined $self->{_id} and $this_key eq $default_key )
-            ? ("$table.$this_key=?")
-            : ()
-        ),
-        map { "$table.$_=?" } @selectors
-    );
-    my $predicate =
-      ( @where_clause > 0 )
-      ? 'WHERE ' . join( ' AND ', @where_clause )
-      : '';
-    my $group_by = 'GROUP BY ' . join( ',', map { "$table.$_" } @$key );
-
-    my $query = join(
-        ' ',
-        (
-            $self->_build_select(
-                $table, $composite_labels, inner_join => $args{inner_join}
-            ),
-            $predicate,
-            $group_by
-        )
+    # return both query and parameter array
+    my ( $query, $params ) = $self->_build_select(
+        $table_alias,
+        $composite_labels,
+        {
+            group_by   => $key,
+            constraint => \@main_constraint,
+            %args
+        }
     );
 
     my $sth = eval { $dbh->prepare($query) } or do {
@@ -910,26 +919,13 @@ sub _readall_command {
         return undef;
     };
 
-    my @params = (
-        (
-              ( defined $self->{_id} and $this_key eq $default_key )
-            ? ( $self->{_id} )
-            : ()
-        ),
-        @{
-            $self->_build_select_params( $table,
-                inner_join => $args{inner_join} )
-          },
-        map { $q->param($_) } @selectors
-    );
-
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
     return sub {
         my $rc;
 
         # main query execute
-        $rc = $sth->execute(@params);
+        $rc = $sth->execute(@$params);
         $self->{_this_index2name} = $sth->{NAME};
 
         $self->{_this_data} = $sth->fetchall_arrayref;
@@ -964,47 +960,6 @@ sub _readall_command {
 sub _data_transform {
     my $arrayref = shift;
     return +{ map { shift(@$_) => $_ } @$arrayref };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _build_select_params
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub _build_select_params {
-    my ( $self, $table, %args ) = @_;
-
-    # form INNER JOIN predicate
-    my @inner_join_values;
-    my $inner_join =
-      ( $args{inner_join} )
-      ? $args{inner_join}
-      : $self->{_table_defs}->{$table}->{inner_join};
-    if ($inner_join) {
-
-        #while ( my ( $this_field, $info ) = each %$inner_join ) {
-        while ( my ( $table_alias, $info ) = each %$inner_join ) {
-
-            #my ( $other_table, $other_field, $constraints ) = @$info;
-            my ( $this_field, $other_field, $opts ) = @$info;
-            my ( $other_table, $constraints ) = @$opts{qw/-table -constraint/};
-
-            if ($constraints) {
-                while ( my ( $constr_field, $constr_value ) =
-                    each %$constraints )
-                {
-                    push( @inner_join_values, $constr_value->($self) )
-                      if ( ref $constr_value eq 'CODE' );
-                }
-            }
-        }
-    }
-    return \@inner_join_values;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1059,6 +1014,61 @@ sub _valid_SQL_identifier {
     return shift =~ m/^[a-zA-Z_][0-9a-zA-Z_\$]*$/;
 }
 
+#---------------------------------------------------------------------------
+#  analogue to built-in keys function, except for lists, not hashes
+#---------------------------------------------------------------------------
+sub _list_keys {
+    @_[ grep { !( $_ % 2 ) } 0 .. $#_ ];
+}
+
+#---------------------------------------------------------------------------
+#  analogue to built-in values function, except for lists, not hashes
+#---------------------------------------------------------------------------
+sub _list_values {
+    @_[ grep { $_ % 2 } 0 .. $#_ ];
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _build_predicate
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _build_predicate {
+    my ( $self, $table_alias, $obj, $prefix ) = @_;
+    my $__pred;
+    my @exec_params;
+
+    if ( my $constraints = $obj->{constraint} ) {
+
+        my @constr_copy = @$constraints;
+        my @pred_and;
+        while ( my ( $constr_field, $constr_value ) =
+            splice( @constr_copy, 0, 2 ) )
+        {
+            if ( ref $constr_value eq 'CODE' ) {
+                push @pred_and,    "$table_alias.$constr_field=?";
+                push @exec_params, $constr_value->($self);
+            }
+            else {
+                push @pred_and, "$table_alias.$constr_field=$constr_value";
+            }
+        }
+
+        $__pred =
+          ( ( @pred_and > 0 ) ? "$prefix " : '' ) . join( ' AND ', @pred_and );
+
+    }
+    else {
+        $__pred = '';
+    }
+    return ( $__pred, \@exec_params );
+}
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _build_select
@@ -1070,72 +1080,79 @@ sub _valid_SQL_identifier {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _build_select {
-    my ( $self, $table, $symbol2name, %args ) = @_;
-    my $dbh         = $self->{_dbh};
-    my $table_alias = $args{table_alias};
 
-    my $ret = 'SELECT ' . join(
+    my ( $self, $table_alias, $symbol2name, $obj ) = @_;
+
+    #---------------------------------------------------------------------------
+    #  _build_select
+    #---------------------------------------------------------------------------
+    my $dbh = $self->{_dbh};
+
+    my $table_defs = $self->{_table_defs};
+    my %cascade    = ( %{ $table_defs->{$table_alias} }, %$obj );
+    my $table      = $cascade{table};
+    $table = $table_alias if not defined $table;
+
+    my @query_components;
+    my @exec_params;
+
+    # SELECT
+    push @query_components, 'SELECT ' . join(
         ',',
         map {
-            ( ( _valid_SQL_identifier($_) ) ? "$table.$_ AS " : "$_ AS " )
-              . $dbh->quote(
-                ( defined $symbol2name->{$_} ) ? $symbol2name->{$_} : $_ )
+            ( _valid_SQL_identifier($_) ? "$table_alias.$_" : $_ )
+              . (
+                defined( $symbol2name->{$_} )
+                ? ' AS ' . $dbh->quote( $symbol2name->{$_} )
+                : ''
+              )
           } keys %$symbol2name
       )
       . ' FROM '
-      . ( ( defined $table_alias ) ? "$table AS $table_alias" : $table );
+      . ( ( $table ne $table_alias ) ? "$table AS $table_alias" : $table );
 
     # INNER JOIN
-    my @inner_join_predicates;
-    my $inner_join =
-      ( $args{inner_join} )
-      ? $args{inner_join}
-      : $self->{_table_defs}->{$table}->{inner_join};
-    if ($inner_join) {
+    if ( my $inner_join = $cascade{inner_join} ) {
 
-        #while ( my ( $this_field, $info ) = each %$inner_join ) {
-        while ( my ( $table_alias, $info ) = each %$inner_join ) {
+        while ( my ( $other_table_alias, $info ) = each %$inner_join ) {
 
-            #my ( $other_table, $other_field, $constraints ) = @$info;
             my ( $this_field, $other_field, $opts ) = @$info;
-            my ( $other_table, $constraints ) = @$opts{qw/-table -constraint/};
+            $opts = {} if not defined $opts;
+
+            my %cascade_other =
+              ( %{ $table_defs->{$other_table_alias} }, %$opts );
+
+            my $other_table = $cascade_other{table};
             $other_table =
-              ( !defined($other_table) || $other_table eq $table_alias )
-              ? $table_alias
-              : "$other_table AS $table_alias";
+              ( !defined($other_table) || $other_table eq $other_table_alias )
+              ? $other_table_alias
+              : "$other_table AS $other_table_alias";
 
             my $pred =
-"INNER JOIN $other_table ON $table.$this_field=$table_alias.$other_field";
-            if ($constraints) {
-                my @pred_and = ('');
-                while ( my ( $constr_field, $constr_value ) =
-                    each %$constraints )
-                {
+"INNER JOIN $other_table ON $table_alias.$this_field=$other_table_alias.$other_field";
 
-                  # if $constr_value is an anonymous function (ref
-                  # $constr_value eq 'CODE'), then evaluate it later and pass
-                  # it as execute parameter to the query statement, and place
-                  # a placeholder for now. Otherwise, insert the value directly.
-                    push @pred_and, "$table_alias.$constr_field="
-                      . (
-                        ( ref $constr_value eq 'CODE' )
-                        ? '?'
-                        : $constr_value
-                      );
-                }
-                $pred .= join( ' AND ', @pred_and );
-            }
-            push @inner_join_predicates, $pred;
+            my ( $inner_pred, $inner_params ) =
+              $self->_build_predicate( $other_table_alias, \%cascade_other,
+                'AND' );
+            push @query_components, "$pred $inner_pred";
+            push @exec_params,      @$inner_params;
         }
     }
 
+    # WHERE
+    my ( $where_pred, $where_params ) =
+      $self->_build_predicate( $table_alias, \%cascade, 'WHERE' );
+    push @query_components, $where_pred;
+    push @exec_params,      @$where_params;
+
     # GROUP BY
-    if ( my $group_by = $args{group_by} ) {
-        my ( $other_table, $other_field ) = @$group_by;
-        push @inner_join_predicates, "GROUP BY $other_table.$other_field";
+    if ( my $group_by = $cascade{group_by} ) {
+        push @query_components,
+          'GROUP BY ' . join( ',', map { "$table_alias.$_" } @$group_by );
     }
 
-    return join( ' ', $ret, @inner_join_predicates );
+    my $query = join( ' ', @query_components );
+    return ( $query, \@exec_params );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1198,7 +1215,7 @@ sub _delete_command {
     my ($self) = @_;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
-    $table = $self->{_default_table} if not defined $table;
+    $table = $self->{_default_table} if ( !defined($table) || $table eq '' );
     return undef if not defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};

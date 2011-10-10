@@ -34,6 +34,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Abstract::JSEmitter qw/true false/;
 use SGX::Abstract::Exception;
+use SGX::Model::ProjectStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
@@ -52,39 +53,92 @@ sub new {
 
     $self->_set_attributes(
 
-#_table_defs: hash with keys corresponding to the names of tables handled by this module.
-# key: values required for lookup. The first element always corresponds to $self->{_id}.
-# mutable: fields that can be modified independently of each other (or other elements).
-# proto: fields that are filled out on insert/creation of new records.
+# _table_defs: hash with keys corresponding to the names of tables handled by this module.
+#
+# key:        Fields that uniquely identify rows
+# names:      Fields which identify rows in user-readable manner (row name will be
+#             formed by concatenating values with a slash)
+# mutable:    Fields that can be modified independently of each other (or other elements).
+# proto:      Fields that are filled out on insert/creation of new records.
+# view:       Fields to display.
+# selectors:  Fields which, when present in CGI::param list, can narrow down
+#             output.
+#
+# labels:     What to call each field
+# left_join:  Whether to query additional tablesi emulating SQL join. If present, joins
+#             will be performed on the corresponding fields.
+# inner_join: Whether to add INNER JOIN clause to generated SQL.
         _table_defs => {
             'platform' => {
                 key     => [qw/pid/],
                 mutable => [qw/pname def_p_cutoff def_f_cutoff species/],
                 proto   => [qw/pname def_p_cutoff def_f_cutoff species/],
-                indexed => [],
-                names   => [qw/pname species/],
+                view    => [
+                    qw/pname def_p_cutoff def_f_cutoff species/,
+                    qw/COUNT(probe.rid) COUNT(probe.probe_sequence) COUNT(probe.location)/
+                ],
+                selectors => [],
+                names     => [qw/pname species/],
+                labels    => {
+                    pid          => 'No.',
+                    pname        => 'Name',
+                    def_p_cutoff => 'def_p_cutoff',
+                    def_f_cutoff => 'def_f_cutoff',
+                    species      => 'Species',
+
+                    'COUNT(probe.rid)'            => 'Probe Count',
+                    'COUNT(probe.probe_sequence)' => 'Probe Sequences',
+                    'COUNT(probe.location)'       => 'Locations'
+                },
+                inner_join => { probe => [ pid => 'pid' ] }
+            },
+            probe => {
+                key  => [qw/rid/],
+                view => [],
             },
             'study' => {
-                key     => [qw/stid/],
-                mutable => [],
-                proto   => [],
-                indexed => [],
-                names   => [qw/description/]
+                key       => [qw/stid/],
+                view      => [qw/description pubmed/],
+                mutable   => [],
+                proto     => [],
+                selectors => [],
+                names     => [qw/description/],
+                labels    => {
+                    stid        => 'No.',
+                    description => 'Description',
+                    pubmed      => 'PubMed ID'
+                },
+                left_join  => { 'proj' => [ stid => 'stid' ] },
+                constraint => [ pid    => sub    { shift->{_id} } ]
+            },
+            'proj' => {
+                table =>
+                  '(SELECT * FROM ProjectStudy INNER JOIN project USING(prid))',
+                key       => [qw/stid prid/],
+                mutable   => [],
+                selectors => [],
+                view      => [qw/prname/],
+                names     => [qw/prname/],
+                labels    => { prname => 'Project(s)' }
             },
             'experiment' => {
-                key     => [qw/eid/],
-                mutable => [],
-                proto   => [],
-                indexed => [],
-                names   => [qw/sample1 sample2/]
-            }
+                key       => [qw/eid/],
+                view      => [qw/sample1 sample2/],
+                mutable   => [],
+                proto     => [],
+                selectors => [],
+                names     => [qw/sample1 sample2/]
+            },
         },
-        _default_table     => 'platform',
-        _title             => 'Manage Platforms',
-        _id                => undef,
-        _id_data           => {},
-        _Field_IndexToName => undef,
-        _data              => undef,
+        _default_table => 'platform',
+        _title         => 'Manage Platforms',
+
+        _id      => undef,
+        _id_data => {},
+
+        _ProjectStudyExperiment =>
+          SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
+
     );
 
     $self->_register_actions(
@@ -118,23 +172,16 @@ sub readrow_head {
 
     $self->_readrow_command()->();
 
-    #  Sets up _Field_SymbolToIndex and _Field_SymbolToName
-    $self->_readall_setup(
-        stid        => 'No.',
-        description => 'Description',
-        pubmed      => 'PubMed ID',
-        prname      => 'Project(s)'
-    );
-
     my $table = 'study';
-
-    $self->_readall_command( <<"END_StudiesQuery", $table )->();
-LEFT JOIN ProjectStudy USING(stid)
-LEFT JOIN project USING(prid)
-END_StudiesQuery
+    $self->_readall_command($table)->();
 
     push @{ $self->{_js_src_code} },
-      ( { -code => $self->_head_data_table( $table, '', 'unassign', 0 ) } );
+      (
+        {
+            -code =>
+              $self->_head_data_table( $table, remove_row => ['unassign'] )
+        }
+      );
 
     return 1;
 }
@@ -160,19 +207,19 @@ sub readall_head {
       if ( defined $q->param('pid') )
       and ( $q->param('pid') eq 'all' );
 
-    $self->_readall_setup(
-        pid          => 'No.',
-        pname        => 'Name',
-        def_p_cutoff => 'def_p_cutoff',
-        def_f_cutoff => 'def_f_cutoff',
-        species      => 'Species'
-    );
-
     my $table = $self->{_default_table};
-    $self->_readall_command( '', $table )->();
+    $self->_readall_command($table)->();
 
     push @{ $self->{_js_src_code} },
-      ( { -code => $self->_head_data_table( $table, undef, 'delete', 1 ) } );
+      (
+        {
+            -code => $self->_head_data_table(
+                $table,
+                remove_row => ['delete'],
+                view_row   => ['edit']
+            )
+        }
+      );
     return 1;
 }
 
@@ -490,7 +537,7 @@ sub get_pse_dropdown_js {
     $prid = $q->param('prid') if not defined $prid;
 
     return $js->bind(
-        {
+        [
             ProjStudyExp => $self->{_ProjectStudyExperiment}->get_ByProject(),
             currentSelection => {
                 'project' => {
@@ -521,23 +568,22 @@ sub get_pse_dropdown_js {
                     : ()
                 )
             }
-        },
+        ],
         declare => 1
       )
-      . $js->call(
+      . $js->apply(
         'YAHOO.util.Event.addListener',
         [
             sub { 'window' },
             'load',
             $js->lambda(
-                $js->call(
-                    'populateProject.apply',
-                    [ sub { 'currentSelection' } ],
+                $js->apply(
+                    'populateProject.apply', [ sub { 'currentSelection' } ],
                 ),
                 (
                     ( $args{projects} && $args{studies} )
                     ? (
-                        $js->call(
+                        $js->apply(
                             'populateProjectStudy.apply',
                             [ sub { 'currentSelection' } ],
                         )
@@ -550,7 +596,7 @@ sub get_pse_dropdown_js {
       . (
         ( $args{projects} || $args{studies} )
         ? (
-            $js->call(
+            $js->apply(
                 'YAHOO.util.Event.addListener',
                 [
                     'prid', 'change',
@@ -558,7 +604,7 @@ sub get_pse_dropdown_js {
                         (
                             ( $args{projects} && $args{studies} )
                             ? (
-                                $js->call(
+                                $js->apply(
                                     'populateProjectStudy.apply',
                                     [ sub { 'currentSelection' } ],
                                 )
@@ -567,25 +613,25 @@ sub get_pse_dropdown_js {
                         )
                     )
                 ]
-              )
+            )
           )
         : ''
       )
       . (
         ( $args{projects} && $args{studies} )
         ? (
-            $js->call(
+            $js->apply(
                 'YAHOO.util.Event.addListener',
                 [
                     'prid', 'change',
                     $js->lambda(
-                        $js->call(
+                        $js->apply(
                             'populateProjectStudy.apply',
                             [ sub { 'currentSelection' } ],
                         )
                     )
                 ]
-              )
+            )
           )
         : ''
       );

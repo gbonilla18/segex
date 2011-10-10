@@ -70,15 +70,18 @@ sub new {
 # inner_join: Whether to add INNER JOIN clause to generated SQL.
         _table_defs => {
             'StudyExperiment' => {
-                key     => [qw/stid eid/],
-                mutable => [],
-                proto   => [qw/stid eid/]
+                key        => [qw/stid eid/],
+                mutable    => [],
+                proto      => [qw/stid eid/],
+                constraint => [
+                    stid => sub { shift->{_id} }
+                ]
             },
             'study' => {
                 key       => [qw/stid/],
                 proto     => [qw/description pubmed pid/],
                 view      => [qw/description pubmed/],
-                mutable   => [qw/description pubmed pid/], # note: pid !!!
+                mutable   => [qw/description pubmed pid/],    # note: pid !!!
                 selectors => [qw/pid/],
                 names     => [qw/description/],
                 labels    => {
@@ -111,19 +114,8 @@ sub new {
                     ExperimentDescription => 'Description',
                     AdditionalInformation => 'Additional Info'
                 },
-                left_join  => { microarray => [ eid => 'eid' ] },
-                inner_join => {
-                    'StudyExperiment' => [
-                        eid => 'eid',
-                        {
-
-                         #-table => 'StudyExperiment', # in case key is an alias
-                            -constraint => {
-                                stid => sub { shift->{_id} }
-                            }
-                        }
-                    ]
-                }
+                left_join  => { microarray      => [ eid => 'eid' ] },
+                inner_join => { StudyExperiment => [ eid => 'eid' ] }
             },
             'microarray' => {
                 key     => [qw/eid rid/],
@@ -134,16 +126,7 @@ sub new {
                     eid        => 'No.',
                     'COUNT(1)' => 'Probe Count'
                 },
-                inner_join => {
-                    StudyExperiment => [
-                        eid => 'eid',
-                        {
-                            -constraint => {
-                                stid => sub { shift->{_id} }
-                            }
-                        }
-                    ]
-                }
+                inner_join => { StudyExperiment => [ eid => 'eid' ] }
             }
         },
         _default_table => 'study',
@@ -196,7 +179,7 @@ sub readrow_head {
         { -code => $self->get_pse_dropdown_js( platform_by_study => 1 ) },
         {
             -code => $self->_head_data_table(
-                $table, 'StudyExperiment', 'unassign', 0
+                $table, remove_row => [ 'unassign' => 'StudyExperiment' ]
             )
         }
       );
@@ -238,7 +221,13 @@ sub readall_head {
                 extra_platforms => { 'all' => { name => '@All Platforms' } }
             )
         },
-        { -code => $self->_head_data_table( $table, undef, 'delete', 1 ) }
+        {
+            -code => $self->_head_data_table(
+                $table,
+                remove_row => ['delete'],
+                view_row   => ['edit']
+            )
+        }
     );
     return 1;
 }

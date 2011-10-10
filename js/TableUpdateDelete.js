@@ -28,6 +28,7 @@ function createCellDropdown(transformed_data, field, resourceURIBuilder, updateD
             success:function(o) { 
                 // update other joined fields:
                 // http://developer.yahoo.com/yui/docs/YAHOO.widget.DataTable.html#method_updateCell
+
                 callback(true, newValue); 
             },
             failure:function(o) { 
@@ -230,6 +231,12 @@ function createRowNameBuilder(nameColumns) {
         return names.join(" / ");
     };
 }
+
+//function createUpdateHandler() {
+//    return function (ev) {
+//        console.log(ev);
+//    };
+//}
 
 function subscribeEnMasse(el, obj) {
     for (var event in obj) {
