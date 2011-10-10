@@ -106,9 +106,11 @@ sub new {
             study_brief => {
                 table => 'StudyExperiment',
                 key   => [qw/eid stid/],
-                view  => ['GROUP_CONCAT(description SEPARATOR ", ")'],
+                view  => [qw/study_names/],
                 meta  => {
-                    'GROUP_CONCAT(description SEPARATOR ", ")' => {
+                    study_names => {
+                        __sql__ =>
+'GROUP_CONCAT(description ORDER BY description ASC SEPARATOR ", ")',
                         label  => 'Study(-ies)',
                         parser => 'number'
                     }
@@ -129,7 +131,8 @@ sub new {
             'experiment' => {
                 key  => [qw/eid/],
                 view => [
-                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
+                    qw/eid sample1 sample2 ExperimentDescription
+                      AdditionalInformation data_count/
                 ],
                 mutable => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
@@ -162,6 +165,11 @@ sub new {
                         label => 'Additional Info',
                         -size => 55
                     },
+                    data_count => {
+                        __sql__ => 'COUNT(microarray.eid)',
+                        label   => 'Data Count',
+                        parser  => 'number'
+                    },
                     pid => {
                         label    => 'Platform',
                         parser   => 'number',
@@ -169,30 +177,26 @@ sub new {
                     }
                 },
                 lookup => {
-                    data_count => [ eid => 'eid' ],
                     (
-                        looks_like_number( $q->param('stid') ) ? ()
+
+                        # No need to display study column if specific study is
+                        # requested.
+                        looks_like_number( $q->param('stid') )
+                        ? ()
                         : ( 'study_brief' => [ 'eid' => 'eid' ] )
                     ),
                     (
-                        looks_like_number( $q->param('pid') ) ? ()
+
+                        # No need to display platform column if specific
+                        # platform is requested.
+                        looks_like_number( $q->param('pid') )
+                        ? ()
                         : ( 'platform' => [ 'pid' => 'pid' ] )
                     )
                 },
-                join => [ StudyExperiment => [ eid => 'eid' ] ]
-            },
-            'data_count' => {
-                table => 'experiment',
-                key   => [qw/eid/],
-                view  => [qw/COUNT(microarray.eid)/],
-                meta  => {
-                    eid => { label => 'No.', parser => 'number' },
-                    'COUNT(microarray.eid)' =>
-                      { label => 'Data Count', parser => 'number' }
-                },
                 join => [
                     StudyExperiment => [ eid => 'eid' ],
-                    microarray => [ eid => 'eid', { join_type => 'LEFT' } ]
+                    microarray      => [ eid => 'eid', { join_type => 'LEFT' } ]
                 ]
             }
         },

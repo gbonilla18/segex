@@ -155,8 +155,8 @@ sub _head_data_table {
     $table = $self->{_default_table} if not defined($table);
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table};
-    my ( $this_keys, $this_meta, $this_view, $this_names, $this_resource ) =
-      @$table_info{qw/key meta view names resource/};
+    my ( $this_keys, $this_view, $this_names, $this_resource ) =
+      @$table_info{qw/key view names resource/};
     my %resource_extra = (
         ( map { $_ => $_ } @$this_keys[ 1 .. $#$this_keys ] ),
         ( (@$this_keys) ? ( id => $this_keys->[0] ) : () )
@@ -353,7 +353,7 @@ sub _head_data_table {
                         records => $self->getJSRecords(),
                         headers => $self->getJSHeaders(),
                         fields  => [ keys %$s2n ],
-                        meta    => $this_meta || {}
+                        meta    => $self->export_meta($table)
                     },
                     $var->{lookupTables}
                 ]
@@ -423,6 +423,31 @@ sub dispatch_js {
     return ( defined $self->{_id} )
       ? $self->readrow_head
       : $self->readall_head;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  export_meta
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  To export {meta} as JSON, we filter out all key-value pairs
+#                with keys that begin with dash or underscore.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub export_meta {
+    my ( $self, $table ) = @_;
+    my $meta = $self->{_table_defs}->{$table}->{meta} || {};
+    my %export_meta;
+    while ( my ( $key, $value ) = each %$meta ) {
+        my %export_value;
+        while ( my ( $subkey, $subvalue ) = each %$value ) {
+            $export_value{$subkey} = $subvalue if $subkey !~ m/^[-_]/;
+        }
+        $export_meta{$key} = \%export_value;
+    }
+    return \%export_meta;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -929,7 +954,8 @@ sub _readall_command {
               _symbol2index_from_symbol2name($other_select_fields);
             $_other->{$left_table_alias}->{index2symbol} =
               [ keys %$other_select_fields ];
-            $_other->{$left_table_alias}->{meta} = $other_meta || {};
+            $_other->{$left_table_alias}->{meta} =
+              $self->export_meta($left_table_alias);
             $_other->{$left_table_alias}->{lookup_by} = $this_field;
         }
     }
@@ -1229,6 +1255,7 @@ sub _build_select {
     my $table_defs = $self->{_table_defs};
     my %cascade    = ( %{ $table_defs->{$table_alias} }, %$obj );
     my $table      = $cascade{table};
+    my $meta       = $cascade{meta} || {};
     $table = $table_alias if not defined $table;
 
     my @query_components;
@@ -1238,12 +1265,18 @@ sub _build_select {
     push @query_components, 'SELECT ' . join(
         ',',
         map {
-            ( _valid_SQL_identifier($_) ? "$table_alias.$_" : $_ )
+            my $this_meta = $meta->{$_} || {};
+            my $this_sql  = $this_meta->{__sql__};
+            my $sql_col   = ( defined $this_sql ) ? $this_sql : $_;
+            (
+                _valid_SQL_identifier($sql_col) ? "$table_alias.$sql_col"
+                : $sql_col
+              )
               . (
                 defined( $symbol2name->{$_} )
                 ? ' AS ' . $dbh->quote( $symbol2name->{$_} )
                 : ''
-              )
+              );
           } keys %$symbol2name
       )
       . ' FROM '

@@ -75,8 +75,8 @@ sub new {
                 resource => 'platforms',
                 proto    => [qw/pname def_p_cutoff def_f_cutoff species/],
                 view     => [
-                    qw/pname def_p_cutoff def_f_cutoff species/,
-                    qw/COUNT(probe.rid) COUNT(probe.probe_sequence) COUNT(probe.location)/
+                    qw/pname def_p_cutoff def_f_cutoff species probes_total
+                      probes_with_sequences probes_with_locations/,
                 ],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/pname species/],
@@ -93,24 +93,24 @@ sub new {
                         parser     => 'number',
                         -maxlength => 20
                     },
-                    species => { label => 'Species', -maxlength => 100 },
-                    'COUNT(probe.rid)' => {
-                        label  => 'Probe Count',
-                        parser => 'number'
+                    species      => { label => 'Species', -maxlength => 100 },
+                    probes_total => {
+                        __sql__ => 'COUNT(probe.rid)',
+                        label   => 'Probe Count',
+                        parser  => 'number'
                     },
-                    'COUNT(probe.probe_sequence)' => {
-                        label  => 'Probe Sequences',
-                        parser => 'number'
+                    probes_with_sequences => {
+                        __sql__ => 'COUNT(probe.probe_sequence)',
+                        label   => 'Probe Sequences',
+                        parser  => 'number'
                     },
-                    'COUNT(probe.location)' =>
-                      { label => 'Locations', parser => 'number' }
+                    probes_with_locations => {
+                        __sql__ => 'COUNT(probe.location)',
+                        label   => 'Locations',
+                        parser  => 'number'
+                    }
                 },
-                join => [ probe => [ pid => 'pid' ] ]
-            },
-            probe => {
-                key       => [qw//],
-                view      => [],
-                join_type => 'LEFT'
+                join => [ probe => [ pid => 'pid', { join_type => 'LEFT' } ] ]
             },
             'study' => {
                 key      => [qw/stid/],
@@ -131,10 +131,13 @@ sub new {
             proj_brief => {
                 table => 'ProjectStudy',
                 key   => [qw/'stid prid'/],
-                view  => ['GROUP_CONCAT(prname SEPARATOR ", ")'],
+                view  => [qw/project_names/],
                 meta  => {
-                    'GROUP_CONCAT(prname SEPARATOR ", ")' =>
-                      { label => 'Project(s)' }
+                    project_names => {
+                        __sql__ =>
+'GROUP_CONCAT(prname ORDER BY prname ASC SEPARATOR ", ")',
+                        label => 'Project(s)'
+                    }
                 },
                 join =>
                   [ project => [ prid => 'prid', { join_type => 'INNER' } ] ],

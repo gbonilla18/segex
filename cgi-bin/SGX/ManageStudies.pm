@@ -120,7 +120,8 @@ sub new {
             'experiment' => {
                 key  => [qw/eid/],
                 view => [
-                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
+                    qw/eid sample1 sample2 ExperimentDescription
+                      AdditionalInformation data_count/
                 ],
                 mutable => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
@@ -138,21 +139,17 @@ sub new {
                     sample1 => { label => 'Sample 1' },
                     sample2 => { label => 'Sample 2' },
                     ExperimentDescription => { label => 'Description' },
-                    AdditionalInformation => { label => 'Additional Info' }
+                    AdditionalInformation => { label => 'Additional Info' },
+                    data_count            => {
+                        __sql__ => 'COUNT(microarray.eid)',
+                        label   => 'Data Count',
+                        parser  => 'number'
+                    },
                 },
-                lookup => { microarray      => [ eid => 'eid' ] },
-                join   => [ StudyExperiment => [ eid => 'eid' ] ]
-            },
-            'microarray' => {
-                key     => [qw/eid rid/],
-                view    => [qw/COUNT(1)/],
-                proto   => [],
-                mutable => [],
-                meta    => {
-                    eid => { label => 'No.', parser => 'number' },
-                    'COUNT(1)' => { label => 'Probe Count', parser => 'number' }
-                },
-                join => [ StudyExperiment => [ eid => 'eid' ] ]
+                join   => [
+                    StudyExperiment => [ eid => 'eid' ],
+                    microarray      => [ eid => 'eid', { join_type => 'LEFT' } ]
+                ]
             }
         },
         _default_table => 'study',
