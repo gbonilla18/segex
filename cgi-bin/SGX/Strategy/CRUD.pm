@@ -566,7 +566,7 @@ sub generate_datatable {
 
     # generate all the neccessary Javascript for the YUI DataTable control
     push @{ $self->{_js_src_code} },
-      ( { -code => $self->_head_data_table( $table, %extras ) } );
+      +{ -code => $self->_head_data_table( $table, %extras ) };
     return 1;
 }
 
@@ -988,11 +988,14 @@ sub getJSHeaders {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _lookup_prepare {
-    my ( $self, $table_info, $composite_labels ) = @_;
+    my ( $self, $table_info, %args ) = @_;
 
     # now add all fields on which we are joining if they are absent
     my ( $dbh,       $table_defs ) = @$self{qw/_dbh _table_defs/};
     my ( $this_meta, $lookup )     = @$table_info{qw/meta lookup/};
+
+    my $composite_labels = $args{labels};
+    my $type = $args{type} || 'fields';
 
     #warn Dumper( _get_lookup($table_info, [keys %$composite_labels]) );
 
@@ -1106,8 +1109,11 @@ sub _readall_command {
     my $new_opts = inherit_hash( { group_by => $key }, $table_info );
 
     # :TRICKY:09/28/2011 12:25:52:es: _lookup_prepare modifies $composite_labels
-    my $lookup_join_sth =
-      $self->_lookup_prepare( $new_opts, $composite_labels );
+    my $lookup_join_sth = $self->_lookup_prepare(
+        $new_opts,
+        labels => $composite_labels,
+        type   => 'view'
+    );
 
     # If _id is not set, rely on selectors only. If _id is set, use
     # default_table._id *and* selectors on the second table.
@@ -1497,7 +1503,8 @@ sub _readrow_command {
       "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
     #warn "getting lookups for $table_alias";
-    my $lookup_join_sth = $self->_lookup_prepare($table_info);
+    my $lookup_join_sth =
+      $self->_lookup_prepare( $table_info, type => 'fields' );
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1505,8 +1512,7 @@ sub _readrow_command {
         return;
     };
 
-    my @params =
-      ( $self->{_id}, ( map { $q->param($_) } cdr( @key_copy ) ) );
+    my @params = ( $self->{_id}, ( map { $q->param($_) } cdr(@key_copy) ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1546,7 +1552,7 @@ sub _delete_command {
     my @key_copy  = @$key;
     my $predicate = join( ' AND ', map { "$_=?" } @key_copy );
     my $query     = "DELETE FROM $table WHERE $predicate";
-    my @params = ( $self->{_id}, map { $q->param($_) } cdr( @key_copy) );
+    my @params    = ( $self->{_id}, ( map { $q->param($_) } cdr(@key_copy) ) );
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1655,7 +1661,7 @@ sub _create_command {
     my $translate_key = $self->_get_param_keys($meta);
     my @assigned_fields =
         ( defined $id )
-      ? ( $fields[0], map { $translate_key->($_) } cdr( @fields ) )
+      ? ( $fields[0], map { $translate_key->($_) } cdr(@fields) )
       : map { $translate_key->($_) } @fields;
 
     my $assignment = join( ',', @assigned_fields );
@@ -1670,7 +1676,7 @@ sub _create_command {
     my $translate_val = $self->_get_param_values($meta);
     my @params =
         ( defined $id )
-      ? ( $id, map { $translate_val->($_) } cdr( @assigned_fields ) )
+      ? ( $id, map { $translate_val->($_) } cdr(@assigned_fields) )
       : map { $translate_val->($_) } @assigned_fields;
 
     # separate preparation from execution because we may want to send different
@@ -1839,11 +1845,10 @@ sub _update_command {
         carp $error;
         return;
     };
-
     my $translate_val = $self->_get_param_values($meta);
     my @params        = (
         ( map { $translate_val->($_) } @fields_to_update ),
-        $self->{_id}, ( map { $translate_val->($_) } cdr( @key_copy ) )
+        $self->{_id}, ( map { $translate_val->($_) } cdr(@key_copy) )
     );
 
     # separate preparation from execution because we may want to send different

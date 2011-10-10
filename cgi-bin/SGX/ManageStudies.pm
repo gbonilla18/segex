@@ -65,13 +65,13 @@ sub new {
         _table_defs => {
             'StudyExperiment' => {
                 key        => [qw/stid eid/],
-                fields      => [qw/stid eid/],
+                fields     => [qw/stid eid/],
                 join_type  => 'INNER',
                 constraint => [ stid => sub { shift->{_id} } ]
             },
             'study' => {
                 key      => [qw/stid/],
-                fields    => [qw/description pubmed pid/],
+                fields   => [qw/description pubmed pid/],
                 view     => [qw/description pubmed/],
                 resource => 'studies',
 
@@ -80,8 +80,8 @@ sub new {
                 names     => [qw/description/],
                 meta      => {
                     stid => {
-                        label     => 'No.',
-                        parser    => 'number',
+                        label        => 'No.',
+                        parser       => 'number',
                         __readonly__ => 1
                     },
                     description => {
@@ -93,11 +93,12 @@ sub new {
                         -maxlength => 20
                     },
                     pid => {
-                        label     => 'Platform',
-                        __type__  => 'popup_menu',
-                        parser    => 'number',
+                        label        => 'Platform',
+                        __type__     => 'popup_menu',
+                        parser       => 'number',
                         __readonly__ => 1,
-                        __tie__   => [ platform => 'pid' ]
+                        __tie__      => [ platform => 'pid' ],
+                        __hidden__   => 1
                     }
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
@@ -118,7 +119,7 @@ sub new {
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
                 resource => 'experiments',
-                fields    => [
+                fields   => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
 

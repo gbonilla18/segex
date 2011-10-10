@@ -86,7 +86,8 @@ sub new {
                         label        => 'Platform',
                         parser       => 'number',
                         __readonly__ => 1,
-                        __tie__      => [ platform => 'pid' ]
+                        __tie__      => [ platform => 'pid' ],
+                        __hidden__   => 1
                     },
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
@@ -134,7 +135,10 @@ sub new {
                 selectors => { pid => 'pid' },
                 names     => [qw/sample1 sample2/],
                 meta      => {
-                    eid     => { label => 'No.', parser => 'number' },
+                    eid => {
+                        label  => 'No.',
+                        parser => 'number',
+                    },
                     sample1 => {
                         label      => 'Sample 1',
                         -maxlength => 100,
@@ -162,7 +166,8 @@ sub new {
                             ? undef
                             : [ platform => 'pid' ]
                         ),
-                        __readonly__ => 1
+                        __readonly__ => 1,
+                        __hidden__   => 1
                     }
                 },
                 lookup => [

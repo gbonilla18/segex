@@ -66,10 +66,8 @@ sub new {
             'platform' => {
                 key      => [qw/pid/],
                 resource => 'platforms',
-                fields    => [qw/pname def_p_cutoff def_f_cutoff species/],
-                view     => [
-                    qw/pname def_p_cutoff def_f_cutoff species/
-                ],
+                fields   => [qw/pname def_p_cutoff def_f_cutoff species/],
+                view     => [ qw/pname def_p_cutoff def_f_cutoff species/ ],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/pname species/],
                 meta  => {
@@ -85,7 +83,7 @@ sub new {
                         parser     => 'number',
                         -maxlength => 20
                     },
-                    species      => { label => 'Species', -maxlength => 100 }
+                    species => { label => 'Species', -maxlength => 100 }
                 },
                 join => [ probe => [ pid => 'pid', { join_type => 'LEFT' } ] ]
             },
@@ -114,12 +112,16 @@ sub new {
             'study' => {
                 key      => [qw/stid/],
                 view     => [qw/description pubmed/],
-                fields    => [qw/description pubmed/],
+                fields   => [qw/description pubmed/],
                 resource => 'studies',
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/description/],
                 meta  => {
-                    stid => { label => 'No.', parser => 'number' },
+                    stid => {
+                        label      => 'No.',
+                        parser     => 'number',
+                        __hidden__ => 1
+                    },
                     description => { label => 'Description' },
                     pubmed      => { label => 'PubMed ID' }
                 },
@@ -140,8 +142,8 @@ sub new {
                   [ project => [ prid => 'prid', { join_type => 'INNER' } ] ]
             },
             'experiment' => {
-                key   => [qw/eid/],
-                view  => [qw/sample1 sample2/],
+                key    => [qw/eid/],
+                view   => [qw/sample1 sample2/],
                 fields => [],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/sample1 sample2/]

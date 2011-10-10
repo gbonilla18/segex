@@ -56,7 +56,7 @@ sub new {
             'ProjectStudy' => {
                 key        => [qw/prid stid/],
                 view       => [],
-                fields      => [qw/prid stid/],
+                fields     => [qw/prid stid/],
                 join_type  => 'INNER',
                 constraint => [ prid => sub { shift->{_id} } ]
             },
@@ -64,7 +64,7 @@ sub new {
                 key      => [qw/prid/],
                 resource => 'projects',
                 view     => [qw/prname prdesc/],
-                fields    => [qw/prname prdesc manager/],
+                fields   => [qw/prname prdesc manager/],
 
                 # table key to the left, URI param to the right
                 selectors => { manager => 'manager' },
@@ -75,10 +75,11 @@ sub new {
                         parser => 'number'
                     },
                     manager => {
-                        label    => 'Managing User',
-                        parser   => 'number',
-                        __type__ => 'popup_menu',
-                        __tie__  => [ users => 'uid' ]
+                        label      => 'Managing User',
+                        parser     => 'number',
+                        __type__   => 'popup_menu',
+                        __tie__    => [ users => 'uid' ],
+                        __hidden__ => 1
                     },
                     prname => {
                         label      => 'Project Name',
@@ -94,14 +95,18 @@ sub new {
                 # table key to the left, URI param to the right
                 selectors => { pid => 'pid' },
                 view      => [qw/description pubmed/],
-                fields     => [qw/description pubmed/],
+                fields    => [qw/description pubmed/],
                 resource  => 'studies',
                 names     => [qw/description/],
                 meta      => {
                     stid => { label => 'No.', parser => 'number' },
                     description => { label => 'Description' },
                     pubmed      => { label => 'PubMed ID' },
-                    pid         => { label => 'Platform', parser => 'number' }
+                    pid         => {
+                        label      => 'Platform',
+                        parser     => 'number',
+                        __hidden__ => 1
+                    }
                 },
                 lookup => [ platform     => [ pid  => 'pid' ] ],
                 join   => [ ProjectStudy => [ stid => 'stid' ] ]
