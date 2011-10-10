@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
+use Data::Dumper;
 use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 
@@ -241,12 +242,15 @@ sub enum_array {
 #  DESCRIPTION:  Takes a list and returns a list of tuples composed of elements
 #                of the list arranged in pairs.
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  if main argument is undef, map it to empty list.
 #     SEE ALSO:  n/a
 #===============================================================================
 sub list_tuples {
     use integer;
-    map { [ $_[ $_ + $_ ] => $_[ $_ + $_ + 1 ] ] } 0 .. $#_ / 2;
+    my $list = shift || [];
+    return unless @$list;
+    map { [ $list->[ $_ + $_ ] => $list->[ $_ + $_ + 1 ] ] }
+      0 .. ( @$list - 1 ) / 2;
 }
 
 #===  FUNCTION  ================================================================

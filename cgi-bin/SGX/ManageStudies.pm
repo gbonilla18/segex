@@ -57,7 +57,7 @@ sub new {
 # key:        Fields that uniquely identify rows
 # names:      Fields which identify rows in user-readable manner (row name will be
 #             formed by concatenating values with a slash)
-# proto:      Fields that are filled out on insert/creation of new records.
+# fields:      Fields that are filled out on insert/creation of new records.
 # view:       Fields to display.
 # selectors:  Fields which, when present in CGI::param list, can narrow down
 #             output. Format: { URI => SQL }.
@@ -65,13 +65,13 @@ sub new {
         _table_defs => {
             'StudyExperiment' => {
                 key        => [qw/stid eid/],
-                proto      => [qw/stid eid/],
+                fields      => [qw/stid eid/],
                 join_type  => 'INNER',
                 constraint => [ stid => sub { shift->{_id} } ]
             },
             'study' => {
                 key      => [qw/stid/],
-                proto    => [qw/description pubmed pid/],
+                fields    => [qw/description pubmed pid/],
                 view     => [qw/description pubmed/],
                 resource => 'studies',
 
@@ -118,7 +118,7 @@ sub new {
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
                 resource => 'experiments',
-                proto    => [
+                fields    => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
 

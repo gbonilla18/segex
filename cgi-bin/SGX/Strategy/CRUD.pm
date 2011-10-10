@@ -200,7 +200,7 @@ sub _head_data_table {
                         )
                       )
                   } @{ $table_defs->{$other_table}->{view} }
-              } list_tuples( @{ $table_info->{lookup} } )
+              } list_tuples( $table_info->{lookup} )
         ),
 
         # delete row
@@ -460,7 +460,7 @@ sub dispatch_js {
 # "tied" to external tables, we don't need to perfom join/look-up queries on
 # those other tables when forming HTML page. Note: {key} will always get
 # selected together with {view} when displaying a page. When generating a Create
-# page, on the other hand, {key} will not be added to {proto}. Using {key} and
+# page, on the other hand, {key} will not be added to {fields}. Using {key} and
 # {view} lists will also allow us to preserve order...
 #
 # At the moment, adding key field, e.g. 'pid' to {view} causes numeric output to
@@ -481,7 +481,7 @@ sub dispatch_js {
 #            @$table_lookup,
 #            (
 #                map { $_->[0] => [ $this_field => $_->[1] ] }
-#                  list_tuples(@$tie_info)
+#                  list_tuples($tie_info)
 #            )
 #        ) if defined $tie_info;
 #    }
@@ -1500,7 +1500,7 @@ sub _readrow_command {
     my $table_info = $table_defs->{$table_alias};
     return if not $table_info;
 
-    my ( $key, $fields ) = @$table_info{qw/key proto/};
+    my ( $key, $fields ) = @$table_info{qw/key fields/};
     my @key_copy = @$key;
 
     return if @key_copy != 1;
@@ -1656,7 +1656,7 @@ sub _create_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
-    my ( $key, $meta, $fields ) = @$table_info{qw/key meta proto/};
+    my ( $key, $meta, $fields ) = @$table_info{qw/key meta fields/};
     return if defined $id and @$key < 2;
 
     # If param($field) evaluates to undefined, then we do not set the field.
@@ -1665,13 +1665,13 @@ sub _create_command {
     # NULL.
     # Note: we make exception when inserting a record when resource id is
     # already present: in those cases we create links.
-    my @proto = @$fields;
+    my @fields = @$fields;
 
     my $translate_key = $self->_get_param_keys($meta);
     my @assigned_fields =
         ( defined $id )
-      ? ( $proto[0], map { $translate_key->($_) } splice( @proto, 1 ) )
-      : map { $translate_key->($_) } @proto;
+      ? ( $fields[0], map { $translate_key->($_) } splice( @fields, 1 ) )
+      : map { $translate_key->($_) } @fields;
 
     my $assignment = join( ',', @assigned_fields );
     my $placeholders = join( ',', map { '?' } @assigned_fields );
@@ -1753,7 +1753,7 @@ sub _get_param_values {
 #       METHOD:  _get_mutable
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Gets all fields from {proto} that not have -disabled key in
+#  DESCRIPTION:  Gets all fields from {fields} that not have -disabled key in
 #                {meta}.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -1763,8 +1763,8 @@ sub _get_mutable {
     my ( $self, %args ) = @_;
     my $table_info = $args{table_info}
       || $self->{_table_defs}->{ $args{table_name} };
-    my ( $proto, $meta ) = @$table_info{qw/proto meta/};
-    return grep { !exists $meta->{$_}->{-disabled} } @$proto;
+    my ( $fields, $meta ) = @$table_info{qw/fields meta/};
+    return grep { !exists $meta->{$_}->{-disabled} } @$fields;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1954,7 +1954,7 @@ sub _body_edit_fields {
     my $table_info   = $table_defs->{$table} || {};
     my $default_meta = $table_info->{meta}   || {};
     my $args_meta    = $args{meta}           || {};
-    my $fields       = $table_info->{proto};
+    my $fields       = $table_info->{fields};
 
     my $fields_meta =
       +{ map { $_ => inherit_hash( $args_meta->{$_}, $default_meta->{$_} ) }

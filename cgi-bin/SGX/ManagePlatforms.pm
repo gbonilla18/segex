@@ -57,7 +57,7 @@ sub new {
 # key:        Fields that uniquely identify rows
 # names:      Fields which identify rows in user-readable manner (row name will be
 #             formed by concatenating values with a slash)
-# proto:      Fields that are filled out on insert/creation of new records.
+# fields:      Fields that are filled out on insert/creation of new records.
 # view:       Fields to display.
 # selectors:  Fields which, when present in CGI::param list, can narrow down
 #             output. Format: { URI => SQL }.
@@ -66,7 +66,7 @@ sub new {
             'platform' => {
                 key      => [qw/pid/],
                 resource => 'platforms',
-                proto    => [qw/pname def_p_cutoff def_f_cutoff species/],
+                fields    => [qw/pname def_p_cutoff def_f_cutoff species/],
                 view     => [
                     qw/pname def_p_cutoff def_f_cutoff species/
                 ],
@@ -114,7 +114,7 @@ sub new {
             'study' => {
                 key      => [qw/stid/],
                 view     => [qw/description pubmed/],
-                proto    => [qw/description pubmed/],
+                fields    => [qw/description pubmed/],
                 resource => 'studies',
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/description/],
@@ -142,7 +142,7 @@ sub new {
             'experiment' => {
                 key   => [qw/eid/],
                 view  => [qw/sample1 sample2/],
-                proto => [],
+                fields => [],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/sample1 sample2/]
             },
