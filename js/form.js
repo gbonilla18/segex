@@ -48,6 +48,19 @@ function deleteConfirmation(oArg)
     }
     return confirm(msg);
 }
+function getSelectedValue(obj)
+{
+    try {
+        return obj.options[obj.selectedIndex].value;
+    } catch(e) {
+        if (e instanceof TypeError || e instanceof DOMException) {
+            // cannot be set because no option was selected
+        } else {
+            // other error types: rethrow exception
+            throw e;
+        }
+    }
+}
 function validate_fields(of,reqfields) {
 
     // test if DOM is available
@@ -68,25 +81,30 @@ function validate_fields(of,reqfields) {
         var f=document.getElementById(reqfields[i]);
         // cleanup: remove old classes from the required fields
         f.parentNode.className="";
-        // completely strip whitespace and place field value into v
-        var v=f.value.replace(/ /g,"");
+        // completely strip whitespace and place field value into value 
         // test if the required field has an error, according to its type
         switch(f.type.toLowerCase()) {
             case "text":
+                var value =f.value.replace(/ /g,"");
                 switch(f.id.toLowerCase()) {
                     case "email":
                     case "email1":
                     case "email2":
-                        if(!cf_isEmailAddr(v)) {cf_adderr(f);}
+                        if(!cf_isEmailAddr(value )) {cf_adderr(f)}
                         break;
                     default:
-                        if(v === "") {cf_adderr(f);}
+                        if(value  === "") {cf_adderr(f)}
                 }
+                break;
+            case "select-one":
+                var value = getSelectedValue(f);
+                if (value ===""){cf_adderr(f)}
                 break;
             case "file":
             case "textarea":
             case "password":
-                if(v===""){cf_adderr(f);}
+                var value = f.value.replace(/ /g,"");
+                if(value ===""){cf_adderr(f)}
                 break;
         }
     }

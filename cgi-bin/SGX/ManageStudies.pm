@@ -86,11 +86,12 @@ sub new {
                     },
                     description => {
                         label      => 'Description',
-                        -maxlength => 100
+                        -maxlength => 255,
+                        -size      => 55
                     },
                     pubmed => {
                         label        => 'PubMed',
-                        -maxlength   => 20,
+                        -maxlength   => 255,
                         __optional__ => 1
                     },
                     pid => {

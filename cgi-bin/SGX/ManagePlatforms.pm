@@ -72,12 +72,17 @@ sub new {
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/pname species/],
                 meta  => {
-                    pid => { label => 'No.', parser => 'number' },
-                    pname   => { label => 'Platform Name', -maxlength => 100 },
+                    pid   => { label => 'No.', parser => 'number' },
+                    pname => {
+                        label      => 'Platform Name',
+                        -maxlength => 255,
+                        -size      => 55
+                    },
                     species => {
                         label        => 'Species',
-                        -maxlength   => 100,
-                        __optional__ => 1
+                        -maxlength   => 255,
+                        __optional__ => 1,
+                        -size        => 35
                     },
 
                     # def_p_cutoff

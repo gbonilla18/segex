@@ -141,20 +141,22 @@ sub new {
                     },
                     sample1 => {
                         label      => 'Sample 1',
-                        -maxlength => 100,
+                        -maxlength => 255,
                         -size      => 35
                     },
                     sample2 => {
                         label      => 'Sample 2',
-                        -maxlength => 100,
+                        -maxlength => 255,
                         -size      => 35
                     },
                     ExperimentDescription => {
-                        label => 'Description',
-                        -size => 55
+                        label      => 'Description',
+                        -maxlength => 255,
+                        -size      => 55
                     },
                     AdditionalInformation => {
                         label        => 'Additional Info',
+                        -maxlength   => 255,
                         -size        => 55,
                         __optional__ => 1
                     },

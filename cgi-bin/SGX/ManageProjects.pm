@@ -84,9 +84,15 @@ sub new {
                     },
                     prname => {
                         label      => 'Project Name',
-                        -maxlength => 100,
+                        -maxlength => 255,
+                        -size      => 55
                     },
-                    prdesc => { label => 'Description', __optional__ => 1 }
+                    prdesc => {
+                        label        => 'Description',
+                        __optional__ => 1,
+                        -maxlength   => 255,
+                        -size        => 55
+                    }
                 },
                 lookup => [ users => [ manager => 'uid' ] ]
             },
