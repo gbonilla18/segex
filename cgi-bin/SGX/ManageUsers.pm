@@ -117,30 +117,8 @@ sub new {
         _data              => undef,
     );
 
-    $self->register_actions(
-        'head' => { form_create => 'form_create_head' },
-        'body' => { form_create => 'form_create_body' }
-    );
-
     bless $self, $class;
     return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageUsers
-#       METHOD:  form_create
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub form_create_head {
-    my $self = shift;
-    return if defined $self->{_id};    # no _id
-
-    return 1;
 }
 
 #######################################################################################

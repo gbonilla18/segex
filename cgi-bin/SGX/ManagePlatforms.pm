@@ -191,11 +191,9 @@ sub new {
 
     $self->register_actions(
         'head' => {
-            form_create => 'form_create_head',
             form_assign => 'form_assign_head'
         },
         'body' => {
-            form_create => 'form_create_body',
             form_assign => 'form_assign_body'
         }
     );
@@ -224,23 +222,6 @@ sub readrow_head {
 
     # add extra table showing studies
     $self->generate_datatable( 'study' );
-
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  form_create
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub form_create_head {
-    my $self = shift;
-    return if defined $self->{_id};    # {_id} must not be set
 
     return 1;
 }

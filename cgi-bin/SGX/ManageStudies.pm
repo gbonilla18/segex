@@ -166,11 +166,9 @@ sub new {
 
     $self->register_actions(
         'head' => {
-            form_create => 'form_create_head',
             form_assign => 'form_assign_head'
         },
         'body' => {
-            form_create => 'form_create_body',
             form_assign => 'form_assign_body'
         }
     );
@@ -245,7 +243,7 @@ sub readall_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageStudies
-#       METHOD:  form_create
+#       METHOD:  form_create_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -255,14 +253,14 @@ sub readall_head {
 #===============================================================================
 sub form_create_head {
     my $self = shift;
-    return if defined $self->{_id};    # no _id
 
+    # dropdowns
     push @{ $self->{_js_src_code} },
       (
         { -src  => 'PlatformStudyExperiment.js' },
         { -code => $self->get_pse_dropdown_js( platforms => 1 ) }
       );
-    return 1;
+    return $self->SUPER::form_create_head();
 }
 
 #######################################################################################

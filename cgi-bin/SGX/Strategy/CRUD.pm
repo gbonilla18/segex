@@ -56,6 +56,8 @@ sub new {
     # dispatch table for other requests (returning 1 results in response
     # without a body)
     $self->register_actions(
+        'head'     => { form_create => 'form_create_head' },
+        'body'     => { form_create => 'form_create_body' },
         'redirect' => {
             'ajax_create' => 'ajax_create',
             'ajax_update' => 'ajax_update',
@@ -2062,6 +2064,23 @@ sub _head_init {
         'paginator/paginator-min.js',         'connection/connection-min.js'
       );
     push @{ $self->{_js_src_code} }, ( +{ -src => 'TableUpdateDelete.js' } );
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  form_create_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub form_create_head {
+    my $self = shift;
+    return if defined $self->{_id};    # no _id
+
     return 1;
 }
 
