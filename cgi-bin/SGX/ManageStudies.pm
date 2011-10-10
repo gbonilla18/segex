@@ -374,24 +374,7 @@ sub readrow_body {
       $q->h3('Set Study Attributes'),
 
       # Resource URI: /studies/id
-      $q->start_form(
-        -method   => 'POST',
-        -action   => $self->get_resource_uri(),
-        -onsubmit => 'return validate_fields(this, [\'description\']);'
-      ),
-      $q->dl(
-        $self->body_edit_fields( mode => 'update' ),
-        $q->dt('&nbsp;'),
-        $q->dd(
-            $q->hidden( -name => 'b', -value => 'update' ),
-            $q->submit(
-                -class => 'button black bigrounded',
-                -value => 'Set Attributes',
-                -title => 'Change study attributes'
-            )
-        )
-      ),
-      $q->end_form,
+      $self->body_create_update_form( mode => 'update' ),
 
     #---------------------------------------------------------------------------
     #  Experiments table

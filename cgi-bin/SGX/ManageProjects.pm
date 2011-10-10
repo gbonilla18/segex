@@ -293,24 +293,7 @@ sub readrow_body {
       $q->h3('Set Project Attributes'),
 
       # Resource URI: /projects/id
-      $q->start_form(
-        -method   => 'POST',
-        -action   => $self->get_resource_uri(),
-        -onsubmit => 'return validate_fields(this, [\'prname\']);'
-      ),
-      $q->dl(
-        $self->body_edit_fields( mode => 'update' ),
-        $q->dt('&nbsp;'),
-        $q->dd(
-            $q->hidden( -name => 'b', -value => 'update' ),
-            $q->submit(
-                -class => 'button black bigrounded',
-                -value => 'Set Attributes',
-                -title => 'Change project attributes'
-            )
-        )
-      ),
-      $q->end_form,
+      $self->body_create_update_form( mode => 'update' ),
 
     #---------------------------------------------------------------------------
     #  Studies table

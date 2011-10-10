@@ -2186,8 +2186,38 @@ sub _js_populate_dropdowns {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub form_create_body {
-
     my $self = shift;
+    my ( $q, $item_name ) = @$self{qw/_cgi _item_name/};
+
+    return
+
+      # container stuff
+      $q->h2( $self->{_title} ),
+      $self->body_create_read_menu(
+        'read'   => [ undef,         'View Existing' ],
+        'create' => [ 'form_create', 'Create New' ]
+      ),
+      $q->h3("Create New $item_name"),
+
+      # form
+      $self->body_create_update_form( mode => 'create' );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  body_create_form
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub body_create_update_form {
+    my $self = shift;
+    my %args = @_;
+    my $mode = $args{mode} || 'create';
+
     my ( $q, $js, $item_name ) = @$self{qw/_cgi _js_emitter _item_name/};
 
     # will select from: default table / base fieldset / omitting optional fields
@@ -2206,31 +2236,21 @@ sub form_create_body {
         ]
     );
 
-    return
-
-      # container stuff
-      $q->h2( $self->{_title} ),
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'View Existing' ],
-        'create' => [ 'form_create', 'Create New' ]
-      ),
-      $q->h3("Create New $item_name"),
-
-      # form
-      $q->start_form(
+    # form
+    return $q->start_form(
         -method   => 'POST',
         -action   => $self->get_resource_uri(),
         -onsubmit => $onsubmit
       ),
       $q->dl(
-        $self->body_edit_fields( mode => 'create' ),
+        $self->body_edit_fields( mode => $mode ),
         $q->dt('&nbsp;'),
         $q->dd(
-            $q->hidden( -name => 'b', -value => 'create' ),
+            $q->hidden( -name => 'b', -value => $mode ),
             $q->submit(
                 -class => 'button black bigrounded',
-                -value => "Create $item_name",
-                -title => "Create a New $item_name"
+                -value => $mode,
+                -title => "$mode " . lc($item_name)
             )
         )
       ),
