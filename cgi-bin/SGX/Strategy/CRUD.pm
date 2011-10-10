@@ -1420,8 +1420,8 @@ sub _buld_select_fields {
 
                 # also modify cascade {view} and {meta}
                 push @$this_view, $field_alias;
+                $field_meta->{__readonly__} = 1;
                 $this_meta->{$field_alias} = $field_meta;
-                $this_meta->{$field_alias}->{__readonly__} = 1;
             }
         }
     }
