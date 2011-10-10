@@ -2,9 +2,9 @@ function $() {
     var elements = new Array();
     for (var i = 0; i < arguments.length; i++) {
         var element = arguments[i];
-        if (typeof element == 'string')
+        if (typeof element === 'string')
             element = document.getElementById(element);
-        if (arguments.length == 1)
+        if (arguments.length === 1)
             return element;
         elements.push(element);
     }
@@ -67,11 +67,6 @@ function validate_fields(of,reqfields) {
     /* 06/20/2007 -	added "document.appendChild" check for Opera 6
     /* 06/14/2007 -	removed code related to IMG elements,
     added "password" input type
-    Based on:
-    http://www.onlinetools.org/articles/unobtrusivejavascript/chapter5.html
-
-    Modified by Eugene Scherba 2007-2009 
-    Requires Prototype JavaScript framework
     */
 
     // test if DOM is available
@@ -92,7 +87,6 @@ function validate_fields(of,reqfields) {
     for (var i=0; i<reqfields.length; i++) {
         // get a required field
         var f=$(reqfields[i]);
-        if(!f){continue;}
         // cleanup: remove old classes from the required fields
         f.parentNode.className="";
         // completely strip whitespace and place field value into v
@@ -110,23 +104,20 @@ function validate_fields(of,reqfields) {
                     case "email":
                     case "email1":
                     case "email2":
-                        if(v != "" && !cf_isEmailAddr(v)) {cf_adderr(f);}
-                        break;
-                    case "security_code":
-                        if(v.length != captchaLength) {cf_adderr(f);}
+                        if(!cf_isEmailAddr(v)) {cf_adderr(f);}
                         break;
                     default:
-                        if(v == "") {cf_adderr(f);}
+                        if(v === "") {cf_adderr(f);}
                 }
                 break;
             case "file":
             case "textarea":
             case "password":
-                if(v==""){cf_adderr(f);}
+                if(v===""){cf_adderr(f);}
                 break;
             /* 
             case "select-one":
-                if(!f.selectedIndex && f.selectedIndex==0){cf_adderr(f);}
+                if(!f.selectedIndex && f.selectedIndex===0){cf_adderr(f);}
                 break; */
         }
     }
@@ -160,9 +151,5 @@ function validate_fields(of,reqfields) {
         // RFC 2822 regex from
         // http://www.regular-expressions.info/email.html
         return str.match(/(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/);
-        //return str.match(/^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/);
-        // arpad3 email regex validator (passes all tests at http://www.pgregg.com/projects/php/code/showvalidemail.php):
-        //alert( preg_match('/^(?:"(?:\\\\.|[^"])*"|[^@]+)@(?=[^()]*(?:\([^)]*\)[^()]*)*\z)(?![^ ]* (?=[^)]+(?:\(|\z)))(?:(?:[a-z\d() ]+(?:[a-z\d() -]*[()a-z\d])?\.)+[a-z\d]{2,6}|\[(?:(?:1?\d\d?|2[0-4]\d|25[0-4])\.){3}(?:1?\d\d?|2[0-4]\d|25[0-4])\]) *\z/si'));
-        //return false;
     }
 }
