@@ -1983,9 +1983,10 @@ sub _ajax_process_request {
     # :TODO:10/05/2011 02:06:01:es: attempt more specific error capture using
     # exceptions
     my $command = eval { $command_factory->($self) } or do {
-        if ( my $exception = $@ ) {
-            $self->set_body("$exception");
-        }
+        my $exception = $@;
+        $self->set_body("$exception")
+          if $exception
+              and $exception->isa('SGX::Exception::User');
         $self->set_header(
             -status => 400,    # 400 Bad Request
             -cookie => undef
@@ -1995,9 +1996,12 @@ sub _ajax_process_request {
 
     my $rows_affected = 0;
     eval { ( $rows_affected = $command->() ) == 1; } or do {
-        if ( ( my $exception = $@ ) or $rows_affected != 0 ) {
+        my $exception = $@;
+        if ( $exception or $rows_affected != 0 ) {
 
-            $self->set_body("$exception") if $exception;
+            $self->set_body("$exception")
+              if $exception
+                  and $exception->isa('SGX::Exception::User');
 
             # Unexpected condition: either error occured or the number of
             # updated rows is unknown ($rows_affected == -1) or the number of
