@@ -132,7 +132,8 @@ sub _head_data_table {
     push( @editPhrase, $table ) if not defined $editPhrase[1];
 
     my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
-    my $s2i = $self->{_this_symbol2index};
+
+    my $s2n = $self->{_this_symbol2name};
 
     #---------------------------------------------------------------------------
     #  Compiling names to something like _a7, _a0. This way we don't have to
@@ -182,8 +183,7 @@ sub _head_data_table {
         (
             map {
                 my $other_table = $_;
-                my $this_join_col =
-                  $s2i->{ $left_join_info->{$other_table}->[0] } . '';
+                my $this_join_col     = $left_join_info->{$other_table}->[0];
                 my $lookupTable_other = $lookupTables->($other_table);
                 map {
                     $column->(
@@ -228,9 +228,7 @@ sub _head_data_table {
     #  Which fields can be used to "name" rows -- createRowNameBuilder
     #  (Javascript) needs this
     #---------------------------------------------------------------------------
-    my @nameIndexes =
-      map { "$_" }
-      grep { defined } map { $s2i->{$_} } @{ $table_info->{names} };
+    my @nameIndexes = grep { exists $s2n->{$_} } @{ $table_info->{names} };
 
     #---------------------------------------------------------------------------
     #  Arguments supplied to createDeleteDataBuilder (Javascript): table - table
@@ -241,9 +239,9 @@ sub _head_data_table {
     if ($remove_row) {
         my $del_table      = $deletePhrase[1];
         my $del_table_info = $self->{_table_defs}->{$del_table};
-        my @symbols =
-          grep { exists $s2i->{$_} } @{ $del_table_info->{key} };
-        my %extras = map { $_ => "$s2i->{$_}" } @symbols;
+        my @del_symbols =
+          grep { exists $s2n->{$_} } @{ $del_table_info->{key} };
+        my %extras = map { $_ => $_ } @del_symbols;
         %del_table_args = ( table => $del_table, key => \%extras );
     }
 
@@ -705,9 +703,7 @@ sub ajax_create {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _head_response_schema {
-    my $self = shift;
-    my $s2i  = $self->{_this_symbol2index};
-    return [ map { "$_" } values %$s2i ];
+    return [ keys %{ shift->{_this_symbol2name} } ];
 }
 
 #===  CLASS METHOD  ============================================================
@@ -722,8 +718,7 @@ sub _head_response_schema {
 #===============================================================================
 sub _head_column_def {
     my ( $self, %args ) = @_;
-    my ( $s2i, $s2n, $_other ) =
-      @$self{qw/_this_symbol2index _this_symbol2name _other/};
+    my ( $s2n, $_other ) = @$self{qw/_this_symbol2name _other/};
 
     # make a hash of mutable columns
     my $table =
@@ -736,15 +731,13 @@ sub _head_column_def {
     my ( $table_mutable, $table_lookup ) = @$table_info{qw/mutable lookup/};
     my %mutable = map { $_ => 1 } @$table_mutable;
 
-    my $extrasIndex = max( values %$s2i ) + 1;
-
     my $js            = $args{js_emitter};
     my $cell_updater  = $args{cell_updater};
     my $cell_dropdown = $args{cell_dropdown};
     my $lookupTables  = $args{lookup_tables};
 
-    warn Dumper($lookupTables);
-    warn Dumper($table_lookup);
+    #warn Dumper($lookupTables);
+    #warn Dumper($table_lookup);
 
     my $TRUE  = $js->true;
     my $FALSE = $js->false;
@@ -770,15 +763,15 @@ sub _head_column_def {
         my $propagate_index;
         if ( $mytable ne '' ) {
             $propagate_key   = $table_lookup->{$mytable}->[0];
-            $propagate_index = $s2i->{$propagate_key};
+            $propagate_index = $propagate_key;
         }
 
         my $index =
-          ( $mytable eq '' and defined($symbol) and defined( $s2i->{$symbol} ) )
-          ? $s2i->{$symbol}
+          ( $mytable eq '' and defined($symbol) and defined( $s2n->{$symbol} ) )
+          ? $symbol
           : (
             ( defined $propagate_index ) ? $propagate_index
-            : $extrasIndex++
+            : undef
           );
         my $label =
           ( defined $symbol )
@@ -833,9 +826,9 @@ sub _head_column_def {
   # (actually kind of works but with some obvious problems).
         return {
             %default_column,
-            key      => "$index",
+            ( ( defined $index ) ? ( key => "$index" ) : () ),
             sortable => ( defined($symbol) && $mytable eq '' ) ? $TRUE : $FALSE,
-            label    => $label,
+            label => $label,
             @ajax_editor,
             %extra_definitions
         };
@@ -886,16 +879,7 @@ sub getJSRecords {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getJSHeaders {
-    my $self = shift;
-
-    # declare options
-    my $s2i     = $self->{_this_symbol2index};
-    my @columns = values %$s2i;
-
-    my $names     = $self->{_this_index2name};
-    my @use_names = @$names[@columns];
-
-    return [ map { $names->[$_] } @columns ];
+    return shift->{_this_index2name};
 }
 
 #===  CLASS METHOD  ============================================================
