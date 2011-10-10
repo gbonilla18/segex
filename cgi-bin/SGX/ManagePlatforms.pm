@@ -32,6 +32,7 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
+use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception;
 use SGX::Model::ProjectStudyExperiment;
 
@@ -74,13 +75,30 @@ sub new {
                     pid => { label => 'No.', parser => 'number' },
                     pname => { label => 'Platform Name', -maxlength => 100 },
                     def_p_cutoff => {
-                        label      => 'P-value Cutoff',
-                        parser     => 'number',
+                        label     => 'P-value Cutoff',
+                        parser    => 'number',
+                        __valid__ => sub {
+                            my $val = shift;
+                            (        looks_like_number($val)
+                                  && $val >= 0
+                                  && $val <= 1 )
+                              or SGX::Abstract::Exception::User->throw( error =>
+                                  'P-value must be a number from 0.0 to 1.0' );
+                        },
                         -maxlength => 20
                     },
                     def_f_cutoff => {
-                        label      => 'Fold-change Cutoff',
-                        parser     => 'number',
+                        label     => 'Fold-change Cutoff',
+                        parser    => 'number',
+                        __valid__ => sub {
+                            my $val = shift;
+                            (        looks_like_number($val)
+                                  && $val <= -1
+                                  && $val >= 1 )
+                              or SGX::Abstract::Exception::User->throw( error =>
+'Fold change must be a number <= -1.0 or >= 1.0'
+                              );
+                        },
                         -maxlength => 20
                     },
                     species => { label => 'Species', -maxlength => 100 }

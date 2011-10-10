@@ -846,6 +846,7 @@ sub _head_column_def {
     #  cell editor (either text or dropdown)
     #---------------------------------------------------------------------------
         my @live_field;
+
         if ( defined($symbol) ) {
             my $type = $this_meta->{__type__} || 'textfield';
 
@@ -1681,7 +1682,7 @@ sub _create_command {
         return;
     };
 
-    my $translate_val = $self->_get_param_values($table_info->{meta});
+    my $translate_val = $self->_get_param_values( $table_info->{meta} );
     my @params =
         ( defined $id )
       ? ( $id, map { $translate_val->($_) } cdr @assigned_fields )
@@ -1715,15 +1716,34 @@ sub _get_param_values {
         my $this_meta = $meta->{$param} || {};
         my $type      = $this_meta->{__type__};
         if ( !defined($type) ) {
-            return car(@result);
+            return _validate_val( $this_meta, car(@result) );
         }
         elsif ( $type eq 'checkbox' ) {
             return ( @result > 1 ) ? 1 : 0;
         }
         else {
-            return car(@result);
+            return _validate_val( $this_meta, car(@result) );
         }
     };
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _validate_val
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _validate_val {
+    my $this_meta = shift;
+    my $val       = shift;
+    if ( my $validator = $this_meta->{__valid__} ) {
+        $validator->($val);
+    }
+    return $val;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1861,18 +1881,18 @@ sub _update_command {
     my $predicate = join( ' AND ', map { "$_=?" } @key );
     my $query = "UPDATE $table SET $assignment WHERE $predicate";
 
-    my $sth = eval { $dbh->prepare($query) } or do {
-        my $error = $@;
-        carp $error;
-        return;
-    };
-
     # assuming that $self->{_id} corresponds to the first key field
     my $translate_val = $self->_get_param_values( $table_info->{meta} );
     my @params        = (
         ( map { $translate_val->($_) } @fields_to_update ),
         $self->{_id}, ( map { $translate_val->($_) } cdr @key )
     );
+
+    my $sth = eval { $dbh->prepare($query) } or do {
+        my $error = $@;
+        carp $error;
+        return;
+    };
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1913,15 +1933,17 @@ sub _ajax_process_request {
         );
         return 1;
     }
-    my $command = $command_factory->($self);
 
-    if ( not defined $command ) {
+    # :TODO:10/05/2011 02:06:01:es: attempt more specific error capture using
+    # exceptions
+    my $command = eval { $command_factory->($self) } or do {
+        warn $@ if $@;
         $self->set_header(
             -status => 400,    # 400 Bad Request
             -cookie => undef
         );
         return 1;
-    }
+    };
 
     my $rows_affected = 0;
     eval { ( $rows_affected = $command->() ) == 1; } or do {
