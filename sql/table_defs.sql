@@ -46,8 +46,8 @@ CREATE TABLE `StudyExperiment` (
   PRIMARY KEY (`stid`,`eid`),
   KEY `eid` (`eid`),
   KEY `stid` (`stid`),
-  CONSTRAINT `studyexperiment_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE,
-  CONSTRAINT `studyexperiment_ibfk_2` FOREIGN KEY (`stid`) REFERENCES `study` (`stid`) ON DELETE CASCADE
+  CONSTRAINT `studyexperiment_ibfk_2` FOREIGN KEY (`stid`) REFERENCES `study` (`stid`) ON DELETE CASCADE,
+  CONSTRAINT `studyexperiment_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -253,4 +253,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2011-09-22  9:22:13
+-- Dump completed on 2011-10-09 19:30:06
