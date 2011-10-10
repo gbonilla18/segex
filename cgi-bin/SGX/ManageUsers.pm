@@ -67,19 +67,24 @@ sub new {
                 meta     => {
                     email => {
                         label     => 'Email',
-                        formatter => sub { 'formatEmail' }
+                        formatter => sub { 'formatEmail' },
                     },
                     uid => {
                         label  => 'ID',
                         parser => 'number'
                     },
                     uname     => { label => 'Login ID' },
-                    full_name => { label => 'Full Name', -size => 55 },
-                    address => {
-                        label    => 'Address',
-                        __type__ => 'textarea',
+                    full_name => {
+                        label => 'Full Name',
+                        -size => 55,
+                        __optional__ => 1
                     },
-                    phone => { label => 'Phone' },
+                    address => {
+                        label        => 'Address',
+                        __type__     => 'textarea',
+                        __optional__ => 1
+                    },
+                    phone => { label => 'Phone', __optional__ => 1 },
                     level => {
                         label           => 'Permissions',
                         __type__        => 'popup_menu',
@@ -95,14 +100,17 @@ sub new {
                         dropdownOptions => [
                             { value => '0', label => 'No' },
                             { value => '1', label => 'Yes' }
-                        ]
+                        ],
+                        __optional__ => 1
                     },
                     udate => { label => 'Date Created', }
                 },
             }
         },
-        _default_table     => 'users',
-        _title             => 'Manage Users',
+        _default_table => 'users',
+        _title         => 'Manage Users',
+        _item_name     => 'User',
+
         _id                => undef,
         _id_data           => {},
         _Field_IndexToName => undef,
@@ -161,38 +169,6 @@ sub readall_body {
       $q->div(
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
       $q->div( { -id => $self->{dom_table_id} }, '' );
-}
-#######################################################################################
-sub form_create_body {
-
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    return $q->h2( $self->{_title} ),
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'View Existing' ],
-        'create' => [ 'form_create', 'Create New' ]
-      ),
-      $q->h3('Create New User'),
-
-      # Resource URI: /projects
-      $q->start_form(
-        -method   => 'POST',
-        -action   => $self->get_resource_uri(),
-        -onsubmit => 'return validate_fields(this, [\'prname\']);'
-      ),
-      $q->dl(
-        $self->body_edit_fields( mode => 'create' ),
-        $q->dt('&nbsp;') => $q->dd(
-            $q->hidden( -name => 'b', -value => 'create' ),
-            $q->submit(
-                -class => 'button black bigrounded',
-                -value => 'Create User',
-                -title => 'Create a new project'
-            )
-        )
-      ),
-      $q->end_form;
 }
 
 #######################################################################################

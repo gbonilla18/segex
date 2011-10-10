@@ -154,8 +154,9 @@ sub new {
                         -size => 55
                     },
                     AdditionalInformation => {
-                        label => 'Additional Info',
-                        -size => 55
+                        label        => 'Additional Info',
+                        -size        => 55,
+                        __optional__ => 1
                     },
                     pid => {
                         label    => 'Platform',
@@ -212,7 +213,11 @@ sub new {
             }
         },
         _default_table => 'experiment',
-        _title         => 'Manage Experiments',
+
+        # :TODO:10/05/2011 16:35:27:es: can generate _title automatically from
+        # _item_name
+        _title     => 'Manage Experiments',
+        _item_name => 'Experiment',
 
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
@@ -384,40 +389,6 @@ sub readall_body {
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
       $q->div( { -id => $self->{dom_table_id} }, '' );
 }
-#######################################################################################
-sub form_create_body {
-
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    return $q->h2( $self->{_title} ),
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'View Existing' ],
-        'create' => [ 'form_create', 'Create New' ]
-      ),
-      $q->h3('Create New Experiment'),
-
-      # Resource URI: /studies
-      $q->start_form(
-        -method   => 'POST',
-        -action   => $self->get_resource_uri(),
-        -onsubmit => 'return validate_fields(this, [\'description\']);'
-      ),
-      $q->dl(
-        $self->body_edit_fields( mode => 'create' ),
-        $q->dt('&nbsp;'),
-        $q->dd(
-            $q->hidden( -name => 'b', -value => 'create' ),
-            $q->submit(
-                -class => 'button black bigrounded',
-                -value => 'Create Experiment',
-                -title => 'Create a new experiment'
-            )
-        )
-      ),
-      $q->end_form;
-}
-
 #######################################################################################
 sub form_assign_head {
     my $self = shift;

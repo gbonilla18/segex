@@ -74,7 +74,11 @@ sub new {
                 meta  => {
                     pid => { label => 'No.', parser => 'number' },
                     pname   => { label => 'Platform Name', -maxlength => 100 },
-                    species => { label => 'Species',       -maxlength => 100 },
+                    species => {
+                        label        => 'Species',
+                        -maxlength   => 100,
+                        __optional__ => 1
+                    },
 
                     # def_p_cutoff
                     def_p_cutoff => {
@@ -175,6 +179,7 @@ sub new {
         },
         _default_table => 'platform',
         _title         => 'Manage Platforms',
+        _item_name     => 'Platform',
 
         _id      => undef,
         _id_data => {},
@@ -267,40 +272,6 @@ sub readall_body {
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
       $q->div( { -id => $self->{dom_table_id} }, '' );
 }
-#######################################################################################
-sub form_create_body {
-
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    return $q->h2( $self->{_title} ),
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'View Existing' ],
-        'create' => [ 'form_create', 'Create New' ]
-      ),
-      $q->h3('Create New Platform'),
-
-      # Resource URI: /projects
-      $q->start_form(
-        -method   => 'POST',
-        -action   => $self->get_resource_uri(),
-        -onsubmit => 'return validate_fields(this, [\'pname\']);'
-      ),
-      $q->dl(
-        $self->body_edit_fields( mode => 'create' ),
-        $q->dt('&nbsp;'),
-        $q->dd(
-            $q->hidden( -name => 'b', -value => 'create' ),
-            $q->submit(
-                -class => 'button black bigrounded',
-                -value => 'Create Platform',
-                -title => 'Create a new platform'
-            )
-        )
-      ),
-      $q->end_form;
-}
-
 #######################################################################################
 sub form_assign_head {
     my $self = shift;

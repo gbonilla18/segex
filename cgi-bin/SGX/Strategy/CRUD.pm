@@ -705,10 +705,10 @@ sub default_create {
     my ( $dbh, $table ) = @$self{qw/_dbh _default_table/};
 
     # car() selects first column from the list
-    my $id_column = car _select_fields(
-        $self->{_table_defs}->{$table},
-        from    => 'key',
-        dealias => '__sql__'
+    my $id_column = car $self->_select_fields(
+        table    => $table,
+        fieldset => 'key',
+        dealias  => '__sql__'
     );
     my $insert_id = $dbh->last_insert_id( undef, undef, $table, $id_column );
 
@@ -795,8 +795,11 @@ sub _head_column_def {
     my $meta       = $table_info->{meta};
 
     my %mutable =
-      map { $_ => 1 }
-      _select_fields( $table_info, from => 'view', omit => '__readonly__' );
+      map { $_ => 1 } $self->_select_fields(
+        table    => $table_info,
+        fieldset => 'view',
+        omitting => '__readonly__'
+      );
 
     my $js                   = $args{js_emitter};
     my $data_table           = $args{data_table};
@@ -1493,14 +1496,23 @@ sub _readrow_command {
     my $table_info = $table_defs->{$table_alias};
     return if not $table_info;
 
-    my @key =
-      _select_fields( $table_info, from => 'key', dealias => '__sql__' );
+    my @key = $self->_select_fields(
+        table    => $table_info,
+        fieldset => 'key',
+        dealias  => '__sql__'
+    );
     return if @key != 1;
 
     my $table = $table_info->{table} || $table_alias;
     my $predicate = join( ' AND ', map { "$_=?" } @key );
-    my $read_fields = join( ',',
-        _select_fields( $table_info, from => 'base', dealias => '__sql__' ) );
+    my $read_fields = join(
+        ',',
+        $self->_select_fields(
+            table    => $table_info,
+            fieldset => 'base',
+            dealias  => '__sql__'
+        )
+    );
     my $query =
       "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
@@ -1550,8 +1562,11 @@ sub _delete_command {
     my $table_info = $self->{_table_defs}->{$table};
     return if not $table_info;
 
-    my @key =
-      _select_fields( $table_info, from => 'key', dealias => '__sql__' );
+    my @key = $self->_select_fields(
+        table    => $table_info,
+        fieldset => 'key',
+        dealias  => '__sql__'
+    );
     my $predicate = join( ' AND ', map { "$_=?" } @key );
     my $query     = "DELETE FROM $table WHERE $predicate";
     my @params    = ( $self->{_id}, ( map { $q->param($_) } cdr @key ) );
@@ -1592,9 +1607,12 @@ sub _assign_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
-    my $id = $self->{_id};
-    my @key =
-      _select_fields( $table_info, from => 'key', dealias => '__sql__' );
+    my $id  = $self->{_id};
+    my @key = $self->_select_fields(
+        table    => $table_info,
+        fieldset => 'key',
+        dealias  => '__sql__'
+    );
     return if ( !defined($id) || @key != 2 );
 
     # If param($field) evaluates to undefined, then we do not set the field.
@@ -1667,10 +1685,10 @@ sub _create_command {
 
     my $assignment = join(
         ',',
-        _select_fields(
-            $table_info,
-            from    => \@assigned_fields,
-            dealias => '__sql__'
+        $self->_select_fields(
+            table    => $table_info,
+            fieldset => \@assigned_fields,
+            dealias  => '__sql__'
         )
     );
     my $placeholders = join( ',', map { '?' } @assigned_fields );
@@ -1756,18 +1774,26 @@ sub _validate_val {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _select_fields {
-    my ( $table_info, %args ) = @_;
+    my ( $self, %args ) = @_;
+
+    # step -1: set up table
+    my $table = $args{table} || $self->{_default_table};
+    my $table_info =
+      ( ref $table eq 'HASH' )
+      ? $table
+      : ( $self->{_table_defs}->{$table} || {} );
+
     my $meta = $table_info->{meta} || {};
 
-    # step 0: set up source
-    my $list = $args{from};
+    # step 0: set up fieldset
+    my $list = $args{fieldset} || 'base';
     my $fields =
       ( ref $list eq 'ARRAY' )
       ? $list
-      : ( $table_info->{ $list || 'base' } || [] );
+      : ( $table_info->{$list} || [] );
 
-    # step 1: filter
-    my $filter_on = $args{omit};
+    # step 1: omit filter
+    my $filter_on = $args{omitting};
     my $filter    = ($filter_on)
       ? sub {
         grep { !defined( $meta->{$_} ) || !$meta->{$_}->{$filter_on} } @_;
@@ -1859,23 +1885,26 @@ sub _update_command {
     # This means that we cannot directly set a field to NULL -- unless we
     # specifically map a special character (for example, an empty string), to
     # NULL.
-    my @fields_to_update = grep { defined $q->param($_) } _select_fields(
-        $table_info,
-        from => 'base',
-        omit => '__readonly__'
+    my @fields_to_update = grep { defined $q->param($_) } $self->_select_fields(
+        table    => $table_info,
+        fieldset => 'base',
+        omitting => '__readonly__'
     );
 
     my $assignment = join(
         ',',
-        map { "$_=?" } _select_fields(
-            $table_info,
-            from    => \@fields_to_update,
-            dealias => '__sql__'
+        map { "$_=?" } $self->_select_fields(
+            table    => $table_info,
+            fieldset => \@fields_to_update,
+            dealias  => '__sql__'
         )
     );
 
-    my @key =
-      _select_fields( $table_info, from => 'key', dealias => '__sql__' );
+    my @key = $self->_select_fields(
+        table    => $table_info,
+        fieldset => 'key',
+        dealias  => '__sql__'
+    );
 
     my $predicate = join( ' AND ', map { "$_=?" } @key );
     my $query = "UPDATE $table SET $assignment WHERE $predicate";
@@ -2016,6 +2045,68 @@ sub _head_init {
       );
     push @{ $self->{_js_src_code} }, ( +{ -src => 'TableUpdateDelete.js' } );
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  form_create_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub form_create_body {
+
+    my $self = shift;
+    my ( $q, $js, $item_name ) = @$self{qw/_cgi _js_emitter _item_name/};
+
+    # will select from: default table / base fieldset / omitting optional fields
+    # / no dealiasing.
+
+    my $onsubmit = $js->apply(
+        'return',
+        [
+            $js->apply(
+                'validate_fields',
+                [
+                    sub { 'this' },
+                    [ $self->_select_fields( omitting => '__optional__' ) ]
+                ]
+            )
+        ]
+    );
+
+    return
+
+      # container stuff
+      $q->h2( $self->{_title} ),
+      $self->body_create_read_menu(
+        'read'   => [ undef,         'View Existing' ],
+        'create' => [ 'form_create', 'Create New' ]
+      ),
+      $q->h3("Create New $item_name"),
+
+      # form
+      $q->start_form(
+        -method   => 'POST',
+        -action   => $self->get_resource_uri(),
+        -onsubmit => $onsubmit
+      ),
+      $q->dl(
+        $self->body_edit_fields( mode => 'create' ),
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->hidden( -name => 'b', -value => 'create' ),
+            $q->submit(
+                -class => 'button black bigrounded',
+                -value => "Create $item_name",
+                -title => "Create a New $item_name"
+            )
+        )
+      ),
+      $q->end_form;
 }
 
 #===  CLASS METHOD  ============================================================

@@ -75,17 +75,18 @@ sub new {
                         parser => 'number'
                     },
                     manager => {
-                        label      => 'Managing User',
-                        parser     => 'number',
-                        __type__   => 'popup_menu',
-                        __tie__    => [ users => 'uid' ],
-                        __hidden__ => 1
+                        label        => 'Managing User',
+                        parser       => 'number',
+                        __type__     => 'popup_menu',
+                        __tie__      => [ users => 'uid' ],
+                        __hidden__   => 1,
+                        __optional__ => 1
                     },
                     prname => {
                         label      => 'Project Name',
                         -maxlength => 100,
                     },
-                    prdesc => { label => 'Description' }
+                    prdesc => { label => 'Description', __optional__ => 1 }
                 },
                 lookup => [ users => [ manager => 'uid' ] ]
             },
@@ -134,6 +135,7 @@ sub new {
         },
         _default_table => 'project',
         _title         => 'Manage Projects',
+        _item_name     => 'Project',
 
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
@@ -226,40 +228,6 @@ sub readall_body {
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
       $q->div( { -id => $self->{dom_table_id} }, '' );
 }
-#######################################################################################
-sub form_create_body {
-
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    return $q->h2( $self->{_title} ),
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'View Existing' ],
-        'create' => [ 'form_create', 'Create New' ]
-      ),
-      $q->h3('Create New Project'),
-
-      # Resource URI: /projects
-      $q->start_form(
-        -method   => 'POST',
-        -action   => $self->get_resource_uri(),
-        -onsubmit => 'return validate_fields(this, [\'prname\']);'
-      ),
-      $q->dl(
-        $self->body_edit_fields( mode => 'create' ),
-        $q->dt('&nbsp;'),
-        $q->dd(
-            $q->hidden( -name => 'b', -value => 'create' ),
-            $q->submit(
-                -class => 'button black bigrounded',
-                -value => 'Create Project',
-                -title => 'Create a new project'
-            )
-        )
-      ),
-      $q->end_form;
-}
-
 #######################################################################################
 sub form_assign_head {
     my $self = shift;
