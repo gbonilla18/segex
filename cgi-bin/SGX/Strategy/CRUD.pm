@@ -22,7 +22,6 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use Carp;
 use Tie::IxHash;
 use Scalar::Util qw/looks_like_number/;
 
@@ -1243,7 +1242,7 @@ sub _readall_command {
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        carp $error;
+        SGX::Exception::Internal->throw( error => $error );
         return;
     };
 
@@ -1623,7 +1622,7 @@ sub _readrow_command {
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        carp $error;
+        SGX::Exception::Internal->throw( error => $error );
         return;
     };
 
@@ -1674,7 +1673,7 @@ sub _delete_command {
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        carp $error;
+        SGX::Exception::Internal->throw( error => $error );
         return;
     };
 
@@ -1727,7 +1726,7 @@ sub _assign_command {
     my $query      = "INSERT IGNORE INTO $table ($assignment) VALUES (?,?)";
     my $sth        = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        carp $error;
+        SGX::Exception::Internal->throw( error => $error );
         return;
     };
 
@@ -1796,7 +1795,7 @@ sub _create_command {
     my $query = "INSERT INTO $table ($assignment) VALUES ($placeholders)";
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        carp $error;
+        SGX::Exception::Internal->throw( error => $error );
         return;
     };
 
@@ -2021,7 +2020,7 @@ sub _update_command {
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
-        carp $error;
+        SGX::Exception::Internal->throw( error => $error );
         return;
     };
 
@@ -2258,7 +2257,8 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } ) ),
+        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } )
+      ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]

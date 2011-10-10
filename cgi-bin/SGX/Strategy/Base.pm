@@ -20,8 +20,7 @@ package SGX::Strategy::Base;
 use strict;
 use warnings;
 
-use Data::Dumper;
-use URI::Escape;
+use URI::Escape qw/uri_escape/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
