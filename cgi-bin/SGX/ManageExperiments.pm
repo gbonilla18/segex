@@ -369,9 +369,9 @@ sub form_assign_body {
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Experiment' ],
-        'create' => [ 'form_assign', 'Assign Studies' ]
+        'create' => [ 'form_assign', 'Assign to Studies' ]
       ),
-      $q->h3('Assign Studies'),
+      $q->h3('Assign to Studies'),
       $q->dl(
         $q->dt( $q->label( { -for => 'pid' }, 'From platform:' ) ),
         $q->dd(
@@ -408,7 +408,7 @@ qq/You can select multiple studies here by holding down Control or Command key b
             $q->submit(
                 -class => 'button black bigrounded',
                 -value => 'Assign',
-                -title => qq/Assign selected studies to this experiment/
+                -title => qq/Assign this experiment to selected studies/
             )
         )
       ),
@@ -428,7 +428,7 @@ sub readrow_body {
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Experiment' ],
-        'create' => [ 'form_assign', 'Assign Studies' ]
+        'create' => [ 'form_assign', 'Assign to Study' ]
       ),
       $q->h3('Set Experiment Attributes'),
 
