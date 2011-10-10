@@ -1074,6 +1074,7 @@ sub _lookup_execute {
         $_other->{$otable}->{records}    = $osth->fetchall_arrayref;
         $osth->finish;
     }
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
