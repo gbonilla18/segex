@@ -121,10 +121,10 @@ sub _head_data_table {
 
    # :TODO:09/17/2011 10:18:14:es: parametrize this method such that it would be
    # possible to have more than one DataTable control per page.
-   #
-   #---------------------------------------------------------------------------
-   #  setup
-   #---------------------------------------------------------------------------
+
+    #---------------------------------------------------------------------------
+    #  setup
+    #---------------------------------------------------------------------------
     my ( $remove_row, $view_row ) = @args{qw/remove_row view_row/};
     my @deletePhrase = ( defined $remove_row ) ? @$remove_row : ('delete');
     push( @deletePhrase, $table ) if not defined $deletePhrase[1];
@@ -492,6 +492,8 @@ sub generate_datatable {
 
     $self->_readall_command($table)->();
 
+    #warn Dumper($self);
+
     # generate all the neccessary Javascript for the YUI DataTable control
     push @{ $self->{_js_src_code} },
       ( { -code => $self->_head_data_table( $table, %extras ) } );
@@ -622,26 +624,26 @@ sub default_assign {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_create {
-    my $self    = shift;
-    my $command = $self->_create_command();
-    if ( $command->() == 1 ) {
+    my $self = shift;
+    return if defined $self->{_id};
 
-        # get inserted row id when inserting a new row, then redirect to the
-        # newly created resource.
-        if ( not defined $self->{_id} ) {
-            my ( $dbh, $table ) = @$self{qw/_dbh _default_table/};
-            my $id_column = $self->{_table_defs}->{$table}->{key}->[0];
-            my $insert_id =
-              $dbh->last_insert_id( undef, undef, $table, $id_column );
-            if ( defined $insert_id ) {
-                $self->{_id} = $insert_id;
-                $self->set_header(
-                    -location => $self->get_resource_uri( id => $insert_id ),
-                    -status   => 302                         # 302 Found
-                );
-                return 1;    # redirect (do not show body)
-            }
-        }
+    my $command = $self->_create_command();
+    return if ( $command->() != 1 );
+
+    # get inserted row id when inserting a new row, then redirect to the
+    # newly created resource.
+
+    my ( $dbh, $table ) = @$self{qw/_dbh _default_table/};
+    my $id_column = $self->{_table_defs}->{$table}->{key}->[0];
+    my $insert_id = $dbh->last_insert_id( undef, undef, $table, $id_column );
+
+    if ( defined $insert_id ) {
+        $self->{_id} = $insert_id;
+        $self->set_header(
+            -location => $self->get_resource_uri( id => $insert_id ),
+            -status   => 302                         # 302 Found
+        );
+        return 1;    # redirect (do not show body)
     }
     return;
 }
@@ -863,9 +865,9 @@ sub getJSRecords {
     my $sort_col = $s2i->{$key};       # column to sort on
     if ( defined $sort_col ) {
 
- # :TRICKY:09/17/2011 17:13:54:es: Using numerical sort for now. In the future
- # it may be a good idea to make sort type (numerical vs string)
- # user-configurable.
+   # :TRICKY:09/17/2011 17:13:54:es: Using numerical sort for now. In the future
+   # it may be a good idea to make sort type (numerical vs string)
+   # user-configurable.
         foreach my $row ( sort { $a->[$sort_col] <=> $b->[$sort_col] } @$data )
         {
             my $i = 0;
@@ -1435,10 +1437,12 @@ sub _create_command {
     my $table_info = $self->{_table_defs}->{$table};
     return undef if not $table_info;
 
+    my $id = $self->{_id};
+
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
     my ( $key, $fields ) = @$table_info{qw/key proto/};
-    return if defined $self->{_id} and @$key < 2;
+    return if defined $id and @$key < 2;
 
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
@@ -1448,7 +1452,7 @@ sub _create_command {
     # already present: in those cases we create links.
     my @proto = @$fields;
     my @assigned_fields =
-        ( defined $self->{_id} )
+        ( defined $id )
       ? ( $proto[0], grep { defined $q->param($_) } splice( @proto, 1 ) )
       : grep { defined $q->param($_) } @proto;
 
@@ -1462,8 +1466,8 @@ sub _create_command {
     };
 
     my @params =
-        ( defined $self->{_id} )
-      ? ( $self->{_id}, map { $q->param($_) } splice( @assigned_fields, 1 ) )
+        ( defined $id )
+      ? ( $id, map { $q->param($_) } splice( @assigned_fields, 1 ) )
       : map { $q->param($_) } @assigned_fields;
 
     # separate preparation from execution because we may want to send different
