@@ -50,7 +50,7 @@ sub new {
 
     my $self = $class->SUPER::new(@param);
 
-    $self->_set_attributes(
+    $self->set_attributes(
 
         _table_defs => {
             'ProjectStudy' => {
@@ -144,7 +144,7 @@ sub new {
         _data              => undef,
     );
 
-    $self->_register_actions(
+    $self->register_actions(
         'head' => {
             form_create => 'form_create_head',
             form_assign => 'form_assign_head'

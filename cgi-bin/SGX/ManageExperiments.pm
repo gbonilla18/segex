@@ -52,7 +52,7 @@ sub new {
     my $self = $class->SUPER::new(@param);
     my $q    = $self->{_cgi};
 
-    $self->_set_attributes(
+    $self->set_attributes(
 
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
 #
@@ -221,7 +221,7 @@ sub new {
         _id_data => {},
     );
 
-    $self->_register_actions(
+    $self->register_actions(
         'head' => {
             form_create => 'form_create_head',
             form_assign => 'form_assign_head'
@@ -346,7 +346,7 @@ sub readall_body {
       ),
 
       # Resource URI: /studies
-      $self->_view_start_get_form(),
+      $self->view_start_get_form(),
       $q->dl(
         $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
@@ -366,7 +366,7 @@ sub readall_body {
         ),
         $q->dt('&nbsp;'),
         $q->dd(
-            $self->_view_hidden_resource(),
+            $self->view_hidden_resource(),
             $q->submit(
                 -class => 'button black bigrounded',
                 -value => 'Load',

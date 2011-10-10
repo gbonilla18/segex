@@ -51,7 +51,7 @@ sub new {
 
     my $self = $class->SUPER::new(@param);
 
-    $self->_set_attributes(
+    $self->set_attributes(
 
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
 #
@@ -184,7 +184,7 @@ sub new {
 
     );
 
-    $self->_register_actions(
+    $self->register_actions(
         'head' => {
             form_create => 'form_create_head',
             form_assign => 'form_assign_head'

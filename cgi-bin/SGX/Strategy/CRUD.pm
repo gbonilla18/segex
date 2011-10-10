@@ -46,7 +46,7 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     require SGX::Abstract::JSEmitter;
-    $self->_set_attributes(
+    $self->set_attributes(
         dom_table_id       => 'crudTable',
         dom_export_link_id => 'crudTable_astext',
         _other             => {},
@@ -55,7 +55,7 @@ sub new {
 
     # dispatch table for other requests (returning 1 results in response
     # without a body)
-    $self->_register_actions(
+    $self->register_actions(
         'redirect' => {
             'ajax_create' => 'ajax_create',
             'ajax_update' => 'ajax_update',
@@ -660,9 +660,7 @@ sub default_delete {
 sub default_update {
     my $self = shift;
     my $q    = $self->{_cgi};
-    warn 'default update called: ' . $self->get_full_current_uri();
-    $self->_update_command()->();
-    $q->delete_all();
+    $self->_update_command()->(), $q->delete_all();
     return;
 }
 
@@ -706,7 +704,7 @@ sub default_create {
 
     my ( $dbh, $table ) = @$self{qw/_dbh _default_table/};
 
-    #my $id_column = $self->{_table_defs}->{$table}->{key}->[0];
+    # car() selects first column from the list
     my $id_column = car _select_fields(
         $self->{_table_defs}->{$table},
         from    => 'key',

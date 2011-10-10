@@ -99,23 +99,8 @@ sub get_resource_uri {
     }
     my $ret =
       $q->url( -absolute => 1 )
-      . ( ( @components > 0 ) ? '?' . join( '&', @components ) : '' );
+      . ( (@components) ? '?' . join( '&', @components ) : '' );
     return $ret;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  get_full_uri
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_full_current_uri {
-    my $q = shift->{_cgi};
-    return $q->url( -absolute => 1, -query => 1 );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -231,6 +216,7 @@ sub get_header {
 sub set_header {
     my ( $self, %args ) = @_;
     $self->{_header} = \%args;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -262,8 +248,8 @@ sub get_body {
 sub set_body {
     my ( $self, $arg ) = @_;
     $self->{_body} = $arg;
+    return 1;
 }
-
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
@@ -285,11 +271,29 @@ sub redirect_unauth {
         $self->set_header(
             -status   => 302,                           # 302 Found
             -location => '?a=form_login&destination='
-              . uri_escape( $self->get_full_current_uri() )
+              . uri_escape( $self->request_uri() )
         );
         return 1;
     }
     return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  request_uri
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub request_uri {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    return ( defined $q && $q->can('request_uri') )
+      ? $q->request_uri()
+      : $ENV{REQUEST_URI};
 }
 
 #===  CLASS METHOD  ============================================================
@@ -318,7 +322,7 @@ sub get_dispatch_action {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
-#       METHOD:  _set_attributes
+#       METHOD:  set_attributes
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -326,7 +330,7 @@ sub get_dispatch_action {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _set_attributes {
+sub set_attributes {
     my ( $self, %attrs ) = @_;
     while ( my ( $key, $value ) = each(%attrs) ) {
         $self->{$key} = $value;
@@ -336,7 +340,7 @@ sub _set_attributes {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
-#       METHOD:  _register_actions
+#       METHOD:  register_actions
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -344,7 +348,7 @@ sub _set_attributes {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _register_actions {
+sub register_actions {
     my ( $self, %args ) = @_;
     my $dispatch_tables = $self->{_dispatch_tables};
     while ( my ( $type, $table_slice ) = each(%args) ) {
@@ -359,15 +363,18 @@ sub _register_actions {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
-#       METHOD:  _view_start_get_form
+#       METHOD:  view_start_get_form
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:
+#  DESCRIPTION:  Convenience method for startingn HTML form that uses GET
+#                request. Such forms should not include URI parameters in the
+#                action string because they will be ignored, so we use
+#                $self->get_uri() method.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
-#     SEE ALSO:  n/a
+#     SEE ALSO:  view_hidden_resource
 #===============================================================================
-sub _view_start_get_form {
+sub view_start_get_form {
     my $self = shift;
     my $q    = $self->{_cgi};
     return $q->start_form(
@@ -379,15 +386,15 @@ sub _view_start_get_form {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
-#       METHOD:  _view_hidden_resource
+#       METHOD:  view_hidden_resource
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Required for GET forms (those that use _view_start_get_form)
+#  DESCRIPTION:  Required for GET forms (those that use view_start_get_form). 
 #       THROWS:  no exceptions
 #     COMMENTS:  none
-#     SEE ALSO:  n/a
+#     SEE ALSO:  view_start_get_form
 #===============================================================================
-sub _view_hidden_resource {
+sub view_hidden_resource {
     my $self = shift;
     my $q    = $self->{_cgi};
     return $q->hidden( -name => 'a', -value => $self->{_ResourceName} );

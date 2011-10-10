@@ -48,7 +48,7 @@ sub new {
     my ( $class, @param ) = @_;
     my $self = $class->SUPER::new(@param);
 
-    $self->_set_attributes(
+    $self->set_attributes(
 
         _table_defs => {
             'users' => {
@@ -109,7 +109,7 @@ sub new {
         _data              => undef,
     );
 
-    $self->_register_actions(
+    $self->register_actions(
         'head' => { form_create => 'form_create_head' },
         'body' => { form_create => 'form_create_body' }
     );
