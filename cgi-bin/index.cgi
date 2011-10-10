@@ -27,7 +27,7 @@ use SGX::Session::Session 0.08;    # email verification
 #---------------------------------------------------------------------------
 #  User Authentication
 #---------------------------------------------------------------------------
-my $softwareVersion = '0.2.4';
+my $softwareVersion = '0.3.0';
 
 use constant FORM           => 'form_';
 use constant LOGIN          => 'login';
