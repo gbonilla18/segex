@@ -171,26 +171,23 @@ sub _head_data_table {
         lookup_tables => $var->{lookupTables}
     );
 
-    my $left_join_info = $table_info->{lookup};
-    my $lookupTables   = $var->{lookupTables};
+    my $lookupTables = $var->{lookupTables};
 
     my @column_defs = (
 
         # default table view (default table referred to by an empty string)
-        ( map { $column->( [ '', $_ ] ) } @{ $table_info->{view} } ),
+        ( map { $column->( [ undef, $_ ] ) } @{ $table_info->{view} } ),
 
         # views in left_joined tables
         (
             map {
                 my $other_table       = $_;
-                my $this_join_col     = $left_join_info->{$other_table}->[0];
                 my $lookupTable_other = $lookupTables->($other_table);
                 map {
                     $column->(
                         [ $other_table, $_ ],
                         formatter => $js->apply(
-                            'createJoinFormatter',
-                            [ $lookupTable_other, $_, $this_join_col ]
+                            'createJoinFormatter', [ $lookupTable_other, $_ ]
                         )
                       )
                   } @{ $table_defs->{$other_table}->{view} }
@@ -275,9 +272,8 @@ sub _head_data_table {
                     : ()
                 ),
                 $var->{DataSource} => $js->apply(
-                    'YAHOO.util.DataSource',
-                    [ $var->{data}->('records') ],
-                    new_object => 1
+                    'newDataSourceFromArrays',
+                    [ $var->{data} ]
                 ),
                 $var->{cellUpdater} => $js->apply(
                     'cellUpdater',
@@ -289,15 +285,6 @@ sub _head_data_table {
                 )
             ],
             declare => 1
-        ),
-        $js->bind(
-            [
-                $var->{DataSource}->('responseType') =>
-                  $js->literal('YAHOO.util.DataSource.TYPE_JSARRAY'),
-                $var->{DataSource}->('responseSchema') =>
-                  { fields => $self->_head_response_schema() }
-            ],
-            declare => 0
         ),
         $js->bind(
             [
@@ -356,14 +343,22 @@ sub _head_data_table {
     return $js->bind(
         [
             $var->{lookupTables} => $self->{_other},
-            $var->{data}         => {
-                caption => 'Showing all Studies',
-                records => $self->getJSRecords(),
-                headers => $self->getJSHeaders()
-            }
+            $var->{data}         => $js->apply(
+                'expandJoinedFields',
+                [
+                    {
+                        caption => 'Showing all Studies',
+                        records => $self->getJSRecords(),
+                        headers => $self->getJSHeaders(),
+                        fields => $self->_head_response_schema()
+                    },
+                    $var->{lookupTables}
+                ]
+            )
         ],
         declare => 1
       )
+
       . $js->apply(
         'YAHOO.util.Event.addListener',
         [
@@ -489,8 +484,6 @@ sub generate_datatable {
     }
 
     $self->_readall_command($table)->();
-
-    #warn Dumper($self);
 
     # generate all the neccessary Javascript for the YUI DataTable control
     push @{ $self->{_js_src_code} },
@@ -736,9 +729,6 @@ sub _head_column_def {
     my $cell_dropdown = $args{cell_dropdown};
     my $lookupTables  = $args{lookup_tables};
 
-    #warn Dumper($lookupTables);
-    #warn Dumper($table_lookup);
-
     my $TRUE  = $js->true;
     my $FALSE = $js->false;
 
@@ -756,29 +746,25 @@ sub _head_column_def {
     #---------------------------------------------------------------------------
     return sub {
         my ( $datum, %extra_definitions ) = @_;
-        my ( $mytable, $symbol ) = ( defined $datum ) ? @$datum : ( '', undef );
+        my ( $mytable, $symbol ) =
+          ( defined $datum ) ? @$datum : ( undef, undef );
 
         # determine key value of lookup table if dealing with such
-        my $propagate_key;
-        my $propagate_index;
-        if ( $mytable ne '' ) {
-            $propagate_key   = $table_lookup->{$mytable}->[0];
-            $propagate_index = $propagate_key;
-        }
+        my $propagate_key =
+          defined($mytable)
+          ? $table_lookup->{$mytable}->[0]
+          : undef;
 
         my $index =
-          ( $mytable eq '' and defined($symbol) and defined( $s2n->{$symbol} ) )
-          ? $symbol
-          : (
-            ( defined $propagate_index ) ? $propagate_index
-            : undef
-          );
+            ( defined $symbol )
+          ? ( ( defined($mytable) ) ? "$mytable.$symbol" : $symbol )
+          : undef;
         my $label =
           ( defined $symbol )
           ? (
-            ( $mytable eq '' )
-            ? $s2n->{$symbol}
-            : $_other->{$mytable}->{symbol2name}->{$symbol}
+            ( defined($mytable) )
+            ? $_other->{$mytable}->{symbol2name}->{$symbol}
+            : $s2n->{$symbol}
           )
           : undef;
 
@@ -789,16 +775,17 @@ sub _head_column_def {
 
         if ( defined($symbol) ) {
             if (   defined($cell_updater)
-                && $mytable eq ''
+                && !defined($mytable)
                 && $mutable{$symbol} )
             {
                 push @ajax_editor,
                   ( editor => $js->apply( $cell_updater, [$symbol] ) );
             }
             elsif (defined($cell_dropdown)
-                && $mytable ne ''
+                && defined($mytable)
                 && defined($propagate_key)
                 && $mutable{$propagate_key}
+                && defined( $table_defs->{$mytable}->{names} )
                 && @{ $table_defs->{$mytable}->{names} } == 1
                 && $table_defs->{$mytable}->{names}->[0] eq $symbol )
             {
@@ -827,7 +814,20 @@ sub _head_column_def {
         return {
             %default_column,
             ( ( defined $index ) ? ( key => "$index" ) : () ),
-            sortable => ( defined($symbol) && $mytable eq '' ) ? $TRUE : $FALSE,
+            sortable => (
+                (
+                    defined($symbol)
+                      && (
+                        !defined($mytable)
+                        || (   defined( $table_defs->{$mytable}->{names} )
+                            && @{ $table_defs->{$mytable}->{names} } == 1
+                            && $table_defs->{$mytable}->{names}->[0] eq
+                            $symbol )
+                      )
+                )
+                ? $TRUE
+                : $FALSE
+            ),
             label => $label,
             @ajax_editor,
             %extra_definitions
@@ -950,6 +950,9 @@ sub _readall_command {
             $_other->{$left_table_alias}->{symbol2name} = $other_select_fields;
             $_other->{$left_table_alias}->{symbol2index} =
               _symbol2index_from_symbol2name($other_select_fields);
+            $_other->{$left_table_alias}->{index2symbol} =
+              [ keys %$other_select_fields ];
+            $_other->{$left_table_alias}->{lookup_by} = $this_field;
         }
     }
 

@@ -195,15 +195,66 @@ function createDeleteFormatter(verb, noun) {
         elCell.innerHTML = cellContent;
     };
 }
-function createJoinFormatter(table_info, field, joinColumn) {
+function createJoinFormatter(table_info, field) {
     var sub_col = table_info.symbol2index[field] - 1;
     return function(elCell, oRecord, oColumn, oData) {
 
         // this also gets executed after we update a cell via AJAX
-        //var sub_record = table_info.data[oRecord.getData(joinColumn)];
         var sub_record = table_info.data[oData];
         elCell.innerHTML = (typeof sub_record !== "undefined") ? sub_record[sub_col] : '';
     };
+}
+function newDataSourceFromArrays(struct) {
+    var ds = new YAHOO.util.DataSource(struct.records);
+    ds.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+    ds.responseSchema = {fields:struct.fields};
+    return ds;
+}
+function expandJoinedFields(mainTable, lookupTables) {
+    var tmp = {};
+    for (var lookupTable in lookupTables) {
+        var obj = lookupTables[lookupTable];
+        var lookup_by = obj.lookup_by;
+        if (lookup_by in tmp) {
+            tmp[lookup_by].push([lookupTable, obj]);
+        } else {
+            tmp[lookup_by] = [ [lookupTable, obj] ];
+        }
+    }
+    var mainTable_fields = mainTable.fields,
+    mainTable_records = mainTable.records,
+    num_records = mainTable_records.length;
+    for (var k = 0, num_fields = mainTable_fields.length; k < num_fields; k++) {
+        var field = mainTable_fields[k];
+        if (field in tmp) {
+            var objArray = tmp[field];
+            var extra_col_count = 0;
+            for (var l = 0, obj_len = objArray.length; l < obj_len; l++) {
+                var tuple = objArray[l];
+                var lookupTable = tuple[0],
+                obj = tuple[1];
+                var extra_fields = obj.index2symbol.slice(1);
+                for (var m = 0, extra_len = extra_fields.length; m < extra_len; m++) {
+                    extra_fields[m] = lookupTable + '.' + extra_fields[m];
+                }
+                var extra_fields_len = extra_fields.length;
+                extra_col_count += extra_fields_len;
+                for (var f = 0; f < extra_fields_len; f++) {
+                    mainTable_fields.push(extra_fields[f]);
+                }
+            }
+            // now for each record in data array, add field value for the
+            // corresponding join field.
+            for (var i = 0; i < num_records; i++) {
+                var record = mainTable_records[i];
+                var field_value = record[k];
+                for (var j = 0; j < extra_col_count; j++) {
+                    record.push(field_value);
+                }
+            }
+        }
+    }
+    return mainTable;
 }
 
 function createResourceURIBuilder(uriPrefix, columnMapping) {
