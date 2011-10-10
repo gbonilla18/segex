@@ -447,7 +447,25 @@ sub dispatch_js {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  get_lookup
+#       METHOD:  _get_view
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _get_view {
+    my $table_info = shift;
+
+    my ( $proto, $meta ) = @$table_info{qw/proto meta/};
+    grep { !defined( $meta->{$_} ) || !$meta->{$_}->{__special__} }
+      @{ $table_info->{proto} };
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _get_lookup
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Given a table structure/hash, returns {look-up} component while
