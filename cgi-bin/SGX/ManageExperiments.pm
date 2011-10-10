@@ -32,6 +32,7 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
+use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::JSEmitter qw/true false/;
 use SGX::Abstract::Exception;
 use SGX::Model::PlatformStudyExperiment;
@@ -50,6 +51,7 @@ sub new {
     my ( $class, @param ) = @_;
 
     my $self = $class->SUPER::new(@param);
+    my $q    = $self->{_cgi};
 
     $self->_set_attributes(
 
@@ -73,29 +75,45 @@ sub new {
                 key       => [qw/eid stid/],
                 mutable   => [],
                 proto     => [qw/eid stid/],
-                selectors => [qw/stid/],
+                join_type => 'INNER',
+
+                # table key to the left, URI param to the right
+                selectors => { stid => 'stid' }
             },
             'study' => {
-                key       => [qw/stid/],
-                proto     => [qw/description pubmed pid/],
-                view      => [qw/description pubmed/],
-                mutable   => [qw/description pubmed pid/],    # note: pid !!!
-                resource  => 'studies',
-                selectors => [qw/pid/],
+                key      => [qw/stid/],
+                proto    => [qw/description pubmed pid/],
+                view     => [qw/description pubmed/],
+                mutable  => [qw/description pubmed pid/],    # note: pid !!!
+                resource => 'studies',
+
+                # table key to the left, URI param to the right
+                selectors => { pid => 'pid' },
                 names     => [qw/description/],
                 labels    => {
                     stid        => 'No.',
                     description => 'Description',
                     pubmed      => 'PubMed',
-                    pid         => 'Platform'
+                    pid         => 'Platform',
                 },
-                lookup     => { platform => [ pid => 'pid' ] },
-                inner_join => {
+                lookup => { platform => [ pid => 'pid' ] },
+                join   => [
                     StudyExperiment => [
                         stid => 'stid',
-                        { constraint => [ eid => sub { shift->{_id} } ] }
+                        { constraint => [ eid => sub { shift->{_id} } ], }
                     ]
-                }
+                ]
+            },
+            study_brief => {
+                table  => 'StudyExperiment',
+                key    => [qw/eid stid/],
+                view   => ['GROUP_CONCAT(description SEPARATOR ", ")'],
+                labels => {
+                    'GROUP_CONCAT(description SEPARATOR ", ")' => 'Study(-ies)'
+                },
+                join =>
+                  [ 'study' => [ stid => 'stid', { join_type => 'INNER' } ] ],
+                group_by => [qw/eid/]
             },
             'platform' => {
                 key    => [qw/pid/],
@@ -115,7 +133,9 @@ sub new {
                 proto    => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation pid/
                 ],
-                selectors => [qw/pid/],
+
+                # table key to the left, URI param to the right
+                selectors => { pid => 'pid' },
                 names     => [qw/sample1 sample2/],
                 labels    => {
                     eid                   => 'No.',
@@ -124,8 +144,18 @@ sub new {
                     ExperimentDescription => 'Description',
                     AdditionalInformation => 'Additional Info'
                 },
-                lookup     => { microarray      => [ eid => 'eid' ] },
-                inner_join => { StudyExperiment => [ eid => 'eid' ] }
+                lookup => {
+                    microarray => [ eid => 'eid' ],
+                    (
+                        looks_like_number( $q->param('stid') ) ? ()
+                        : ( 'study_brief' => [ 'eid' => 'eid' ] )
+                    ),
+                    (
+                        looks_like_number( $q->param('pid') ) ? ()
+                        : ( 'platform' => [ 'pid' => 'pid' ] )
+                    )
+                },
+                join => [ StudyExperiment => [ eid => 'eid' ] ]
             },
             'microarray' => {
                 key     => [qw/eid rid/],
@@ -136,7 +166,14 @@ sub new {
                     eid        => 'No.',
                     'COUNT(1)' => 'Probe Count'
                 },
-                inner_join => { StudyExperiment => [ eid => 'eid' ] }
+                join => [
+                    StudyExperiment => [ eid => 'eid' ],
+
+                    # join below is not necessary but surprisingly it speeds up
+                    # listings by about four times when pid= is among the CGI
+                    # parameters!
+                    experiment => [ eid => 'eid', { join_type => 'INNER' } ]
+                ]
             }
         },
         _default_table => 'experiment',
@@ -220,7 +257,11 @@ sub readall_head {
                 platforms         => 1,
                 studies           => 1,
                 platform_by_study => 1,
-                extra_platforms   => { 'all' => { name => '@All Platforms' } }
+                extra_platforms   => { 'all' => { name => '@All Platforms' } },
+                extra_studies     => {
+                    'all' => { name => '@All Studies' },
+                    ''    => { name => '@Unassigned Experiments' }
+                }
             )
         }
     );

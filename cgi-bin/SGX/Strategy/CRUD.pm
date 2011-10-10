@@ -199,7 +199,7 @@ sub _head_data_table {
             ($remove_row)
             ? $column->(
                 undef,
-                label => join( ' ', @deletePhrase ),
+                label => $deletePhrase[0],    #join( ' ', @deletePhrase ),
                 formatter =>
                   $js->apply( 'createDeleteFormatter', [@deletePhrase] )
               )
@@ -211,7 +211,7 @@ sub _head_data_table {
             ($view_row)
             ? $column->(
                 undef,
-                label     => join( ' ', @editPhrase ),
+                label     => $editPhrase[0],    #join( ' ', @editPhrase ),
                 formatter => $js->apply(
                     'createEditFormatter',
                     [ @editPhrase, $var->{resourceURIBuilder} ]
@@ -350,7 +350,7 @@ sub _head_data_table {
                         caption => 'Showing all Studies',
                         records => $self->getJSRecords(),
                         headers => $self->getJSHeaders(),
-                        fields => $self->_head_response_schema()
+                        fields  => $self->_head_response_schema()
                     },
                     $var->{lookupTables}
                 ]
@@ -472,16 +472,6 @@ sub generate_datatable {
     my ( $self, $table, %extras ) = @_;
     my ( $q, $table_defs ) = @$self{qw/_cgi _table_defs/};
     my $table_info = $table_defs->{$table};
-
-    foreach my $selector ( @{ $table_info->{selectors} } ) {
-        if ( defined( $q->param($selector) ) && $q->param($selector) eq 'all' )
-        {
-
-            # delete CGI parameter if set to 'all' and name belongs to selectors
-            # array.
-            $q->delete($selector);
-        }
-    }
 
     $self->_readall_command($table)->();
 
@@ -1102,10 +1092,11 @@ sub _list_values {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _build_predicate {
-    my ( $self, $table_alias, $obj, $prefix ) = @_;
+    my ( $self, $table_alias => $obj, $prefix ) = @_;
 
     my @pred_and;
     my @exec_params;
+    my @constr;
 
     if ( my $constraints = $obj->{constraint} ) {
         my @constr_copy = @$constraints;
@@ -1114,31 +1105,57 @@ sub _build_predicate {
         while ( my ( $constr_field, $constr_value ) =
             splice( @constr_copy, 0, 2 ) )
         {
+            $constr_field = "$table_alias.$constr_field"
+              if ( $constr_field !~ m/\./ );
             if ( ref $constr_value eq 'CODE' ) {
-                push @pred_and,    "$table_alias.$constr_field=?";
+                push @pred_and,    "$constr_field=?";
                 push @exec_params, $constr_value->($self);
             }
+            elsif ( defined $constr_value ) {
+                push @pred_and, "$constr_field=" . $dbh->quote($constr_value);
+            }
             else {
-                push @pred_and,
-                  "$table_alias.$constr_field=" . $dbh->quote($constr_value);
+                push @pred_and, "$constr_field IS NULL";
             }
         }
     }
-    if ( my $selectors = $obj->{selectors} ) {
-        my $q = $self->{_cgi};
-        foreach (@$selectors) {
-            my $val = $q->param($_);
-            if ( defined $val ) {
-                push @pred_and,    "$table_alias.$_=?";
-                push @exec_params, $val;
+
+    # if $other_table_defs->{selectors} has a selector field set to empty
+    # string (denoting NULL) in the CGI parameter array and that field is
+    # one of key fields in that table (key fields will always be NOT NULL),
+    # the join type will be changed from INNER to LEFT and a WHERE predicate
+    # component will be emitted: table.field IS NULL.
+    my $q         = $self->{_cgi};
+    my $other_sel = $obj->{selectors} || {};
+    my $other_key = $obj->{key} || [];
+    my %selectors = ($other_sel) ? %$other_sel : ();
+    if ( lc($prefix) eq 'and' ) {
+        foreach my $special_field ( grep { defined } @$other_sel{@$other_key} )
+        {
+            if ( grep { $_ eq '' } $q->param($special_field) ) {
+                push @constr, ( "$table_alias.$special_field" => undef );
+                delete $selectors{$special_field};
             }
+        }
+    }
+    while ( my ( $uri_sel, $sql_sel ) = each %selectors ) {
+
+        #my $val = $q->param($_);
+        #if ( defined $val ) {
+        foreach (
+            map { ( $_ ne '' ) ? $_ : undef }
+            grep { $_ ne 'all' } $q->param($uri_sel)
+          )
+        {
+            push @pred_and,    "$table_alias.$sql_sel=?";
+            push @exec_params, $_;
         }
     }
 
     my $pred =
       ( ( @pred_and > 0 ) ? "$prefix " : '' ) . join( ' AND ', @pred_and );
 
-    return ( $pred, \@exec_params );
+    return ( $pred, \@exec_params, \@constr );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1152,23 +1169,25 @@ sub _build_predicate {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _build_join {
-    my ( $self, $table_alias, $cascade, $join_type ) = @_;
+    my ( $self, $table_alias => $cascade ) = @_;
 
-    my $join_symb = lc($join_type) . '_join';
-
-    my $join = $cascade->{$join_symb};
+    my $join = $cascade->{join};
     return ( '', [] ) if not defined $join;
     my $table_defs = $self->{_table_defs};
 
     my @query_components;
     my @exec_params;
 
-    while ( my ( $other_table_alias, $info ) = each %$join ) {
+    my @join_copy = @$join;
+    while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
 
         my ( $this_field, $other_field, $opts ) = @$info;
+        $this_field = "$table_alias.$this_field" if ( $this_field !~ m/\./ );
+
         $opts = {} if not defined $opts;
 
-        my %cascade_other = ( %{ $table_defs->{$other_table_alias} }, %$opts );
+        my $other_table_defs = $table_defs->{$other_table_alias};
+        my %cascade_other = ( %$other_table_defs, %$opts );
 
         my $other_table = $cascade_other{table};
         $other_table =
@@ -1176,15 +1195,19 @@ sub _build_join {
           ? $other_table_alias
           : "$other_table AS $other_table_alias";
 
-        my $pred =
-"$join_type JOIN $other_table ON $table_alias.$this_field=$other_table_alias.$other_field";
-
-        my ( $inner_pred, $inner_params ) = $self->_build_predicate(
+        my ( $join_pred, $join_params, $constr ) = $self->_build_predicate(
             $other_table_alias => \%cascade_other,
             'AND'
         );
-        push @query_components, "$pred $inner_pred";
-        push @exec_params,      @$inner_params;
+        push @{ $cascade->{constraint} }, @$constr;
+        my $join_type = $cascade_other{join_type} || 'LEFT';
+        $join_type = 'LEFT' if ( @$constr > 1 );
+
+        my $pred =
+"$join_type JOIN $other_table ON $this_field=$other_table_alias.$other_field";
+
+        push @query_components, "$pred $join_pred";
+        push @exec_params,      @$join_params;
     }
     return ( join( ' ', @query_components ), \@exec_params );
 }
@@ -1226,14 +1249,10 @@ sub _build_select {
       . ( ( $table ne $table_alias ) ? "$table AS $table_alias" : $table );
 
     # JOINS
-    my ( $inner_pred, $inner_params ) =
-      $self->_build_join( $table_alias => \%cascade, 'INNER' );
-    push @query_components, $inner_pred;
-    push @exec_params,      @$inner_params;
-    my ( $left_pred, $left_params ) =
-      $self->_build_join( $table_alias => \%cascade, 'LEFT' );
-    push @query_components, $left_pred;
-    push @exec_params,      @$left_params;
+    my ( $join_pred, $join_params ) =
+      $self->_build_join( $table_alias => \%cascade );
+    push @query_components, $join_pred;
+    push @exec_params,      @$join_params;
 
     # WHERE
     my ( $where_pred, $where_params ) =

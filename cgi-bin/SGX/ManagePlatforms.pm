@@ -78,9 +78,9 @@ sub new {
                     qw/pname def_p_cutoff def_f_cutoff species/,
                     qw/COUNT(probe.rid) COUNT(probe.probe_sequence) COUNT(probe.location)/
                 ],
-                selectors => [],
-                names     => [qw/pname species/],
-                labels    => {
+                selectors => {}, # table key to the left, URI param to the right
+                names  => [qw/pname species/],
+                labels => {
                     pid          => 'No.',
                     pname        => 'Name',
                     def_p_cutoff => 'def_p_cutoff',
@@ -91,21 +91,22 @@ sub new {
                     'COUNT(probe.probe_sequence)' => 'Probe Sequences',
                     'COUNT(probe.location)'       => 'Locations'
                 },
-                left_join => { probe => [ pid => 'pid' ] }
+                join => [ probe => [ pid => 'pid' ] ]
             },
             probe => {
-                key  => [qw//],
-                view => [],
+                key       => [qw//],
+                view      => [],
+                join_type => 'LEFT'
             },
             'study' => {
-                key       => [qw/stid/],
-                view      => [qw/description pubmed/],
-                mutable   => [qw/description pubmed/],
-                resource  => 'studies',
-                proto     => [],
-                selectors => [],
-                names     => [qw/description/],
-                labels    => {
+                key      => [qw/stid/],
+                view     => [qw/description pubmed/],
+                mutable  => [qw/description pubmed/],
+                resource => 'studies',
+                proto    => [],
+                selectors => {}, # table key to the left, URI param to the right
+                names  => [qw/description/],
+                labels => {
                     stid        => 'No.',
                     description => 'Description',
                     pubmed      => 'PubMed ID'
@@ -116,20 +117,20 @@ sub new {
             'proj' => {
                 table =>
                   '(SELECT * FROM ProjectStudy INNER JOIN project USING(prid))',
-                key       => [qw/stid prid/],
-                mutable   => [],
-                selectors => [],
-                view      => [qw/prname/],
-                names     => [qw/prname/],
-                labels    => { prname => 'Project(s)' }
+                key     => [qw/stid prid/],
+                mutable => [],
+                selectors => {}, # table key to the left, URI param to the right
+                view   => [qw/prname/],
+                names  => [qw/prname/],
+                labels => { prname => 'Project(s)' }
             },
             'experiment' => {
-                key       => [qw/eid/],
-                view      => [qw/sample1 sample2/],
-                mutable   => [],
-                proto     => [],
-                selectors => [],
-                names     => [qw/sample1 sample2/]
+                key     => [qw/eid/],
+                view    => [qw/sample1 sample2/],
+                mutable => [],
+                proto   => [],
+                selectors => {}, # table key to the left, URI param to the right
+                names => [qw/sample1 sample2/]
             },
         },
         _default_table => 'platform',
@@ -175,8 +176,9 @@ sub readrow_head {
     $self->SUPER::readrow_head();
 
     my $table = 'study';
+
     # add extra table showing studies
-    $self->generate_datatable( 'study', remove_row => [ 'unassign']);
+    $self->generate_datatable( 'study', remove_row => ['unassign'] );
 
     return 1;
 }

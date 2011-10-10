@@ -73,6 +73,7 @@ sub new {
                 key        => [qw/stid eid/],
                 mutable    => [],
                 proto      => [qw/stid eid/],
+                join_type  => 'INNER',
                 constraint => [ stid => sub { shift->{_id} } ]
             },
             'study' => {
@@ -81,9 +82,10 @@ sub new {
                 view      => [qw/description pubmed/],
                 mutable   => [qw/description pubmed pid/],
                 resource  => 'studies',
-                selectors => [qw/pid/],
-                names     => [qw/description/],
-                labels    => {
+                selectors => { pid => 'pid' }
+                ,    # table key to the left, URI param to the right
+                names  => [qw/description/],
+                labels => {
                     stid        => 'No.',
                     description => 'Description',
                     pubmed      => 'PubMed',
@@ -109,17 +111,17 @@ sub new {
                 proto    => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
-                selectors => [],
-                names     => [qw/sample1 sample2/],
-                labels    => {
+                selectors => {}, # table key to the left, URI param to the right
+                names  => [qw/sample1 sample2/],
+                labels => {
                     eid                   => 'No.',
                     sample1               => 'Sample 1',
                     sample2               => 'Sample 2',
                     ExperimentDescription => 'Description',
                     AdditionalInformation => 'Additional Info'
                 },
-                lookup     => { microarray      => [ eid => 'eid' ] },
-                inner_join => { StudyExperiment => [ eid => 'eid' ] }
+                lookup => { microarray      => [ eid => 'eid' ] },
+                join   => [ StudyExperiment => [ eid => 'eid' ] ]
             },
             'microarray' => {
                 key     => [qw/eid rid/],
@@ -130,7 +132,7 @@ sub new {
                     eid        => 'No.',
                     'COUNT(1)' => 'Probe Count'
                 },
-                inner_join => { StudyExperiment => [ eid => 'eid' ] }
+                join => [ StudyExperiment => [ eid => 'eid' ] ]
             }
         },
         _default_table => 'study',
@@ -205,7 +207,8 @@ sub readall_head {
     $self->SUPER::readall_head();
 
     # add platform dropdown
-    push @{ $self->{_js_src_code} }, (
+    push @{ $self->{_js_src_code} },
+      (
         { -src => 'PlatformStudyExperiment.js' },
         {
             -code => $self->get_pse_dropdown_js(
@@ -213,7 +216,7 @@ sub readall_head {
                 extra_platforms => { 'all' => { name => '@All Platforms' } }
             )
         }
-    );
+      );
 
     return 1;
 }

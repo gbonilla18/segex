@@ -63,15 +63,18 @@ sub new {
                 view       => [],
                 mutable    => [],
                 proto      => [qw/prid stid/],
+                join_type  => 'INNER',
                 constraint => [ prid => sub { shift->{_id} } ]
             },
             'project' => {
-                key       => [qw/prid/],
-                mutable   => [qw/prname prdesc manager/],
-                resource  => 'projects',
-                view      => [qw/prname prdesc/],
-                proto     => [qw/prname prdesc manager/],
-                selectors => [qw/manager/],
+                key      => [qw/prid/],
+                mutable  => [qw/prname prdesc manager/],
+                resource => 'projects',
+                view     => [qw/prname prdesc/],
+                proto    => [qw/prname prdesc manager/],
+
+                # table key to the left, URI param to the right
+                selectors => { manager => 'manager' },
                 names     => [qw/prname/],
                 labels    => {
                     prid   => 'No.',
@@ -82,9 +85,11 @@ sub new {
                 lookup => { users => [ manager => 'uid' ] }
             },
             'study' => {
-                key       => [qw/stid/],
-                proto     => [],
-                selectors => [qw/pid/],
+                key   => [qw/stid/],
+                proto => [],
+
+                # table key to the left, URI param to the right
+                selectors => { pid => 'pid' },
                 view      => [qw/description pubmed/],
                 mutable   => [qw/description pubmed pid/],
                 resource  => 'studies',
@@ -95,8 +100,8 @@ sub new {
                     pubmed      => 'PubMed ID',
                     pid         => 'Platform'
                 },
-                lookup     => { platform     => [ pid  => 'pid' ] },
-                inner_join => { ProjectStudy => [ stid => 'stid' ] }
+                lookup => { platform     => [ pid  => 'pid' ] },
+                join   => [ ProjectStudy => [ stid => 'stid' ] ]
             },
             'users' => {
                 key    => [qw/uid/],
