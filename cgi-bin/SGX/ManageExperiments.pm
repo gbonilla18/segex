@@ -215,9 +215,12 @@ sub new {
                 group_by  => [qw/eid/]
             }
         },
-        _default_table => 'experiment',
-        _readrow_tables =>
-          [ 'study' => { remove_row => [ 'unassign' => 'StudyExperiment' ] } ],
+        _default_table  => 'experiment',
+        _readrow_tables => [
+            'study' => {
+                remove_row => { verb => 'unassign', table => 'StudyExperiment' }
+            }
+        ],
 
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
@@ -341,7 +344,7 @@ sub default_body {
 #       METHOD:  form_assign_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -371,7 +374,7 @@ sub form_assign_head {
 #       METHOD:  form_assign_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -477,7 +480,7 @@ sub readrow_body {
 #       METHOD:  get_pse_dropdown_js
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:   # :TODO:10/08/2011 11:42:09:es: Isolate this method into an
 #     outside class

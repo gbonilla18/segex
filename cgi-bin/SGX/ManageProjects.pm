@@ -119,11 +119,11 @@ sub new {
                 join   => [ ProjectStudy => [ stid => 'stid' ] ]
             },
             'users' => {
-                item_name => 'user', # singular, plural
-                key   => [qw/uid/],
-                view  => [qw/full_name/],
-                names => [qw/full_name/],
-                meta  => {
+                item_name => 'user',
+                key       => [qw/uid/],
+                view      => [qw/full_name/],
+                names     => [qw/full_name/],
+                meta      => {
                     uid   => { label => 'ID', parser => 'number' },
                     uname => { label => 'Login ID' },
                     full_name => { label => 'Managing User' }
@@ -140,9 +140,11 @@ sub new {
                 },
             },
         },
-        _default_table => 'project',
-        _readrow_tables =>
-          [ 'study' => { remove_row => [ 'unassign' => 'ProjectStudy' ] } ],
+        _default_table  => 'project',
+        _readrow_tables => [
+            'study' =>
+              { remove_row => { verb => 'unassign', table => 'ProjectStudy' } }
+        ],
 
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
@@ -197,7 +199,7 @@ sub default_body {
 #       METHOD:  form_assign_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -212,9 +214,7 @@ sub form_assign_head {
         { -src => 'ProjectStudyExperiment.js' },
         {
             -code => $self->get_pse_dropdown_js(
-                extra_projects => {
-                    'all' => { name => '@All Projects' }
-                },
+                extra_projects   => { 'all' => { name => '@All Projects' } },
                 projects         => 1,
                 project_by_study => 1,
                 studies          => 1
@@ -230,7 +230,7 @@ sub form_assign_head {
 #       METHOD:  form_assign_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -339,9 +339,9 @@ sub readrow_body {
 #       METHOD:  get_pse_dropdown_js
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  
+#     COMMENTS:
 # # :TODO:10/08/2011 11:38:06:es: Isolate this method outside this class
 #     SEE ALSO:  n/a
 #===============================================================================

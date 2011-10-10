@@ -173,7 +173,7 @@ sub readrow_body {
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit User' ],
-        'create' => [ 'form_assign', 'Assign' ]
+        'create' => [ 'form_assign', '' ]
       ),
       $q->h3('Set User Attributes'),
 

@@ -128,12 +128,11 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     #  setup
     #---------------------------------------------------------------------------
-    my ( $remove_row, $view_row ) = @args{qw/remove_row view_row/};
-    my $item_name = $self->get_item_name($table);
-    my @deletePhrase = ( defined $remove_row ) ? @$remove_row : ('delete');
-    push( @deletePhrase, $item_name ) if not defined $deletePhrase[1];
-    my @editPhrase = ( defined $view_row ) ? @$view_row : ('edit');
-    push( @editPhrase, $item_name ) if not defined $editPhrase[1];
+    my $item_name  = $self->get_item_name($table);
+    my $remove_row = $args{remove_row} || {};
+    my $view_row   = $args{view_row} || {};
+    my @editPhrase   = ( ( $view_row->{verb}   || 'edit' ),   $item_name );
+    my @deletePhrase = ( ( $remove_row->{verb} || 'delete' ), $item_name );
 
     my $js  = $self->{_js_emitter};
     my $s2n = $self->{_this_symbol2name};
@@ -243,12 +242,15 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     my %del_table_args;
     if ($remove_row) {
-        my $del_table      = $deletePhrase[1];
+        my $del_table = $remove_row->{table} || $table;
         my $del_table_info = $self->{_table_defs}->{$del_table};
-        my @del_symbols =
-          grep { exists $s2n->{$_} } @{ $del_table_info->{key} };
-        my %extras = map { $_ => $_ } @del_symbols;
-        %del_table_args = ( table => $del_table, key => \%extras );
+        %del_table_args = (
+            table => $del_table,
+            key   => +{
+                map { $_ => $_ }
+                grep { exists $s2n->{$_} } @{ $del_table_info->{key} }
+            }
+        );
     }
 
     #---------------------------------------------------------------------------
@@ -269,8 +271,9 @@ sub _head_data_table {
                     'createResourceURIBuilder',
                     [ $table_resource_uri, \%resource_extra ]
                 ),
-                $var->{rowNameBuilder} =>
-                  $js->apply( 'createRowNameBuilder', [ \@name_columns ] ),
+                $var->{rowNameBuilder} => $js->apply(
+                    'createRowNameBuilder', [ \@name_columns, $item_name ]
+                ),
                 (
                     ($remove_row)
                     ? (
@@ -360,8 +363,7 @@ sub _head_data_table {
                                         : $var->{resourceURIBuilder}
                                     ),
                                     $var->{deleteDataBuilder},
-                                    $var->{rowNameBuilder},
-                                    $self->get_item_name($table)
+                                    $var->{rowNameBuilder}
                                 ]
                             )
                           )
@@ -602,26 +604,6 @@ sub readrow_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  readrow_tables
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readrow_body_tables {
-    my $self = shift;
-
-    foreach ( tuples( $self->{_readrow_tables} ) ) {
-        my ( $table => $opts ) = @$_;
-
-    }
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  default_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -635,8 +617,8 @@ sub default_head {
     my $table = $self->{_default_table};
     my $ret   = $self->generate_datatable(
         $table,
-        remove_row => ['delete'],
-        view_row   => ['edit']
+        remove_row => { verb => 'delete' },
+        view_row   => { verb => 'edit' }
     );
 
     $self->_js_dump_lookups();
@@ -1672,6 +1654,8 @@ sub _delete_command {
     my $predicate = join( ' AND ', map { "$_=?" } @key );
     my $query     = "DELETE FROM $table WHERE $predicate";
     my @params    = ( $self->{_id}, ( map { $q->param($_) } cdr @key ) );
+
+    #SGX::Exception::User->throw( error => "$query\n" . Dumper( \@params ) );
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;

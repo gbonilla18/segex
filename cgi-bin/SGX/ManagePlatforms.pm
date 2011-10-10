@@ -256,7 +256,7 @@ sub readrow_body {
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Platform' ],
-        'create' => [ 'form_assign', 'Assign' ]
+        'create' => [ 'form_assign', '' ]
       ),
       $q->h3('Set Platform Attributes'),
 

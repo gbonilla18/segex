@@ -10,7 +10,7 @@
 
 function ajaxError(o, verb, name, resourceURI) {
     return (o.responseText !== undefined) 
-    ? "Error encountered when attempting to " + verb + " record (" + name + ") under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + "):\n\n" + o.responseText
+    ? "Error encountered when attempting to " + verb + " " + name + " under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + "):\n\n" + o.responseText
     : "Timeout on updating record (" + name + ") under " + resourceURI;
 }
 
@@ -134,7 +134,7 @@ function createEditFormatter(verb, noun, resourceURIBuilder) {
     };
 }
 
-function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder, item_name) {
+function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder) {
     var verb = buttonValue.toLowerCase();
 
     var handleSuccess = function(o) {
@@ -157,7 +157,7 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
         // strip double and single quotes from row name
         var name = rowNameBuilder(record);
         var resourceURI = resourceURIBuilder(record);
-        if (!confirm("Are you sure you want to " + verb + " " + item_name + " `" + name + "`?")) { return false; }
+        if (!confirm("Are you sure you want to " + verb + " " + name + "?")) { return false; }
 
         var callbackObject = {
             success:handleSuccess,
@@ -337,7 +337,7 @@ function createResourceURIBuilder(uriPrefix, columnMapping) {
     };
 }
 
-function createRowNameBuilder(nameColumns) {
+function createRowNameBuilder(nameColumns, item_class) {
     function getCleanFieldValue(oRecord, field) {
         /* getData() takes name of column that contains record names */
         return oRecord.getData(field).replace('"', "").replace("'","");
@@ -347,7 +347,7 @@ function createRowNameBuilder(nameColumns) {
         for (var i = 0, len = nameColumns.length; i < len; i++) {
             names.push(getCleanFieldValue(oRecord, nameColumns[i]));
         }
-        return names.join(" / ");
+        return item_class + " `" + names.join(" / ") + "`";
     };
 }
 

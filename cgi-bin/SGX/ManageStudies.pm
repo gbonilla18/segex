@@ -105,41 +105,6 @@ sub new {
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
             },
-
-            #'project' => {
-            #    key      => [qw/prid/],
-            #    resource => 'projects',
-            #    view     => [qw/prname prdesc/],
-            #    base     => [qw/prname prdesc manager/],
-
-            #    # table key to the left, URI param to the right
-            #    selectors => { manager => 'manager' },
-            #    names     => [qw/prname/],
-            #    meta      => {
-            #        prid => {
-            #            label  => 'No.',
-            #            parser => 'number'
-            #        },
-            #        manager => {
-            #            label        => 'Managing User',
-            #            parser       => 'number',
-            #            __type__     => 'popup_menu',
-            #            __hidden__   => 1,
-            #            __optional__ => 1
-            #        },
-            #        prname => {
-            #            label      => 'Project Name',
-            #            -maxlength => 255,
-            #            -size      => 55
-            #        },
-            #        prdesc => {
-            #            label        => 'Description',
-            #            __optional__ => 1,
-            #            -maxlength   => 255,
-            #            -size        => 55
-            #        }
-            #    },
-            #},
             'platform' => {
                 key   => [qw/pid/],
                 view  => [qw/pname species/],
@@ -195,10 +160,9 @@ sub new {
         },
         _default_table  => 'study',
         _readrow_tables => [
-            'experiment' =>
-              { remove_row => [ 'unassign' => 'StudyExperiment' ] },
-
-            #'project' => { remove_row => [ 'unassign' => 'ProjectStudy' ] },
+            'experiment' => {
+                remove_row => { verb => 'unassign', table => 'StudyExperiment' }
+            },
         ],
 
         _PlatformStudyExperiment =>
@@ -237,9 +201,7 @@ sub default_head {
         {
             -code => $self->get_pse_dropdown_js(
                 platforms       => 1,
-                extra_platforms => {
-                    'all' => { name => '@All Platforms' }
-                }
+                extra_platforms => { 'all' => { name => '@All Platforms' } }
             )
         }
       );
