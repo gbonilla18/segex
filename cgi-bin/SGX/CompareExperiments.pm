@@ -20,6 +20,8 @@ package SGX::CompareExperiments;
 use strict;
 use warnings;
 
+use base qw/SGX::Strategy::Base/;
+
 #use Benchmark;
 #use Data::Dumper;
 use Switch;
@@ -42,121 +44,78 @@ use SGX::Util qw/count_gtzero max/;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
+    my ( $class, @param ) = @_;
 
-    my ( $class, %param ) = @_;
+    my $self = $class->SUPER::new(@param);
 
-    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
-      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
-
-    ${$param{title}} = 'Compare Experiments';
-
-    my $self = {
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s,
-        _js_src_yui  => $js_src_yui,
-        _js_src_code => $js_src_code
-    };
+    $self->set_attributes( _title => 'Compare Experiments' );
 
     # find out what the current project is set to
-    if ( defined $s ) {
-        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
-        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
-        $self->{_UserFullName}       = $s->{session_cookie}->{full_name};
+    if ( my $s = $self->{_UserSession} ) {
+        my $session_cookie = $s->{session_cookie};
+        $self->set_attributes(
+            _WorkingProject     => $session_cookie->{curr_proj},
+            _WorkingProjectName => $session_cookie->{proj_name},
+            _UserFullName       => $session_cookie->{full_name}
+        );
     }
+
+    $self->register_actions(
+        'head' => { Compare => 'Compare_head' },
+        'body' => { Compare => 'Compare_body' }
+    );
 
     bless $self, $class;
     return $self;
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  CompareExperiments
-#       METHOD:  dispatch_js
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch_js {
-    my ($self) = @_;
-    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+sub Compare_head {
+    my $self = shift;
+    my ( $s, $js_src_yui, $js_src_code ) =
+      @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
-
-    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
-    switch ($action) {
-        case 'Compare' {
-
-            # process form and display results
-            return unless $s->is_authorized('user');
-            push @$js_src_yui,
-              (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'element/element-min.js',
-                'paginator/paginator-min.js',
-                'datasource/datasource-min.js',
-                'datatable/datatable-min.js'
-              );
-            push @$js_src_code, { -code => $self->getResultsJS() };
-        }
-        else {
-
-            # show form
-            return unless $s->is_authorized('user');
-            push @$js_src_yui,
-              (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'element/element-min.js',
-                'button/button-min.js'
-              );
-            push @$js_src_code,
-              (
-                +{ -code => $self->getFormJS() },
-                +{ -src  => 'FormCompareExperiments.js' }
-              );
-        }
-    }
-    return 1;
+    # process form and display results
+    return unless $s->is_authorized('user');
+    push @$js_src_yui,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
+        'paginator/paginator-min.js',         'datasource/datasource-min.js',
+        'datatable/datatable-min.js'
+      );
+    push @$js_src_code, { -code => $self->getResultsJS() };
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  CompareExperiments
-#       METHOD:  dispatch
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  executes appropriate method for the given action
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch {
-    my ($self) = @_;
+sub default_head {
+    my $self = shift;
+    my ( $s, $js_src_yui, $js_src_code ) =
+      @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
-    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
+    # show form
+    return unless $s->is_authorized('user');
+    push @$js_src_yui,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js',
+        'element/element-min.js', 'button/button-min.js'
+      );
+    push @$js_src_code,
+      (
+        +{ -code => $self->getFormJS() },
+        +{ -src  => 'FormCompareExperiments.js' }
+      );
+}
 
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
+sub Compare_body {
+    my $self = shift;
 
-    switch ($action) {
-        case 'Compare' {
+    # show results
+    return $self->getResultsHTML();
+}
 
-            # show results
-            return $self->getResultsHTML();
-        }
-        else {
+sub default_body {
+    my $self = shift;
 
-            # default action: show form
-            return $self->getFormHTML();
-        }
-    }
+    # default action: show form
+    return $self->getFormHTML();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -459,8 +418,7 @@ sub getResultsJS {
 
         # parse uploaded file (highly likely to fail!)
         my $fh = $q->upload('upload_file')
-          or SGX::Exception::User->throw(
-            error => "Failed to upload file.\n" );
+          or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
 
         my $ok = eval { $findProbes->init($fh) } || 0;
 
@@ -483,7 +441,7 @@ sub getResultsJS {
         #warn "the code took:", timestr($td), "\n";
 
         # get list of probe record ids (rid)
-        $probeList = $findProbes->getProbeList();
+        $probeList          = $findProbes->getProbeList();
         $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
             ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
     }
@@ -504,7 +462,7 @@ sub getResultsJS {
         $findProbes->loadProbeData();
 
         # get list of probe record ids (rid)
-        $probeList = $findProbes->getProbeList();
+        $probeList          = $findProbes->getProbeList();
         $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
             ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
     }
@@ -583,6 +541,7 @@ END_query_fs
 
     my $sth_titles = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
     my $rowcount_titles = $sth_titles->execute();
+
     #assert( $rowcount_titles == $exp_count );
 
     my $ht = $sth_titles->fetchall_hashref('eid');
@@ -643,10 +602,10 @@ END_query_fs
               . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
 
             $out .= $js->bind(
-                {
+                [
                     venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
-                },
+                ],
                 declare => 1
             );
         }
@@ -700,18 +659,18 @@ END_query_fs
               );
 
             $out .= $js->bind(
-                {
+                [
                     venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
-                },
+                ],
                 declare => 1
             );
         }
         else {
             $out .= $js->bind(
-                {
+                [
                     venn => ''
-                },
+                ],
                 declare => 1
             );
         }
@@ -734,7 +693,7 @@ END_query_fs
     }
 
     $out .= $js->bind(
-        {
+        [
             rep_count => $rep_count,
             eid       => join( ',', @eids ),
             rev       => join( ',', @reverses ),
@@ -750,7 +709,7 @@ END_query_fs
                 caption => 'Experiments compared',
                 records => \@tmpArray
             }
-        },
+        ],
         declare => 1
     );
 
@@ -787,13 +746,13 @@ END_query_fs
           };
     }
     $out .= $js->bind(
-        {
+        [
             tfs => {
                 caption =>
 'Probes grouped by significance in different experiment combinations',
                 records => \@tfsBreakdown
             }
-        },
+        ],
         declare => 1
       )
       . '

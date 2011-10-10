@@ -1168,7 +1168,7 @@ sub build_sidemenu {
         my $curr_proj = $s->{session_cookie}->{curr_proj};
         if ( defined($curr_proj) and $curr_proj ne '' ) {
             $proj_name =
-              $q->a( { -href => "$url_prefix?a=projects&b=edit&id=$curr_proj" },
+              $q->a( { -href => "$url_prefix?a=projects&id=$curr_proj" },
                 $proj_name );
         }
         else {

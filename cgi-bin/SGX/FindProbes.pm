@@ -29,6 +29,8 @@ package SGX::FindProbes;
 use strict;
 use warnings;
 
+use base qw/SGX::Strategy::Base/;
+
 use Switch;
 use Tie::IxHash;
 use File::Basename;
@@ -38,6 +40,7 @@ use SGX::Abstract::Exception;
 use SGX::Util qw/all_match trim min/;
 use SGX::Model::PlatformStudyExperiment;
 use Text::CSV;
+use Data::Dumper;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
@@ -50,12 +53,9 @@ use Text::CSV;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, %param ) = @_;
+    my ( $class, @param ) = @_;
 
-    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
-      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
-
-    ${ $param{title} } = 'Find Probes';
+    my $self = $class->SUPER::new(@param);
 
     my %type_dropdown;
     my $type_dropdown_t = tie(
@@ -72,16 +72,10 @@ sub new {
         'part'   => 'Part of the Word / Regular Expression'
     );
 
-    my $self = {
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s,
-        _js_src_yui  => $js_src_yui,
-        _js_src_code => $js_src_code,
-
-        _typeDesc  => \%type_dropdown,
-        _matchDesc => \%match_dropdown,
-
+    $self->set_attributes(
+        _title                   => 'Find Probes',
+        _typeDesc                => \%type_dropdown,
+        _matchDesc               => \%match_dropdown,
         _ProbeHash               => undef,
         _Names                   => undef,
         _ProbeCount              => undef,
@@ -94,94 +88,60 @@ sub new {
         _ExperimentStudyListHash => '',
         _ExperimentNameListHash  => '',
         _ExperimentDataQuery     => undef,
-    };
+    );
 
-#Probe ID, Accession Number, Gene Name, Probe Sequence, {Ratio,FC,P-Val,Intensity1,Intensity2}
+    $self->register_actions(
+        'head' => { Search => 'Search_head' },
+        'body' => { Search => 'Search_body' }
+    );
 
     bless $self, $class;
     return $self;
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  dispatch_js
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch_js {
-    my ($self) = @_;
-    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
-
-    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
-    switch ($action) {
-        case 'Search' {
-            return unless $s->is_authorized('user');
-            push @$js_src_yui,
-              (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'connection/connection-min.js',
-                'dragdrop/dragdrop-min.js',
-                'container/container-min.js',
-                'element/element-min.js',
-                'datasource/datasource-min.js',
-                'paginator/paginator-min.js',
-                'datatable/datatable-min.js',
-                'selector/selector-min.js'
-              );
-            $self->init();
-            $self->getSessionOverrideCGI();
-            push @$js_src_code, { -code => $self->findProbes_js($s) };
-            push @$js_src_code, { -src  => 'FindProbes.js' };
-        }
-        else {
-            return unless $s->is_authorized('user');
-            $self->getSessionOverrideCGI();
-            push @$js_src_code, { -src => 'FormFindProbes.js' };
-        }
-    }
+sub default_head {
+    my $self = shift;
+    my ( $s, $js_src_yui, $js_src_code ) =
+      @$self{qw{_UserSession _js_src_yui _js_src_code}};
+    return unless $s->is_authorized('user');
+    $self->getSessionOverrideCGI();
+    push @$js_src_code, { -src => 'FormFindProbes.js' };
     return 1;
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  OutputData
-#       METHOD:  dispatch
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  executes appropriate method for the given action
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch {
-    my ($self) = @_;
+sub Search_head {
+    my $self = shift;
+    my ( $s, $js_src_yui, $js_src_code ) =
+      @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
-    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
+    return unless $s->is_authorized('user');
+    push @$js_src_yui,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js', 'connection/connection-min.js',
+        'dragdrop/dragdrop-min.js',           'container/container-min.js',
+        'element/element-min.js',             'datasource/datasource-min.js',
+        'paginator/paginator-min.js',         'datatable/datatable-min.js',
+        'selector/selector-min.js'
+      );
+    $self->init();
+    $self->getSessionOverrideCGI();
+    push @$js_src_code, { -code => $self->findProbes_js($s) };
+    push @$js_src_code, { -src  => 'FindProbes.js' };
+    return 1;
+}
 
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
+sub Search_body {
+    my $self = shift;
 
-    switch ($action) {
-        case 'Search' {
-            return $self->getResultTableHTML();
-        }
-        else {
+    # show results
+    return $self->getResultTableHTML();
+}
 
-            # default action: show form
-            return $self->getFormHTML();
-        }
-    }
+sub default_body {
+    my $self = shift;
+
+    # default action: show form
+    return $self->getFormHTML();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -750,8 +710,8 @@ sub getResultTableHTML {
     my $self = shift;
 
     my $q     = $self->{_cgi};
-    my $type  = $q->param('type');
-    my $match = $q->param('match');
+    my $type  = $q->param('type') || '';
+    my $match = $q->param('match') || '';
 
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),

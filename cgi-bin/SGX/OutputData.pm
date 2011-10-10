@@ -30,7 +30,8 @@ package SGX::OutputData;
 use strict;
 use warnings;
 
-#use Data::Dumper;
+use base qw/SGX::Strategy::Base/;
+
 use Switch;
 use JSON::XS;
 use SGX::Model::PlatformStudyExperiment;
@@ -46,19 +47,14 @@ use SGX::Model::PlatformStudyExperiment;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, %param ) = @_;
+    my ( $class, @param ) = @_;
 
-    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
-      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+    my $self = $class->SUPER::new(@param);
 
-    ${ $param{title} } = 'Output Data';
+    my $dbh = $self->{_dbh};
 
-    my $self = {
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s,
-        _js_src_yui  => $js_src_yui,
-        _js_src_code => $js_src_code,
+    $self->set_attributes(
+        _title => 'Output Data',
 
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
@@ -66,105 +62,67 @@ sub new {
         _Data            => '',
         _RecordsReturned => undef,
         _FieldNames      => '',
+        _stid            => '',
+        _pid             => '',
+        _eidList         => []
+    );
 
-        #
-        _stid    => '',
-        _pid     => '',
-        _eidList => []
-    };
+    $self->register_actions(
+        'head' => { Load => 'Load_head' },
+        'body' => { Load => 'Load_body' }
+    );
 
     bless $self, $class;
     return $self;
 }
 
-#---------------------------------------------------------------------------
-#  Controller methods
-#---------------------------------------------------------------------------
-#===  CLASS METHOD  ============================================================
-#        CLASS:  OutputData
-#       METHOD:  dispatch_js
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch_js {
-    my ($self) = @_;
-    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
-
-    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
-    switch ($action) {
-        case 'Load' {
-            return unless $s->is_authorized('user');
-            push @$js_src_yui,
-              (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'element/element-min.js',
-                'datasource/datasource-min.js',
-                'paginator/paginator-min.js',
-                'datatable/datatable-min.js'
-              );
-            $self->init();
-            $self->loadReportData();
-            push @$js_src_code, { -code => $self->runReport_js() };
-        }
-        else {
-            return unless $s->is_authorized('user');
-            $self->{_PlatformStudyExperiment}->init(
-                platforms       => 1,
-                studies         => 1,
-                experiments     => 1,
-                extra_platforms => { 'all' => { name => '@All Platforms' } },
-                extra_studies   => {
-                    'all' => { name => '@All Studies' },
-                    ''    => { name => '@Unassigned Experiments' }
-                }
-            );
-            push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
-            push @$js_src_code, { -code => $self->getDropDownJS() };
-        }
-    }
-    return 1;
+sub Load_head {
+    my $self = shift;
+    my ( $s, $js_src_yui, $js_src_code ) =
+      @$self{qw{_UserSession _js_src_yui _js_src_code}};
+    return unless $s->is_authorized('user');
+    push @$js_src_yui,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
+        'datasource/datasource-min.js',       'paginator/paginator-min.js',
+        'datatable/datatable-min.js'
+      );
+    $self->init();
+    $self->loadReportData();
+    push @$js_src_code, { -code => $self->runReport_js() };
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  OutputData
-#       METHOD:  dispatch
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  executes appropriate method for the given action
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch {
-    my ($self) = @_;
+sub default_head {
+    my $self = shift;
+    my ( $s, $js_src_yui, $js_src_code ) =
+      @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
-    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
+    return unless $s->is_authorized('user');
 
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
+    push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
 
-    switch ($action) {
-        case 'Load' {
-            return $self->LoadHTML();
+    $self->{_PlatformStudyExperiment}->init(
+        platforms       => 1,
+        studies         => 1,
+        experiments     => 1,
+        extra_platforms => { 'all' => { name => '@All Platforms' } },
+        extra_studies   => {
+            'all' => { name => '@All Studies' },
+            ''    => { name => '@Unassigned Experiments' }
         }
-        else {
+    );
+    push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
+    push @$js_src_code, { -code => $self->getDropDownJS() };
+}
 
-            # default action: show form
-            return $self->showForm();
-        }
-    }
+sub Load_body {
+    my $self = shift;
+    return $self->LoadHTML();
+}
+
+sub default_body {
+    my $self = shift;
+    return $self->showForm();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -190,9 +148,6 @@ sub init {
     $self->{_eidList} = \@eids;
 }
 
-#---------------------------------------------------------------------------
-#  Model methods
-#---------------------------------------------------------------------------
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::OutputData
 #       METHOD:  loadReportData
@@ -289,9 +244,6 @@ sub getJSHeaders {
     return $self->{_FieldNames};
 }
 
-#---------------------------------------------------------------------------
-#  View methods
-#---------------------------------------------------------------------------
 #===  CLASS METHOD  ============================================================
 #        CLASS:  OutputData
 #       METHOD:  showForm

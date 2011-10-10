@@ -28,6 +28,8 @@ package SGX::TFSDisplay;
 use strict;
 use warnings;
 
+use base qw/SGX::Strategy::Base/;
+
 #use Data::Dumper;
 use Switch;
 use Math::BigInt;
@@ -45,19 +47,12 @@ use SGX::Abstract::Exception;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, %param ) = @_;
+    my ( $class, @param ) = @_;
 
-    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
-      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+    my $self = $class->SUPER::new(@param);
 
-    ${ $param{title} } = 'View Slice';
-
-    my $self = {
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s,
-        _js_src_yui  => $js_src_yui,
-        _js_src_code => $js_src_code,
+    $self->set_attributes(
+        _title => 'View Slice',
 
         # model
         _Records       => '',
@@ -77,97 +72,74 @@ sub new {
         _opts          => '',
         _allProbes     => '',
         _searchFilters => ''
-    };
+    );
 
-    bless $self, $class;
-
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
-#       METHOD:  dispatch
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  executes code appropriate for the given action
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch {
-    my ($self) = @_;
-
-    return $self->getHTML();
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
-#       METHOD:  dispatch_js
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Write JSON model
-#       THROWS:  no exceptions
-#     COMMENTS:  The most important thing this function *must not* do is print
-#                to browser window.
-#     SEE ALSO:  n/a
-#===============================================================================
-sub dispatch_js {
-    my ($self) = @_;
-
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+    $self->register_actions(
+        'head' => { CSV => 'CSV_head' },
+        'body' => { CSV => 'CSV_body' }
+    );
 
     # find out what the current project is set to
     $self->getSessionOverrideCGI();
-
     $self->loadDataFromSubmission();
-    my $action = ( defined $self->{_format} ) ? $self->{_format} : '';
 
-    switch ($action) {
-        case 'CSV' {
-            return unless $s->is_authorized('user');
+    # two lines below modify action value and therefore affect which hook will
+    # get called
+    my $action = $self->{_format} || '';
+    $self->{_cgi}->param( -name => 'b', -value => $action );
 
-            #Clear our headers so all we get back is the CSV file.
-            print $self->{_cgi}->header(
-                -type       => 'text/csv',
-                -attachment => 'results.csv',
-                -cookie     => $s->cookie_array()
-            );
+    bless $self, $class;
+    return $self;
+}
 
-            $s->commit();
-            $self->getPlatformData();
-            $self->loadAllData();
+sub default_body {
+    my $self = shift;
+    return $self->getHTML();
+}
 
-            # :TODO:08/06/2011 14:25:39:es: instead of printing directly to
-            # browser window in the function below, have it return a string
-            
-            # Dynamically load Text::CSV module (use require)
+sub CSV_head {
+    my $self = shift;
+    my ( $s, $js_src_yui, $js_src_code ) =
+      @$self{qw{_UserSession _js_src_yui _js_src_code}};
+    return unless $s->is_authorized('user');
 
-            $self->displayTFSInfoCSV();
+    #Clear our headers so all we get back is the CSV file.
+    print $self->{_cgi}->header(
+        -type       => 'text/csv',
+        -attachment => 'results.csv',
+        -cookie     => $s->cookie_array()
+    );
 
-            exit;
-        }
-        case 'HTML' {
-            return unless $s->is_authorized('user');
+    $s->commit();
+    $self->getPlatformData();
+    $self->loadAllData();
 
-            push @$js_src_yui,
-              (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'element/element-min.js',
-                'paginator/paginator-min.js',
-                'datasource/datasource-min.js',
-                'datatable/datatable-min.js',
-                'yahoo/yahoo.js'
-              );
+    # :TODO:08/06/2011 14:25:39:es: instead of printing directly to
+    # browser window in the function below, have it return a string
 
-            $self->loadTFSData();
-            push @$js_src_code, { -code => $self->displayTFSInfo() };
-        }
-        else {
-            SGX::Exception::Internal->throw( error =>
-                  "Do not know how to handle parameter value get=$action.\n" );
-        }
-    }
+    # Dynamically load Text::CSV module (use require)
+
+    $self->displayTFSInfoCSV();
+
+    exit;
+}
+
+sub default_head {
+    my $self = shift;
+    my ( $s, $js_src_yui, $js_src_code ) =
+      @$self{qw{_UserSession _js_src_yui _js_src_code}};
+    return
+      unless $s->is_authorized('user');
+
+    push @$js_src_yui,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
+        'paginator/paginator-min.js',         'datasource/datasource-min.js',
+        'datatable/datatable-min.js',         'yahoo/yahoo.js'
+      );
+
+    $self->loadTFSData();
+    push @$js_src_code, { -code => $self->displayTFSInfo() };
     return 1;
 }
 
@@ -239,7 +211,7 @@ sub loadDataFromSubmission {
     else {
         ( $self->{_fs}, $self->{_format} ) = ( undef, undef );
     }
-    if ($self->{_fs} eq '') {
+    if ( $self->{_fs} eq '' ) {
         $self->{_fs} = undef;
     }
 
@@ -720,7 +692,7 @@ sub displayTFSInfoCSV {
 
     #Print a line to tell us what report this is.
     my $workingProjectText = $self->{_WorkingProjectName};
-    my $generatedByText = $self->{_UserFullName};
+    my $generatedByText    = $self->{_UserFullName};
 
     #Print a line to tell us what report this is.
     print 'Compare Experiments Report,' . localtime() . "\n";

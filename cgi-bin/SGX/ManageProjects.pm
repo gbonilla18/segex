@@ -166,7 +166,7 @@ sub new {
 #######################################################################################
 #PRINTING HTML AND JAVASCRIPT STUFF
 #######################################################################################
-sub readall_body {
+sub default_body {
 
     # Form HTML for the project table.
     my $self = shift;

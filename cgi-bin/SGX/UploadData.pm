@@ -30,6 +30,8 @@ package SGX::UploadData;
 use strict;
 use warnings;
 
+use base qw/SGX::Strategy::Base/;
+
 use JSON::XS;
 use SGX::CSV;
 use Data::Dumper;
@@ -63,7 +65,7 @@ my @parser = (
     sub {
         my ($x) = shift =~ /(.*)/;
         looks_like_number($x) ? $x : undef;
-      }
+    }
 );
 
 #===  CLASS METHOD  ============================================================
@@ -77,21 +79,15 @@ my @parser = (
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, %param ) = @_;
+    my ( $class, @param ) = @_;
 
-    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
-      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+    my $self = $class->SUPER::new(@param);
 
-    ${ $param{title} } = 'Upload Data';
+    my $dbh = $self->{_dbh};
 
-    my $self = {
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s,
-        _js_src_yui  => $js_src_yui,
-        _js_src_code => $js_src_code,
+    $self->set_attributes(
+        _title => 'Upload Data',
 
-        #
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
 
@@ -103,9 +99,26 @@ sub new {
         _ExperimentDesc => '',
         _AdditionalInfo => '',
 
-        #
         _recordsInserted => undef
-    };
+    );
+
+    $self->register_actions(
+        'head' => { Upload => 'Upload_head' },
+        'body' => { Upload => 'Upload_body' }
+    );
+
+    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
+    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+    return unless $s->is_authorized('user');
+    push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
+    push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
+    $self->{_PlatformStudyExperiment}->init(
+        platforms         => 1,
+        studies           => 1,
+        platform_by_study => 1,
+        extra_studies     => { '' => { name => '@Unassigned Experiments' } }
+    );
+    $self->ud_init();
 
     bless $self, $class;
     return $self;
@@ -121,45 +134,23 @@ sub new {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub dispatch_js {
+sub Upload_head {
     my ($self) = @_;
+    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
+    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+    $self->uploadData();
 
+    # show form
+    push @$js_src_code, { -code => $self->getDropDownJS() };
+}
+
+sub default_head {
+    my ($self) = @_;
     my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
 
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
-
-    return unless $s->is_authorized('user');
-
-    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
-    push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
-    $self->{_PlatformStudyExperiment}->init(
-        platforms         => 1,
-        studies           => 1,
-        platform_by_study => 1,
-        extra_studies     => { '' => { name => '@Unassigned Experiments' } }
-    );
-    $self->init();
-
-    switch ($action) {
-        case 'Upload' {
-            $self->uploadData();
-
-            # show form
-            push @$js_src_code, { -code => $self->getDropDownJS() };
-        }
-        else {
-
-            # default: show form
-            push @$js_src_code, {
-                -code => $self->getDropDownJS()
-            };
-        }
-    }
-    return 1;
+    # default: show form
+    push @$js_src_code, { -code => $self->getDropDownJS() };
 }
 
 #===  CLASS METHOD  ============================================================
@@ -172,11 +163,13 @@ sub dispatch_js {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub dispatch {
-    my ($self) = @_;
+sub Upload_body {
+    my $self = shift;
+    return ( $self->displayMessages(), $self->showForm() );
+}
 
-    my ( $q, $s ) = @$self{qw{_cgi _UserSession}};
-
+sub default_body {
+    my $self = shift;
     return ( $self->displayMessages(), $self->showForm() );
 }
 
@@ -226,7 +219,7 @@ sub displayMessages {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  init
+#       METHOD:  ud_init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Get state (mostly from CGI parameters)
@@ -234,7 +227,7 @@ sub displayMessages {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub init {
+sub ud_init {
     my $self = shift;
 
     my $q = $self->{_cgi};
@@ -605,8 +598,7 @@ sub sanitizeUploadFile {
 
     # The is the file handle of the uploaded file.
     my $uploadedFile = $q->upload('file')
-      or SGX::Exception::User->throw(
-        error => "Failed to upload file.\n" );
+      or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
 
     #Open file we are writing to server.
     open my $OUTPUTTOSERVER, '>', $outputFileName

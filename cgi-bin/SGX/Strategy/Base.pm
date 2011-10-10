@@ -36,9 +36,7 @@ use URI::Escape;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-
     my ( $class, %param ) = @_;
-
     my ( $dbh, $q, $s, $action ) = @param{qw{dbh cgi user_session selector}};
 
     my $self = {
@@ -322,6 +320,88 @@ sub get_dispatch_action {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
+#       METHOD:  _dispatch_by
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _dispatch_by {
+    my ( $self, $type, $action, @info ) = @_;
+    my $dispatch_table = $self->{_dispatch_tables}->{$type};
+
+    # execute methods that are in the intersection of those found in the
+    # requested dispatch table and those tha can actually be executed.
+    my $method = $dispatch_table->{$action};
+    return if ( !defined($method) || !$self->can($method) );
+
+    return $self->$method(@info);
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  dispatch_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch_js {
+    my $self = shift;
+
+    my $action = $self->get_dispatch_action();
+
+    $self->set_title( $self->{_title} );
+
+    # otherwise we always do one of the three things: (1) dispatch to readall
+    # (id not present), (2) dispatch to readrow (id present), (3) redirect if
+    # preliminary processing routine (e.g. create request handler) tells us so.
+    #
+    return if $self->_dispatch_by( 'redirect', $action );
+
+    if ( $self->_dispatch_by( 'head', $action ) ) {
+        return 1;
+    }
+
+    # default actions
+    if ( $self->default_head() ) {
+        return 1;
+    }
+    return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  dispatch
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Show body
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dispatch {
+    my ($self) = @_;
+
+    my $action = $self->get_dispatch_action();
+
+    # :TRICKY:08/17/2011 13:00:12:es: CGI.pm -nosticky option seems to not be
+    # working as intended. See: http://www.perlmonks.org/?node_id=689507. Using
+    # delete_all() ensures that param array is cleared and no form field
+    # inherits old values.
+    my $q = $self->{_cgi};
+    $q->delete_all();
+
+    my (@body) = $self->_dispatch_by( 'body', $action );    # show body
+    return ( @body > 0 ) ? @body : $self->default_body();
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
 #       METHOD:  set_attributes
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -389,7 +469,7 @@ sub view_start_get_form {
 #       METHOD:  view_hidden_resource
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Required for GET forms (those that use view_start_get_form). 
+#  DESCRIPTION:  Required for GET forms (those that use view_start_get_form).
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  view_start_get_form

@@ -99,28 +99,6 @@ sub get_resource_uri {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  ajax_dispatch
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub _dispatch_by {
-    my ( $self, $type, $action, @info ) = @_;
-    my $dispatch_table = $self->{_dispatch_tables}->{$type};
-
-    # execute methods that are in the intersection of those found in the
-    # requested dispatch table and those tha can actually be executed.
-    my $method = $dispatch_table->{$action};
-    return if ( !defined($method) || !$self->can($method) );
-
-    return $self->$method(@info);
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _head_data_table
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -464,7 +442,7 @@ sub dispatch_js {
     if (
         ( defined $self->{_id} )
         ? $self->readrow_head()
-        : $self->readall_head()
+        : $self->default_head()
       )
     {
         $self->_js_dump();
@@ -605,7 +583,7 @@ sub readrow_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  readall_head
+#       METHOD:  default_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -613,7 +591,7 @@ sub readrow_head {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub readall_head {
+sub default_head {
     my $self  = shift;
     my $table = $self->{_default_table};
     my $ret   = $self->generate_datatable(
@@ -677,7 +655,7 @@ sub dispatch {
     # default actions
     return ( defined $self->{_id} )
       ? $self->readrow_body
-      : $self->readall_body;
+      : $self->default_body;
 }
 
 #===  CLASS METHOD  ============================================================

@@ -249,11 +249,11 @@ sub new {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub readall_head {
+sub default_head {
     my $self = shift;
 
     # view all rows
-    $self->SUPER::readall_head();
+    $self->SUPER::default_head();
 
     # add platform dropdown
     push @{ $self->{_js_src_code} }, (
@@ -280,7 +280,7 @@ sub readall_head {
 #######################################################################################
 #PRINTING HTML AND JAVASCRIPT STUFF
 #######################################################################################
-sub readall_body {
+sub default_body {
 
     # Form HTML for the study table.
     my $self = shift;

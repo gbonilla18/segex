@@ -28,6 +28,9 @@ package SGX::UploadAnnot;
 
 use strict;
 use warnings;
+
+use base qw/SGX::Strategy::Base/;
+
 use Data::Dumper;
 use Switch;
 use JSON::XS;
@@ -45,28 +48,20 @@ use Text::CSV;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, %param ) = @_;
+    my ( $class, @param ) = @_;
+    my $self = $class->SUPER::new(@param);
 
-    my ( $dbh, $q, $s, $js_src_yui, $js_src_code ) =
-      @param{qw{dbh cgi user_session js_src_yui js_src_code}};
+    $self->set_attributes( _title => 'Upload Annotations' );
 
-    ${$param{title}} = 'Upload Annotations';
-
-    my $self = {
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s,
-        _js_src_yui  => $js_src_yui,
-        _js_src_code => $js_src_code,
-    };
+    $self->register_actions(
+        'head' => { Upload => 'Upload_head' },
+        'body' => { Upload => 'Upload_body' }
+    );
 
     bless $self, $class;
     return $self;
 }
 
-#---------------------------------------------------------------------------
-#  Controller methods
-#---------------------------------------------------------------------------
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadAnnot
 #       METHOD:  dispatch_js
@@ -77,35 +72,30 @@ sub new {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub dispatch_js {
+
+sub Upload_head {
     my ($self) = @_;
     my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+    return unless $s->is_authorized('user');
+    my @eids = $self->{_cgi}->param('eids');
+    $self->{_eidList} = \@eids;
+    $self->loadReportData();
+    push @$js_src_code, { -code => $self->runReport_js() };
+    return 1;
+}
 
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
-
-    switch ($action) {
-        case 'Upload' {
-            return unless $s->is_authorized('user');
-            my @eids = $self->{_cgi}->param('eids');
-            $self->{_eidList} = \@eids;
-            $self->loadReportData();
-            push @$js_src_code, { -code => $self->runReport_js() };
-        }
-        else {
-            return unless $s->is_authorized('user');
-            push @$js_src_yui,
-              (
-                'yahoo-dom-event/yahoo-dom-event.js',
-                'animation/animation-min.js',
-                'dragdrop/dragdrop-min.js'
-              );
-            push @$js_src_code, { -src => 'UploadAnnot.js' };
-        }
-    }
+sub default_head {
+    my ($self) = @_;
+    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
+    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+    return unless $s->is_authorized('user');
+    push @$js_src_yui,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js',
+        'animation/animation-min.js', 'dragdrop/dragdrop-min.js'
+      );
+    push @$js_src_code, { -src => 'UploadAnnot.js' };
     return 1;
 }
 
@@ -119,31 +109,17 @@ sub dispatch_js {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub dispatch {
+sub Upload_body {
     my ($self) = @_;
-
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
-
-    my $action =
-      ( defined $q->param('b') )
-      ? $q->param('b')
-      : '';
-
-    switch ($action) {
-        case 'Upload' {
-            return $self->LoadHTML();
-        }
-        else {
-
-            # default action: show form
-            return $self->form_uploadAnnot();
-        }
-    }
+    return $self->LoadHTML();
 }
 
-#---------------------------------------------------------------------------
-#  Model methods
-#---------------------------------------------------------------------------
+sub default_body {
+    my ($self) = @_;
+
+    # default action: show form
+    return $self->form_uploadAnnot();
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  get_annot_fields
@@ -497,10 +473,6 @@ qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname 
         undef, $pid_value );
 }
 
-#---------------------------------------------------------------------------
-#  View methods
-#---------------------------------------------------------------------------
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::UploadAnnot
 #       METHOD:  form_uploadAnnot
@@ -594,7 +566,10 @@ sub form_uploadAnnot {
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -id => 'fields', -name => 'fields' ),
-            $q->submit( -class => 'button black bigrounded', -value => 'Upload' )
+            $q->submit(
+                -class => 'button black bigrounded',
+                -value => 'Upload'
+            )
         )
       ),
       $q->end_form;

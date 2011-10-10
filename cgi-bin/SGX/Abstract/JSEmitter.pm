@@ -173,6 +173,8 @@ sub false {
             error => "Symbol '$key' absent from id hash" );
         return $self->{$key};
     }
+
+    1;
 }
 
 #---------------------------------------------------------------------------
