@@ -52,25 +52,23 @@ sub new {
 
     $self->_set_attributes(
 
-#_table_defs: hash with keys corresponding to the names of tables handled by this module.
-# key: values required for lookup. The first element always corresponds to $self->{_id}.
-# mutable: fields that can be modified independently of each other (or other elements).
-# proto: fields that are filled out on insert/creation of new records.
         _table_defs => {
             'users' => {
                 key => [qw/uid/],
 
                 # table key to the left, URI param to the right
                 selectors => { uname => 'uname' },
-                proto =>
-                  [qw/uname full_name address phone level email_confirmed/],
-                view =>
-                  [qw/uname full_name address phone level email_confirmed/],
-                mutable  => [qw/uname full_name address phone level/],
+                proto     => [
+                    qw/uname full_name address phone level email email_confirmed/
+                ],
+                view => [
+                    qw/uname full_name address phone level email email_confirmed/
+                ],
                 resource => 'users',
                 names    => [qw/uname/],
                 meta     => {
-                    uid => {
+                    email => { label => 'Email' },
+                    uid   => {
                         label  => 'ID',
                         parser => 'number'
                     },
@@ -83,8 +81,9 @@ sub new {
                     phone           => { label => 'Phone' },
                     level           => { label => 'Permissions' },
                     email_confirmed => {
-                        label  => 'Email Confirmed',
-                        parser => 'number'
+                        label     => 'Email Confirmed',
+                        parser    => 'number',
+                        -disabled => 'disabled'
                     }
                 },
             }
@@ -170,7 +169,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'prname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(),
+        $self->_body_edit_fields( mode => 'create' ),
         $q->dt('&nbsp;') => $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
             $q->submit(
@@ -204,7 +203,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'prname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(),
+        $self->_body_edit_fields( mode => 'update' ),
         $q->dt('&nbsp;') => $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),
             $q->submit(

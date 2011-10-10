@@ -53,22 +53,16 @@ sub new {
 
     $self->_set_attributes(
 
-#_table_defs: hash with keys corresponding to the names of tables handled by this module.
-# key: values required for lookup. The first element always corresponds to $self->{_id}.
-# mutable: fields that can be modified independently of each other (or other elements).
-# proto: fields that are filled out on insert/creation of new records.
         _table_defs => {
             'ProjectStudy' => {
                 key        => [qw/prid stid/],
                 view       => [],
-                mutable    => [],
                 proto      => [qw/prid stid/],
                 join_type  => 'INNER',
                 constraint => [ prid => sub { shift->{_id} } ]
             },
             'project' => {
                 key      => [qw/prid/],
-                mutable  => [qw/prname prdesc manager/],
                 resource => 'projects',
                 view     => [qw/prname prdesc/],
                 proto    => [qw/prname prdesc manager/],
@@ -95,13 +89,12 @@ sub new {
                 lookup => { users => [ manager => 'uid' ] }
             },
             'study' => {
-                key   => [qw/stid/],
-                proto => [],
+                key => [qw/stid/],
 
                 # table key to the left, URI param to the right
                 selectors => { pid => 'pid' },
                 view      => [qw/description pubmed/],
-                mutable   => [qw/description pubmed pid/],
+                proto     => [qw/description pubmed/],
                 resource  => 'studies',
                 names     => [qw/description/],
                 meta      => {
@@ -248,7 +241,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'prname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(),
+        $self->_body_edit_fields( mode => 'create' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -371,7 +364,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'prname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(),
+        $self->_body_edit_fields( mode => 'update' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),

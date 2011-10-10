@@ -723,10 +723,11 @@ sub _head_column_def {
       ? $args{table}
       : $self->{_default_table};
 
-    my $table_defs = $self->{_table_defs};
-    my $table_info = $table_defs->{$table};
-    my ( $table_mutable, $table_lookup ) = @$table_info{qw/mutable lookup/};
-    my %mutable = map { $_ => 1 } @$table_mutable;
+    my $table_defs   = $self->{_table_defs};
+    my $table_info   = $table_defs->{$table};
+    my $table_lookup = $table_info->{lookup};
+    my %mutable =
+      map { $_ => 1 } $self->_get_mutable( table_info => $table_info );
 
     my $js            = $args{js_emitter};
     my $cell_updater  = $args{cell_updater};
@@ -992,14 +993,11 @@ sub _readall_command {
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
     return sub {
-        my $rc;
 
         # main query execute
-        $rc = $sth->execute(@$params);
+        my $rc = $sth->execute(@$params);
         $self->{_this_index2name} = $sth->{NAME};
-
-        $self->{_this_data} = $sth->fetchall_arrayref;
-
+        $self->{_this_data}       = $sth->fetchall_arrayref;
         $sth->finish;
 
         my $_other = $self->{_other};
@@ -1367,7 +1365,7 @@ sub _readrow_command {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _delete_command {
-    my ($self) = @_;
+    my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
     $table = $self->{_default_table} if ( !defined($table) || $table eq '' );
@@ -1380,13 +1378,13 @@ sub _delete_command {
     my @key_copy  = @$key;
     my $predicate = join( ' AND ', map { "$_=?" } @key_copy );
     my $query     = "DELETE FROM $table WHERE $predicate";
-    my $sth       = eval { $dbh->prepare($query) } or do {
+    my @params = ( $self->{_id}, map { $q->param($_) } splice( @key_copy, 1 ) );
+
+    my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
         warn $error;
         return undef;
     };
-
-    my @params = ( $self->{_id}, map { $q->param($_) } splice( @key_copy, 1 ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1515,6 +1513,25 @@ sub _create_command {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _get_mutable
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Gets all fields from {proto} that not have -disabled key in
+#                {meta}.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _get_mutable {
+    my ( $self, %args ) = @_;
+    my $table_info = $args{table_info}
+      || $self->{_table_defs}->{ $args{table_name} };
+    my ( $proto, $meta ) = @$table_info{qw/proto meta/};
+    return grep { !exists $meta->{$_}->{-disabled} } @$proto;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _update_command
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -1524,7 +1541,7 @@ sub _create_command {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _update_command {
-    my ($self) = @_;
+    my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
 
@@ -1537,15 +1554,14 @@ sub _update_command {
     my $table_info = $self->{_table_defs}->{$table};
     return undef if not $table_info;
 
-    my ( $key, $fields ) = @$table_info{qw/key mutable/};
-
-    my @key_copy = @$key;
-
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
     # specifically map a special character (for example, an empty string), to
     # NULL.
-    my @fields_to_update = grep { defined( $q->param($_) ) } @$fields;
+    my @fields_to_update =
+      grep { defined( $q->param($_) ) }
+      $self->_get_mutable( table_info => $table_info );
+    my @key_copy = @{ $table_info->{key} };
 
     my $assignment = join( ',',     map { "$_=?" } @fields_to_update );
     my $predicate  = join( ' AND ', map { "$_=?" } @key_copy );
@@ -1686,33 +1702,29 @@ sub _head_init {
 #===============================================================================
 sub _body_edit_fields {
     my ( $self, %args ) = @_;
-    my $q = $self->{_cgi};
+    my ( $q, $table, $table_defs ) =
+      @$self{qw/_cgi _default_table _table_defs/};
+    my $unlimited_mode =
+        ( defined $args{mode} )
+      ? ( ( $args{mode} eq 'create' ) ? 1 : 0 )
+      : 0;
 
-    my $table = $self->{_default_table};
+    my $table_info   = $table_defs->{$table} || {};
+    my $default_meta = $table_info->{meta}   || {};
+    my $args_meta    = $args{meta}           || {};
+    my $fields       = $table_info->{proto};
 
-    my $table_info      = $self->{_table_defs}->{$table} || {};
-    my $default_meta    = $table_info->{meta}            || {};
-    my $args_meta       = $args{meta}                    || {};
-    my $default_mutable = $table_info->{proto}           || [];
-    my $args_mutable    = $args{extra_fields}            || [];
-
-    my @copy_mutable = @$default_mutable;
-    my %mutable_meta = map {
+    my %fields_meta = map {
         $_ => +{ %{ $default_meta->{$_} || {} }, %{ $args_meta->{$_} || {} } }
-    } @$default_mutable;
-    foreach ( grep { not exists $mutable_meta{$_} } @$args_mutable ) {
-        push @copy_mutable, $_;
-        $mutable_meta{$_} =
-          { %{ $default_meta->{$_} || {} }, %{ $args_meta->{$_} || {} } };
-    }
+    } @$fields;
 
     my @tmp;
-
     my $id_data = $self->{_id_data} || {};
 
-    foreach my $symbol (@copy_mutable) {
-        my $meta = $mutable_meta{$symbol} || {};
+    foreach my $symbol (@$fields) {
+        my $meta = $fields_meta{$symbol} || {};
         my %cgi_meta = map { $_ => $meta->{$_} } grep { /^-/ } keys %$meta;
+        delete $cgi_meta{-disabled} if $unlimited_mode;
         my $method = $meta->{__type__} || 'textfield';
         my $label  = $meta->{label}    || $symbol;
         $cgi_meta{-title} ||= (
@@ -1749,6 +1761,8 @@ sub _body_create_read_menu {
     my ( $self, %args ) = @_;
     my $q = $self->{_cgi};
 
+ # :TODO:09/22/2011 01:36:59:es: fix undefined value bug (appears in Manage...)
+    #warn "$self->{_ActionName} eq $args{'create'}->[0]";
     return $q->ul(
         { -id => 'cr_menu', -class => 'clearfix' },
         ( $self->{_ActionName} eq $args{'create'}->[0] )

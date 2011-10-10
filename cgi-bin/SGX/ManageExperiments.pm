@@ -60,7 +60,6 @@ sub new {
 # key:        Fields that uniquely identify rows
 # names:      Fields which identify rows in user-readable manner (row name will be
 #             formed by concatenating values with a slash)
-# mutable:    Fields that can be modified independently of each other (or other elements).
 # proto:      Fields that are filled out on insert/creation of new records.
 # view:       Fields to display.
 # selectors:  Fields which, when present in CGI::param list, can narrow down
@@ -80,7 +79,6 @@ sub new {
                 key      => [qw/stid/],
                 proto    => [qw/description pubmed pid/],
                 view     => [qw/description pubmed/],
-                mutable  => [qw/description pubmed pid/],    # note: pid !!!
                 resource => 'studies',
 
                 # table key to the left, URI param to the right
@@ -89,7 +87,11 @@ sub new {
                     stid => { label => 'No.', parser => 'number' },
                     description => { label => 'Description' },
                     pubmed      => { label => 'PubMed' },
-                    pid         => { label => 'Platform', parser => 'number' },
+                    pid         => {
+                        label     => 'Platform',
+                        parser    => 'number',
+                        -disabled => 'disabled'
+                    },
                 },
                 lookup => { platform => [ pid => 'pid' ] },
                 join   => [
@@ -127,11 +129,7 @@ sub new {
             'experiment' => {
                 key  => [qw/eid/],
                 view => [
-                    qw/eid sample1 sample2 ExperimentDescription
-                      AdditionalInformation data_count/
-                ],
-                mutable => [
-                    qw/sample1 sample2 ExperimentDescription AdditionalInformation/
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation data_count/
                 ],
                 resource => 'experiments',
                 proto    => [
@@ -167,9 +165,10 @@ sub new {
                         parser  => 'number'
                     },
                     pid => {
-                        label    => 'Platform',
-                        parser   => 'number',
-                        __type__ => 'popup_menu'
+                        label     => 'Platform',
+                        parser    => 'number',
+                        __type__  => 'popup_menu',
+                        -disabled => 'disabled'
                     }
                 },
                 lookup => {
@@ -392,7 +391,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(),
+        $self->_body_edit_fields( mode => 'create' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -508,9 +507,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(
-            meta => { pid => { -disabled => 'disabled' } }
-        ),
+        $self->_body_edit_fields( mode => 'update' ),
         $q->dt('&nbsp;') => $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),
             $q->submit(

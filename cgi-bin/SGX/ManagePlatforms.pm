@@ -58,7 +58,6 @@ sub new {
 # key:        Fields that uniquely identify rows
 # names:      Fields which identify rows in user-readable manner (row name will be
 #             formed by concatenating values with a slash)
-# mutable:    Fields that can be modified independently of each other (or other elements).
 # proto:      Fields that are filled out on insert/creation of new records.
 # view:       Fields to display.
 # selectors:  Fields which, when present in CGI::param list, can narrow down
@@ -71,7 +70,6 @@ sub new {
         _table_defs => {
             'platform' => {
                 key      => [qw/pid/],
-                mutable  => [qw/pname def_p_cutoff def_f_cutoff species/],
                 resource => 'platforms',
                 proto    => [qw/pname def_p_cutoff def_f_cutoff species/],
                 view     => [
@@ -115,9 +113,8 @@ sub new {
             'study' => {
                 key      => [qw/stid/],
                 view     => [qw/description pubmed/],
-                mutable  => [qw/description pubmed/],
+                proto    => [qw/description pubmed/],
                 resource => 'studies',
-                proto    => [],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/description/],
                 meta  => {
@@ -146,7 +143,6 @@ sub new {
             'experiment' => {
                 key     => [qw/eid/],
                 view    => [qw/sample1 sample2/],
-                mutable => [],
                 proto   => [],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/sample1 sample2/]
@@ -266,7 +262,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'pname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(),
+        $self->_body_edit_fields(mode => 'create'),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -389,7 +385,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'pname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(),
+        $self->_body_edit_fields(mode => 'update'),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),

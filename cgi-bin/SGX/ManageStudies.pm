@@ -58,7 +58,6 @@ sub new {
 # key:        Fields that uniquely identify rows
 # names:      Fields which identify rows in user-readable manner (row name will be
 #             formed by concatenating values with a slash)
-# mutable:    Fields that can be modified independently of each other (or other elements).
 # proto:      Fields that are filled out on insert/creation of new records.
 # view:       Fields to display.
 # selectors:  Fields which, when present in CGI::param list, can narrow down
@@ -71,7 +70,6 @@ sub new {
         _table_defs => {
             'StudyExperiment' => {
                 key        => [qw/stid eid/],
-                mutable    => [],
                 proto      => [qw/stid eid/],
                 join_type  => 'INNER',
                 constraint => [ stid => sub { shift->{_id} } ]
@@ -80,7 +78,6 @@ sub new {
                 key      => [qw/stid/],
                 proto    => [qw/description pubmed pid/],
                 view     => [qw/description pubmed/],
-                mutable  => [qw/description pubmed pid/],
                 resource => 'studies',
 
                 # table key to the left, URI param to the right
@@ -89,7 +86,8 @@ sub new {
                 meta      => {
                     stid => {
                         label  => 'No.',
-                        parser => 'number'
+                        parser => 'number',
+                        -disabled => 'disabled'
                     },
                     description => {
                         label      => 'Description',
@@ -100,9 +98,10 @@ sub new {
                         -maxlength => 20
                     },
                     pid => {
-                        label    => 'Platform',
-                        __type__ => 'popup_menu',
-                        parser   => 'number'
+                        label     => 'Platform',
+                        __type__  => 'popup_menu',
+                        parser    => 'number',
+                        -disabled => 'disabled'
                     }
                 },
                 lookup => { platform => [ pid => 'pid' ] },
@@ -120,11 +119,7 @@ sub new {
             'experiment' => {
                 key  => [qw/eid/],
                 view => [
-                    qw/eid sample1 sample2 ExperimentDescription
-                      AdditionalInformation data_count/
-                ],
-                mutable => [
-                    qw/sample1 sample2 ExperimentDescription AdditionalInformation/
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation data_count/
                 ],
                 resource => 'experiments',
                 proto    => [
@@ -146,7 +141,7 @@ sub new {
                         parser  => 'number'
                     },
                 },
-                join   => [
+                join => [
                     StudyExperiment => [ eid => 'eid' ],
                     microarray      => [ eid => 'eid', { join_type => 'LEFT' } ]
                 ]
@@ -230,7 +225,10 @@ sub readall_head {
         {
             -code => $self->get_pse_dropdown_js(
                 platforms       => 1,
-                extra_platforms => { 'all' => { name => '@All Platforms' } }
+                extra_platforms => {
+                    'all' => { name => '@All Platforms' },
+                    ''    => { name => '@Unassigned Studies' }
+                }
             )
         }
       );
@@ -330,7 +328,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(),
+        $self->_body_edit_fields(mode => 'create'),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -358,7 +356,8 @@ sub form_assign_head {
                 platforms         => 1,
                 platform_by_study => 1,
                 studies           => 1,
-                experiments       => 1
+                experiments       => 1,
+                extra_studies => { '' => { name => '@Unassigned Experiments' } }
             )
         }
       );
@@ -457,9 +456,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(
-            meta => { pid => { -disabled => 'disabled' } }
-        ),
+        $self->_body_edit_fields(mode => 'update'),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),
