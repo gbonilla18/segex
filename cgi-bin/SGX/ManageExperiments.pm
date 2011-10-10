@@ -67,12 +67,12 @@ sub new {
         _table_defs => {
             'StudyExperiment' => {
                 key       => [qw/eid stid/],
-                fields     => [qw/eid stid/],
+                fields    => [qw/eid stid/],
                 join_type => 'INNER'
             },
             'study' => {
                 key      => [qw/stid/],
-                fields    => [qw/description pubmed pid/],
+                fields   => [qw/description pubmed pid/],
                 view     => [qw/description pubmed/],
                 resource => 'studies',
 
@@ -83,10 +83,10 @@ sub new {
                     description => { label => 'Description' },
                     pubmed      => { label => 'PubMed' },
                     pid         => {
-                        label     => 'Platform',
-                        parser    => 'number',
-                        -disabled => 'disabled',
-                        __tie__   => [ platform => 'pid' ]
+                        label        => 'Platform',
+                        parser       => 'number',
+                        __readonly__ => 1,
+                        __tie__      => [ platform => 'pid' ]
                     },
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
@@ -126,7 +126,7 @@ sub new {
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
                 resource => 'experiments',
-                fields    => [
+                fields   => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation pid/
                 ],
 
@@ -162,7 +162,7 @@ sub new {
                             ? undef
                             : [ platform => 'pid' ]
                         ),
-                        -disabled => 'disabled'
+                        __readonly__ => 1
                     }
                 },
                 lookup => [
@@ -335,7 +335,7 @@ sub readall_body {
     #---------------------------------------------------------------------------
     my $resource_uri = $self->get_resource_uri();
     return $q->h2( $self->{_title} ),
-      $self->_body_create_read_menu(
+      $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
@@ -386,7 +386,7 @@ sub form_create_body {
     my $q    = $self->{_cgi};
 
     return $q->h2( $self->{_title} ),
-      $self->_body_create_read_menu(
+      $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
@@ -399,7 +399,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields( mode => 'create' ),
+        $self->body_edit_fields( mode => 'create' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -444,7 +444,7 @@ sub form_assign_body {
 
     return $q->h2('Editing Experiment'),
 
-      $self->_body_create_read_menu(
+      $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Experiment' ],
         'create' => [ 'form_assign', 'Assign Studies' ]
       ),
@@ -503,7 +503,7 @@ sub readrow_body {
 
     return $q->h2('Editing Experiment'),
 
-      $self->_body_create_read_menu(
+      $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Experiment' ],
         'create' => [ 'form_assign', 'Assign Studies' ]
       ),
@@ -515,7 +515,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields( mode => 'update' ),
+        $self->body_edit_fields( mode => 'update' ),
         $q->dt('&nbsp;') => $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),
             $q->submit(

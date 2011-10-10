@@ -10,7 +10,7 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK =
   qw/trim max min bounds label_format replace all_match count_gtzero
-  inherit_hash enum_array array2hash list_keys list_keys list_tuples/;
+  inherit_hash enum_array array2hash list_keys list_keys tuples car cdr/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -235,9 +235,9 @@ sub enum_array {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  list_tuples
+#         NAME:  tuples
 #      PURPOSE:
-#   PARAMETERS:  ????
+#   PARAMETERS:  anonymous array
 #      RETURNS:  ????
 #  DESCRIPTION:  Takes a list and returns a list of tuples composed of elements
 #                of the list arranged in pairs.
@@ -245,7 +245,7 @@ sub enum_array {
 #     COMMENTS:  if main argument is undef, map it to empty list.
 #     SEE ALSO:  n/a
 #===============================================================================
-sub list_tuples {
+sub tuples {
     use integer;
     my $list = shift || [];
     return unless @$list;
@@ -282,5 +282,13 @@ sub list_keys {
 sub list_values {
     @_[ grep { $_ % 2 } 0 .. $#_ ];
 }
+
+
+#---------------------------------------------------------------------------
+#  Some Lisp-like stuff: http://okmij.org/ftp/Perl/Scheme-in-Perl.txt
+#---------------------------------------------------------------------------
+sub car { $_[0] }   # car List -> Atom  -- the head of the list
+sub cdr { shift; @_ }   # cdr List -> List -- the tail of the list
+
 
 1;

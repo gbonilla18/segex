@@ -23,13 +23,11 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 use Carp;
-use JSON;
 use Tie::IxHash;
-use List::Util qw/max/;
-use Data::Dumper;
 use Scalar::Util qw/looks_like_number/;
+use SGX::Util qw/inherit_hash tuples cdr/;
+
 use SGX::Debug;
-use SGX::Util qw/inherit_hash list_tuples/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
@@ -200,7 +198,7 @@ sub _head_data_table {
                         )
                       )
                   } @{ $table_defs->{$other_table}->{view} }
-              } list_tuples( $table_info->{lookup} )
+              } tuples( $table_info->{lookup} )
         ),
 
         # delete row
@@ -372,7 +370,7 @@ sub _head_data_table {
                         records => $self->getJSRecords(),
                         headers => $self->getJSHeaders(),
                         fields  => [ keys %$s2n ],
-                        meta    => $self->export_meta($this_meta),
+                        meta    => $self->_export_meta($this_meta),
                         lookup  => $self->{_this_lookup}
                     },
                     $var->{lookupTables}
@@ -481,7 +479,7 @@ sub dispatch_js {
 #            @$table_lookup,
 #            (
 #                map { $_->[0] => [ $this_field => $_->[1] ] }
-#                  list_tuples($tie_info)
+#                  tuples($tie_info)
 #            )
 #        ) if defined $tie_info;
 #    }
@@ -490,7 +488,7 @@ sub dispatch_js {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  export_meta
+#       METHOD:  _export_meta
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  To export {meta} as JSON, we filter out all key-value pairs
@@ -499,7 +497,7 @@ sub dispatch_js {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub export_meta {
+sub _export_meta {
     my ( $self, $meta ) = @_;
     $meta = {} if not defined $meta;
     my %export_meta;
@@ -999,57 +997,53 @@ sub _lookup_prepare {
     #warn Dumper( _get_lookup($table_info, [keys %$composite_labels]) );
 
     my %lookup_join_sth;    # hash of statement handles for looked-up tables
-    if ( my @lookup_copy = @{ $lookup || [] } ) {
-        my $_other = $self->{_other};
+    my $_other = $self->{_other};
 
-        while ( my ( $lookup_table_alias, $val ) =
-            splice( @lookup_copy, 0, 2 ) )
+    foreach ( tuples($lookup) ) {
+        my ( $lookup_table_alias, $val )         = @$_;
+        my ( $this_field,         $other_field ) = @$val;
+
+        # we ignore {} optional data
+        my $opts = $table_defs->{$lookup_table_alias};
+
+        # modify $composite_labels such that fields on which we join are
+        # always SELECTed. No need to modify {look-up} here because by
+        # definition $this_field already exists in look-up.
+        if ( defined($composite_labels)
+            && !exists( $composite_labels->{$this_field} ) )
         {
-            my ( $this_field, $other_field ) = @$val;
-
-            # we ignore {} optional data
-            my $opts = $table_defs->{$lookup_table_alias};
-
-            # modify $composite_labels such that fields on which we join are
-            # always SELECTed. No need to modify {look-up} here because by
-            # definition $this_field already exists in look-up.
-            if ( defined($composite_labels)
-                && !exists( $composite_labels->{$this_field} ) )
-            {
-                $composite_labels->{$this_field} =
-                  $this_meta->{$this_field}->{label};
-            }
-
-            my ( $other_key, $other_view, $other_meta ) =
-              @$opts{qw/key view meta/};
-
-            # prepend key field(s)
-            my $other_select_fields =
-              _get_view_labels( [ @$other_key, @$other_view ], $other_meta );
-
-            # :TRICKY:09/28/2011 12:27:23:es: _build_select modifies
-            # $other_select_fields
-            my ( $lookup_query, $lookup_params ) =
-              $self->_build_select( $lookup_table_alias, $other_select_fields,
-                $opts );
-
-            #warn $lookup_query;
-
-            $lookup_join_sth{$lookup_table_alias} =
-              [ $dbh->prepare($lookup_query), $lookup_params ];
-
-            # fields below will be exported to JS
-            $_other->{$lookup_table_alias} = {}
-              if not defined( $_other->{$lookup_table_alias} );
-            my $js_store = ( $_other->{$lookup_table_alias} );
-            $js_store->{symbol2name} = $other_select_fields;
-            $js_store->{symbol2index} =
-              _symbol2index_from_symbol2name($other_select_fields);
-            $js_store->{index2symbol} = [ keys %$other_select_fields ];
-            $js_store->{key}          = $other_key;
-            $js_store->{view}         = $other_view;
-            $js_store->{meta}         = $self->export_meta($other_meta);
+            $composite_labels->{$this_field} =
+              $this_meta->{$this_field}->{label};
         }
+
+        my ( $other_key, $other_view, $other_meta ) = @$opts{qw/key view meta/};
+
+        # prepend key field(s)
+        my $other_select_fields =
+          _get_view_labels( [ @$other_key, @$other_view ], $other_meta );
+
+        # :TRICKY:09/28/2011 12:27:23:es: _build_select modifies
+        # $other_select_fields
+        my ( $lookup_query, $lookup_params ) =
+          $self->_build_select( $lookup_table_alias, $other_select_fields,
+            $opts );
+
+        #warn $lookup_query;
+
+        $lookup_join_sth{$lookup_table_alias} =
+          [ $dbh->prepare($lookup_query), $lookup_params ];
+
+        # fields below will be exported to JS
+        $_other->{$lookup_table_alias} = {}
+          if not defined( $_other->{$lookup_table_alias} );
+        my $js_store = ( $_other->{$lookup_table_alias} );
+        $js_store->{symbol2name} = $other_select_fields;
+        $js_store->{symbol2index} =
+          _symbol2index_from_symbol2name($other_select_fields);
+        $js_store->{index2symbol} = [ keys %$other_select_fields ];
+        $js_store->{key}          = $other_key;
+        $js_store->{view}         = $other_view;
+        $js_store->{meta}         = $self->_export_meta($other_meta);
     }
     return \%lookup_join_sth;
 }
@@ -1230,25 +1224,21 @@ sub _build_predicate {
 
     my $mod_join_type;
 
-    if ( my $constraints = $obj->{constraint} ) {
-        my @constr_copy = @$constraints;
+    my $dbh = $self->{_dbh};
 
-        my $dbh = $self->{_dbh};
-        while ( my ( $constr_field, $constr_value ) =
-            splice( @constr_copy, 0, 2 ) )
-        {
-            $constr_field = "$table_alias.$constr_field"
-              if ( $constr_field !~ m/\./ );
-            if ( ref $constr_value eq 'CODE' ) {
-                push @pred_and,    "$constr_field=?";
-                push @exec_params, $constr_value->($self);
-            }
-            elsif ( defined $constr_value ) {
-                push @pred_and, "$constr_field=" . $dbh->quote($constr_value);
-            }
-            else {
-                push @pred_and, "$constr_field IS NULL";
-            }
+    foreach ( tuples( $obj->{constraint} ) ) {
+        my ( $field, $value ) = @$_;
+        $field = "$table_alias.$field"
+          if ( $field !~ m/\./ );
+        if ( ref $value eq 'CODE' ) {
+            push @pred_and,    "$field=?";
+            push @exec_params, $value->($self);
+        }
+        elsif ( defined $value ) {
+            push @pred_and, "$field=" . $dbh->quote($value);
+        }
+        else {
+            push @pred_and, "$field IS NULL";
         }
     }
 
@@ -1312,15 +1302,13 @@ sub _build_predicate {
 sub _build_join {
     my ( $self, $table_alias => $cascade ) = @_;
 
-    my $join = $cascade->{join};
-    return ( '', [] ) if not defined $join;
     my $table_defs = $self->{_table_defs};
 
     my @query_components;
     my @exec_params;
 
-    my @join_copy = @$join;
-    while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
+    foreach ( tuples( $cascade->{join} ) ) {
+        my ( $other_table_alias, $info ) = @$_;
 
         my ( $this_field, $other_field, $opts ) = @$info;
         $this_field = "$table_alias.$this_field"
@@ -1368,7 +1356,7 @@ sub _build_join {
 sub _buld_select_fields {
     my ( $self, $symbol2name, $table_alias => $cascade ) = @_;
 
-    my ( $join, $this_view, $this_meta ) = @$cascade{qw/join view meta/};
+    my ( $this_view, $this_meta ) = @$cascade{qw/view meta/};
     my $table_defs = $self->{_table_defs};
 
     # not using this_table->{view} here because may need extra fields for
@@ -1386,13 +1374,10 @@ sub _buld_select_fields {
           ) => $symbol2name->{$_}
       } keys %$symbol2name;
 
-    my @join_copy = @{ $join || [] };
-    while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
-
+    foreach ( tuples( $cascade->{join} ) ) {
+        my ( $other_table_alias, $info ) = @$_;
         my $other_table_defs = $table_defs->{$other_table_alias} || {};
-
         my $new_opts = inherit_hash( $info->[2], $other_table_defs );
-
         my ( $other_view, $other_meta ) = @$new_opts{qw/view meta/};
 
         foreach my $field_alias (@$other_view) {
@@ -1521,7 +1506,7 @@ sub _readrow_command {
     };
 
     my @params =
-      ( $self->{_id}, ( map { $q->param($_) } splice( @key_copy, 1 ) ) );
+      ( $self->{_id}, ( map { $q->param($_) } cdr( @key_copy ) ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1561,7 +1546,7 @@ sub _delete_command {
     my @key_copy  = @$key;
     my $predicate = join( ' AND ', map { "$_=?" } @key_copy );
     my $query     = "DELETE FROM $table WHERE $predicate";
-    my @params = ( $self->{_id}, map { $q->param($_) } splice( @key_copy, 1 ) );
+    my @params = ( $self->{_id}, map { $q->param($_) } cdr( @key_copy) );
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1670,7 +1655,7 @@ sub _create_command {
     my $translate_key = $self->_get_param_keys($meta);
     my @assigned_fields =
         ( defined $id )
-      ? ( $fields[0], map { $translate_key->($_) } splice( @fields, 1 ) )
+      ? ( $fields[0], map { $translate_key->($_) } cdr( @fields ) )
       : map { $translate_key->($_) } @fields;
 
     my $assignment = join( ',', @assigned_fields );
@@ -1685,7 +1670,7 @@ sub _create_command {
     my $translate_val = $self->_get_param_values($meta);
     my @params =
         ( defined $id )
-      ? ( $id, map { $translate_val->($_) } splice( @assigned_fields, 1 ) )
+      ? ( $id, map { $translate_val->($_) } cdr( @assigned_fields ) )
       : map { $translate_val->($_) } @assigned_fields;
 
     # separate preparation from execution because we may want to send different
@@ -1764,7 +1749,49 @@ sub _get_mutable {
     my $table_info = $args{table_info}
       || $self->{_table_defs}->{ $args{table_name} };
     my ( $fields, $meta ) = @$table_info{qw/fields meta/};
-    return grep { !exists $meta->{$_}->{-disabled} } @$fields;
+    return grep { !$meta->{$_}->{__readonly__} } @$fields;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _meta_get_cgi
+#   PARAMETERS:  $symbol => {meta}, unlimited => T/F
+#      RETURNS:  ????
+#  DESCRIPTION:  Get the CGI portion of field properties (ones that start with a
+#                dash).
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _meta_get_cgi {
+    my $symbol = shift;
+    my $meta   = shift || {};
+    my %args   = @_;
+
+    my $method = $meta->{__type__} || 'textfield';
+    my $label  = $meta->{label}    || $symbol;
+
+    return (
+
+        # defaults
+        -title => (
+            (
+                  ( $method eq 'textfield' ) ? 'Enter'
+                : ( ( $method eq 'popup_menu' ) ? 'Choose' : 'Set' )
+            )
+            . " $label"
+        ),
+        (
+              ( $meta->{__readonly__} && !$args{unlimited} )
+            ? ( -disabled => 'disabled' )
+            : ()
+        ),
+        -id   => $symbol,
+        -name => $symbol,
+
+        # the rest
+        map { $_ => $meta->{$_} } grep { /^-/ } keys %$meta
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1816,7 +1843,7 @@ sub _update_command {
     my $translate_val = $self->_get_param_values($meta);
     my @params        = (
         ( map { $translate_val->($_) } @fields_to_update ),
-        $self->{_id}, ( map { $translate_val->($_) } splice( @key_copy, 1 ) )
+        $self->{_id}, ( map { $translate_val->($_) } cdr( @key_copy ) )
     );
 
     # separate preparation from execution because we may want to send different
@@ -1933,20 +1960,19 @@ sub _head_init {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _body_edit_fields
+#       METHOD:  body_edit_fields
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Helps generate a Create/Update HTML form
 #       THROWS:  no exceptions
-#     COMMENTS:  PerlCritic: Subroutine "_body_edit_fields" with high complexity
-#     score (22).  Consider refactoring  (Severity: 3)
+#     COMMENTS:  n/a
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _body_edit_fields {
+sub body_edit_fields {
     my ( $self, %args ) = @_;
     my ( $q, $table, $table_defs ) =
       @$self{qw/_cgi _default_table _table_defs/};
-    my $unlimited_mode =
+    my $is_unlimited =
         ( defined $args{mode} )
       ? ( ( $args{mode} eq 'create' ) ? 1 : 0 )
       : 0;
@@ -1965,23 +1991,19 @@ sub _body_edit_fields {
 
     foreach my $symbol (@$fields) {
         my $meta = $fields_meta->{$symbol} || {};
-        my %cgi_meta = map { $_ => $meta->{$_} } grep { /^-/ } keys %$meta;
-        delete $cgi_meta{-disabled} if $unlimited_mode;
+        my %cgi_meta = _meta_get_cgi(
+            $symbol   => $meta,
+            unlimited => $is_unlimited
+        );
         my $method = $meta->{__type__} || 'textfield';
         my $label  = $meta->{label}    || $symbol;
-        $cgi_meta{-title} ||= (
-            ( $method eq 'textfield' )
-            ? 'Enter'
-            : ( ( $method eq 'popup_menu' ) ? 'Choose' : 'Set' )
-        ) . " $label";
+
         if ( $method eq 'checkbox' ) {
             push @tmp,
               (
                 $q->dt('&nbsp;') => $q->dd(
                     $q->hidden( -name => $symbol, -value => '0' ),
                     $q->$method(
-                        -id    => $symbol,
-                        -name  => $symbol,
                         -label => $label,
                         -value => '1',
                         (
@@ -2012,8 +2034,6 @@ sub _body_edit_fields {
               (
                 $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
                     $q->$method(
-                        -id      => $symbol,
-                        -name    => $symbol,
                         -values  => \@values,
                         -labels  => \%labels,
                         -default => $id_data->{$symbol},
@@ -2027,8 +2047,6 @@ sub _body_edit_fields {
               (
                 $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
                     $q->$method(
-                        -id    => $symbol,
-                        -name  => $symbol,
                         -value => $id_data->{$symbol},
                         %cgi_meta
                     )
@@ -2042,7 +2060,7 @@ sub _body_edit_fields {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _body_create_read_menu
+#       METHOD:  body_create_read_menu
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -2050,7 +2068,7 @@ sub _body_edit_fields {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _body_create_read_menu {
+sub body_create_read_menu {
     my ( $self, %args ) = @_;
     my $q = $self->{_cgi};
 

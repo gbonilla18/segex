@@ -228,7 +228,7 @@ sub readall_body {
     #---------------------------------------------------------------------------
     my $resource_uri = $self->get_resource_uri();
     return $q->h2( $self->{_title} ),
-      $self->_body_create_read_menu(
+      $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
@@ -248,7 +248,7 @@ sub form_create_body {
     my $q    = $self->{_cgi};
 
     return $q->h2( $self->{_title} ),
-      $self->_body_create_read_menu(
+      $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
@@ -261,7 +261,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'pname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields( mode => 'create' ),
+        $self->body_edit_fields( mode => 'create' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -310,7 +310,7 @@ sub form_assign_body {
 
     return $q->h2('Editing Platform'),
 
-      $self->_body_create_read_menu(
+      $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Platform' ],
         'create' => [ 'form_assign', 'Assign Studies' ]
       ),
@@ -371,7 +371,7 @@ sub readrow_body {
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
     return $q->h2('Editing Platform'),
 
-      $self->_body_create_read_menu(
+      $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Platform' ],
         'create' => [ 'form_assign', 'Assign Studies' ]
       ),
@@ -384,7 +384,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'pname\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields( mode => 'update' ),
+        $self->body_edit_fields( mode => 'update' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),
