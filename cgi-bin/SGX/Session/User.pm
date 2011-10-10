@@ -1013,6 +1013,29 @@ sub is_authorized {
     return;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
+#       METHOD:  get_user_id
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Session only stores user login name -- not the numeric id which
+#                exists in the database. This function returns the latter given
+#                the former.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_user_id {
+    my $self = shift;
+    my $dbh = $self->{dbh};
+    my $username = $self->{session_stash}->{username};
+    my $sth = $dbh->prepare('select uid from users where uname=?');
+    my $rc = $sth->execute($username);
+    my ( $id ) = $sth->fetchrow_array;
+    $sth->finish;
+    return $id;
+}
+
 1;    # for require
 
 __END__

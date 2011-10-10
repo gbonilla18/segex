@@ -501,10 +501,10 @@ sub _js_dump {
 #===============================================================================
 sub _js_dump_lookups {
     my $self = shift;
-    my ( $js, $js_env, $code, $lookups ) =
+    my ( $js, $js_env, $code, $_other ) =
       @$self{qw/_js_emitter _js_env _js_buffer _other/};
     unshift @$code,
-      '' . $js->bind( [ $js_env->{lookupTables} => $lookups ], declare => 1 );
+      '' . $js->bind( [ $js_env->{lookupTables} => $_other ], declare => 1 );
 }
 
 #===  CLASS METHOD  ============================================================

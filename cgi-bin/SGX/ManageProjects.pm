@@ -161,6 +161,22 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
+#       METHOD:  form_create_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD form_create_head
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub form_create_head {
+    my $self = shift;
+    my $s = $self->{_UserSession};
+    $self->{_id_data}->{manager} = $s->get_user_id();
+    return $self->SUPER::form_create_head();
+}
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageProjects
 #       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
