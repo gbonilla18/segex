@@ -78,7 +78,7 @@ sub new {
                 key       => [qw/stid/],
                 proto     => [qw/description pubmed pid/],
                 view      => [qw/description pubmed/],
-                mutable   => [qw/description pubmed/],
+                mutable   => [qw/description pubmed pid/], # note: pid !!!
                 selectors => [qw/pid/],
                 names     => [qw/description/],
                 labels    => {

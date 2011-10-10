@@ -14,6 +14,62 @@ var highlightEditableCell = function(oArgs) {
         this.highlightCell(elCell); 
     } 
 };
+function createCellDropdown(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
+    var submitter = function(callback, newValue) {
+        if (this.value === newValue) { 
+            // existing value is the same as the new one -- no need to send 
+            // POST request
+            callback(true, newValue); 
+            return; 
+        }
+        var record = this.getRecord();
+        var resourceURI = resourceURIBuilder(record);
+        var callbackObject = {
+            success:function(o) { 
+                // update other joined fields:
+                // http://developer.yahoo.com/yui/docs/YAHOO.widget.DataTable.html#method_updateCell
+                callback(true, newValue); 
+            },
+            failure:function(o) { 
+                callback(); 
+                var name = rowNameBuilder(record);
+                if(o.responseText !== undefined) {
+                    alert("Error encountered on updating record (" + name + ") under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + ").");
+                } else {
+                    alert("Timeout on updating record (" + name + ") under " + resourceURI);
+                }
+            },
+            scope:this
+        };
+        YAHOO.util.Connect.asyncRequest(
+            "POST", 
+            resourceURI,
+            callbackObject, 
+            updateDataBuilder(field, newValue)
+        );
+    };
+    return new YAHOO.widget.DropdownCellEditor({
+        dropdownOptions:transformed_data,
+        disableBtns: false,
+        asyncSubmitter: submitter
+    });
+}
+function cellDropdown(resourceURIBuilder, rowNameBuilder) {
+    return function(table_info, field, subName) {
+        /* uses createCellUpdater in TableUpdateDelete.js */
+        var updateDataBuilder = function(field, newValue) {
+            return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
+        };
+        var transformed_data = [];
+        var this_data = table_info.data;
+        var sub_col = table_info.symbol2index[subName] - 1;
+        for (var key in table_info.data) {
+            var val = this_data[key][sub_col];
+            transformed_data.push({ label: val, value: key});
+        }
+        return createCellDropdown(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+    };
+}
 
 function createCellUpdater(field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
     var submitter = function(callback, newValue) {
@@ -141,7 +197,10 @@ function createDeleteFormatter(verb, noun) {
 function createJoinFormatter(table_info, field, joinColumn) {
     var sub_col = table_info.symbol2index[field] - 1;
     return function(elCell, oRecord, oColumn, oData) {
-        var sub_record = table_info.data[oRecord.getData(joinColumn)];
+
+        // this also gets executed after we update a cell via AJAX
+        //var sub_record = table_info.data[oRecord.getData(joinColumn)];
+        var sub_record = table_info.data[oData];
         elCell.innerHTML = sub_record[sub_col];
     };
 }

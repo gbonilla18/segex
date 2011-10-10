@@ -139,7 +139,7 @@ sub _head_data_table {
     my $var = $js->register_var(
         '_a',
         [
-            qw/data cellUpdater DataTable leftJoin
+            qw/data cellUpdater cellDropdown DataTable leftJoin
               resourceURIBuilder rowNameBuilder deleteDataBuilder DataSource/
         ]
     );
@@ -161,8 +161,11 @@ sub _head_data_table {
     #  YUI column definitions
     #---------------------------------------------------------------------------
     my $column = $self->_head_column_def(
-        js_emitter   => $js,
-        cell_updater => $var->{cellUpdater}
+        table         => $table,
+        js_emitter    => $js,
+        cell_updater  => $var->{cellUpdater},
+        cell_dropdown => $var->{cellDropdown},
+        left_join     => $var->{leftJoin}
     );
 
     my $left_join_info = $table_info->{left_join};
@@ -256,6 +259,10 @@ sub _head_data_table {
                 ),
                 $var->{cellUpdater} => $js->apply(
                     'cellUpdater',
+                    [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
+                ),
+                $var->{cellDropdown} => $js->apply(
+                    'cellDropdown',
                     [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
                 )
             ],
@@ -605,14 +612,20 @@ sub _head_column_def {
 
     # make a hash of mutable columns
     my $table =
-      ( defined $args{table} ) ? $args{table} : $self->{_default_table};
-    my $table_info = $self->{_table_defs}->{$table};
-    my %mutable = map { $_ => 1 } @{ $table_info->{mutable} };
+      ( defined( $args{table} ) && $args{table} ne '' )
+      ? $args{table}
+      : $self->{_default_table};
+
+    my $table_defs = $self->{_table_defs};
+    my $table_info = $table_defs->{$table};
+    my %mutable    = map { $_ => 1 } @{ $table_info->{mutable} };
 
     my $extrasIndex = max( values %$s2i ) + 1;
 
-    my $js           = $args{js_emitter};
-    my $cell_updater = $args{cell_updater};
+    my $js            = $args{js_emitter};
+    my $cell_updater  = $args{cell_updater};
+    my $cell_dropdown = $args{cell_dropdown};
+    my $leftJoin      = $args{left_join};
 
     my $TRUE  = $js->true;
     my $FALSE = $js->false;
@@ -633,10 +646,17 @@ sub _head_column_def {
         my ( $datum, %extra_definitions ) = @_;
         my ( $table, $symbol ) = ( defined $datum ) ? @$datum : ( '', undef );
 
+        # determine key value of left_join table if dealing with such
+        my $propagate_key = $table_info->{left_join}->{$table}->[0]
+          if $table ne '';
+
         my $index =
           ( $table eq '' and defined($symbol) and defined( $s2i->{$symbol} ) )
           ? $s2i->{$symbol}
-          : $extrasIndex++;
+          : (
+            ( defined $propagate_key ) ? $s2i->{$propagate_key}
+            : $extrasIndex++
+          );
         my $label =
           ( defined $symbol )
           ? (
@@ -645,21 +665,55 @@ sub _head_column_def {
             : $_other->{$table}->{symbol2name}->{$symbol}
           )
           : undef;
+
+    #---------------------------------------------------------------------------
+    #  cell editor (either text or dropdown)
+    #---------------------------------------------------------------------------
+        my @ajax_editor;
+
+        if ( defined($symbol) ) {
+            if (   defined($cell_updater)
+                && $table eq ''
+                && $mutable{$symbol} )
+            {
+                push @ajax_editor,
+                  ( editor => $js->apply( $cell_updater, [$symbol] ) );
+            }
+            elsif (defined($cell_dropdown)
+                && $table ne ''
+                && defined($propagate_key)
+                && $mutable{$propagate_key}
+                && @{ $table_defs->{$table}->{names} } == 1
+                && $table_defs->{$table}->{names}->[0] eq $symbol )
+            {
+
+         # display dropdown cell editor in case of the following: (a) we are
+         # working with a joined table ($table ne ''), (b) key of the joined
+         # table is declared mutable in the main table, (c) current field of the
+         # joined table is in {names} of joined table, (d) {names} consists of
+         # only one field.
+                push @ajax_editor,
+                  (
+                    editor => $js->apply(
+                        $cell_dropdown,
+                        [ $leftJoin->($table), $propagate_key, $symbol ]
+                    )
+                  );
+            }
+        }
+
+    #---------------------------------------------------------------------------
+    #  return hash/object
+    #---------------------------------------------------------------------------
+ # :BUG:09/11/2011 19:46:13:es: Current version of YUI (v2.8...?) has a bug: if
+ # two columns have the same key (same data source field), sorting is broken
+ # (actually kind of works but with some obvious problems).
         return {
             %default_column,
             key      => "$index",
             sortable => ( defined($symbol) && $table eq '' ) ? $TRUE : $FALSE,
             label    => $label,
-            (
-                (
-                         defined($symbol)
-                      && defined($cell_updater)
-                      && $table eq ''
-                      && $mutable{$symbol}
-                )
-                ? ( editor => $js->apply( $cell_updater, [$symbol] ) )
-                : ()
-            ),
+            @ajax_editor,
             %extra_definitions
         };
     };
