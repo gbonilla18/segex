@@ -36,7 +36,7 @@ use SGX::Abstract::JSEmitter qw/true false/;
 use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
+#        CLASS:  ManageUsers
 #       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -58,9 +58,10 @@ sub new {
 # proto: fields that are filled out on insert/creation of new records.
         _table_defs => {
             'users' => {
-                key       => [qw/uid/],
-                selectors => { uname => 'uname' }
-                ,    # table key to the left, URI param to the right
+                key => [qw/uid/],
+
+                # table key to the left, URI param to the right
+                selectors => { uname => 'uname' },
                 proto =>
                   [qw/uname full_name address phone level email_confirmed/],
                 view =>
@@ -68,19 +69,24 @@ sub new {
                 mutable  => [qw/uname full_name address phone level/],
                 resource => 'users',
                 names    => [qw/uname/],
-                labels   => {
-                    uid             => 'ID',
-                    uname           => 'Login ID',
-                    full_name       => 'Full Name',
-                    address         => 'Address',
-                    phone           => 'Phone',
-                    level           => 'Permissions',
-                    email_confirmed => 'Email Confirmed'
+                meta     => {
+                    uid => {
+                        label  => 'ID',
+                        parser => 'number'
+                    },
+                    uname     => { label => 'Login ID' },
+                    full_name => { label => 'Full Name', -size => 55 },
+                    address => {
+                        label    => 'Address',
+                        __type__ => 'textarea',
+                    },
+                    phone           => { label => 'Phone' },
+                    level           => { label => 'Permissions' },
+                    email_confirmed => {
+                        label  => 'Email Confirmed',
+                        parser => 'number'
+                    }
                 },
-                meta => {
-                    uid             => 'number',
-                    email_confirmed => 'number'
-                }
             }
         },
         _default_table     => 'users',
@@ -101,7 +107,7 @@ sub new {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
+#        CLASS:  ManageUsers
 #       METHOD:  form_create
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -155,7 +161,7 @@ sub form_create_body {
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
-      $q->h3('Create New Project'),
+      $q->h3('Create New User'),
 
       # Resource URI: /projects
       $q->start_form(
@@ -164,30 +170,12 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'prname\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'prname' }, 'Name:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'prname',
-                -id        => 'prname',
-                -maxlength => 100,
-                -title => 'Enter brief project escription (up to 100 letters)'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'prdesc' }, 'description:' ) ),
-        $q->dd(
-            $q->textarea(
-                -name  => 'prdesc',
-                -id    => 'prdesc',
-                -title => 'Enter description'
-            )
-        ),
-
-        $q->dt('&nbsp;'),
-        $q->dd(
+        $self->_body_edit_fields(),
+        $q->dt('&nbsp;') => $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
             $q->submit(
                 -class => 'button black bigrounded',
-                -value => 'Create Project',
+                -value => 'Create User',
                 -title => 'Create a new project'
             )
         )
@@ -201,13 +189,13 @@ sub readrow_body {
     my $q    = $self->{_cgi};
 
     #---------------------------------------------------------------------------
-    #  Form: Set Project Attributes
+    #  Form: Set User Attributes
     #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2('Editing Project'),
+    return $q->h2('Editing User'),
 
-      $self->_body_create_read_menu( 'read' => [ undef, 'Edit Project' ] ),
-      $q->h3('Set Project Attributes'),
+      $self->_body_create_read_menu( 'read' => [ undef, 'Edit User' ] ),
+      $q->h3('Set User Attributes'),
 
       # Resource URI: /projects/id
       $q->start_form(
@@ -216,28 +204,8 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'prname\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'prname' }, 'Project name:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'prname',
-                -id        => 'prname',
-                -title     => 'Edit project name',
-                -maxlength => 100,
-                -value     => $self->{_id_data}->{prname}
-            )
-        ),
-        $q->dt( $q->label( { -for => 'prdesc' }, 'Description:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'prdesc',
-                -id        => 'prdesc',
-                -title     => 'Edit to change description',
-                -maxlength => 20,
-                -value     => $self->{_id_data}->{prdesc}
-            )
-        ),
-        $q->dt('&nbsp;'),
-        $q->dd(
+        $self->_body_edit_fields(),
+        $q->dt('&nbsp;') => $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),
             $q->submit(
                 -class => 'button black bigrounded',
@@ -246,15 +214,7 @@ sub readrow_body {
             )
         )
       ),
-      $q->end_form,
-
-    #---------------------------------------------------------------------------
-    #  Studies table
-    #---------------------------------------------------------------------------
-      $q->h3('All Studies in the Project'),
-      $q->div(
-        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -style => 'clear:both;', -id => $self->{dom_table_id} } );
+      $q->end_form;
 }
 
 1;

@@ -77,32 +77,45 @@ sub new {
                 constraint => [ stid => sub { shift->{_id} } ]
             },
             'study' => {
-                key       => [qw/stid/],
-                proto     => [qw/description pubmed pid/],
-                view      => [qw/description pubmed/],
-                mutable   => [qw/description pubmed pid/],
-                resource  => 'studies',
-                selectors => { pid => 'pid' }
-                ,    # table key to the left, URI param to the right
-                names  => [qw/description/],
-                labels => {
-                    stid        => 'No.',
-                    description => 'Description',
-                    pubmed      => 'PubMed',
-                    pid         => 'Platform'
-                },
-                meta => {
-                    stid => 'number',
-                    pid  => 'number'
+                key      => [qw/stid/],
+                proto    => [qw/description pubmed pid/],
+                view     => [qw/description pubmed/],
+                mutable  => [qw/description pubmed pid/],
+                resource => 'studies',
+
+                # table key to the left, URI param to the right
+                selectors => { pid => 'pid' },
+                names     => [qw/description/],
+                meta      => {
+                    stid => {
+                        label  => 'No.',
+                        parser => 'number'
+                    },
+                    description => {
+                        label      => 'Description',
+                        -maxlength => 100
+                    },
+                    pubmed => {
+                        label      => 'PubMed',
+                        -maxlength => 20
+                    },
+                    pid => {
+                        label    => 'Platform',
+                        __type__ => 'popup_menu',
+                        parser   => 'number'
+                    }
                 },
                 lookup => { platform => [ pid => 'pid' ] },
             },
             'platform' => {
-                key    => [qw/pid/],
-                view   => [qw/pname species/],
-                names  => [qw/pname/],
-                labels => { pname => 'Platform', species => 'Species' },
-                meta => { pid => 'number' }
+                key   => [qw/pid/],
+                view  => [qw/pname species/],
+                names => [qw/pname/],
+                meta  => {
+                    pid     => { label => 'Platform', parser => 'number' },
+                    pname   => { label => 'Platform' },
+                    species => { label => 'Species' }
+                }
             },
             'experiment' => {
                 key  => [qw/eid/],
@@ -116,16 +129,17 @@ sub new {
                 proto    => [
                     qw/sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
-                selectors => {}, # table key to the left, URI param to the right
-                names  => [qw/sample1 sample2/],
-                labels => {
-                    eid                   => 'No.',
-                    sample1               => 'Sample 1',
-                    sample2               => 'Sample 2',
-                    ExperimentDescription => 'Description',
-                    AdditionalInformation => 'Additional Info'
+
+                # table key to the left, URI param to the right
+                selectors => {},
+                names     => [qw/sample1 sample2/],
+                meta      => {
+                    eid     => { label => 'No.', parser => 'number' },
+                    sample1 => { label => 'Sample 1' },
+                    sample2 => { label => 'Sample 2' },
+                    ExperimentDescription => { label => 'Description' },
+                    AdditionalInformation => { label => 'Additional Info' }
                 },
-                meta   => { eid             => 'number' },
                 lookup => { microarray      => [ eid => 'eid' ] },
                 join   => [ StudyExperiment => [ eid => 'eid' ] ]
             },
@@ -134,13 +148,9 @@ sub new {
                 view    => [qw/COUNT(1)/],
                 proto   => [],
                 mutable => [],
-                labels  => {
-                    eid        => 'No.',
-                    'COUNT(1)' => 'Probe Count'
-                },
-                meta => {
-                    eid        => 'number',
-                    'COUNT(1)' => 'number'
+                meta    => {
+                    eid => { label => 'No.', parser => 'number' },
+                    'COUNT(1)' => { label => 'Probe Count', parser => 'number' }
                 },
                 join => [ StudyExperiment => [ eid => 'eid' ] ]
             }
@@ -323,33 +333,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -name  => 'pid',
-                -id    => 'pid',
-                -title => 'Choose platform'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'description' }, 'Description:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'description',
-                -id        => 'description',
-                -maxlength => 100,
-                -title     => 'Enter brief study escription (up to 100 letters)'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'pubmed' }, 'PubMed ID:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'pubmed',
-                -id        => 'pubmed',
-                -maxlength => 20,
-                -title     => 'Enter PubMed ID'
-            )
-        ),
-
+        $self->_body_edit_fields(),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -476,32 +460,8 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'pid' }, 'platform:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -id       => 'pid',
-                -disabled => 'disabled'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'description' }, 'description:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'description',
-                -id        => 'description',
-                -title     => 'Edit study description',
-                -maxlength => 100,
-                -value     => $self->{_id_data}->{description}
-            )
-        ),
-        $q->dt( $q->label( { -for => 'pubmed' }, 'pubmed:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'pubmed',
-                -id        => 'pubmed',
-                -title     => 'Edit to change PubMed ID',
-                -maxlength => 20,
-                -value     => $self->{_id_data}->{pubmed}
-            )
+        $self->_body_edit_fields(
+            meta => { pid => { -disabled => 'disabled' } }
         ),
         $q->dt('&nbsp;'),
         $q->dd(

@@ -230,7 +230,7 @@ function expandJoinedFields(mainTable, lookupTables) {
         var field = mainTable_fields[k];
         if (field in mainTable_meta) {
             // replace with object containing parser
-            mainTable_fields[k] = { key: field, parser: mainTable_meta[field] };
+            mainTable_fields[k] = { key: field, parser: mainTable_meta[field].parser };
         }
         if (field in tmp) {
             var objArray = tmp[field];
@@ -251,7 +251,7 @@ function expandJoinedFields(mainTable, lookupTables) {
                     // either plain field name or object containing parser
                     mainTable_fields.push(
                         (join_field in extra_meta) 
-                        ? { key: join_field, parser: extra_meta[join_field] } 
+                        ? { key: join_field, parser: extra_meta[join_field].parser } 
                         : join_field
                     );
                 }

@@ -79,25 +79,31 @@ sub new {
                     qw/COUNT(probe.rid) COUNT(probe.probe_sequence) COUNT(probe.location)/
                 ],
                 selectors => {}, # table key to the left, URI param to the right
-                names  => [qw/pname species/],
-                labels => {
-                    pid          => 'No.',
-                    pname        => 'Name',
-                    def_p_cutoff => 'def_p_cutoff',
-                    def_f_cutoff => 'def_f_cutoff',
-                    species      => 'Species',
-
-                    'COUNT(probe.rid)'            => 'Probe Count',
-                    'COUNT(probe.probe_sequence)' => 'Probe Sequences',
-                    'COUNT(probe.location)'       => 'Locations'
-                },
-                meta => {
-                    pid                           => 'number',
-                    def_p_cutoff                  => 'number',
-                    def_f_cutoff                  => 'number',
-                    'COUNT(probe.rid)'            => 'number',
-                    'COUNT(probe.probe_sequence)' => 'number',
-                    'COUNT(probe.location)'       => 'number'
+                names => [qw/pname species/],
+                meta  => {
+                    pid => { label => 'No.', parser => 'number' },
+                    pname => { label => 'Platform Name', -maxlength => 100 },
+                    def_p_cutoff => {
+                        label      => 'P-value Cutoff',
+                        parser     => 'number',
+                        -maxlength => 20
+                    },
+                    def_f_cutoff => {
+                        label      => 'Fold-change Cutoff',
+                        parser     => 'number',
+                        -maxlength => 20
+                    },
+                    species => { label => 'Species', -maxlength => 100 },
+                    'COUNT(probe.rid)' => {
+                        label  => 'Probe Count',
+                        parser => 'number'
+                    },
+                    'COUNT(probe.probe_sequence)' => {
+                        label  => 'Probe Sequences',
+                        parser => 'number'
+                    },
+                    'COUNT(probe.location)' =>
+                      { label => 'Locations', parser => 'number' }
                 },
                 join => [ probe => [ pid => 'pid' ] ]
             },
@@ -113,23 +119,23 @@ sub new {
                 resource => 'studies',
                 proto    => [],
                 selectors => {}, # table key to the left, URI param to the right
-                names  => [qw/description/],
-                labels => {
-                    stid        => 'No.',
-                    description => 'Description',
-                    pubmed      => 'PubMed ID'
+                names => [qw/description/],
+                meta  => {
+                    stid => { label => 'No.', parser => 'number' },
+                    description => { label => 'Description' },
+                    pubmed      => { label => 'PubMed ID' }
                 },
-                meta       => { stid       => 'number' },
                 lookup     => { proj_brief => [ stid => 'stid' ] },
-                constraint => [ pid        => sub { shift->{_id} } ]
+                constraint => [ pid        => sub    { shift->{_id} } ]
             },
             proj_brief => {
                 table => 'ProjectStudy',
                 key   => [qw/'stid prid'/],
                 view  => ['GROUP_CONCAT(prname SEPARATOR ", ")'],
-                labels =>
-                  { 'GROUP_CONCAT(prname SEPARATOR ", ")' => 'Project(s)' },
-                meta => { 'GROUP_CONCAT(prname SEPARATOR ", ")' => 'number' },
+                meta  => {
+                    'GROUP_CONCAT(prname SEPARATOR ", ")' =>
+                      { label => 'Project(s)' }
+                },
                 join =>
                   [ project => [ prid => 'prid', { join_type => 'INNER' } ] ],
                 group_by => [qw/stid/]
@@ -257,49 +263,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'pname\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'pname' }, 'Name:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'pname',
-                -id        => 'pname',
-                -maxlength => 100,
-                -title => 'Enter brief platform escription (up to 100 letters)'
-            )
-        ),
-        $q->dt(
-            $q->label( { -for => 'def_p_cutoff' }, 'Default P-value cutoff:' )
-        ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'def_p_cutoff',
-                -id        => 'def_p_cutoff',
-                -maxlength => 20,
-                -title     => 'Enter default P-value cutoff'
-            )
-        ),
-        $q->dt(
-            $q->label(
-                { -for => 'def_f_cutoff' },
-                'Default fold change cutoff:'
-            )
-        ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'def_f_cutoff',
-                -id        => 'def_f_cutoff',
-                -maxlength => 20,
-                -title     => 'Enter default fold change cutoff'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'species' }, 'Species:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'species',
-                -id        => 'species',
-                -maxlength => 100,
-                -title     => 'Enter species name (up to 100 letters)'
-            )
-        ),
+        $self->_body_edit_fields(),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -422,53 +386,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'pname\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'pname' }, 'Platform name:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'pname',
-                -id        => 'pname',
-                -title     => 'Change platform name',
-                -maxlength => 100,
-                -value     => $self->{_id_data}->{pname}
-            )
-        ),
-        $q->dt(
-            $q->label( { -for => 'def_p_cutoff' }, 'Default P-value cutoff:' )
-        ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'def_p_cutoff',
-                -id        => 'def_p_cutoff',
-                -title     => 'Change default P-value cutoff',
-                -maxlength => 20,
-                -value     => $self->{_id_data}->{def_p_cutoff}
-            )
-        ),
-        $q->dt(
-            $q->label(
-                { -for => 'def_f_cutoff' },
-                'Default fold change cutoff:'
-            )
-        ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'def_f_cutoff',
-                -id        => 'def_f_cutoff',
-                -title     => 'Change default fold change cutoff',
-                -maxlength => 20,
-                -value     => $self->{_id_data}->{def_f_cutoff}
-            )
-        ),
-        $q->dt( $q->label( { -for => 'species' }, 'Species:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'species',
-                -id        => 'species',
-                -maxlength => 100,
-                -title     => 'Enter species name (up to 100 letters)',
-                -value     => $self->{_id_data}->{species}
-            )
-        ),
+        $self->_body_edit_fields(),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),

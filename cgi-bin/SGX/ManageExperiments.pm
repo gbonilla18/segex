@@ -90,13 +90,12 @@ sub new {
                 # table key to the left, URI param to the right
                 selectors => { pid => 'pid' },
                 names     => [qw/description/],
-                labels    => {
-                    stid        => 'No.',
-                    description => 'Description',
-                    pubmed      => 'PubMed',
-                    pid         => 'Platform',
+                meta      => {
+                    stid => { label => 'No.', parser => 'number' },
+                    description => { label => 'Description' },
+                    pubmed      => { label => 'PubMed' },
+                    pid         => { label => 'Platform', parser => 'number' },
                 },
-                meta => { stid => 'number', 'pid' => 'number' },
                 lookup => { platform => [ pid => 'pid' ] },
                 join   => [
                     StudyExperiment => [
@@ -106,23 +105,27 @@ sub new {
                 ]
             },
             study_brief => {
-                table  => 'StudyExperiment',
-                key    => [qw/eid stid/],
-                view   => ['GROUP_CONCAT(description SEPARATOR ", ")'],
-                labels => {
-                    'GROUP_CONCAT(description SEPARATOR ", ")' => 'Study(-ies)'
+                table => 'StudyExperiment',
+                key   => [qw/eid stid/],
+                view  => ['GROUP_CONCAT(description SEPARATOR ", ")'],
+                meta  => {
+                    'GROUP_CONCAT(description SEPARATOR ", ")' => {
+                        label  => 'Study(-ies)',
+                        parser => 'number'
+                    }
                 },
-                meta =>
-                  { 'GROUP_CONCAT(description SEPARATOR ", ")' => 'number' },
                 join =>
                   [ 'study' => [ stid => 'stid', { join_type => 'INNER' } ] ],
                 group_by => [qw/eid/]
             },
             'platform' => {
-                key    => [qw/pid/],
-                view   => [qw/pname species/],
-                names  => [qw/pname/],
-                labels => { pname => 'Platform', species => 'Species' }
+                key   => [qw/pid/],
+                view  => [qw/pname species/],
+                names => [qw/pname/],
+                meta  => {
+                    pname   => { label => 'Platform' },
+                    species => { label => 'Species' }
+                }
             },
             'experiment' => {
                 key  => [qw/eid/],
@@ -140,14 +143,32 @@ sub new {
                 # table key to the left, URI param to the right
                 selectors => { pid => 'pid' },
                 names     => [qw/sample1 sample2/],
-                labels    => {
-                    eid                   => 'No.',
-                    sample1               => 'Sample 1',
-                    sample2               => 'Sample 2',
-                    ExperimentDescription => 'Description',
-                    AdditionalInformation => 'Additional Info'
+                meta      => {
+                    eid     => { label => 'No.', parser => 'number' },
+                    sample1 => {
+                        label      => 'Sample 1',
+                        -maxlength => 100,
+                        -size      => 35
+                    },
+                    sample2 => {
+                        label      => 'Sample 2',
+                        -maxlength => 100,
+                        -size      => 35
+                    },
+                    ExperimentDescription => {
+                        label => 'Description',
+                        -size => 55
+                    },
+                    AdditionalInformation => {
+                        label => 'Additional Info',
+                        -size => 55
+                    },
+                    pid => {
+                        label    => 'Platform',
+                        parser   => 'number',
+                        __type__ => 'popup_menu'
+                    }
                 },
-                meta   => { eid => 'number' },
                 lookup => {
                     microarray => [ eid => 'eid' ],
                     (
@@ -166,11 +187,10 @@ sub new {
                 view    => [qw/COUNT(1)/],
                 proto   => [],
                 mutable => [],
-                labels  => {
-                    eid        => 'No.',
-                    'COUNT(1)' => 'Probe Count'
+                meta    => {
+                    eid => { label => 'No.', parser => 'number' },
+                    'COUNT(1)' => { label => 'Probe Count', parser => 'number' }
                 },
-                meta => { eid => 'number', 'COUNT(1)' => 'number' },
                 join => [
                     StudyExperiment => [ eid => 'eid' ],
 
@@ -365,7 +385,7 @@ sub form_create_body {
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
-      $q->h3('Create New Study'),
+      $q->h3('Create New Experiment'),
 
       # Resource URI: /studies
       $q->start_form(
@@ -374,40 +394,14 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -name  => 'pid',
-                -id    => 'pid',
-                -title => 'Choose platform'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'description' }, 'Description:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'description',
-                -id        => 'description',
-                -maxlength => 100,
-                -title     => 'Enter brief study escription (up to 100 letters)'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'pubmed' }, 'PubMed ID:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'pubmed',
-                -id        => 'pubmed',
-                -maxlength => 20,
-                -title     => 'Enter PubMed ID'
-            )
-        ),
-
+        $self->_body_edit_fields(),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
             $q->submit(
                 -class => 'button black bigrounded',
-                -value => 'Create Study',
-                -title => 'Create a new study'
+                -value => 'Create Experiment',
+                -title => 'Create a new experiment'
             )
         )
       ),
@@ -501,6 +495,7 @@ sub readrow_body {
     #  Form: Set Experiment Attributes
     #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
+
     return $q->h2('Editing Experiment'),
 
       $self->_body_create_read_menu(
@@ -515,57 +510,10 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -id       => 'pid',
-                -disabled => 'disabled'
-            )
+        $self->_body_edit_fields(
+            meta => { pid => { -disabled => 'disabled' } }
         ),
-        $q->dt( $q->label( { -for => 'sample1' }, 'sample1' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'sample1',
-                -id        => 'sample1',
-                -title     => 'Sample 1 Name',
-                -maxlength => 100,
-                -value     => $self->{_id_data}->{sample1}
-            )
-        ),
-        $q->dt( $q->label( { -for => 'sample2' }, 'sample2' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'sample2',
-                -id        => 'sample2',
-                -title     => 'Sample 2 Name',
-                -maxlength => 100,
-                -value     => $self->{_id_data}->{sample2}
-            )
-        ),
-        $q->dt(
-            $q->label( { -for => 'ExperimentDescription' }, 'Description' )
-        ),
-        $q->dd(
-            $q->textarea(
-                -name  => 'ExperimentDescription',
-                -id    => 'ExperimentDescription',
-                -title => 'Description',
-                -value => $self->{_id_data}->{ExperimentDescription}
-            )
-        ),
-        $q->dt(
-            $q->label( { -for => 'AdditionalInformation' }, 'Additional Info' )
-        ),
-        $q->dd(
-            $q->textarea(
-                -name  => 'AdditionalInformation',
-                -id    => 'AdditionalInformation',
-                -title => 'Additional Info',
-                -value => $self->{_id_data}->{AdditionalInformation}
-            )
-        ),
-        $q->dt('&nbsp;'),
-        $q->dd(
+        $q->dt('&nbsp;') => $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),
             $q->submit(
                 -class => 'button black bigrounded',

@@ -76,15 +76,21 @@ sub new {
                 # table key to the left, URI param to the right
                 selectors => { manager => 'manager' },
                 names     => [qw/prname/],
-                labels    => {
-                    prid    => 'No.',
-                    prname  => 'Name',
-                    prdesc  => 'Description',
-                    manager => 'Managing User'
-                },
-                meta => {
-                    prid    => 'number',
-                    manager => 'number'
+                meta      => {
+                    prid => {
+                        label  => 'No.',
+                        parser => 'number'
+                    },
+                    manager => {
+                        label    => 'Managing User',
+                        parser   => 'number',
+                        __type__ => 'popup_menu'
+                    },
+                    prname => {
+                        label      => 'Project Name',
+                        -maxlength => 100,
+                    },
+                    prdesc => { label => 'Description' }
                 },
                 lookup => { users => [ manager => 'uid' ] }
             },
@@ -98,36 +104,34 @@ sub new {
                 mutable   => [qw/description pubmed pid/],
                 resource  => 'studies',
                 names     => [qw/description/],
-                labels    => {
-                    stid        => 'No.',
-                    description => 'Description',
-                    pubmed      => 'PubMed ID',
-                    pid         => 'Platform'
-                },
-                meta => {
-                    stid => 'number',
-                    pid  => 'number'
+                meta      => {
+                    stid => { label => 'No.', parser => 'number' },
+                    description => { label => 'Description' },
+                    pubmed      => { label => 'PubMed ID' },
+                    pid         => { label => 'Platform', parser => 'number' }
                 },
                 lookup => { platform     => [ pid  => 'pid' ] },
                 join   => [ ProjectStudy => [ stid => 'stid' ] ]
             },
             'users' => {
-                key    => [qw/uid/],
-                view   => [qw/full_name/],
-                names  => [qw/full_name/],
-                labels => {
-                    uid       => 'ID',
-                    uname     => 'Login ID',
-                    full_name => 'Managing User'
+                key   => [qw/uid/],
+                view  => [qw/full_name/],
+                names => [qw/full_name/],
+                meta  => {
+                    uid   => { label => 'ID', parser => 'number' },
+                    uname => { label => 'Login ID' },
+                    full_name => { label => 'Managing User' }
                 },
-                meta => { uid => 'number' }
             },
             'platform' => {
-                key    => [qw/pid/],
-                view   => [qw/pname species/],
-                names  => [qw/pname/],
-                labels => { pname => 'Platform', species => 'Species' },
-                meta => { pid => 'number' }
+                key   => [qw/pid/],
+                view  => [qw/pname species/],
+                names => [qw/pname/],
+                meta  => {
+                    pid     => { label => 'Platform', parser => 'number' },
+                    pname   => { label => 'Platform' },
+                    species => { label => 'Species' }
+                },
             },
         },
         _default_table => 'project',
@@ -244,24 +248,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'prname\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'prname' }, 'Name:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'prname',
-                -id        => 'prname',
-                -maxlength => 100,
-                -title => 'Enter brief project escription (up to 100 letters)'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'prdesc' }, 'description:' ) ),
-        $q->dd(
-            $q->textarea(
-                -name  => 'prdesc',
-                -id    => 'prdesc',
-                -title => 'Enter description'
-            )
-        ),
-
+        $self->_body_edit_fields(),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -384,26 +371,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'prname\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'prname' }, 'Project name:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'prname',
-                -id        => 'prname',
-                -title     => 'Edit project name',
-                -maxlength => 100,
-                -value     => $self->{_id_data}->{prname}
-            )
-        ),
-        $q->dt( $q->label( { -for => 'prdesc' }, 'Description:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'prdesc',
-                -id        => 'prdesc',
-                -title     => 'Edit to change description',
-                -maxlength => 20,
-                -value     => $self->{_id_data}->{prdesc}
-            )
-        ),
+        $self->_body_edit_fields(),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),

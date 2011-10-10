@@ -881,11 +881,11 @@ sub _readall_command {
     my $table_info = $table_defs->{$table_alias};
     return undef if not $table_info;
 
-    my ( $key, $this_labels, $this_view ) = @$table_info{qw/key labels view/};
+    my ( $key, $this_meta, $this_view ) = @$table_info{qw/key meta view/};
 
     # prepend key fields, preserve order of fields in {view}
     my $composite_labels =
-      _get_ordered_hash( [ @$key, @$this_view ], $this_labels );
+      _get_view_labels( [ @$key, @$this_view ], $this_meta );
 
     my %left_join_sth;    # hash of statement handles for lookup
 
@@ -906,17 +906,16 @@ sub _readall_command {
             $opts = {} if not defined $opts;
 
             if ( not exists $composite_labels->{$this_field} ) {
-                $composite_labels->{$this_field} = $this_labels->{$this_field};
+                $composite_labels->{$this_field} =
+                  $this_meta->{$this_field}->{label};
             }
 
             my $left_table_info = $table_defs->{$left_table_alias};
-            my ( $other_view, $other_labels, $other_meta ) =
-              @$left_table_info{qw/view labels meta/};
+            my ( $other_view, $other_meta ) = @$left_table_info{qw/view meta/};
 
             # prepend key field
             my $other_select_fields =
-              _get_ordered_hash( [ $other_field, @$other_view ],
-                $other_labels );
+              _get_view_labels( [ $other_field, @$other_view ], $other_meta );
 
             my ( $left_query, $left_params ) =
               $self->_build_select( $left_table_alias, $other_select_fields,
@@ -1005,7 +1004,7 @@ sub _data_transform {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _get_ordered_hash
+#       METHOD:  _get_view_labels
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -1013,10 +1012,11 @@ sub _data_transform {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _get_ordered_hash {
-    my ( $view, $labels ) = @_;
+sub _get_view_labels {
+    my ( $view, $meta ) = @_;
     my %ret;
-    my $ret_t = tie( %ret, 'Tie::IxHash', map { $_ => $labels->{$_} } @$view );
+    my $ret_t =
+      tie( %ret, 'Tie::IxHash', map { $_ => $meta->{$_}->{label} } @$view );
     return \%ret;
 }
 
@@ -1622,6 +1622,67 @@ sub _head_init {
       );
     push @{ $self->{_js_src_code} }, ( +{ -src => 'TableUpdateDelete.js' } );
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _body_edit_fields
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _body_edit_fields {
+    my ( $self, %args ) = @_;
+    my $q = $self->{_cgi};
+
+    my $table = $self->{_default_table};
+
+    my $table_info      = $self->{_table_defs}->{$table} || {};
+    my $default_meta    = $table_info->{meta}            || {};
+    my $args_meta       = $args{meta}                    || {};
+    my $default_mutable = $table_info->{proto}           || [];
+    my $args_mutable    = $args{extra_fields}            || [];
+
+    my @copy_mutable = @$default_mutable;
+    my %mutable_meta = map {
+        $_ => +{ %{ $default_meta->{$_} || {} }, %{ $args_meta->{$_} || {} } }
+    } @$default_mutable;
+    foreach ( grep { not exists $mutable_meta{$_} } @$args_mutable ) {
+        push @copy_mutable, $_;
+        $mutable_meta{$_} =
+          { %{ $default_meta->{$_} || {} }, %{ $args_meta->{$_} || {} } };
+    }
+
+    my @tmp;
+
+    my $id_data = $self->{_id_data} || {};
+
+    foreach my $symbol (@copy_mutable) {
+        my $meta = $mutable_meta{$symbol} || {};
+        my %cgi_meta = map { $_ => $meta->{$_} } grep { /^-/ } keys %$meta;
+        my $method = $meta->{__type__} || 'textfield';
+        my $label  = $meta->{label}    || $symbol;
+        $cgi_meta{-title} ||= (
+            ( $method eq 'textfield' )
+            ? 'Enter'
+            : ( ( $method eq 'popup_menu' ) ? 'Choose' : 'Set' )
+        ) . " $label";
+        push @tmp,
+          (
+            $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
+                $q->$method(
+                    -id    => $symbol,
+                    -name  => $symbol,
+                    -value => $id_data->{$symbol},
+                    %cgi_meta
+                )
+            )
+          );
+    }
+    return @tmp;
 }
 
 #===  CLASS METHOD  ============================================================
