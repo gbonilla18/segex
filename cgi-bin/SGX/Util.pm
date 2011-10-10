@@ -238,17 +238,15 @@ sub enum_array {
 #      PURPOSE:
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  ????
+#  DESCRIPTION:  Takes a list and returns a list of tuples composed of elements
+#                of the list arranged in pairs.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub list_tuples {
-    my @ret;
-    for ( my $i = 0 ; $i < @_ ; $i += 2 ) {
-        push @ret, [ $_[$i], $_[ $i + 1 ] ];
-    }
-    return @ret;
+    use integer;
+    map { [ $_[ $_ + $_ ] => $_[ $_ + $_ + 1 ] ] } 0 .. $#_ / 2;
 }
 
 #===  FUNCTION  ================================================================

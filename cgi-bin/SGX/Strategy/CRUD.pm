@@ -186,10 +186,10 @@ sub _head_data_table {
         # default table view (default table referred to by an empty string)
         ( map { $column->( [ undef, $_ ] ) } @$this_view ),
 
-        # views in lookup tables (stored in {_other})
+        # views in looked-up tables (stored in {_other})
         (
             map {
-                my ($other_table, $fields_this_other) = @$_;
+                my ( $other_table, $fields_this_other ) = @$_;
                 my $lookupTable_other = $lookupTables->($other_table);
                 map {
                     $column->(
@@ -450,33 +450,44 @@ sub dispatch_js {
 #       METHOD:  get_lookup
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Given a table structure/hash, returns {lookup} component while
+#  DESCRIPTION:  Given a table structure/hash, returns {look-up} component while
 #                adding to it all information from {meta}.
 #       THROWS:  no exceptions
-#     COMMENTS:  
+#     COMMENTS:
 # :TODO:09/29/2011 20:27:16:es: Add parameter that would allow us to specify
 # which fields exactly get processed. For example, when displaying a table, we
 # only need fields from {view}, and if there are fields not in {view} that are
-# "tied" to external tables, we don't need to perfom join/lookup queries on
+# "tied" to external tables, we don't need to perfom join/look-up queries on
 # those other tables when forming HTML page. Note: {key} will always get
 # selected together with {view} when displaying a page. When generating a Create
 # page, on the other hand, {key} will not be added to {proto}. Using {key} and
 # {view} lists will also allow us to preserve order...
 #
+# At the moment, adding key field, e.g. 'pid' to {view} causes numeric output to
+# be printed..
+#
 #     SEE ALSO:  n/a
 #===============================================================================
 #sub _get_lookup {
-#    my $table_info = shift; 
+#    my ($table_info, $field_list) = @_;
 #    $table_info->{lookup} = [] if not defined $table_info->{lookup};
-#    my ( $fields_meta, $table_lookup ) = @$table_info{qw/meta lookup/};
+#    my ($fields_meta) = @$table_info{qw/meta/};
 #
-#    while ( my ( $this_field, $this_meta ) = each %$fields_meta ) {
-#        my ( $other_table, $other_field ) = @{ $this_meta->{__tie__} || [] };    
-#        push @$table_lookup,
-#          ( $other_table => [ $this_field => $other_field ] );
+#    my $table_lookup = [];
+#    foreach my $this_field (@$field_list) {
+#        my $this_meta = $fields_meta->{$this_field} || {};
+#        my $tie_info = $this_meta->{__tie__};
+#        push(
+#            @$table_lookup,
+#            (
+#                map { $_->[0] => [ $this_field => $_->[1] ] }
+#                  list_tuples(@$tie_info)
+#            )
+#        ) if defined $tie_info;
 #    }
 #    return $table_lookup;
 #}
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  export_meta
@@ -778,7 +789,7 @@ sub _head_column_def {
 
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table};
-    my $meta = $table_info->{meta};
+    my $meta       = $table_info->{meta};
 
     my %mutable =
       map { $_ => 1 } $self->_get_mutable( table_info => $table_info );
@@ -982,25 +993,26 @@ sub _lookup_prepare {
     my ( $self, $table_info, $composite_labels ) = @_;
 
     # now add all fields on which we are joining if they are absent
-    my ( $dbh, $table_defs ) = @$self{qw/_dbh _table_defs/};
-    my ( $this_meta, $lookup ) = @$table_info{qw/meta lookup/};
+    my ( $dbh,       $table_defs ) = @$self{qw/_dbh _table_defs/};
+    my ( $this_meta, $lookup )     = @$table_info{qw/meta lookup/};
 
-    my %lookup_join_sth;    # hash of statement handles for lookup
+    #warn Dumper( _get_lookup($table_info, [keys %$composite_labels]) );
+
+    my %lookup_join_sth;    # hash of statement handles for looked-up tables
     if ( my @lookup_copy = @{ $lookup || [] } ) {
         my $_other = $self->{_other};
 
         while ( my ( $lookup_table_alias, $val ) =
             splice( @lookup_copy, 0, 2 ) )
         {
-
-            #while ( my ( $lookup_table_alias, $val ) = each(%$lookup) ) {
             my ( $this_field, $other_field ) = @$val;
 
             # we ignore {} optional data
             my $opts = $table_defs->{$lookup_table_alias};
 
             # modify $composite_labels such that fields on which we join are
-            # always SELECTed.
+            # always SELECTed. No need to modify {look-up} here because by
+            # definition $this_field already exists in look-up.
             if ( defined($composite_labels)
                 && !exists( $composite_labels->{$this_field} ) )
             {
@@ -1501,8 +1513,6 @@ sub _readrow_command {
     #warn "getting lookups for $table_alias";
     my $lookup_join_sth = $self->_lookup_prepare($table_info);
 
- # :TODO:09/26/2011 01:57:43:es: Also need to perform lookup for readrow_command
- # in some cases...
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
         carp $error;
@@ -1986,13 +1996,14 @@ sub _body_edit_fields {
         elsif ( $method eq 'popup_menu' ) {
             my @values;
             my %labels;
-            if (my $dropdownOptions = $meta->{dropdownOptions}) {
+            if ( my $dropdownOptions = $meta->{dropdownOptions} ) {
                 foreach my $property (@$dropdownOptions) {
                     my ( $p_val, $p_lab ) = @$property{qw/value label/};
                     push @values, $p_val;
                     $labels{$p_val} = $p_lab;
                 }
             }
+
             #else {
             # # lookup table
             #}

@@ -86,7 +86,7 @@ sub new {
                         label     => 'Platform',
                         parser    => 'number',
                         -disabled => 'disabled',
-                        __tie__   => [ 'platform', 'pid' ]
+                        __tie__   => [ platform => 'pid' ]
                     },
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
@@ -160,7 +160,7 @@ sub new {
                         __tie__  => (
                             looks_like_number( $q->param('pid') )
                             ? undef
-                            : [ 'platform', 'pid' ]
+                            : [ platform => 'pid' ]
                         ),
                         -disabled => 'disabled'
                     }

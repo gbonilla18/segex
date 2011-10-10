@@ -97,7 +97,7 @@ sub new {
                         __type__  => 'popup_menu',
                         parser    => 'number',
                         -disabled => 'disabled',
-                        __tie__   => [ 'platform', 'pid' ]
+                        __tie__   => [ platform => 'pid' ]
                     }
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
