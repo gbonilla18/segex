@@ -81,9 +81,9 @@ sub new {
                     phone           => { label => 'Phone' },
                     level           => { label => 'Permissions' },
                     email_confirmed => {
-                        label     => 'Email Confirmed',
-                        parser    => 'number',
-                        -disabled => 'disabled'
+                        __type__ => 'checkbox',
+                        label    => 'Email Confirmed',
+                        parser   => 'number'
                     }
                 },
             }
