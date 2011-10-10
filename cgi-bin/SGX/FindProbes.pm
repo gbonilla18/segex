@@ -104,6 +104,7 @@ sub default_head {
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
     return unless $s->is_authorized('user');
+    push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
     $self->getSessionOverrideCGI();
     push @$js_src_code, { -src => 'FormFindProbes.js' };
     return 1;
@@ -115,6 +116,12 @@ sub Search_head {
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
     return unless $s->is_authorized('user');
+
+    push @{ $self->{_css_src_yui} },
+      (
+        'paginator/assets/skins/sam/paginator.css',
+        'datatable/assets/skins/sam/datatable.css'
+      );
     push @$js_src_yui,
       (
         'yahoo-dom-event/yahoo-dom-event.js', 'connection/connection-min.js',

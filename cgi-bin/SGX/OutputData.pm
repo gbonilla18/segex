@@ -81,6 +81,11 @@ sub Load_head {
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
     return unless $s->is_authorized('user');
+    push @{ $self->{_css_src_yui} },
+      (
+        'paginator/assets/skins/sam/paginator.css',
+        'datatable/assets/skins/sam/datatable.css'
+      );
     push @$js_src_yui,
       (
         'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',

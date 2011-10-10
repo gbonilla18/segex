@@ -76,6 +76,11 @@ sub Compare_head {
 
     # process form and display results
     return unless $s->is_authorized('user');
+    push @{ $self->{_css_src_yui} },
+      (
+        'paginator/assets/skins/sam/paginator.css',
+        'datatable/assets/skins/sam/datatable.css'
+      );
     push @$js_src_yui,
       (
         'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
@@ -92,6 +97,7 @@ sub default_head {
 
     # show form
     return unless $s->is_authorized('user');
+    push @{ $self->{_css_src_yui} }, 'button/assets/skins/sam/button.css';
     push @$js_src_yui,
       (
         'yahoo-dom-event/yahoo-dom-event.js',
@@ -667,12 +673,7 @@ END_query_fs
             );
         }
         else {
-            $out .= $js->bind(
-                [
-                    venn => ''
-                ],
-                declare => 1
-            );
+            $out .= $js->bind( [ venn => '' ], declare => 1 );
         }
     }
 
