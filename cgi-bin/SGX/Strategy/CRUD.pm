@@ -850,6 +850,8 @@ sub _head_column_def {
 #===============================================================================
 sub getJSRecords {
 
+    # :TODO:09/18/2011 15:43:56:es: parametrize this by table
+    #
     my ( $self, $table ) = @_;
     $table = $self->{_default_table} if not defined $table;
     my $key = $self->{_table_defs}->{$table}->{key}->[0];
@@ -857,30 +859,16 @@ sub getJSRecords {
     # declare data sources and options
     my $data = $self->{_this_data};    # data source
 
-    # columns to include in output
+    # including all columns...
     my $s2i     = $self->{_this_symbol2index};
-    my @columns = values %$s2i;
-
-    my @tmp;
     my $sort_col = $s2i->{$key};       # column to sort on
-    if ( defined $sort_col ) {
 
-   # :TRICKY:09/17/2011 17:13:54:es: Using numerical sort for now. In the future
-   # it may be a good idea to make sort type (numerical vs string)
-   # user-configurable.
-        foreach my $row ( sort { $a->[$sort_col] <=> $b->[$sort_col] } @$data )
-        {
-            my $i = 0;
-            push @tmp, +{ map { $i++ => $_ } @$row[@columns] };
-        }
-    }
-    else {
-        foreach my $row (@$data) {
-            my $i = 0;
-            push @tmp, +{ map { $i++ => $_ } @$row[@columns] };
-        }
-    }
-    return \@tmp;
+    # :TRICKY:09/17/2011 17:13:54:es: Using numerical sort for now. In the
+    # future it may be a good idea to make sort type (numerical vs string)
+    # user-configurable.
+    return ( defined $sort_col )
+      ? [ sort { $a->[$sort_col] <=> $b->[$sort_col] } @$data ]
+      : $data;
 }
 
 #===  CLASS METHOD  ============================================================
