@@ -74,10 +74,7 @@ sub new {
             'StudyExperiment' => {
                 key       => [qw/eid stid/],
                 proto     => [qw/eid stid/],
-                join_type => 'INNER',
-
-                # table key to the left, URI param to the right
-                selectors => { stid => 'stid' }
+                join_type => 'INNER'
             },
             'study' => {
                 key      => [qw/stid/],
@@ -87,9 +84,8 @@ sub new {
                 resource => 'studies',
 
                 # table key to the left, URI param to the right
-                selectors => { pid => 'pid' },
-                names     => [qw/description/],
-                meta      => {
+                names => [qw/description/],
+                meta  => {
                     stid => { label => 'No.', parser => 'number' },
                     description => { label => 'Description' },
                     pubmed      => { label => 'PubMed' },
@@ -99,15 +95,15 @@ sub new {
                 join   => [
                     StudyExperiment => [
                         stid => 'stid',
-                        { constraint => [ eid => sub { shift->{_id} } ], }
+                        { constraint => [ eid => sub { shift->{_id} } ] }
                     ]
                 ]
             },
             study_brief => {
-                table => 'StudyExperiment',
-                key   => [qw/eid stid/],
-                view  => [qw/study_names/],
-                meta  => {
+                table     => 'StudyExperiment',
+                view      => [qw/study_names/],
+                selectors => { stid => 'stid' },
+                meta      => {
                     study_names => {
                         __sql__ =>
 'GROUP_CONCAT(description ORDER BY description ASC SEPARATOR ", ")',
@@ -167,7 +163,7 @@ sub new {
                     },
                     data_count => {
                         __sql__ => 'COUNT(microarray.eid)',
-                        label   => 'Data Count',
+                        label   => 'Probe Count',
                         parser  => 'number'
                     },
                     pid => {
@@ -195,8 +191,11 @@ sub new {
                     )
                 },
                 join => [
-                    StudyExperiment => [ eid => 'eid' ],
-                    microarray      => [ eid => 'eid', { join_type => 'LEFT' } ]
+                    StudyExperiment => [
+                        eid => 'eid',
+                        { selectors => { stid => 'stid' } }
+                    ],
+                    microarray => [ eid => 'eid', { join_type => 'LEFT' } ]
                 ]
             }
         },

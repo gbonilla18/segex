@@ -142,7 +142,7 @@ sub new {
                     AdditionalInformation => { label => 'Additional Info' },
                     data_count            => {
                         __sql__ => 'COUNT(microarray.eid)',
-                        label   => 'Data Count',
+                        label   => 'Probe Count',
                         parser  => 'number'
                     },
                 },

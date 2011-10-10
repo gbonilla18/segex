@@ -980,6 +980,9 @@ sub _readall_command {
         }
     );
 
+    #warn $query;
+    #warn Dumper($params);
+
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
         warn $error;
