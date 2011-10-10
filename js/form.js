@@ -1,16 +1,3 @@
-function $() {
-    var elements = new Array();
-    for (var i = 0; i < arguments.length; i++) {
-        var element = arguments[i];
-        if (typeof element === 'string')
-            element = document.getElementById(element);
-        if (arguments.length === 1)
-            return element;
-        elements.push(element);
-    }
-    return elements;
-}
-
 function export_table(e) {
     var records = this.records;
     var row_count = records.length;
@@ -62,12 +49,6 @@ function deleteConfirmation(oArg)
     return confirm(msg);
 }
 function validate_fields(of,reqfields) {
-    /* 04/18/2009 - changed from using a hidden field to store ids
-    of required fields to passing an array of ids directly
-    /* 06/20/2007 -	added "document.appendChild" check for Opera 6
-    /* 06/14/2007 -	removed code related to IMG elements,
-    added "password" input type
-    */
 
     // test if DOM is available
     if(!document.getElementById || !document.createTextNode || !document.appendChild){return;}
@@ -76,17 +57,15 @@ function validate_fields(of,reqfields) {
     var errorID="errormsg";
     var errorClass="error"
     var errorMsg="There is a problem with your input. Please fill out or correct the highlighted field(s).";
-    // other definitions
-    var captchaLength = 5;
 
     // cleanup: if there is an old errormessage field, delete it
-    var em=$(errorID);
+    var em = document.getElementById(errorID);
     if(em){em.parentNode.removeChild(em);}
 
     // split the required fields and loop throught them
-    for (var i=0; i<reqfields.length; i++) {
+    for (var i=0, reqfields_length = reqfields.length; i < reqfields_length; i++) {
         // get a required field
-        var f=$(reqfields[i]);
+        var f=document.getElementById(reqfields[i]);
         // cleanup: remove old classes from the required fields
         f.parentNode.className="";
         // completely strip whitespace and place field value into v
@@ -94,12 +73,6 @@ function validate_fields(of,reqfields) {
         // test if the required field has an error, according to its type
         switch(f.type.toLowerCase()) {
             case "text":
-                // email is a special field and needs checking
-                // AN UGLY TECHNIQUE USED HERE: we only check email
-                // field when it is NOT empty. This is ugly because
-                // I did not implement a way to tell this function
-                // that email is a required field in case we want
-                // it to be required.
                 switch(f.id.toLowerCase()) {
                     case "email":
                     case "email1":
@@ -115,20 +88,16 @@ function validate_fields(of,reqfields) {
             case "password":
                 if(v===""){cf_adderr(f);}
                 break;
-            /* 
-            case "select-one":
-                if(!f.selectedIndex && f.selectedIndex===0){cf_adderr(f);}
-                break; */
         }
     }
-    return !$(errorID);
+    return (document.getElementById(errorID) === null);
 
     /* tool methods */
     function cf_adderr(o) {
         // colourise the error fields
         o.parentNode.className=errorClass;
         // check if there is no error message
-        if(!$(errorID)) {
+        if(document.getElementById(errorID) === null) {
             // create errormessage and insert before submit button
             var em=document.createElement("div");
             em.id=errorID;
