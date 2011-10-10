@@ -56,18 +56,22 @@ function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, 
     });
 }
 function createCellDropdown(resourceURIBuilder, rowNameBuilder) {
-    return function(table_info, field, subName) {
-        var updateDataBuilder = function(field, newValue) {
-            return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
+    return function(lookup_table, update_field, name_field) {
+        var updateDataBuilder = function(update_field, newValue) {
+            return "b=ajax_update&" + update_field + "=" + encodeURIComponent(newValue);
         };
+        // TODO: instead of sending name_field as a parameter, rely on 'names'
+        // property?
         var transformed_data = [];
-        var this_data = table_info.data;
-        var sub_col = table_info.symbol2index[subName] - 1;
-        for (var key in table_info.data) {
-            var val = this_data[key][sub_col];
-            transformed_data.push({ label: val, value: key});
+        var lookup_records = lookup_table.records;
+        var name_column = lookup_table.symbol2index[name_field];
+        var index_column = lookup_table.symbol2index[lookup_table.key[0]];
+        for (var key in lookup_records) {
+            var value = lookup_records[key];
+            transformed_data.push({ label: value[name_column], value: value[index_column]});
         }
-        return createCellDropdownCreator(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+
+        return createCellDropdownCreator(transformed_data, update_field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
     };
 }
 function createCellDropdownDirect(resourceURIBuilder, rowNameBuilder) {
@@ -201,17 +205,15 @@ function createDeleteFormatter(verb, noun) {
         elCell.innerHTML = cellContent;
     };
 }
-function createJoinFormatter(join_info, table_info, field) {
-    var this_field = join_info[0];
-    var other_field = join_info[1];
-    var sub_col = table_info.symbol2index[field] - table_info.key.length;
-    var root = table_info.lookup_by[other_field];
+function createJoinFormatter(join_tuple, lookup_table, name_field) {
+    var this_field = join_tuple[0], other_field = join_tuple[1];
+    var name_column = lookup_table.symbol2index[name_field] - lookup_table.key.length;
+    var root = lookup_table.lookup_by[other_field];
 
     return function(elCell, oRecord, oColumn, oData) {
-
         // this also gets executed after we update a cell via AJAX
         var sub_record = root[oData];
-        elCell.innerHTML = (typeof sub_record !== "undefined") ? sub_record[sub_col] : '';
+        elCell.innerHTML = (typeof sub_record !== "undefined") ? sub_record[name_column] : '';
     };
 }
 function createRenameFormatter(rename_array) {
