@@ -356,7 +356,7 @@ sub def {
 #===============================================================================
 sub lambda {
     my ( $self, @args ) = @_;
-    return $self->def( undef, [], \@args );
+    return $self->def( undef, shift(@args), \@args );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -495,7 +495,7 @@ sub apply {
     my $arguments  = join( $separator, map { $self->encode($_) } @$list );
 
     # by returning a subroutine reference, we delay execution
-    my $code = $prefix . _validate_chain( _evaluate($id) ) . "($arguments)";
+    my $code = $prefix . _evaluate($id) . "($arguments)";
     return ( wantarray() )
       ? sub { $code }
       : $code . $terminator;

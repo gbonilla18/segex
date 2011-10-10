@@ -32,7 +32,6 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
-use SGX::Abstract::JSEmitter qw/true false/;
 use SGX::Abstract::Exception;
 use SGX::Model::PlatformStudyExperiment;
 
@@ -488,7 +487,7 @@ sub get_pse_dropdown_js {
         %args
     );
 
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    my $js = $self->{_js_emitter};
 
     my $q = $self->{_cgi};
     my $pid;
@@ -542,6 +541,7 @@ sub get_pse_dropdown_js {
             sub { 'window' },
             'load',
             $js->lambda(
+                [],
                 $js->apply(
                     'populatePlatform.apply', [ sub { 'currentSelection' } ],
                 ),
@@ -576,6 +576,7 @@ sub get_pse_dropdown_js {
                 [
                     'pid', 'change',
                     $js->lambda(
+                        [],
                         (
                             ( $args{studies} )
                             ? (
@@ -610,6 +611,7 @@ sub get_pse_dropdown_js {
                 [
                     'stid', 'change',
                     $js->lambda(
+                        [],
                         $js->apply(
                             'populateStudyExperiment.apply',
                             [ sub { 'currentSelection' } ],

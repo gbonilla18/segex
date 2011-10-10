@@ -28,6 +28,7 @@ use List::Util qw/max/;
 use Data::Dumper;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Debug;
+use SGX::Util qw/inherit_hash/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
@@ -45,10 +46,12 @@ sub new {
     # Call the constructor of the parent class
     my $self = $class->SUPER::new(@param);
 
+    require SGX::Abstract::JSEmitter;
     $self->_set_attributes(
         dom_table_id       => 'crudTable',
         dom_export_link_id => 'crudTable_astext',
-        _other             => {}
+        _other             => {},
+        _js_emitter        => SGX::Abstract::JSEmitter->new( pretty => 1 )
     );
 
     # dispatch table for other requests (returning 1 results in response
@@ -132,8 +135,7 @@ sub _head_data_table {
     my @editPhrase = ( defined $view_row ) ? @$view_row : ('edit');
     push( @editPhrase, $table ) if not defined $editPhrase[1];
 
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
-
+    my $js  = $self->{_js_emitter};
     my $s2n = $self->{_this_symbol2name};
 
     #---------------------------------------------------------------------------
@@ -143,7 +145,7 @@ sub _head_data_table {
     my $var = $js->register_var(
         '_a',
         [
-            qw/data cellUpdater cellDropdown DataTable lookupTables
+            qw/data cellUpdater cellDropdown cellDropdownDirect DataTable lookupTables
               resourceURIBuilder rowNameBuilder deleteDataBuilder DataSource/
         ]
     );
@@ -155,7 +157,7 @@ sub _head_data_table {
     $table = $self->{_default_table} if not defined($table);
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table};
-    my ( $this_keys, $this_view, $this_names, $this_resource ) =
+    my ( $this_keys, $this_view, $this_name_symbols, $this_resource ) =
       @$table_info{qw/key view names resource/};
     my %resource_extra = (
         ( map { $_ => $_ } @$this_keys[ 1 .. $#$this_keys ] ),
@@ -166,11 +168,13 @@ sub _head_data_table {
     #  YUI column definitions
     #---------------------------------------------------------------------------
     my $column = $self->_head_column_def(
-        table         => $table,
-        js_emitter    => $js,
-        cell_updater  => $var->{cellUpdater},
-        cell_dropdown => $var->{cellDropdown},
-        lookup_tables => $var->{lookupTables}
+        table                => $table,
+        js_emitter           => $js,
+        data_table           => $var->{data},
+        cell_updater         => $var->{cellUpdater},
+        cell_dropdown        => $var->{cellDropdown},
+        lookup_tables        => $var->{lookupTables},
+        cell_dropdown_direct => $var->{cellDropdownDirect}
     );
 
     my $lookupTables = $var->{lookupTables};
@@ -227,7 +231,7 @@ sub _head_data_table {
     #  Which fields can be used to "name" rows -- createRowNameBuilder
     #  (Javascript) needs this
     #---------------------------------------------------------------------------
-    my @nameIndexes = grep { exists $s2n->{$_} } @$this_names;
+    my @name_columns = grep { exists $s2n->{$_} } @$this_name_symbols;
 
     #---------------------------------------------------------------------------
     #  Arguments supplied to createDeleteDataBuilder (Javascript): table - table
@@ -255,6 +259,7 @@ sub _head_data_table {
         id => undef
     );
     my $onloadLambda = $js->lambda(
+        [],
         $js->bind(
             [
                 $var->{resourceURIBuilder} => $js->apply(
@@ -262,7 +267,7 @@ sub _head_data_table {
                     [ $table_resource_uri, \%resource_extra ]
                 ),
                 $var->{rowNameBuilder} =>
-                  $js->apply( 'createRowNameBuilder', [ \@nameIndexes ] ),
+                  $js->apply( 'createRowNameBuilder', [ \@name_columns ] ),
                 (
                     ($remove_row)
                     ? (
@@ -283,6 +288,10 @@ sub _head_data_table {
                 ),
                 $var->{cellDropdown} => $js->apply(
                     'cellDropdown',
+                    [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
+                ),
+                $var->{cellDropdownDirect} => $js->apply(
+                    'cellDropdownDirect',
                     [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
                 )
             ],
@@ -313,6 +322,13 @@ sub _head_data_table {
                     # unhighlight all cells
                     cellMouseoutEvent =>
                       $var->{DataTable}->('onEventUnhighlightCell'),
+                    linkClickEvent => $js->lambda(
+
+                        # this JS function prevents Cell Editor from showing up
+                        # after the link inside the cell has been clicked.
+                        [ $js->literal('oArg') ],
+                        $js->apply( 'return', [ $js->false ] )
+                    ),
                     cellClickEvent =>
                       $var->{DataTable}->('onEventShowCellEditor'),
 
@@ -714,8 +730,8 @@ sub ajax_create {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _head_column_def {
-    my ( $self, %args )   = @_;
-    my ( $s2n,  $_other ) = @$self{qw/_this_symbol2name _other/};
+    my ( $self, %args ) = @_;
+    my $_other = $self->{_other};
 
     # make a hash of mutable columns
     my $table =
@@ -723,16 +739,18 @@ sub _head_column_def {
       ? $args{table}
       : $self->{_default_table};
 
-    my $table_defs   = $self->{_table_defs};
-    my $table_info   = $table_defs->{$table};
-    my $table_lookup = $table_info->{lookup};
+    my $table_defs = $self->{_table_defs};
+    my $table_info = $table_defs->{$table};
+    my ( $meta, $table_lookup ) = @$table_info{qw/meta lookup/};
     my %mutable =
       map { $_ => 1 } $self->_get_mutable( table_info => $table_info );
 
-    my $js            = $args{js_emitter};
-    my $cell_updater  = $args{cell_updater};
-    my $cell_dropdown = $args{cell_dropdown};
-    my $lookupTables  = $args{lookup_tables};
+    my $js                   = $args{js_emitter};
+    my $data_table           = $args{data_table};
+    my $cell_updater         = $args{cell_updater};
+    my $cell_dropdown        = $args{cell_dropdown};
+    my $lookupTables         = $args{lookup_tables};
+    my $cell_dropdown_direct = $args{cell_dropdown_direct};
 
     my $TRUE  = $js->true;
     my $FALSE = $js->false;
@@ -764,26 +782,37 @@ sub _head_column_def {
             ( defined $symbol )
           ? ( ( defined($mytable) ) ? "$mytable.$symbol" : $symbol )
           : undef;
-        my $label =
+
+        my $this_meta =
           ( defined $symbol )
           ? (
-            ( defined($mytable) )
-            ? $_other->{$mytable}->{symbol2name}->{$symbol}
-            : $s2n->{$symbol}
+              ( defined $mytable )
+            ? ( $_other->{$mytable}->{meta}->{$symbol} || {} )
+            : ( $meta->{$symbol} || {} )
           )
-          : undef;
+          : {};
+
+        my $label = $this_meta->{label};
 
     #---------------------------------------------------------------------------
     #  cell editor (either text or dropdown)
     #---------------------------------------------------------------------------
-        my @ajax_editor;
-
+        my @live_field;
         if ( defined($symbol) ) {
+            my $type = $this_meta->{__type__} || 'textfield';
+
+            # add formatter if specified
+            if ( my $formatter = $this_meta->{formatter} ) {
+                push @live_field, ( formatter => $formatter );
+            }
+
+            # add editor
             if (   defined($cell_updater)
                 && !defined($mytable)
-                && $mutable{$symbol} )
+                && $mutable{$symbol}
+                && $type =~ m/^text/ )
             {
-                push @ajax_editor,
+                push @live_field,
                   ( editor => $js->apply( $cell_updater, [$symbol] ) );
             }
             elsif (defined($mytable)
@@ -799,11 +828,33 @@ sub _head_column_def {
          # table is declared mutable in the main table, (c) current field of the
          # joined table is in {names} of joined table, (d) {names} consists of
          # only one field.
-                push @ajax_editor,
+                push @live_field,
                   (
                     editor => $js->apply(
                         $cell_dropdown,
                         [ $lookupTables->($mytable), $propagate_key, $symbol ]
+                    )
+                  );
+            }
+            elsif (defined($cell_dropdown_direct)
+                && ( $type eq 'popup_menu' || $type eq 'checkbox' )
+                && defined( $this_meta->{dropdownOptions} ) )
+            {
+                my $dropdownOptions_ref =
+                  $data_table->('meta')->($symbol)->('dropdownOptions');
+                push(
+                    @live_field,
+                    (
+                        editor => $js->apply(
+                            $cell_dropdown_direct,
+                            [ $symbol, $dropdownOptions_ref ]
+                        )
+                    )
+                ) if $mutable{$symbol};
+                push @live_field,
+                  (
+                    formatter => $js->apply(
+                        'createRenameFormatter', [$dropdownOptions_ref]
                     )
                   );
             }
@@ -833,7 +884,7 @@ sub _head_column_def {
                 : $FALSE
             ),
             label => $label,
-            @ajax_editor,
+            @live_field,
             %extra_definitions
         };
     };
@@ -919,7 +970,7 @@ sub _readall_command {
     # :TRICKY:09/06/2011 19:22:20:es: For left joins, we do not perform joins
     # in-SQL but instead run a separate query. For inner joins, we add predicate
     # to the main SQL query.
-
+    
     # now add all fields on which we are joining if they are absent
     my $lookup =
       ( defined $args{lookup} )
@@ -1059,8 +1110,8 @@ sub _get_view_labels {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _symbol2index_from_symbol2name {
-    my ($symbol2name) = @_;
-    my $i = 0;
+    my $symbol2name = shift;
+    my $i           = 0;
     my %symbol2index;
     my $symbol2index_t =
       tie( %symbol2index, 'Tie::IxHash',
@@ -1210,7 +1261,8 @@ sub _build_join {
 
         my ( $this_field, $other_field, $opts ) = @$info;
         $opts = {} if not defined $opts;
-        $this_field = "$table_alias.$this_field" if ( $this_field !~ m/\./ );
+        $this_field = "$table_alias.$this_field"
+          if ( $this_field !~ m/\./ );
 
         my $other_table_defs = $table_defs->{$other_table_alias} || {};
         my %cascade_other = ( %$other_table_defs, %$opts );
@@ -1251,13 +1303,11 @@ sub _build_join {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _build_select {
-    my ( $self, $table_alias, $symbol2name, $obj ) = @_;
-    my $dbh        = $self->{_dbh};
-    my $table_defs = $self->{_table_defs};
-    my %cascade    = ( %{ $table_defs->{$table_alias} }, %$obj );
-    my $table      = $cascade{table};
-    my $meta       = $cascade{meta} || {};
-    $table = $table_alias if not defined $table;
+    my ( $self, $table_alias, $symbol2name, $cascade ) = @_;
+    my ( $dbh, $table_defs ) = @$self{qw/_dbh _table_defs/};
+    inherit_hash( $cascade, $table_defs->{$table_alias} );
+    my $table = $cascade->{table} || $table_alias;
+    my $meta  = $cascade->{meta}  || {};
 
     my @query_components;
     my @exec_params;
@@ -1285,18 +1335,18 @@ sub _build_select {
 
     # JOINS
     my ( $join_pred, $join_params ) =
-      $self->_build_join( $table_alias => \%cascade );
+      $self->_build_join( $table_alias => $cascade );
     push @query_components, $join_pred;
     push @exec_params,      @$join_params;
 
     # WHERE
     my ( $where_pred, $where_params ) =
-      $self->_build_predicate( $table_alias => \%cascade, 'WHERE' );
+      $self->_build_predicate( $table_alias => $cascade, 'WHERE' );
     push @query_components, $where_pred;
     push @exec_params,      @$where_params;
 
     # GROUP BY
-    if ( my $group_by = $cascade{group_by} ) {
+    if ( my $group_by = $cascade->{group_by} ) {
         push @query_components,
           'GROUP BY ' . join( ',', map { "$table_alias.$_" } @$group_by );
     }
@@ -1335,6 +1385,9 @@ sub _readrow_command {
     my $read_fields = join( ',', @$fields );
     my $query = "SELECT $read_fields FROM $table WHERE $predicate";
 
+
+ # :TODO:09/26/2011 01:57:43:es: Also need to perform lookup for readrow_command
+ # in some cases...
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
         warn $error;
@@ -1368,7 +1421,8 @@ sub _delete_command {
     my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
-    $table = $self->{_default_table} if ( !defined($table) || $table eq '' );
+    $table = $self->{_default_table}
+      if ( !defined($table) || $table eq '' );
     return undef if not defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};
@@ -1484,10 +1538,11 @@ sub _create_command {
     # already present: in those cases we create links.
     my @proto = @$fields;
 
+    my $translate_key = $self->_get_param_keys($meta);
     my @assigned_fields =
         ( defined $id )
-      ? ( $proto[0], grep { defined $q->param($_) } splice( @proto, 1 ) )
-      : grep { defined $q->param($_) } @proto;
+      ? ( $proto[0], map { $translate_key->($_) } splice( @proto, 1 ) )
+      : map { $translate_key->($_) } @proto;
 
     my $assignment = join( ',', @assigned_fields );
     my $placeholders = join( ',', map { '?' } @assigned_fields );
@@ -1498,7 +1553,7 @@ sub _create_command {
         return undef;
     };
 
-    my $translate_val = _get_param_values( $q, $meta );
+    my $translate_val = $self->_get_param_values($meta);
     my @params =
         ( defined $id )
       ? ( $id, map { $translate_val->($_) } splice( @assigned_fields, 1 ) )
@@ -1515,6 +1570,27 @@ sub _create_command {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _get_param_keys
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _get_param_keys {
+    my ( $self, $meta ) = @_;
+    my $q = $self->{_cgi};
+    return sub {
+        my $field     = shift;
+        my $this_meta = $meta->{$field} || {};
+        my $type      = $this_meta->{__type__} || 'textfield';
+        return ( defined $q->param($field) ) ? ($field) : ();
+    };
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _get_param_values
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -1524,18 +1600,18 @@ sub _create_command {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _get_param_values {
-    my ( $q, $meta ) = @_;
+    my ( $self, $meta ) = @_;
+    my $q = $self->{_cgi};
     return sub {
-        my $param  = shift;
-        my @result = $q->param($param);
-        my $type   = $meta->{$param}->{__type__};
-        warn $type;
+        my $param     = shift;
+        my @result    = $q->param($param);
+        my $this_meta = $meta->{$param} || {};
+        my $type      = $this_meta->{__type__};
         if ( !defined($type) ) {
             return @result;
         }
         elsif ( $type eq 'checkbox' ) {
-            warn Dumper( \@result );
-            return ( @result == 1 && $result[0] eq 'on' ) ? 1 : 0;
+            return ( @result > 1 ) ? 1 : 0;
         }
         else {
             return @result;
@@ -1577,23 +1653,25 @@ sub _update_command {
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
 
-  # :TODO:09/15/2011 13:22:27:es:  fix this: there should be two default tables,
-  # one when {_id} is not set, and one when it is set.
-  #
+    # :TODO:09/15/2011 13:22:27:es:  fix this: there should be two default
+    # tables, one when {_id} is not set, and one when it is set.
+    #
     $table = $self->{_default_table} if not defined $table;
     return undef if not defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};
     return undef if not $table_info;
 
+    my ( $key, $meta ) = @$table_info{qw/key meta/};
+
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
     # specifically map a special character (for example, an empty string), to
     # NULL.
+    my $translate_key = $self->_get_param_keys($meta);
     my @fields_to_update =
-      grep { defined( $q->param($_) ) }
+      map { $translate_key->($_) }
       $self->_get_mutable( table_info => $table_info );
-    my ( $key, $meta ) = @$table_info{qw/key meta/};
     my @key_copy = @$key;
 
     my $assignment = join( ',',     map { "$_=?" } @fields_to_update );
@@ -1606,8 +1684,8 @@ sub _update_command {
         return undef;
     };
 
-    my $translate_val = _get_param_values( $q, $meta );
-    my @params = (
+    my $translate_val = $self->_get_param_values($meta);
+    my @params        = (
         ( map { $translate_val->($_) } @fields_to_update ),
         $self->{_id}, ( map { $translate_val->($_) } splice( @key_copy, 1 ) )
     );
@@ -1748,6 +1826,7 @@ sub _body_edit_fields {
     my $args_meta    = $args{meta}           || {};
     my $fields       = $table_info->{proto};
 
+    # :TODO:09/24/2011 17:32:20:es:  use inherit_hash here
     my %fields_meta = map {
         $_ => +{ %{ $default_meta->{$_} || {} }, %{ $args_meta->{$_} || {} } }
     } @$fields;
@@ -1760,30 +1839,69 @@ sub _body_edit_fields {
         my %cgi_meta = map { $_ => $meta->{$_} } grep { /^-/ } keys %$meta;
         delete $cgi_meta{-disabled} if $unlimited_mode;
         my $method = $meta->{__type__} || 'textfield';
-        my @key_val;
-        if ( $method eq 'checkbox' ) {
-            @key_val = ( $id_data->{$symbol} ) ? ( -checked => 'checked' ) : ();
-        }
-        else {
-            @key_val = ( -value => $id_data->{$symbol} );
-        }
         my $label = $meta->{label} || $symbol;
         $cgi_meta{-title} ||= (
             ( $method eq 'textfield' )
             ? 'Enter'
             : ( ( $method eq 'popup_menu' ) ? 'Choose' : 'Set' )
         ) . " $label";
-        push @tmp,
-          (
-            $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
-                $q->$method(
-                    -id   => $symbol,
-                    -name => $symbol,
-                    @key_val,
-                    %cgi_meta
+        if ($method eq 'checkbox') {
+            push @tmp,
+              (
+                $q->dt('&nbsp;') => $q->dd(
+                    $q->hidden( -name => $symbol, -value => '0' ),
+                    $q->$method(
+                        -id    => $symbol,
+                        -name  => $symbol,
+                        -label => $label,
+                        -value => '1',
+                        (
+                              ( $id_data->{$symbol} )
+                            ? ( -checked => 'checked' )
+                            : ()
+                        ),
+                        %cgi_meta
+                    )
                 )
-            )
-          );
+              );
+        }
+        elsif ($method eq 'popup_menu') {
+            my @values;
+            my %labels;
+            my $dropdownOptions = $meta->{dropdownOptions};
+            foreach my $property (@$dropdownOptions) {
+                my ($p_val, $p_lab) = @$property{qw/value label/};
+                push @values, $p_val;
+                $labels{$p_val} = $p_lab;
+            }
+            push @tmp,
+              (
+                $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
+                    $q->$method(
+                        -id    => $symbol,
+                        -name  => $symbol,
+                        -values => \@values,
+                        -labels => \%labels,
+                        -default => $id_data->{$symbol},
+                        %cgi_meta
+                    )
+                )
+              );
+        }
+        else {
+            push @tmp,
+              (
+                $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
+                    $q->$method(
+                        -id    => $symbol,
+                        -name  => $symbol,
+                        -value => $id_data->{$symbol},
+                        %cgi_meta
+                    )
+                )
+              );
+        }
+
     }
     return @tmp;
 }
@@ -1804,6 +1922,9 @@ sub _body_create_read_menu {
 
   # :TODO:09/22/2011 01:36:59:es: fix undefined value bug (appears in Manage...)
   #warn "$self->{_ActionName} eq $args{'create'}->[0]";
+  #warn Dumper(\%args);
+  #warn ((defined $args{'create'}->[0]) ? 'defined' : '?');
+
     return $q->ul(
         { -id => 'cr_menu', -class => 'clearfix' },
         ( $self->{_ActionName} eq $args{'create'}->[0] )

@@ -45,6 +45,57 @@ use constant HELP           => 'help';
 use constant ABOUT          => 'about';
 use constant ERROR_PAGE     => 'error';
 
+#---------------------------------------------------------------------------
+#  begin menu data/functions
+#---------------------------------------------------------------------------
+my $all_resources = {
+    compareExperiments => [
+        'Compare Experiments',
+        'Compare multiple experiments for significant probes'
+    ],
+    findProbes => [
+        'Find Probes',
+        'Search for probes by probe ids, gene symbols, accession numbers'
+    ],
+    outputData  => ['Output Data'],
+    platforms   => ['Manage Platforms'],
+    experiments => ['Manage Experiments'],
+    studies     => ['Manage Studies'],
+    projects    => ['Manage Projects'],
+    users       => ['Manage Users'],
+    uploadData  => [ 'Upload Data', 'Upload data to a new experiment' ],
+    uploadAnnot => [ 'Upload Annotation', 'Upload probe annotations' ],
+};
+
+sub make_link_creator {
+    my ( $resource_table, $q, $current_action ) = @_;
+    my $url_prefix = $q->url( -absolute => 1 );
+    return sub {
+        my @result;
+        foreach my $action (@_) {
+            my $val = $resource_table->{$action};
+            if ( defined $val ) {
+                my ( $label, $title ) = @$val;
+                $title = $label if not defined $title;
+                push @result,
+                  (
+                    ( defined($current_action) && $action eq $current_action )
+                    ? $q->span( { -class => 'pressed_link' }, $label )
+                    : $q->a(
+                        { -href => "$url_prefix?a=$action", -title => $title },
+                        $label
+                    )
+                  );
+            }
+        }
+        return \@result;
+    };
+}
+
+#---------------------------------------------------------------------------
+#  end menu data/functions
+#---------------------------------------------------------------------------
+
 my $q = CGI->new();
 
 my $action =
@@ -250,7 +301,7 @@ while ( defined($action) ) {
     #  User stuff
     #---------------------------------------------------------------------------
         case FORM . LOGIN {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $action = DEFAULT_ACTION;
             }
             else {
@@ -262,7 +313,7 @@ while ( defined($action) ) {
         case LOGIN {
             $s->authenticate( $q->param('username'), $q->param('password'),
                 \$error_string );
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
 
                 my $destination =
                   ( defined( $q->url_param('destination') ) )
@@ -302,13 +353,13 @@ while ( defined($action) ) {
             }
         }
         case LOGOUT {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $s->destroy;
             }
             $action = DEFAULT_ACTION;
         }
         case FORM . RESETPASSWORD {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $action = FORM . CHANGEPASSWORD;
             }
             else {
@@ -318,7 +369,7 @@ while ( defined($action) ) {
             }
         }
         case RESETPASSWORD {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $action = FORM . CHANGEPASSWORD;
             }
             else {
@@ -343,7 +394,7 @@ while ( defined($action) ) {
             }
         }
         case FORM . CHANGEPASSWORD {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $html_title = 'Change Password';
                 $content    = \&form_changePassword;
                 $action     = undef;                         # final state
@@ -353,7 +404,7 @@ while ( defined($action) ) {
             }
         }
         case CHANGEPASSWORD {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 my $old_password =
                   ( defined $q->param('old_password') )
                   ? $q->param('old_password')
@@ -380,7 +431,7 @@ while ( defined($action) ) {
             }
         }
         case FORM . CHANGEEMAIL {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $html_title = 'Change Email';
                 $content    = \&form_changeEmail;
                 $action     = undef;                # final state
@@ -390,7 +441,7 @@ while ( defined($action) ) {
             }
         }
         case CHANGEEMAIL {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 if (
                     $s->change_email(
                         password     => $q->param('password'),
@@ -416,7 +467,7 @@ while ( defined($action) ) {
             }
         }
         case FORM . REGISTER {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $action = DEFAULT_ACTION;
             }
             else {
@@ -426,7 +477,7 @@ while ( defined($action) ) {
             }
         }
         case REGISTER {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $action = DEFAULT_ACTION;
             }
             else {
@@ -457,7 +508,7 @@ while ( defined($action) ) {
             }
         }
         case FORM . UPDATEPROFILE {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 $html_title = 'My Profile';
                 $content    = \&form_updateProfile;
                 $action     = undef;                        # final state
@@ -470,7 +521,7 @@ while ( defined($action) ) {
             $action = DEFAULT_ACTION;
         }
         case VERIFYEMAIL {
-            if ( $s->is_authorized('unauth') ) {
+            if ( $s->is_authorized('') ) {
                 my $t = SGX::Session::Session->new(
                     dbh       => $dbh,
                     expire_in => 3600 * 48,
@@ -656,7 +707,6 @@ sub cgi_end_html {
 }
 #######################################################################################
 sub content_header {
-    my $menu_links = build_menu();
     return $q->div(
         { -id => 'header' },
         $q->h1(
@@ -678,18 +728,7 @@ sub content_header {
         ),
         $q->ul( { -id => 'sidemenu' }, $q->li( build_sidemenu() ) )
       ),
-      $q->div(
-        { -id => 'menu' },
-        map {
-            my $links = $menu_links->{$_};
-            if (@$links) {
-                $q->div( $q->h3($_), $q->ul( $q->li($links) ) );
-            }
-            else {
-                '';
-            }
-          } keys %$menu_links
-      );
+      build_menu();
 }
 #######################################################################################
 sub form_error {
@@ -1116,7 +1155,7 @@ sub module_show_html {
 sub build_sidemenu {
     my @menu;
     my $url_prefix = $q->url( -absolute => 1 );
-    if ( $s->is_authorized('unauth') ) {
+    if ( $s->is_authorized('') ) {
 
         my $proj_name = $s->{session_cookie}->{proj_name};
         my $curr_proj = $s->{session_cookie}->{curr_proj};
@@ -1129,7 +1168,7 @@ sub build_sidemenu {
             $proj_name = 'All Projects';
         }
 
-        # add unauth options
+        # add  options
         push @menu,
           $q->span( { -style => 'color:#999' },
             'Logged in as ' . $s->{session_cookie}->{full_name} );
@@ -1276,109 +1315,23 @@ sub main_text {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_menu {
-    my ( $view, $upload, $manage ) = ( 'Query', 'Upload', 'Manage' );
-    my %menu;
-    my $menu_t = tie(
-        %menu, 'Tie::IxHash',
-        $view   => [],
-        $manage => [],
-        $upload => []
+    return '&nbsp' unless $s->is_authorized('user');
+
+    my $link_creator =
+      make_link_creator( $all_resources, $q, $q->url_param('a') );
+
+    my @menu = (
+        'Query' =>
+          $link_creator->(qw/compareExperiments findProbes outputData/),
+        'Manage' =>
+          $link_creator->(qw/platforms experiments studies projects users/),
+        'Upload' => $link_creator->(qw/uploadData uploadAnnot/)
     );
-    my $url_prefix = $q->url( -absolute => 1 );
 
-    # add user options
-    return \%menu unless $s->is_authorized('user');
-
-    # Query
-    push @{ $menu{$view} },
-      (
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=compareExperiments',
-                -title => 'Compare multiple experiments for significant probes'
-            },
-            'Compare Experiments'
-        ),
-        $q->a(
-            {
-                -href => $url_prefix . '?a=findProbes',
-                -title =>
-'Search for probes by probe ids, gene symbols, accession numbers'
-            },
-            'Find Probes'
-        ),
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=outputData',
-                -title => 'Output Data'
-            },
-            'Output Data'
-        )
-      );
-
-    # Manage
-    push @{ $menu{$manage} },
-      (
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=platforms',
-                -title => 'Manage Platforms'
-            },
-            'Manage Platforms'
-        ),
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=experiments',
-                -title => 'Manage Experiments'
-            },
-            'Manage Experiments'
-        ),
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=studies',
-                -title => 'Manage Studies'
-            },
-            'Manage Studies'
-        ),
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=projects',
-                -title => 'Manage Projects'
-            },
-            'Manage Projects'
-        ),
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=users',
-                -title => 'Manage Users'
-            },
-            'Manage Users'
-        ),
-      );
-
-    # Upload
-    push @{ $menu{$upload} },
-      (
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=uploadData',
-                -title => 'Upload data to a new experiment'
-            },
-            'Upload Data'
-        ),
-        $q->a(
-            {
-                -href  => $url_prefix . '?a=uploadAnnot',
-                -title => 'Upload probe annotations'
-            },
-            'Upload Annotation'
-        )
-      );
-
-    # add admin options
-    #if ($s->is_authorized('admin')) {
-    #}
-
-    return \%menu;
+    my @result;
+    while ( my ( $key, $links ) = splice( @menu, 0, 2 ) ) {
+        push @result, $q->div( $q->h3($key), $q->ul( $q->li($links) ) );
+    }
+    return $q->div( { -id => 'menu' }, ( @result > 0 ) ? @result : '&nbsp' );
 }
 

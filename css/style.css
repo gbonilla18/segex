@@ -47,7 +47,9 @@ h2 {
 h3 {
 	font-size:150%;
 }
-
+.pressed_link {
+	color: #666;
+}
 /*** Cleared Containers ***/
 #header, #menu, div#content, .clearfix, form  {
 	clear:none; /* IE Mac 5.x doesn't like clear:both */

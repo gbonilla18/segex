@@ -8,7 +8,7 @@
 *
 */
 
-var highlightEditableCell = function(oArgs) { 
+function highlightEditableCell(oArgs) { 
     var elCell = oArgs.target; 
     if (YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
         this.highlightCell(elCell); 
@@ -57,7 +57,6 @@ function createCellDropdown(transformed_data, field, resourceURIBuilder, updateD
 }
 function cellDropdown(resourceURIBuilder, rowNameBuilder) {
     return function(table_info, field, subName) {
-        /* uses createCellUpdater in TableUpdateDelete.js */
         var updateDataBuilder = function(field, newValue) {
             return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
         };
@@ -71,7 +70,14 @@ function cellDropdown(resourceURIBuilder, rowNameBuilder) {
         return createCellDropdown(transformed_data, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
     };
 }
-
+function cellDropdownDirect(resourceURIBuilder, rowNameBuilder) {
+    return function(field, rename_array) {
+        var updateDataBuilder = function(field, newValue) {
+            return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
+        };
+        return createCellDropdown(rename_array, field, resourceURIBuilder, updateDataBuilder, rowNameBuilder);
+    };
+}
 function createCellUpdater(field, resourceURIBuilder, updateDataBuilder, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
@@ -204,6 +210,16 @@ function createJoinFormatter(table_info, field) {
         elCell.innerHTML = (typeof sub_record !== "undefined") ? sub_record[sub_col] : '';
     };
 }
+function createRenameFormatter(rename_array) {
+    var rename_hash = {};
+    for (var i = 0, len = rename_array.length; i < len; i++) {
+        var obj = rename_array[i];
+        rename_hash[obj.value] = obj.label;
+    }
+    return function(elCell, oRecord, oColumn, oData) {
+        elCell.innerHTML = rename_hash[oData];
+    };
+}
 function newDataSourceFromArrays(struct) {
     var ds = new YAHOO.util.DataSource(struct.records);
     ds.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
@@ -221,7 +237,6 @@ function expandJoinedFields(mainTable, lookupTables) {
             tmp[lookup_by] = [ [lookupTable, obj] ];
         }
     }
-    // if joined field not editable (no dropdown formatter), make it sortable.
     var mainTable_fields = mainTable.fields,
     mainTable_records = mainTable.records,
     num_records = mainTable_records.length,
@@ -256,8 +271,11 @@ function expandJoinedFields(mainTable, lookupTables) {
                     );
                 }
             }
-            // now for each record in data array, add field value for the
-            // corresponding join field.
+            // For each record in data array, add field value for the
+            // corresponding join field.  TODO: if joined field not editable (no
+            // dropdown formatter), make it sortable (fully subsitute key
+            // values). Problem: how to tell that the joined field has no
+            // dropdown formatter?
             for (var i = 0; i < num_records; i++) {
                 var record = mainTable_records[i];
                 var field_value = record[k];
@@ -308,3 +326,9 @@ function subscribeEnMasse(el, obj) {
         el.subscribe(event, handler);
     }
 }
+
+// helper functions
+function formatEmail(elLiner, oRecord, oColumn, oData) {
+    elLiner.innerHTML = "<a href=\"mailto:" + oData + "\">" + oData + "</a>";
+};
+

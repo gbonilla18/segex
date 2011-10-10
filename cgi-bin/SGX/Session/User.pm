@@ -107,7 +107,7 @@ The table `users' is created as follows:
         `full_name` varchar(100) NOT NULL,
         `address` varchar(200) default NULL,
         `phone` varchar(60) default NULL,
-        `level` enum('unauth','user','admin') NOT NULL,
+        `level` enum('','user','admin') NOT NULL,
         `email_confirmed` tinyint(1) default '0',
         PRIMARY KEY  (`uid`),
         UNIQUE KEY `uname` (`uname`)
@@ -1002,10 +1002,10 @@ sub is_authorized {
             return 1;
         }
     }
-    elsif ( $req_user_level eq 'unauth' ) {
+    elsif ( $req_user_level eq '' ) {
         if (   $current_level eq 'admin'
             || $current_level eq 'user'
-            || $current_level eq 'unauth' )
+            || $current_level eq '' )
         {
             return 1;
         }

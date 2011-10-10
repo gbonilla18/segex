@@ -32,7 +32,6 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
-use SGX::Abstract::JSEmitter qw/true false/;
 use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================
@@ -47,7 +46,6 @@ use SGX::Abstract::Exception;
 #===============================================================================
 sub new {
     my ( $class, @param ) = @_;
-
     my $self = $class->SUPER::new(@param);
 
     $self->_set_attributes(
@@ -62,13 +60,16 @@ sub new {
                     qw/uname full_name address phone level email email_confirmed/
                 ],
                 view => [
-                    qw/uname full_name address phone level email email_confirmed/
+                    qw/uname full_name address phone level email email_confirmed udate/
                 ],
                 resource => 'users',
                 names    => [qw/uname/],
                 meta     => {
-                    email => { label => 'Email' },
-                    uid   => {
+                    email => {
+                        label     => 'Email',
+                        formatter => sub { 'formatEmail' }
+                    },
+                    uid => {
                         label  => 'ID',
                         parser => 'number'
                     },
@@ -78,13 +79,25 @@ sub new {
                         label    => 'Address',
                         __type__ => 'textarea',
                     },
-                    phone           => { label => 'Phone' },
-                    level           => { label => 'Permissions' },
+                    phone => { label => 'Phone' },
+                    level => {
+                        label           => 'Permissions',
+                        __type__        => 'popup_menu',
+                        dropdownOptions => [
+                            { value => '',      label => 'Not Granted' },
+                            { value => 'user',  label => 'User' },
+                            { value => 'admin', label => 'Administrator' }
+                        ]
+                    },
                     email_confirmed => {
-                        __type__ => 'checkbox',
-                        label    => 'Email Confirmed',
-                        parser   => 'number'
-                    }
+                        __type__        => 'checkbox',
+                        label           => 'Email Confirmed',
+                        dropdownOptions => [
+                            { value => '0', label => 'No' },
+                            { value => '1', label => 'Yes' }
+                        ]
+                    },
+                    udate => { label => 'Date Created', }
                 },
             }
         },
@@ -193,7 +206,10 @@ sub readrow_body {
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
     return $q->h2('Editing User'),
 
-      $self->_body_create_read_menu( 'read' => [ undef, 'Edit User' ] ),
+      $self->_body_create_read_menu(
+        'read'   => [ undef,         'Edit User' ],
+        'create' => [ 'form_assign', 'Assign' ]
+      ),
       $q->h3('Set User Attributes'),
 
       # Resource URI: /projects/id

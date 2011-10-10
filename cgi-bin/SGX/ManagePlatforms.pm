@@ -32,7 +32,6 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
-use SGX::Abstract::JSEmitter qw/true false/;
 use SGX::Abstract::Exception;
 use SGX::Model::ProjectStudyExperiment;
 
@@ -417,7 +416,7 @@ sub get_pse_dropdown_js {
         %args
     );
 
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    my $js = $self->{_js_emitter};
 
     my $q    = $self->{_cgi};
     my $prid = $self->{_id};
@@ -464,6 +463,7 @@ sub get_pse_dropdown_js {
             sub { 'window' },
             'load',
             $js->lambda(
+                [],
                 $js->apply(
                     'populateProject.apply', [ sub { 'currentSelection' } ],
                 ),
@@ -488,6 +488,7 @@ sub get_pse_dropdown_js {
                 [
                     'prid', 'change',
                     $js->lambda(
+                        [],
                         (
                             ( $args{projects} && $args{studies} )
                             ? (
@@ -512,6 +513,7 @@ sub get_pse_dropdown_js {
                 [
                     'prid', 'change',
                     $js->lambda(
+                        [],
                         $js->apply(
                             'populateProjectStudy.apply',
                             [ sub { 'currentSelection' } ],

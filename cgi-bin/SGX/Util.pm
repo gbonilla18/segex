@@ -8,7 +8,8 @@ use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK =
-  qw/trim max min bounds label_format replace all_match count_gtzero/;
+  qw/trim max min bounds label_format replace all_match count_gtzero
+  inherit_hash enum_array/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -44,7 +45,7 @@ our @EXPORT_OK =
 #                $bar->('', undef);              # true
 #                $bar->('', 'foo');              # false
 #
-#     SEE ALSO:  
+#     SEE ALSO:
 # https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/every
 #===============================================================================
 sub all_match {
@@ -64,7 +65,7 @@ sub all_match {
 #       THROWS:  no exceptions
 #     COMMENTS:  This function is conceptually similar to Javascript some()
 #                array method.
-#     SEE ALSO:  
+#     SEE ALSO:
 # https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/some
 #===============================================================================
 sub count_gtzero { my $c = 0; defined && $_ > 0 && $c++ for @_; return $c }
@@ -166,6 +167,55 @@ sub trim {
     $string =~ s/\s*$//;
 
     return $string;
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  inherit_hash
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Designed such that it could also be read as:
+#                $x->inherit_hash({}). Hash %$x overrides keys present in %$y
+#                unless those keys are other hashes, in which case the function
+#                descends recursively. %$y is not modified; %$x is. Also
+#                allowing syntax:
+#
+#                my $x = inherit_hash({ prop1 => 'val2'}, { prop2 => 'val2'});
+#
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub inherit_hash {
+    my ( $x, $y ) = @_;
+    foreach my $ykey ( keys %$y ) {
+        my $yval = $y->{$ykey};
+        if ( exists $x->{$ykey} ) {
+            my $xval = $x->{$ykey};
+            if ( ref $yval eq 'HASH' and ref $xval eq 'HASH' ) {
+                inherit_hash( $xval, $yval );
+            }
+        }
+        else {
+            $x->{$ykey} = $yval;
+        }
+    }
+    return $x;
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  enum_array
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub enum_array {
+    my $i = 0;
+    return +{ map { $_ => $i++ } @$_ };
 }
 
 1;
