@@ -46,8 +46,8 @@ CREATE TABLE `StudyExperiment` (
   PRIMARY KEY (`stid`,`eid`),
   KEY `eid` (`eid`),
   KEY `stid` (`stid`),
-  CONSTRAINT `studyexperiment_ibfk_2` FOREIGN KEY (`stid`) REFERENCES `study` (`stid`) ON DELETE CASCADE,
-  CONSTRAINT `studyexperiment_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE
+  CONSTRAINT `studyexperiment_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE,
+  CONSTRAINT `studyexperiment_ibfk_2` FOREIGN KEY (`stid`) REFERENCES `study` (`stid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -82,7 +82,8 @@ CREATE TABLE `experiment` (
   `AdditionalInformation` varchar(1023) NOT NULL DEFAULT '',
   `pid` int(10) unsigned NOT NULL,
   PRIMARY KEY (`eid`),
-  KEY `pid` (`pid`)
+  KEY `pid` (`pid`),
+  CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=115 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -125,8 +126,8 @@ CREATE TABLE `microarray` (
   PRIMARY KEY (`eid`,`rid`),
   KEY `rid` (`rid`),
   KEY `eid` (`eid`),
-  CONSTRAINT `microarray_ibfk_2` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE,
-  CONSTRAINT `microarray_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE
+  CONSTRAINT `microarray_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE,
+  CONSTRAINT `microarray_ibfk_2` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -216,7 +217,7 @@ CREATE TABLE `study` (
   PRIMARY KEY (`stid`),
   UNIQUE KEY `pid_description` (`pid`,`description`),
   KEY `pid` (`pid`),
-  CONSTRAINT `study_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
+  CONSTRAINT `study_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -235,8 +236,9 @@ CREATE TABLE `users` (
   `full_name` varchar(255) NOT NULL DEFAULT '',
   `address` varchar(255) NOT NULL DEFAULT '',
   `phone` varchar(127) NOT NULL DEFAULT '',
-  `level` enum('unauth','user','admin') NOT NULL DEFAULT 'unauth',
+  `level` enum('','user','admin') NOT NULL DEFAULT '',
   `email_confirmed` tinyint(1) DEFAULT '0',
+  `udate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`),
   UNIQUE KEY `uname` (`uname`)
 ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=latin1;
