@@ -223,7 +223,7 @@ sub readrow_head {
     my $table = 'study';
 
     # add extra table showing studies
-    $self->generate_datatable( 'study', remove_row => ['unassign'] );
+    $self->generate_datatable( 'study' );
 
     return 1;
 }

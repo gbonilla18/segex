@@ -343,7 +343,20 @@ sub _head_data_table {
                                 'createRowDeleter',
                                 [
                                     $deletePhrase[0],
-                                    $var->{resourceURIBuilder},
+                                    (
+                                        ( defined $self->{_id} )
+
+                                        # if id, only POST delete requests to
+                                        # current URI
+                                        ? $js->apply(
+                                            'createResourceURIBuilder',
+                                            [ $self->request_uri() ]
+                                          )
+
+                                          # otherwise, use standard per-row
+                                          # resource URI builder
+                                        : $var->{resourceURIBuilder}
+                                    ),
                                     $var->{deleteDataBuilder},
                                     $var->{rowNameBuilder}
                                 ]
