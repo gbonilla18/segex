@@ -10,7 +10,7 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK =
   qw/trim max min bounds label_format replace all_match count_gtzero
-  inherit_hash enum_array array2hash list_keys list_keys tuples car cdr/;
+  inherit_hash enum_array array2hash list_keys list_values tuples car cdr/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty

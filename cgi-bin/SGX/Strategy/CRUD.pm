@@ -33,7 +33,7 @@ use Lingua::EN::Inflect qw/PL_N/;
 # autoformat('nice shoes', { case => 'title'});
 use Text::Autoformat qw/autoformat/;
 
-use SGX::Util qw/inherit_hash tuples car cdr/;
+use SGX::Util qw/inherit_hash tuples car cdr list_values/;
 use SGX::Abstract::Exception;
 use SGX::Debug;
 
@@ -128,10 +128,10 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     #  setup
     #---------------------------------------------------------------------------
-    my $item_name  = $self->get_item_name($table);
-    my $remove_row = $args{remove_row} || {};
-    my $view_row   = $args{view_row} || {};
-    my @editPhrase   = ( ( $view_row->{verb}   || 'edit' ),   $item_name );
+    my $item_name    = $self->get_item_name($table);
+    my $remove_row   = $args{remove_row} || {};
+    my $view_row     = $args{view_row} || {};
+    my @editPhrase   = ( ( $view_row->{verb} || 'edit' ), $item_name );
     my @deletePhrase = ( ( $remove_row->{verb} || 'delete' ), $item_name );
 
     my $js  = $self->{_js_emitter};
@@ -878,7 +878,13 @@ sub _head_column_def {
     my %mutable =
       map { $_ => 1 } $self->_select_fields(
         table    => $table_info,
-        fieldset => 'view',
+        fieldset => [
+            $self->_select_fields(
+                table    => $table_info,
+                fieldset => 'view'
+            ),
+            map { $_->[0] } list_values( @{ $table_info->{lookup} } )
+        ],
         omitting => '__readonly__'
       );
 
@@ -2243,8 +2249,7 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } )
-      ),
+        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } ) ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
