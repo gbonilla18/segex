@@ -129,9 +129,13 @@ sub new {
                 selectors => {},
                 names     => [qw/sample1 sample2/],
                 meta      => {
-                    eid     => { label => 'No.', parser => 'number' },
-                    sample1 => { label => 'Sample 1' },
-                    sample2 => { label => 'Sample 2' },
+                    eid => {
+                        label        => 'No.',
+                        parser       => 'number',
+                        __readonly__ => 1
+                    },
+                    sample1               => { label => 'Sample 1' },
+                    sample2               => { label => 'Sample 2' },
                     ExperimentDescription => { label => 'Description' },
                     AdditionalInformation => { label => 'Additional Info' },
                 },

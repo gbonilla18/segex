@@ -136,8 +136,9 @@ sub new {
                 names     => [qw/sample1 sample2/],
                 meta      => {
                     eid => {
-                        label  => 'No.',
-                        parser => 'number',
+                        label        => 'No.',
+                        parser       => 'number',
+                        __readonly__ => 1
                     },
                     sample1 => {
                         label      => 'Sample 1',
