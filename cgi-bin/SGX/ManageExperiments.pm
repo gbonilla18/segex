@@ -219,16 +219,8 @@ sub new {
         _readrow_tables =>
           [ 'study' => { remove_row => [ 'unassign' => 'StudyExperiment' ] } ],
 
-        # :TODO:10/05/2011 16:35:27:es: can generate _title automatically from
-        # _item_name
-        _title     => 'Manage Experiments',
-        _item_name => 'Experiment',
-
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
-
-        _id      => undef,
-        _id_data => {},
     );
 
     $self->register_actions(

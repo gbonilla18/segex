@@ -52,7 +52,8 @@ sub new {
 
         _table_defs => {
             'users' => {
-                key => [qw/uid/],
+                item_name => 'user',
+                key       => [qw/uid/],
 
                 # table key to the left, URI param to the right
                 selectors => { uname => 'uname' },
@@ -68,6 +69,7 @@ sub new {
                     email => {
                         label     => 'Email',
                         formatter => sub { 'formatEmail' },
+                        -size     => 35
                     },
                     uid => {
                         label  => 'ID',
@@ -108,13 +110,6 @@ sub new {
             }
         },
         _default_table => 'users',
-        _title         => 'Manage Users',
-        _item_name     => 'User',
-
-        _id                => undef,
-        _id_data           => {},
-        _Field_IndexToName => undef,
-        _data              => undef,
     );
 
     bless $self, $class;

@@ -25,8 +25,17 @@ use base qw/SGX::Strategy::Base/;
 use Carp;
 use Tie::IxHash;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/inherit_hash tuples car cdr/;
 
+# pluralise English nouns and pronouns
+# PL_N('word', 2);
+use Lingua::EN::Inflect qw/PL_N/;
+
+# capitalize first letters of words in titles
+# autoformat('nice shoes', { case => 'title'});
+use Text::Autoformat qw/autoformat/;
+
+use SGX::Util qw/inherit_hash tuples car cdr/;
+use SGX::Abstract::Exception;
 use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
@@ -50,10 +59,14 @@ sub new {
     $self->set_attributes(
         dom_table_id       => 'crudTable',
         dom_export_link_id => 'crudTable_astext',
-        _other             => {},
-        _js_emitter        => $js,
-        _js_env            => $js->register_var( '_glob', [qw/lookupTables/] ),
-        _js_buffer         => []
+
+        _js_emitter => $js,
+        _js_env     => $js->register_var( '_glob', [qw/lookupTables/] ),
+        _js_buffer  => [],
+
+        _other   => {},
+        _id      => undef,
+        _id_data => {}
     );
 
     # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?
@@ -425,7 +438,12 @@ sub dispatch_js {
     return if $self->redirect_unauth('user');    # do not show body on redirect
 
     $self->_head_init();
-    $self->set_title( $self->{_title} );
+    $self->set_title(
+        autoformat(
+            'manage ' . PL_N( $self->get_item_name(), 2 ),
+            { case => 'title' }
+        )
+    );
 
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
@@ -572,12 +590,32 @@ sub readrow_head {
 
     # other tables if any are specified
     foreach ( tuples( $self->{_readrow_tables} ) ) {
-        my ( $table, $opts ) = @$_;
+        my ( $table => $opts ) = @$_;
         $self->generate_datatable( $table, %$opts );
     }
 
     $self->_js_dump_lookups();
     $self->_js_populate_dropdowns();    # will use default table
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  readrow_tables
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub readrow_body_tables {
+    my $self = shift;
+
+    foreach ( tuples( $self->{_readrow_tables} ) ) {
+        my ( $table => $opts ) = @$_;
+
+    }
     return 1;
 }
 
@@ -618,6 +656,10 @@ sub generate_datatable {
     my ( $self, $table,      %args ) = @_;
     my ( $q,    $table_defs, $code ) = @$self{qw/_cgi _table_defs _js_buffer/};
     my $table_info = $table_defs->{$table};
+
+    SGX::Exception::Internal->throw(
+        error => "Missing definition for table `$table`" )
+      if not defined $table_info;
 
     $self->_readall_command($table)->();
 
@@ -1896,12 +1938,14 @@ sub _meta_get_cgi {
     return (
 
         # defaults
-        -title => (
+        -title => autoformat(
             (
-                  ( $method eq 'textfield' ) ? 'Enter'
+                  ( $method =~ m/^text/ ) ? 'Enter'
                 : ( ( $method eq 'popup_menu' ) ? 'Choose' : 'Set' )
             )
-            . " $label"
+            . ' '
+              . $label,
+            { case => 'title' }
         ),
         (
               ( $meta->{__readonly__} && !$args{unlimited} )
@@ -2177,6 +2221,27 @@ sub _js_populate_dropdowns {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  get_item_name
+#   PARAMETERS:  $table -- table name
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_item_name {
+    my $self = shift;
+    my $table = shift || $self->{_default_table};
+
+    my $table_defs = $self->{_table_defs}     || {};
+    my $table_info = $table_defs->{$table}    || {};
+    my $item_name  = $table_info->{item_name} || $table;
+
+    return $item_name;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  form_create_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -2187,17 +2252,26 @@ sub _js_populate_dropdowns {
 #===============================================================================
 sub form_create_body {
     my $self = shift;
-    my ( $q, $item_name ) = @$self{qw/_cgi _item_name/};
+    my $q    = $self->{_cgi};
 
     return
 
       # container stuff
-      $q->h2( $self->{_title} ),
+      $q->h2(
+        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } ) ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
-      $q->h3("Create New $item_name"),
+      $q->h3(
+        autoformat(
+            'create new ' . $self->get_item_name(),
+            {
+                case => 'title
+                  '
+            }
+        )
+      ),
 
       # form
       $self->body_create_update_form( mode => 'create' );
@@ -2218,7 +2292,7 @@ sub body_create_update_form {
     my %args = @_;
     my $mode = $args{mode} || 'create';
 
-    my ( $q, $js, $item_name ) = @$self{qw/_cgi _js_emitter _item_name/};
+    my ( $q, $js ) = @$self{qw/_cgi _js_emitter/};
 
     # will select from: default table / base fieldset / omitting optional fields
     # / no dealiasing.
@@ -2250,7 +2324,10 @@ sub body_create_update_form {
             $q->submit(
                 -class => 'button black bigrounded',
                 -value => $mode,
-                -title => "$mode " . lc($item_name)
+                -title => autoformat(
+                    $mode . ' ' . $self->get_item_name(),
+                    { case => 'title' }
+                )
             )
         )
       ),
@@ -2381,7 +2458,8 @@ sub body_create_read_menu {
                     {
                         -href =>
                           $self->get_resource_uri( b => $args{'read'}->[0] ),
-                        -title => lc( $args{'read'}->[1] )
+                        -title =>
+                          autoformat( $args{'read'}->[1], { case => 'title' } )
                     },
                     $args{'read'}->[1]
                 )
@@ -2395,7 +2473,10 @@ sub body_create_read_menu {
                     {
                         -href =>
                           $self->get_resource_uri( b => $args{'create'}->[0] ),
-                        -title => 'show form to ' . lc( $args{'create'}->[1] )
+                        -title => autoformat(
+                            $args{'create'}->[1] . ' ' . $self->get_item_name(),
+                            { case => 'title' }
+                        )
                     },
                     $args{'create'}->[1]
                 )

@@ -61,8 +61,8 @@ sub new {
                 constraint => [ prid => sub { shift->{_id} } ]
             },
             'project' => {
-                key      => [qw/prid/],
                 resource => 'projects',
+                key      => [qw/prid/],
                 view     => [qw/prname prdesc/],
                 base     => [qw/prname prdesc manager/],
 
@@ -119,6 +119,7 @@ sub new {
                 join   => [ ProjectStudy => [ stid => 'stid' ] ]
             },
             'users' => {
+                item_name => 'user', # singular, plural
                 key   => [qw/uid/],
                 view  => [qw/full_name/],
                 names => [qw/full_name/],
@@ -142,16 +143,9 @@ sub new {
         _default_table => 'project',
         _readrow_tables =>
           [ 'study' => { remove_row => [ 'unassign' => 'ProjectStudy' ] } ],
-        _title     => 'Manage Projects',
-        _item_name => 'Project',
 
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
-
-        _id                => undef,
-        _id_data           => {},
-        _Field_IndexToName => undef,
-        _data              => undef,
     );
 
     $self->register_actions(

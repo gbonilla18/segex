@@ -105,6 +105,41 @@ sub new {
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
             },
+
+            #'project' => {
+            #    key      => [qw/prid/],
+            #    resource => 'projects',
+            #    view     => [qw/prname prdesc/],
+            #    base     => [qw/prname prdesc manager/],
+
+            #    # table key to the left, URI param to the right
+            #    selectors => { manager => 'manager' },
+            #    names     => [qw/prname/],
+            #    meta      => {
+            #        prid => {
+            #            label  => 'No.',
+            #            parser => 'number'
+            #        },
+            #        manager => {
+            #            label        => 'Managing User',
+            #            parser       => 'number',
+            #            __type__     => 'popup_menu',
+            #            __hidden__   => 1,
+            #            __optional__ => 1
+            #        },
+            #        prname => {
+            #            label      => 'Project Name',
+            #            -maxlength => 255,
+            #            -size      => 55
+            #        },
+            #        prdesc => {
+            #            label        => 'Description',
+            #            __optional__ => 1,
+            #            -maxlength   => 255,
+            #            -size        => 55
+            #        }
+            #    },
+            #},
             'platform' => {
                 key   => [qw/pid/],
                 view  => [qw/pname species/],
@@ -161,16 +196,13 @@ sub new {
         _default_table  => 'study',
         _readrow_tables => [
             'experiment' =>
-              { remove_row => [ 'unassign' => 'StudyExperiment' ] }
+              { remove_row => [ 'unassign' => 'StudyExperiment' ] },
+
+            #'project' => { remove_row => [ 'unassign' => 'ProjectStudy' ] },
         ],
-        _title     => 'Manage Studies',
-        _item_name => 'Study',
 
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
-
-        _id      => undef,
-        _id_data => {},
     );
 
     $self->register_actions(
@@ -277,7 +309,7 @@ sub default_body {
 #       METHOD:  form_assign_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -309,7 +341,7 @@ sub form_assign_head {
 #       METHOD:  form_assign_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -425,9 +457,9 @@ sub readrow_body {
 #       METHOD:  get_pse_dropdown_js
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  
+#     COMMENTS:
 # # :TODO:10/08/2011 11:36:24:es: Isolate this method outside this class
 #     SEE ALSO:  n/a
 #===============================================================================

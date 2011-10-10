@@ -185,12 +185,6 @@ sub new {
         _default_table  => 'platform',
         _readrow_tables => [ 'study' => {} ],
 
-        _title     => 'Manage Platforms',
-        _item_name => 'Platform',
-
-        _id      => undef,
-        _id_data => {},
-
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
 
