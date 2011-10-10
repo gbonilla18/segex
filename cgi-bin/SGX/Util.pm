@@ -250,7 +250,7 @@ sub tuples {
     my $list = shift || [];
     return unless @$list;
     map { [ $list->[ $_ + $_ ] => $list->[ $_ + $_ + 1 ] ] }
-      0 .. ( @$list - 1 ) / 2;
+      0 .. ( $#$list / 2 );
 }
 
 #===  FUNCTION  ================================================================
@@ -283,12 +283,10 @@ sub list_values {
     @_[ grep { $_ % 2 } 0 .. $#_ ];
 }
 
-
 #---------------------------------------------------------------------------
 #  Some Lisp-like stuff: http://okmij.org/ftp/Perl/Scheme-in-Perl.txt
 #---------------------------------------------------------------------------
-sub car { $_[0] }   # car List -> Atom  -- the head of the list
-sub cdr { shift; @_ }   # cdr List -> List -- the tail of the list
-
+sub car { $_[0] }        # car List -> Atom  -- the head of the list
+sub cdr { shift; @_ }    # cdr List -> List -- the tail of the list
 
 1;

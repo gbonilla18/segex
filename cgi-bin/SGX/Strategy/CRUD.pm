@@ -25,7 +25,7 @@ use base qw/SGX::Strategy::Base/;
 use Carp;
 use Tie::IxHash;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/inherit_hash tuples cdr/;
+use SGX::Util qw/inherit_hash tuples car cdr/;
 
 use SGX::Debug;
 
@@ -704,7 +704,13 @@ sub default_create {
     # newly created resource.
 
     my ( $dbh, $table ) = @$self{qw/_dbh _default_table/};
-    my $id_column = $self->{_table_defs}->{$table}->{key}->[0];
+
+    #my $id_column = $self->{_table_defs}->{$table}->{key}->[0];
+    my $id_column = car _select_fields(
+        $self->{_table_defs}->{$table},
+        from    => 'key',
+        dealias => '__sql__'
+    );
     my $insert_id = $dbh->last_insert_id( undef, undef, $table, $id_column );
 
     if ( defined $insert_id ) {
@@ -790,7 +796,8 @@ sub _head_column_def {
     my $meta       = $table_info->{meta};
 
     my %mutable =
-      map { $_ => 1 } $self->_get_mutable( table_info => $table_info );
+      map { $_ => 1 }
+      _select_fields( $table_info, from => 'view', omit => '__readonly__' );
 
     my $js                   = $args{js_emitter};
     my $data_table           = $args{data_table};
@@ -1115,12 +1122,6 @@ sub _readall_command {
         labels => $composite_labels,
         fields => 'view'
     );
-
-    # If _id is not set, rely on selectors only. If _id is set, use
-    # default_table._id *and* selectors on the second table.
-    #
-    my ( $this_key, $default_key ) =
-      ( $key->[0], $table_defs->{$default_table}->{key}->[0] );
 
     # :TRICKY:09/28/2011 12:26:49:es: _build_select modifies $composite_labels
     # as well as $new_opts
@@ -1492,13 +1493,14 @@ sub _readrow_command {
     my $table_info = $table_defs->{$table_alias};
     return if not $table_info;
 
-    my ( $key, $fields ) = @$table_info{qw/key base/};
-
-    return if @$key != 1;
+    my @key =
+      _select_fields( $table_info, from => 'key', dealias => '__sql__' );
+    return if @key != 1;
 
     my $table = $table_info->{table} || $table_alias;
-    my $predicate = join( ' AND ', map { "$_=?" } @$key );
-    my $read_fields = join( ',', @$fields );
+    my $predicate = join( ' AND ', map { "$_=?" } @key );
+    my $read_fields = join( ',',
+        _select_fields( $table_info, from => 'base', dealias => '__sql__' ) );
     my $query =
       "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
@@ -1512,7 +1514,7 @@ sub _readrow_command {
         return;
     };
 
-    my @params = ( $self->{_id}, ( map { $q->param($_) } cdr @$key ) );
+    my @params = ( $self->{_id}, ( map { $q->param($_) } cdr @key ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1548,10 +1550,11 @@ sub _delete_command {
     my $table_info = $self->{_table_defs}->{$table};
     return if not $table_info;
 
-    my $key       = $table_info->{key};
-    my $predicate = join( ' AND ', map { "$_=?" } @$key );
+    my @key =
+      _select_fields( $table_info, from => 'key', dealias => '__sql__' );
+    my $predicate = join( ' AND ', map { "$_=?" } @key );
     my $query     = "DELETE FROM $table WHERE $predicate";
-    my @params    = ( $self->{_id}, ( map { $q->param($_) } cdr @$key ) );
+    my @params    = ( $self->{_id}, ( map { $q->param($_) } cdr @key ) );
 
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1589,9 +1592,10 @@ sub _assign_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
-    my $id  = $self->{_id};
-    my $key = $table_info->{key};
-    return if ( !defined($id) || @$key != 2 );
+    my $id = $self->{_id};
+    my @key =
+      _select_fields( $table_info, from => 'key', dealias => '__sql__' );
+    return if ( !defined($id) || @key != 2 );
 
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
@@ -1600,7 +1604,7 @@ sub _assign_command {
     # Note: we make exception when inserting a record when resource id is
     # already present: in those cases we create links.
 
-    my $assignment = join( ',', @$key );
+    my $assignment = join( ',', @key );
     my $query      = "INSERT IGNORE INTO $table ($assignment) VALUES (?,?)";
     my $sth        = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1608,7 +1612,7 @@ sub _assign_command {
         return;
     };
 
-    my @param_set = ( $q->param( $key->[1] ) );
+    my @param_set = ( $q->param( $key[1] ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1646,7 +1650,7 @@ sub _create_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
-    my ( $key, $meta, $fields ) = @$table_info{qw/key meta base/};
+    my ( $key, $fields ) = @$table_info{qw/key base/};
     return if defined $id and @$key < 2;
 
     # If param($field) evaluates to undefined, then we do not set the field.
@@ -1656,13 +1660,19 @@ sub _create_command {
     # Note: we make exception when inserting a record when resource id is
     # already present: in those cases we create links.
 
-    my $translate_key = $self->_get_param_keys($meta);
     my @assigned_fields =
         ( defined $id )
-      ? ( $fields->[0], map { $translate_key->($_) } cdr @$fields )
-      : map { $translate_key->($_) } @$fields;
+      ? ( $fields->[0], grep { defined $q->param($_) } cdr @$fields )
+      : grep { defined $q->param($_) } @$fields;
 
-    my $assignment = join( ',', @assigned_fields );
+    my $assignment = join(
+        ',',
+        _select_fields(
+            $table_info,
+            from    => \@assigned_fields,
+            dealias => '__sql__'
+        )
+    );
     my $placeholders = join( ',', map { '?' } @assigned_fields );
     my $query = "INSERT INTO $table ($assignment) VALUES ($placeholders)";
     my $sth = eval { $dbh->prepare($query) } or do {
@@ -1671,7 +1681,7 @@ sub _create_command {
         return;
     };
 
-    my $translate_val = $self->_get_param_values($meta);
+    my $translate_val = $self->_get_param_values($table_info->{meta});
     my @params =
         ( defined $id )
       ? ( $id, map { $translate_val->($_) } cdr @assigned_fields )
@@ -1683,27 +1693,6 @@ sub _create_command {
         my $rc = $sth->execute(@params);
         $sth->finish;
         return $rc;
-    };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _get_param_keys
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub _get_param_keys {
-    my ( $self, $meta ) = @_;
-    my $q = $self->{_cgi};
-    return sub {
-        my $field     = shift;
-        my $this_meta = $meta->{$field} || {};
-        my $type      = $this_meta->{__type__} || 'textfield';
-        return ( defined $q->param($field) ) ? ($field) : ();
     };
 }
 
@@ -1726,34 +1715,59 @@ sub _get_param_values {
         my $this_meta = $meta->{$param} || {};
         my $type      = $this_meta->{__type__};
         if ( !defined($type) ) {
-            return @result;
+            return car(@result);
         }
         elsif ( $type eq 'checkbox' ) {
             return ( @result > 1 ) ? 1 : 0;
         }
         else {
-            return @result;
+            return car(@result);
         }
     };
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _get_mutable
+#       METHOD:  _select_fields
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Gets all fields from {base} that not have -disabled key in
-#                {meta}.
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _get_mutable {
-    my ( $self, %args ) = @_;
-    my $table_info = $args{table_info}
-      || $self->{_table_defs}->{ $args{table_name} };
-    my ( $fields, $meta ) = @$table_info{qw/base meta/};
-    return grep { !$meta->{$_}->{__readonly__} } @$fields;
+sub _select_fields {
+    my ( $table_info, %args ) = @_;
+    my $meta = $table_info->{meta} || {};
+
+    # step 0: set up source
+    my $list = $args{from};
+    my $fields =
+      ( ref $list eq 'ARRAY' )
+      ? $list
+      : ( $table_info->{ $list || 'base' } || [] );
+
+    # step 1: filter
+    my $filter_on = $args{omit};
+    my $filter    = ($filter_on)
+      ? sub {
+        grep { !defined( $meta->{$_} ) || !$meta->{$_}->{$filter_on} } @_;
+      }
+      : sub { @_ };
+
+    # step 2: dealias
+    my $dealias_on = $args{dealias};
+    my $dealias    = ($dealias_on)
+      ? sub {
+        map {
+                ( defined $meta->{$_} )
+              ? ( $meta->{$_}->{$dealias_on} || $_ )
+              : $_
+        } @_;
+      }
+      : sub { @_ };
+
+    return $dealias->( $filter->(@$fields) );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1822,19 +1836,29 @@ sub _update_command {
     my $table_info = $self->{_table_defs}->{$table};
     return if not $table_info;
 
-    my ( $key, $meta ) = @$table_info{qw/key meta/};
-
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
     # specifically map a special character (for example, an empty string), to
     # NULL.
-    my $translate_key = $self->_get_param_keys($meta);
-    my @fields_to_update =
-      map { $translate_key->($_) }
-      $self->_get_mutable( table_info => $table_info );
+    my @fields_to_update = grep { defined $q->param($_) } _select_fields(
+        $table_info,
+        from => 'base',
+        omit => '__readonly__'
+    );
 
-    my $assignment = join( ',',     map { "$_=?" } @fields_to_update );
-    my $predicate  = join( ' AND ', map { "$_=?" } @$key );
+    my $assignment = join(
+        ',',
+        map { "$_=?" } _select_fields(
+            $table_info,
+            from    => \@fields_to_update,
+            dealias => '__sql__'
+        )
+    );
+
+    my @key =
+      _select_fields( $table_info, from => 'key', dealias => '__sql__' );
+
+    my $predicate = join( ' AND ', map { "$_=?" } @key );
     my $query = "UPDATE $table SET $assignment WHERE $predicate";
 
     my $sth = eval { $dbh->prepare($query) } or do {
@@ -1842,10 +1866,12 @@ sub _update_command {
         carp $error;
         return;
     };
-    my $translate_val = $self->_get_param_values($meta);
+
+    # assuming that $self->{_id} corresponds to the first key field
+    my $translate_val = $self->_get_param_values( $table_info->{meta} );
     my @params        = (
         ( map { $translate_val->($_) } @fields_to_update ),
-        $self->{_id}, ( map { $translate_val->($_) } cdr @$key )
+        $self->{_id}, ( map { $translate_val->($_) } cdr @key )
     );
 
     # separate preparation from execution because we may want to send different
