@@ -88,6 +88,10 @@ sub new {
         _ExperimentStudyListHash => '',
         _ExperimentNameListHash  => '',
         _ExperimentDataQuery     => undef,
+
+        _type  => undef,
+        _graph => undef,
+        _match => undef
     );
 
     $self->register_actions(
@@ -99,6 +103,16 @@ sub new {
     return $self;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  default_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
@@ -110,6 +124,16 @@ sub default_head {
     return 1;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  Search_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub Search_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
@@ -120,6 +144,7 @@ sub Search_head {
     push @{ $self->{_css_src_yui} },
       (
         'paginator/assets/skins/sam/paginator.css',
+        'container/assets/skins/sam/container.css',
         'datatable/assets/skins/sam/datatable.css'
       );
     push @$js_src_yui,
@@ -130,30 +155,16 @@ sub Search_head {
         'paginator/paginator-min.js',         'datatable/datatable-min.js',
         'selector/selector-min.js'
       );
-    $self->init();
+    $self->fp_init();
     $self->getSessionOverrideCGI();
     push @$js_src_code, { -code => $self->findProbes_js($s) };
     push @$js_src_code, { -src  => 'FindProbes.js' };
     return 1;
 }
 
-sub Search_body {
-    my $self = shift;
-
-    # show results
-    return $self->getResultTableHTML();
-}
-
-sub default_body {
-    my $self = shift;
-
-    # default action: show form
-    return $self->getFormHTML();
-}
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  init
+#       METHOD:  fp_init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -161,15 +172,19 @@ sub default_body {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub init {
+sub fp_init {
     my ( $self, $fh ) = @_;
 
     my $q = $self->{_cgi};
 
-    my $match =
-      ( defined $q->param('match') )
-      ? $q->param('match')
-      : 'full';
+    $self->{_type}  = $q->param('type');
+    $self->{_match} = $q->param('match');
+    $self->{_graph} = $q->param('graph');
+    $self->{_opts}  = $q->param('opts');
+    $self->{_trans} = $q->param('trans');
+
+    my $match = $q->param('match');
+    $match = 'full' if not defined $match;
 
     my @textSplit;
 
@@ -320,8 +335,17 @@ sub _setSearchPredicate {
     $self->{_SearchItems} = $qtext;
     return 1;
 }
-#######################################################################################
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  build_ExperimentDataQuery
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub build_ExperimentDataQuery {
 
     # :TODO:07/24/2011 10:56:30:es: Move this function to a separate
@@ -365,10 +389,17 @@ END_ExperimentDataQuery
     return 1;
 }
 
-#######################################################################################
-# Get a list of the probes here so that we can get all experiment data for each
-# probe in another query.
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  loadProbeData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Get a list of the probes here so that we can get all experiment
+#                data for each probe in another query.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadProbeData {
     my ($self) = @_;
 
@@ -396,9 +427,16 @@ sub loadProbeData {
     return 1;
 }
 
-#######################################################################################
-#For each probe in the list get all the experiment data.
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  loadExperimentData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  For each probe in the list get all the experiment data.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub loadExperimentData {
     my $self                 = shift;
     my $experimentDataString = '';
@@ -460,9 +498,16 @@ sub loadExperimentData {
     return;
 }
 
-#######################################################################################
-#Print the data from the hashes into a CSV file.
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  printFindProbeCSV
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Print the data from the hashes into a CSV file.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub printFindProbeCSV {
     my $self       = shift;
     my $currentPID = 0;
@@ -643,17 +688,32 @@ sub printFindProbeCSV {
     return;
 }
 
-#######################################################################################
-#Loop through the list of probes we are filtering on and create a list.
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  getProbeList
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Loop through the list of probes we are filtering on and create
+#                a list.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub getProbeList {
-    my $self = shift;
-    return [ keys %{ $self->{_ProbeHash} } ];
+    return [ keys %{ shift->{_ProbeHash} } ];
 }
-#######################################################################################
-#Loop through the list of experiments we are displaying and get the information on each.
-# We need eid and stid for each.
-#######################################################################################
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  getFullExperimentData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Loop through the list of experiments we are displaying and get
+#  the information on each. We need eid and stid for each.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub getFullExperimentData {
     my $self = shift;
 
@@ -704,7 +764,7 @@ END_query_titles_element
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  getResultTableHTML
+#         NAME:  Search_body
 #      PURPOSE:  display results table for Find Probes
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -713,12 +773,12 @@ END_query_titles_element
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getResultTableHTML {
+sub Search_body {
     my $self = shift;
 
     my $q     = $self->{_cgi};
-    my $type  = $q->param('type') || '';
-    my $match = $q->param('match') || '';
+    my $type  = $self->{_type} || '';
+    my $match = $self->{_match} || '';
 
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
@@ -736,14 +796,15 @@ sub getResultTableHTML {
         ),
         $q->div( { -id => 'probetable' }, '' )
     );
-    if ( $q->param('graph') ) {
+
+    if ( $self->{_graph} ) {
         push @ret, $q->ul( { -id => 'graphs' }, '' );
     }
     return @ret;
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  getFormHTML
+#         NAME:  default_body
 #      PURPOSE:  display Find Probes form
 #   PARAMETERS:  $q - CGI object
 #                $action - name of the top-level action
@@ -755,7 +816,7 @@ sub getResultTableHTML {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getFormHTML {
+sub default_body {
     my ($self) = @_;
 
     my $q         = $self->{_cgi};
@@ -902,7 +963,7 @@ END_BROWSER_NOTICE
 sub build_InsideTableQuery {
     my ( $self, %optarg ) = @_;
 
-    my $type = $self->{_cgi}->param('type');
+    my $type = $self->{_type};
 
     my $predicate = 'WHERE %s ' . $self->{_Predicate};
 
@@ -954,7 +1015,17 @@ END_InsideTableQuery_probe
 
     return 1;
 }
-#######################################################################################
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  build_SimpleProbeQuery
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub build_SimpleProbeQuery {
     my ($self) = @_;
 
@@ -984,7 +1055,17 @@ END_ProbeQuery
 
     return 1;
 }
-#######################################################################################
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  build_ProbeQuery
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub build_ProbeQuery {
     my ( $self, %p ) = @_;
     my $sql_select_fields = '';
@@ -1062,23 +1143,28 @@ END_ProbeQuery
 
     return 1;
 }
-#######################################################################################
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  findProbes_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub findProbes_js {
     my $self = shift;
 
     # call to build_InsideTableQuery() followed by one to build_ProbeQuery()
     $self->build_InsideTableQuery();
 
-    my $opts =
-      ( defined( $self->{_cgi}->param('opts') ) )
-      ? $self->{_cgi}->param('opts')
-      : 1;
-    $self->build_ProbeQuery( extra_fields => $opts );
+    my ( $opts, $trans ) = @$self{qw/_opts _trans/};
+    $opts  = 1      if not defined $opts;
+    $trans = 'fold' if not defined $trans;
 
-    my $trans =
-      ( defined( $self->{_cgi}->param('trans') ) )
-      ? $self->{_cgi}->param('trans')
-      : 'fold';
+    $self->build_ProbeQuery( extra_fields => $opts );
 
     if ( $opts == 3 ) {
 
@@ -1132,10 +1218,8 @@ sub findProbes_js {
             headers => $self->{_Names}
         );
 
-        my $type         = $self->{_cgi}->param('type');
-        my $match        = $self->{_cgi}->param('match');
-        my $print_graphs = $self->{_cgi}->param('graph');
-        my $out          = sprintf(
+        my ( $type, $match, $print_graphs ) = @$self{qw/_type _match _graph/};
+        my $out = sprintf(
             <<"END_JSON_DATA",
 var searchColumn = "%s";
 var queriedItems = %s;
