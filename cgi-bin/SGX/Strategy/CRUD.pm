@@ -156,8 +156,8 @@ sub _head_data_table {
     my $table_info     = $table_defs->{$table};
     my $keys           = $table_info->{key};
     my %resource_extra = (
-        ( map { $keys->[$_] => "$_" } 1 .. $#$keys ),
-        (@$keys) ? ( id => "0" ) : ()
+        ( map { $_ => $_ } @$keys[ 1 .. $#$keys ] ),
+        ( (@$keys) ? ( id => $keys->[0] ) : () )
     );
 
     #---------------------------------------------------------------------------
@@ -182,7 +182,7 @@ sub _head_data_table {
         # views in left_joined tables
         (
             map {
-                my $other_table = $_;
+                my $other_table       = $_;
                 my $this_join_col     = $left_join_info->{$other_table}->[0];
                 my $lookupTable_other = $lookupTables->($other_table);
                 map {
@@ -717,8 +717,8 @@ sub _head_response_schema {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _head_column_def {
-    my ( $self, %args ) = @_;
-    my ( $s2n, $_other ) = @$self{qw/_this_symbol2name _other/};
+    my ( $self, %args )   = @_;
+    my ( $s2n,  $_other ) = @$self{qw/_this_symbol2name _other/};
 
     # make a hash of mutable columns
     my $table =
@@ -857,8 +857,7 @@ sub getJSRecords {
     my $data = $self->{_this_data};    # data source
 
     # including all columns...
-    my $s2i      = $self->{_this_symbol2index};
-    my $sort_col = $s2i->{$key};                  # column to sort on
+    my $sort_col = $self->{_this_symbol2index}->{$key};    # column to sort on
 
     # :TRICKY:09/17/2011 17:13:54:es: Using numerical sort for now. In the
     # future it may be a good idea to make sort type (numerical vs string)
