@@ -862,7 +862,11 @@ sub getJSRecords {
     my @tmp;
     my $sort_col = $s2i->{$key};       # column to sort on
     if ( defined $sort_col ) {
-        foreach my $row ( sort { $a->[$sort_col] cmp $b->[$sort_col] } @$data )
+
+ # :TRICKY:09/17/2011 17:13:54:es: Using numerical sort for now. In the future
+ # it may be a good idea to make sort type (numerical vs string)
+ # user-configurable.
+        foreach my $row ( sort { $a->[$sort_col] <=> $b->[$sort_col] } @$data )
         {
             my $i = 0;
             push @tmp, +{ map { $i++ => $_ } @$row[@columns] };
