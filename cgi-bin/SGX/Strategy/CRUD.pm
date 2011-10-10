@@ -119,8 +119,8 @@ sub _dispatch_by {
 sub _head_data_table {
     my ( $self, $table, %args ) = @_;
 
-   # :TODO:09/17/2011 10:18:14:es: parametrize this method such that it would be
-   # possible to have more than one DataTable control per page.
+    # :TODO:09/17/2011 10:18:14:es: parametrize this method such that it would
+    # be possible to have more than one DataTable control per page.
 
     #---------------------------------------------------------------------------
     #  setup
@@ -141,7 +141,7 @@ sub _head_data_table {
     my $var = $js->register_var(
         '_a',
         [
-            qw/data cellUpdater cellDropdown DataTable leftJoin
+            qw/data cellUpdater cellDropdown DataTable lookupTables
               resourceURIBuilder rowNameBuilder deleteDataBuilder DataSource/
         ]
     );
@@ -167,11 +167,11 @@ sub _head_data_table {
         js_emitter    => $js,
         cell_updater  => $var->{cellUpdater},
         cell_dropdown => $var->{cellDropdown},
-        lookup        => $var->{leftJoin}
+        lookup_tables => $var->{lookupTables}
     );
 
     my $left_join_info = $table_info->{lookup};
-    my $leftJoin       = $var->{leftJoin};
+    my $lookupTables   = $var->{lookupTables};
 
     my @column_defs = (
 
@@ -184,13 +184,13 @@ sub _head_data_table {
                 my $other_table = $_;
                 my $this_join_col =
                   $s2i->{ $left_join_info->{$other_table}->[0] } . '';
-                my $leftJoin_other = $leftJoin->($other_table);
+                my $lookupTable_other = $lookupTables->($other_table);
                 map {
                     $column->(
                         [ $other_table, $_ ],
                         formatter => $js->apply(
                             'createJoinFormatter',
-                            [ $leftJoin_other, $_, $this_join_col ]
+                            [ $lookupTable_other, $_, $this_join_col ]
                         )
                       )
                   } @{ $table_defs->{$other_table}->{view} }
@@ -357,8 +357,8 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     return $js->bind(
         [
-            $var->{leftJoin} => $self->{_other},
-            $var->{data}     => {
+            $var->{lookupTables} => $self->{_other},
+            $var->{data}         => {
                 caption => 'Showing all Studies',
                 records => $self->getJSRecords(),
                 headers => $self->getJSHeaders()
@@ -733,14 +733,18 @@ sub _head_column_def {
 
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table};
-    my %mutable    = map { $_ => 1 } @{ $table_info->{mutable} };
+    my ( $table_mutable, $table_lookup ) = @$table_info{qw/mutable lookup/};
+    my %mutable = map { $_ => 1 } @$table_mutable;
 
     my $extrasIndex = max( values %$s2i ) + 1;
 
     my $js            = $args{js_emitter};
     my $cell_updater  = $args{cell_updater};
     my $cell_dropdown = $args{cell_dropdown};
-    my $leftJoin      = $args{lookup};
+    my $lookupTables  = $args{lookup_tables};
+
+    warn Dumper($lookupTables);
+    warn Dumper($table_lookup);
 
     my $TRUE  = $js->true;
     my $FALSE = $js->false;
@@ -765,7 +769,7 @@ sub _head_column_def {
         my $propagate_key;
         my $propagate_index;
         if ( $mytable ne '' ) {
-            $propagate_key   = $table_info->{lookup}->{$mytable}->[0];
+            $propagate_key   = $table_lookup->{$mytable}->[0];
             $propagate_index = $s2i->{$propagate_key};
         }
 
@@ -815,7 +819,7 @@ sub _head_column_def {
                   (
                     editor => $js->apply(
                         $cell_dropdown,
-                        [ $leftJoin->($mytable), $propagate_key, $symbol ]
+                        [ $lookupTables->($mytable), $propagate_key, $symbol ]
                     )
                   );
             }
@@ -860,12 +864,12 @@ sub getJSRecords {
     my $data = $self->{_this_data};    # data source
 
     # including all columns...
-    my $s2i     = $self->{_this_symbol2index};
-    my $sort_col = $s2i->{$key};       # column to sort on
+    my $s2i      = $self->{_this_symbol2index};
+    my $sort_col = $s2i->{$key};                  # column to sort on
 
     # :TRICKY:09/17/2011 17:13:54:es: Using numerical sort for now. In the
     # future it may be a good idea to make sort type (numerical vs string)
-    # user-configurable.
+    # user-configurable. See http://raleigh.pm.org/sorting.html
     return ( defined $sort_col )
       ? [ sort { $a->[$sort_col] <=> $b->[$sort_col] } @$data ]
       : $data;
