@@ -359,7 +359,8 @@ END_TEXT2
             $q->textfield(
                 -name      => 'sample1',
                 -id        => 'sample1',
-                -maxlength => 120
+                -maxlength => 255,
+                -size      => 35
             )
         ),
         $q->dt( $q->label( { -for => 'sample2' }, 'Sample 2:' ) ),
@@ -367,7 +368,8 @@ END_TEXT2
             $q->textfield(
                 -name      => 'sample2',
                 -id        => 'sample2',
-                -maxlength => 120
+                -maxlength => 255,
+                -size      => 35
             )
         ),
         $q->dt(
@@ -377,7 +379,8 @@ END_TEXT2
             $q->textfield(
                 -name      => 'ExperimentDesc',
                 -id        => 'ExperimentDesc',
-                -maxlength => 1000
+                -maxlength => 255,
+                -size      => 55
             )
         ),
         $q->dt(
@@ -389,7 +392,8 @@ END_TEXT2
             $q->textfield(
                 -name      => 'AdditionalInfo',
                 -id        => 'AdditionalInfo',
-                -maxlength => 1000
+                -maxlength => 255,
+                -size      => 55
             )
         ),
         $q->dt( $q->label( { -for => 'file' }, 'Data File to Upload:' ) ),

@@ -53,7 +53,7 @@ sub new {
         _other             => {},
         _js_emitter        => $js,
         _js_env            => $js->register_var( '_glob', [qw/lookupTables/] ),
-        _js_code           => []
+        _js_buffer         => []
     );
 
     # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?
@@ -463,7 +463,7 @@ sub dispatch_js {
 #===============================================================================
 sub _js_dump {
     my $self = shift;
-    my ( $js_src_code, $code ) = @$self{qw/_js_src_code _js_code/};
+    my ( $js_src_code, $code ) = @$self{qw/_js_src_code _js_buffer/};
     push @$js_src_code, +{ -code => join( "\n", @$code ) };
     return 1;
 }
@@ -481,7 +481,7 @@ sub _js_dump {
 sub _js_dump_lookups {
     my $self = shift;
     my ( $js, $js_env, $code, $lookups ) =
-      @$self{qw/_js_emitter _js_env _js_code _other/};
+      @$self{qw/_js_emitter _js_env _js_buffer _other/};
     unshift @$code,
       '' . $js->bind( [ $js_env->{lookupTables} => $lookups ], declare => 1 );
 }
@@ -577,7 +577,7 @@ sub readrow_head {
     }
 
     $self->_js_dump_lookups();
-    $self->_js_populate_dropdowns();             # will use default table
+    $self->_js_populate_dropdowns();    # will use default table
     return 1;
 }
 
@@ -616,7 +616,7 @@ sub default_head {
 #===============================================================================
 sub generate_datatable {
     my ( $self, $table,      %args ) = @_;
-    my ( $q,    $table_defs, $code ) = @$self{qw/_cgi _table_defs _js_code/};
+    my ( $q,    $table_defs, $code ) = @$self{qw/_cgi _table_defs _js_buffer/};
     my $table_info = $table_defs->{$table};
 
     $self->_readall_command($table)->();
@@ -2152,7 +2152,7 @@ sub _js_populate_dropdowns {
     my $self       = shift;
     my $table      = shift || $self->{_default_table};
     my $table_info = $self->{_table_defs}->{$table};
-    my ( $js, $js_env, $code ) = @$self{qw/_js_emitter _js_env _js_code/};
+    my ( $js, $js_env, $code ) = @$self{qw/_js_emitter _js_env _js_buffer/};
 
     #---------------------------------------------------------------------------
     #  JS code
@@ -2165,7 +2165,10 @@ sub _js_populate_dropdowns {
             'load',
             $js->apply(
                 'populateDropdowns',
-                [ $js_env->{lookupTables}, $table_info->{lookup}, $self->{_id_data} ]
+                [
+                    $js_env->{lookupTables}, $table_info->{lookup},
+                    $self->{_id_data}
+                ]
             )
         ]
       );
