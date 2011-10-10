@@ -73,9 +73,7 @@ sub new {
                 key        => [qw/stid eid/],
                 mutable    => [],
                 proto      => [qw/stid eid/],
-                constraint => [
-                    stid => sub { shift->{_id} }
-                ]
+                constraint => [ stid => sub { shift->{_id} } ]
             },
             'study' => {
                 key       => [qw/stid/],
@@ -103,8 +101,10 @@ sub new {
                 view => [
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
-                mutable   => [],
-                proto     => [],
+                mutable => [],
+                proto   => [
+                    qw/sample1 sample2 ExperimentDescription AdditionalInformation/
+                ],
                 selectors => [],
                 names     => [qw/sample1 sample2/],
                 labels    => {
@@ -114,7 +114,7 @@ sub new {
                     ExperimentDescription => 'Description',
                     AdditionalInformation => 'Additional Info'
                 },
-                lookup  => { microarray      => [ eid => 'eid' ] },
+                lookup     => { microarray      => [ eid => 'eid' ] },
                 inner_join => { StudyExperiment => [ eid => 'eid' ] }
             },
             'microarray' => {
@@ -447,7 +447,7 @@ qq/You can select multiple experiments here by holding down Control or Command k
             $q->submit(
                 -class => 'button black bigrounded',
                 -value => 'Assign',
-                -title => qq/Assign selected experiment to this study/
+                -title => qq/Assign selected experiments to this study/
             )
         )
       ),

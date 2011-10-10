@@ -385,9 +385,11 @@ sub _head_data_table {
 sub dispatch_js {
     my ($self) = @_;
 
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+    my ( $q, $js_src_yui, $js_src_code ) =
+      @$self{qw/_cgi _js_src_yui _js_src_code/};
 
     my $action = $self->get_dispatch_action();
+
     $self->get_id();
 
     # ajax_* methods should take care of authorization: may want different
@@ -439,6 +441,7 @@ sub dispatch {
     # delete_all() ensures that param array is cleared and no form field
     # inherits old values.
     my $q = $self->{_cgi};
+
     $q->delete_all();
 
     my (@body) = $self->_dispatch_by( 'body', $action );    # show body
@@ -488,7 +491,10 @@ sub get_id {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_delete {
-    shift->_delete_command()->();
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    $self->_delete_command()->();
+    $q->delete_all();
     return;
 }
 
@@ -503,7 +509,10 @@ sub default_delete {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_update {
-    shift->_update_command()->();
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    $self->_update_command()->();
+    $q->delete_all();
     return;
 }
 
@@ -518,9 +527,10 @@ sub default_update {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_assign {
-    my $self    = shift;
-    my $command = $self->_assign_command();
-    if ( $command->() > 0 ) { }
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    $self->_assign_command()->();
+    $q->delete_all();
     return;
 }
 
@@ -836,8 +846,7 @@ sub _readall_command {
     my $table_info = $table_defs->{$table_alias};
     return undef if not $table_info;
 
-    my ( $key, $selectable, $this_labels, $this_view ) =
-      @$table_info{qw/key selectors labels view/};
+    my ( $key, $this_labels, $this_view ) = @$table_info{qw/key labels view/};
 
     # prepend key fields, preserve order of fields in {view}
     my $composite_labels =
@@ -896,24 +905,12 @@ sub _readall_command {
     my ( $this_key, $default_key ) =
       ( $key->[0], $table_defs->{$default_table}->{key}->[0] );
 
-    # build a constraint-like object
-    my $existing_constr = $table_info->{constraint} || [];
-    my @main_constraint = (
-        @$existing_constr,
-        map {
-            $_ => sub {
-                $q->param($_);
-              }
-          } grep { defined $q->param($_) } @$selectable
-    );
-
     # return both query and parameter array
     my ( $query, $params ) = $self->_build_select(
         $table_alias,
         $composite_labels,
         {
-            group_by   => $key,
-            constraint => \@main_constraint,
+            group_by => $key,
             %args
         }
     );
@@ -1045,14 +1042,14 @@ sub _list_values {
 #===============================================================================
 sub _build_predicate {
     my ( $self, $table_alias, $obj, $prefix ) = @_;
-    my $dbh = $self->{_dbh};
-    my $__pred;
+
+    my @pred_and;
     my @exec_params;
 
     if ( my $constraints = $obj->{constraint} ) {
-
         my @constr_copy = @$constraints;
-        my @pred_and;
+
+        my $dbh = $self->{_dbh};
         while ( my ( $constr_field, $constr_value ) =
             splice( @constr_copy, 0, 2 ) )
         {
@@ -1065,15 +1062,22 @@ sub _build_predicate {
                   "$table_alias.$constr_field=" . $dbh->quote($constr_value);
             }
         }
-
-        $__pred =
-          ( ( @pred_and > 0 ) ? "$prefix " : '' ) . join( ' AND ', @pred_and );
-
     }
-    else {
-        $__pred = '';
+    if ( my $selectors = $obj->{selectors} ) {
+        my $q = $self->{_cgi};
+        foreach (@$selectors) {
+            my $val = $q->param($_);
+            if ( defined $val ) {
+                push @pred_and,    "$table_alias.$_=?";
+                push @exec_params, $val;
+            }
+        }
     }
-    return ( $__pred, \@exec_params );
+
+    my $pred =
+      ( ( @pred_and > 0 ) ? "$prefix " : '' ) . join( ' AND ', @pred_and );
+
+    return ( $pred, \@exec_params );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1114,8 +1118,10 @@ sub _build_join {
         my $pred =
 "$join_type JOIN $other_table ON $table_alias.$this_field=$other_table_alias.$other_field";
 
-        my ( $inner_pred, $inner_params ) =
-          $self->_build_predicate( $other_table_alias, \%cascade_other, 'AND' );
+        my ( $inner_pred, $inner_params ) = $self->_build_predicate(
+            $other_table_alias => \%cascade_other,
+            'AND'
+        );
         push @query_components, "$pred $inner_pred";
         push @exec_params,      @$inner_params;
     }
@@ -1160,17 +1166,17 @@ sub _build_select {
 
     # JOINS
     my ( $inner_pred, $inner_params ) =
-      $self->_build_join( $table_alias, \%cascade, 'INNER' );
+      $self->_build_join( $table_alias => \%cascade, 'INNER' );
     push @query_components, $inner_pred;
     push @exec_params,      @$inner_params;
     my ( $left_pred, $left_params ) =
-      $self->_build_join( $table_alias, \%cascade, 'LEFT' );
+      $self->_build_join( $table_alias => \%cascade, 'LEFT' );
     push @query_components, $left_pred;
     push @exec_params,      @$left_params;
 
     # WHERE
     my ( $where_pred, $where_params ) =
-      $self->_build_predicate( $table_alias, \%cascade, 'WHERE' );
+      $self->_build_predicate( $table_alias => \%cascade, 'WHERE' );
     push @query_components, $where_pred;
     push @exec_params,      @$where_params;
 
@@ -1206,9 +1212,11 @@ sub _readrow_command {
     return undef if not $table_info;
 
     my ( $key, $fields ) = @$table_info{qw/key proto/};
-    return if @$key != 1;
+    my @key_copy = @$key;
 
-    my $predicate = join( ' AND ', map { "$_=?" } @$key );
+    return if @key_copy != 1;
+
+    my $predicate = join( ' AND ', map { "$_=?" } @key_copy );
     my $read_fields = join( ',', @$fields );
     my $query = "SELECT $read_fields FROM $table WHERE $predicate";
 
@@ -1218,7 +1226,8 @@ sub _readrow_command {
         return undef;
     };
 
-    my @params = ( $self->{_id}, ( map { $q->param($_) } splice( @$key, 1 ) ) );
+    my @params =
+      ( $self->{_id}, ( map { $q->param($_) } splice( @key_copy, 1 ) ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1251,7 +1260,8 @@ sub _delete_command {
     return undef if not $table_info;
 
     my $key       = $table_info->{key};
-    my $predicate = join( ' AND ', map { "$_=?" } @$key );
+    my @key_copy  = @$key;
+    my $predicate = join( ' AND ', map { "$_=?" } @key_copy );
     my $query     = "DELETE FROM $table WHERE $predicate";
     my $sth       = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1259,7 +1269,7 @@ sub _delete_command {
         return undef;
     };
 
-    my @params = ( $self->{_id}, map { $q->param($_) } splice( @$key, 1 ) );
+    my @params = ( $self->{_id}, map { $q->param($_) } splice( @key_copy, 1 ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1291,8 +1301,9 @@ sub _assign_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
+    my $id  = $self->{_id};
     my $key = $table_info->{key};
-    return undef if not defined $self->{_id} or @$key != 2;
+    return undef if ( !defined($id) || @$key != 2 );
 
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
@@ -1300,10 +1311,8 @@ sub _assign_command {
     # NULL.
     # Note: we make exception when inserting a record when resource id is
     # already present: in those cases we create links.
-    my @assigned_fields =
-      ( $key->[0], grep { defined $q->param($_) } splice( @$key, 1 ) );
 
-    my $assignment = join( ',', @assigned_fields );
+    my $assignment = join( ',', @$key );
     my $query      = "INSERT IGNORE INTO $table ($assignment) VALUES (?,?)";
     my $sth        = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1311,17 +1320,14 @@ sub _assign_command {
         return undef;
     };
 
-    my $id = $self->{_id};
-    my @param_set =
-      map { [ $id, $_ ] }
-      map { $q->param($_) } splice( @assigned_fields, 1 );
+    my @param_set = ( $q->param( $key->[1] ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
     return sub {
         my $rc = 0;
-        foreach my $link (@param_set) {
-            $rc += $sth->execute(@$link);
+        foreach (@param_set) {
+            $rc += $sth->execute( $id, $_ );
         }
         $sth->finish;
         return $rc;
@@ -1359,10 +1365,11 @@ sub _create_command {
     # NULL.
     # Note: we make exception when inserting a record when resource id is
     # already present: in those cases we create links.
+    my @proto = @$fields;
     my @assigned_fields =
         ( defined $self->{_id} )
-      ? ( $fields->[0], grep { defined $q->param($_) } splice( @$fields, 1 ) )
-      : grep { defined $q->param($_) } @$fields;
+      ? ( $proto[0], grep { defined $q->param($_) } splice( @proto, 1 ) )
+      : grep { defined $q->param($_) } @proto;
 
     my $assignment = join( ',', @assigned_fields );
     my $placeholders = join( ',', map { '?' } @assigned_fields );
@@ -1409,6 +1416,8 @@ sub _update_command {
 
     my ( $key, $fields ) = @$table_info{qw/key mutable/};
 
+    my @key_copy = @$key;
+
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
     # specifically map a special character (for example, an empty string), to
@@ -1416,7 +1425,7 @@ sub _update_command {
     my @fields_to_update = grep { defined( $q->param($_) ) } @$fields;
 
     my $assignment = join( ',',     map { "$_=?" } @fields_to_update );
-    my $predicate  = join( ' AND ', map { "$_=?" } @$key );
+    my $predicate  = join( ' AND ', map { "$_=?" } @key_copy );
     my $query = "UPDATE $table SET $assignment WHERE $predicate";
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1426,7 +1435,7 @@ sub _update_command {
 
     my @params = (
         ( map { $q->param($_) } @fields_to_update ),
-        $self->{_id}, ( map { $q->param($_) } splice( @$key, 1 ) )
+        $self->{_id}, ( map { $q->param($_) } splice( @key_copy, 1 ) )
     );
 
     # separate preparation from execution because we may want to send different
