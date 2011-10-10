@@ -1927,6 +1927,10 @@ sub _ajax_process_request {
     # hardcoding 'user' authorization level for now
     if ( !$s->is_authorized('user') ) {
 
+        $self->set_body(
+            'You do not have sufficient permissions to perform this operation'
+        );
+
         $self->set_header(
             -status => 401,    # 401 Unauthorized
             -cookie => undef
@@ -1937,7 +1941,9 @@ sub _ajax_process_request {
     # :TODO:10/05/2011 02:06:01:es: attempt more specific error capture using
     # exceptions
     my $command = eval { $command_factory->($self) } or do {
-        warn $@ if $@;
+        if ( my $exception = $@ ) {
+            $self->set_body("$exception");
+        }
         $self->set_header(
             -status => 400,    # 400 Bad Request
             -cookie => undef
@@ -1949,6 +1955,8 @@ sub _ajax_process_request {
     eval { ( $rows_affected = $command->() ) == 1; } or do {
         if ( ( my $exception = $@ ) or $rows_affected != 0 ) {
 
+            $self->set_body("$exception") if $exception;
+
             # Unexpected condition: either error occured or the number of
             # updated rows is unknown ($rows_affected == -1) or the number of
             # updated rows is more than one.
@@ -1956,10 +1964,13 @@ sub _ajax_process_request {
                 -status => 500,    # 500 Internal Server Error
                 -cookie => undef
             );
-            $exception->throw() if $exception;
             return 1;
         }
         else {
+
+            $self->set_body(
+                'The record you are trying to modify has been deleted or moved'
+            );
 
             # No error and no rows updated ($rows_affected == 0)
             $self->set_header(

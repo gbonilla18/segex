@@ -8,6 +8,12 @@
 *
 */
 
+function ajaxError(o, verb, name, resourceURI) {
+    return (o.responseText !== undefined) 
+    ? "Error encountered when attempting to " + verb + " record (" + name + ") under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + "):\n\n" + o.responseText
+    : "Timeout on updating record (" + name + ") under " + resourceURI;
+}
+
 function highlightEditableCell(oArgs) { 
     var elCell = oArgs.target; 
     if (YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
@@ -33,12 +39,7 @@ function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, 
             },
             failure:function(o) { 
                 callback(); 
-                var name = rowNameBuilder(record);
-                if(o.responseText !== undefined) {
-                    alert("Error encountered on updating record (" + name + ") under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + ").");
-                } else {
-                    alert("Timeout on updating record (" + name + ") under " + resourceURI);
-                }
+                alert(ajaxError(o, 'update', rowNameBuilder(record), resourceURI));
             },
             scope:this
         };
@@ -99,12 +100,7 @@ function createCellUpdaterCreator(field, resourceURIBuilder, updateDataBuilder, 
             },
             failure:function(o) { 
                 callback(); 
-                var name = rowNameBuilder(record);
-                if(o.responseText !== undefined) {
-                    alert("Error encountered on updating record (" + name + ") under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + ").");
-                } else {
-                    alert("Timeout on updating record (" + name + ") under " + resourceURI);
-                }
+                alert(ajaxError(o, 'update', rowNameBuilder(record), resourceURI));
             },
             scope:this
         };
@@ -150,11 +146,7 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
     var handleFailure = function(o) {
         var record = o.argument[0];
         var name = rowNameBuilder(record);
-        if(o.responseText !== undefined) {
-            alert("Error encountered when attempting to " + verb + " record (" + name + ") from " + resourceURIBuilder(record) +".\nServer responded with code " + o.status + " (" + o.statusText + ").");
-        } else {
-            alert("Timeout when attempting to " + verb + " record (" + name + ") from " + resourceURIBuilder(record));
-        }
+        alert(ajaxError(o, verb, rowNameBuilder(record), resourceURIBuilder(record)));
     };
 
     return function(ev) {

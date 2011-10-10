@@ -235,6 +235,38 @@ sub set_header {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
+#       METHOD:  get_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_body {
+    my $body = shift->{_body};
+    return if not defined $body;
+    return $body;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  set_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub set_body {
+    my ( $self, $arg ) = @_;
+    $self->{_body} = $arg;
+}
+
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
 #       METHOD:  require_authorization
 #   PARAMETERS:  ????
 #      RETURNS:  ????

@@ -272,13 +272,13 @@ if ( defined $module ) {
 
         # by default, we add cookies, unless -cookie=>undef
         %header_command = (
-            -status => 204,                  # 204 No Content -- default status
+            #-status => 204,                  # 204 No Content -- default status
             -type   => '',                   # do not send Content-Type
             -cookie => $s->cookie_array(),
             $loadModule->get_header()
         );
 
-        print $q->header(%header_command);
+        print $q->header(%header_command), $loadModule->get_body();
         exit(1);
 
         #$action = FORM . LOGIN;
