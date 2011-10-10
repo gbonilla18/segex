@@ -206,6 +206,9 @@ function createDeleteFormatter(verb, noun) {
     };
 }
 function createJoinFormatter(join_tuple, lookup_table, name_field) {
+    if (typeof join_tuple === 'undefined') {
+        return function(elCell, oRecord, oColumn, oData) {};
+    }
     var this_field = join_tuple[0], other_field = join_tuple[1];
     var name_column = lookup_table.symbol2index[name_field] - lookup_table.key.length;
     var root = lookup_table.lookup_by[other_field];
@@ -232,21 +235,26 @@ function newDataSourceFromArrays(struct) {
     ds.responseSchema = {fields:struct.fields};
     return ds;
 }
-function expandJoinedFields(mainTable, lookupTables) {
-    var tmp = {};
-    var mainTable_lookup = mainTable.lookup;
-    for (var lookupTable in mainTable_lookup) {
-        var  val = mainTable_lookup[lookupTable];
-        var obj = lookupTables[lookupTable];
-        obj.lookup_by = {};
-        var this_lookup = val[0];
-        var lookupField = val[1];
-        if (this_lookup in tmp) {
-            tmp[this_lookup].push([lookupTable, lookupField, obj]);
-        } else {
-            tmp[this_lookup] = [ [lookupTable, lookupField, obj] ];
+function forPairInList (list, fun) {
+    if (list !== null) {
+        for (var i = 0, len = list.length; i < len; i += 2) {
+            fun(list[i], list[i + 1]);
         }
     }
+}
+function expandJoinedFields(mainTable, lookupTables) {
+    var tmp = {};
+    forPairInList(mainTable.lookup, function(other_table, tuple) {
+        var obj = lookupTables[other_table];
+        obj.lookup_by = {};
+        var this_field = tuple[0];
+        var other_field = tuple[1];
+        if (this_field in tmp) {
+            tmp[this_field].push([other_table, other_field, obj]);
+        } else {
+            tmp[this_field] = [ [other_table, other_field, obj] ];
+        }       
+    });
     var mainTable_fields = mainTable.fields,
     mainTable_records = mainTable.records,
     num_records = mainTable_records.length,

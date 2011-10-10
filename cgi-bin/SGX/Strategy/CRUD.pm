@@ -29,7 +29,7 @@ use List::Util qw/max/;
 use Data::Dumper;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Debug;
-use SGX::Util qw/inherit_hash array2hash/;
+use SGX::Util qw/inherit_hash list_tuples/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
@@ -180,17 +180,6 @@ sub _head_data_table {
     );
 
     my $lookupTables = $var->{lookupTables};
-    my $dataLookup   = $var->{data}->('lookup');
-
-# views in joined tables
-#my @join_copy = @$this_join;
-#my @joined_fields;
-#while ( my ( $other_table_alias, $info ) = splice( @join_copy, 0, 2 ) ) {
-#    my $opts   = $info->[2];
-#    my $view   = $opts->{view} || $table_defs->{$other_table_alias}->{view} || [];
-#    push @joined_fields, @$view;
-#}
-#warn Dumper(\@joined_fields);
 
     my @column_defs = (
 
@@ -200,19 +189,18 @@ sub _head_data_table {
         # views in lookup tables (stored in {_other})
         (
             map {
-                my $other_table       = $_;
-                my $lookupTable_other = $lookupTables->($_);
-                my $dataLookup_other  = $dataLookup->($_);
+                my ($other_table, $fields_this_other) = @$_;
+                my $lookupTable_other = $lookupTables->($other_table);
                 map {
                     $column->(
-                        [ $other_table, $_ ],
+                        [ $other_table, $_, $fields_this_other->[0] ],
                         formatter => $js->apply(
                             'createJoinFormatter',
-                            [ $dataLookup_other, $lookupTable_other, $_ ]
+                            [ $fields_this_other, $lookupTable_other, $_ ]
                         )
                       )
                   } @{ $table_defs->{$other_table}->{view} }
-              } keys %{ $self->{_other} }
+              } list_tuples( @{ $table_info->{lookup} } )
         ),
 
         # delete row
@@ -457,6 +445,26 @@ sub dispatch_js {
       : $self->readall_head;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  get_lookup
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Given a table structure/hash, returns {lookup} component while
+#                adding to it all information from {meta}.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+#sub get_lookup
+#{
+#    my $table_info = shift;
+#    my %lookup;
+#    my ($fields_meta, $table_lookup) = @$table_info{qw/meta lookup/};
+#    while (my ($field, $meta) = each %$fields_meta) {
+#        $lookup
+#    }
+#}
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  export_meta
@@ -758,8 +766,7 @@ sub _head_column_def {
 
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table};
-    my ( $meta, $lookup ) = @$table_info{qw/meta lookup/};
-    my $table_lookup = array2hash($lookup);
+    my $meta = $table_info->{meta};
 
     my %mutable =
       map { $_ => 1 } $self->_get_mutable( table_info => $table_info );
@@ -788,14 +795,8 @@ sub _head_column_def {
     #---------------------------------------------------------------------------
     return sub {
         my ( $datum, %extra_definitions ) = @_;
-        my ( $mytable, $symbol ) =
-          ( defined $datum ) ? @$datum : ( undef, undef );
-
-        # determine key value of lookup table if dealing with such
-        my $propagate_key =
-          defined($mytable)
-          ? $table_lookup->{$mytable}->[0]
-          : undef;
+        my ( $mytable, $symbol, $propagate_key ) =
+          ( defined $datum ) ? @$datum : ( undef, undef, undef );
 
         my $index =
             ( defined $symbol )
@@ -1102,7 +1103,7 @@ sub _readall_command {
     $self->{_this_symbol2name} = $composite_labels;
     $self->{_this_symbol2index} =
       _symbol2index_from_symbol2name($composite_labels);
-    $self->{_this_lookup} = array2hash( $new_opts->{lookup} );
+    $self->{_this_lookup} = $new_opts->{lookup};
     $self->{_this_view}   = $new_opts->{view};
     $self->{_this_meta}   = $new_opts->{meta};
 
@@ -1492,7 +1493,7 @@ sub _readrow_command {
       "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
     #warn "getting lookups for $table_alias";
-    #my $lookup_join_sth = $self->_lookup_prepare($table_alias);
+    my $lookup_join_sth = $self->_lookup_prepare($table_alias);
 
  # :TODO:09/26/2011 01:57:43:es: Also need to perform lookup for readrow_command
  # in some cases...
@@ -1512,7 +1513,7 @@ sub _readrow_command {
         $self->{_id_data} = $sth->fetchrow_hashref;
         $sth->finish;
 
-        #$self->_lookup_execute($lookup_join_sth);
+        $self->_lookup_execute($lookup_join_sth);
 
         return $rc;
     };
@@ -1983,12 +1984,16 @@ sub _body_edit_fields {
         elsif ( $method eq 'popup_menu' ) {
             my @values;
             my %labels;
-            my $dropdownOptions = $meta->{dropdownOptions};
-            foreach my $property (@$dropdownOptions) {
-                my ( $p_val, $p_lab ) = @$property{qw/value label/};
-                push @values, $p_val;
-                $labels{$p_val} = $p_lab;
+            if (my $dropdownOptions = $meta->{dropdownOptions}) {
+                foreach my $property (@$dropdownOptions) {
+                    my ( $p_val, $p_lab ) = @$property{qw/value label/};
+                    push @values, $p_val;
+                    $labels{$p_val} = $p_lab;
+                }
             }
+            #else {
+            # # lookup table
+            #}
             push @tmp,
               (
                 $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(

@@ -9,7 +9,7 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK =
   qw/trim max min bounds label_format replace all_match count_gtzero
-  inherit_hash enum_array array2hash/;
+  inherit_hash enum_array array2hash list_keys list_keys list_tuples/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -233,18 +233,52 @@ sub enum_array {
     return +{ map { $_ => $i++ } @$_ };
 }
 
-#---------------------------------------------------------------------------
-#  analogue to built-in keys function, except for lists, not hashes
-#---------------------------------------------------------------------------
-#sub _list_keys {
-#    @_[ grep { !( $_ % 2 ) } 0 .. $#_ ];
-#}
+#===  FUNCTION  ================================================================
+#         NAME:  list_tuples
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub list_tuples {
+    my @ret;
+    for ( my $i = 0 ; $i < @_ ; $i += 2 ) {
+        push @ret, [ $_[$i], $_[ $i + 1 ] ];
+    }
+    return @ret;
+}
 
-#---------------------------------------------------------------------------
-#  analogue to built-in values function, except for lists, not hashes
-#---------------------------------------------------------------------------
-#sub _list_values {
-#    @_[ grep { $_ % 2 } 0 .. $#_ ];
-#}
+#===  FUNCTION  ================================================================
+#         NAME:  list_keys
+#      PURPOSE:  analogue to built-in keys function, except for lists, not
+#                hashes
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub list_keys {
+    @_[ grep { !( $_ % 2 ) } 0 .. $#_ ];
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  list_values
+#      PURPOSE:  analogue to built-in values function, except for lists, not
+#                hashes
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub list_values {
+    @_[ grep { $_ % 2 } 0 .. $#_ ];
+}
 
 1;

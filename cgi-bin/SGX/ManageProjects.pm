@@ -77,7 +77,8 @@ sub new {
                     manager => {
                         label    => 'Managing User',
                         parser   => 'number',
-                        __type__ => 'popup_menu'
+                        __type__ => 'popup_menu',
+                        __tie__  => ['users', 'uid']
                     },
                     prname => {
                         label      => 'Project Name',

@@ -80,8 +80,8 @@ sub new {
                 names     => [qw/description/],
                 meta      => {
                     stid => {
-                        label  => 'No.',
-                        parser => 'number',
+                        label     => 'No.',
+                        parser    => 'number',
                         -disabled => 'disabled'
                     },
                     description => {
@@ -96,7 +96,8 @@ sub new {
                         label     => 'Platform',
                         __type__  => 'popup_menu',
                         parser    => 'number',
-                        -disabled => 'disabled'
+                        -disabled => 'disabled',
+                        __tie__   => [ 'platform', 'pid' ]
                     }
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
@@ -331,7 +332,7 @@ sub form_create_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(mode => 'create'),
+        $self->_body_edit_fields( mode => 'create' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'create' ),
@@ -459,7 +460,7 @@ sub readrow_body {
         -onsubmit => 'return validate_fields(this, [\'description\']);'
       ),
       $q->dl(
-        $self->_body_edit_fields(mode => 'update'),
+        $self->_body_edit_fields( mode => 'update' ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'b', -value => 'update' ),

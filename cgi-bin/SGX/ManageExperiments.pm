@@ -85,7 +85,8 @@ sub new {
                     pid         => {
                         label     => 'Platform',
                         parser    => 'number',
-                        -disabled => 'disabled'
+                        -disabled => 'disabled',
+                        __tie__   => [ 'platform', 'pid' ]
                     },
                 },
                 lookup => [ platform => [ pid => 'pid' ] ],
@@ -152,11 +153,15 @@ sub new {
                         label => 'Additional Info',
                         -size => 55
                     },
-
                     pid => {
-                        label     => 'Platform',
-                        parser    => 'number',
-                        __type__  => 'popup_menu',
+                        label    => 'Platform',
+                        parser   => 'number',
+                        __type__ => 'popup_menu',
+                        __tie__  => (
+                            looks_like_number( $q->param('pid') )
+                            ? undef
+                            : [ 'platform', 'pid' ]
+                        ),
                         -disabled => 'disabled'
                     }
                 },
