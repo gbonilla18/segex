@@ -121,9 +121,16 @@ sub new {
     return $self;
 }
 
-#######################################################################################
-#PRINTING HTML AND JAVASCRIPT STUFF
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageUsers
+#       METHOD:  default_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD default_body
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub default_body {
 
     # Form HTML for the project table.
@@ -149,7 +156,16 @@ sub default_body {
       $q->div( { -id => $self->{dom_table_id} }, '' );
 }
 
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageUsers
+#       METHOD:  readrow_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD readrow_body
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub readrow_body {
     my $self = shift;
     my $q    = $self->{_cgi};

@@ -37,7 +37,7 @@ use SGX::Abstract::Exception;
 use SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ManageStudies
+#        CLASS:  ManageExperiments
 #       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -241,11 +241,11 @@ sub new {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  ManageStudies
-#       METHOD:  readall
+#        CLASS:  ManageExperiments
+#       METHOD:  default_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:
+#  DESCRIPTION:  Overrides CRUD default_head
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -278,9 +278,16 @@ sub default_head {
     return 1;
 }
 
-#######################################################################################
-#PRINTING HTML AND JAVASCRIPT STUFF
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  default_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD default_body
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub default_body {
 
     # Form HTML for the study table.
@@ -336,7 +343,17 @@ sub default_body {
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
       $q->div( { -id => $self->{dom_table_id} }, '' );
 }
-#######################################################################################
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  form_assign_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub form_assign_head {
     my $self = shift;
     return if not defined $self->{_id};    # _id must be present
@@ -356,7 +373,17 @@ sub form_assign_head {
 
     return 1;
 }
-#######################################################################################
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  form_assign_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub form_assign_body {
     my $self = shift;
     my $q    = $self->{_cgi};
@@ -414,7 +441,17 @@ qq/You can select multiple studies here by holding down Control or Command key b
       ),
       $q->end_form;
 }
-#######################################################################################
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  readrow_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD readrow_body
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub readrow_body {
     my $self = shift;
     my $q    = $self->{_cgi};
@@ -443,7 +480,17 @@ sub readrow_body {
       $q->div( { -style => 'clear:both;', -id => $self->{dom_table_id} } );
 }
 
-#######################################################################################
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  get_pse_dropdown_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:   # :TODO:10/08/2011 11:42:09:es: Isolate this method into an
+#     outside class
+#     SEE ALSO:  n/a
+#===============================================================================
 sub get_pse_dropdown_js {
     my ( $self, %args ) = @_;
 
