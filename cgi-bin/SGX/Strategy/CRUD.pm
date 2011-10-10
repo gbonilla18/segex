@@ -1460,7 +1460,7 @@ sub _assign_command {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _create_command {
-    my ($self) = @_;
+    my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = $q->param('table');
     $table = $self->{_default_table} if not defined $table;
@@ -1473,7 +1473,7 @@ sub _create_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
-    my ( $key, $fields ) = @$table_info{qw/key proto/};
+    my ( $key, $meta, $fields ) = @$table_info{qw/key meta proto/};
     return if defined $id and @$key < 2;
 
     # If param($field) evaluates to undefined, then we do not set the field.
@@ -1483,6 +1483,7 @@ sub _create_command {
     # Note: we make exception when inserting a record when resource id is
     # already present: in those cases we create links.
     my @proto = @$fields;
+
     my @assigned_fields =
         ( defined $id )
       ? ( $proto[0], grep { defined $q->param($_) } splice( @proto, 1 ) )
@@ -1497,10 +1498,11 @@ sub _create_command {
         return undef;
     };
 
+    my $translate_val = _get_param_values( $q, $meta );
     my @params =
         ( defined $id )
-      ? ( $id, map { $q->param($_) } splice( @assigned_fields, 1 ) )
-      : map { $q->param($_) } @assigned_fields;
+      ? ( $id, map { $translate_val->($_) } splice( @assigned_fields, 1 ) )
+      : map { $translate_val->($_) } @assigned_fields;
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1508,6 +1510,36 @@ sub _create_command {
         my $rc = $sth->execute(@params);
         $sth->finish;
         return $rc;
+    };
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  _get_param_values
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _get_param_values {
+    my ( $q, $meta ) = @_;
+    return sub {
+        my $param  = shift;
+        my @result = $q->param($param);
+        my $type   = $meta->{$param}->{__type__};
+        warn $type;
+        if ( !defined($type) ) {
+            return @result;
+        }
+        elsif ( $type eq 'checkbox' ) {
+            warn Dumper( \@result );
+            return ( @result == 1 && $result[0] eq 'on' ) ? 1 : 0;
+        }
+        else {
+            return @result;
+        }
     };
 }
 
@@ -1561,7 +1593,8 @@ sub _update_command {
     my @fields_to_update =
       grep { defined( $q->param($_) ) }
       $self->_get_mutable( table_info => $table_info );
-    my @key_copy = @{ $table_info->{key} };
+    my ( $key, $meta ) = @$table_info{qw/key meta/};
+    my @key_copy = @$key;
 
     my $assignment = join( ',',     map { "$_=?" } @fields_to_update );
     my $predicate  = join( ' AND ', map { "$_=?" } @key_copy );
@@ -1573,9 +1606,10 @@ sub _update_command {
         return undef;
     };
 
+    my $translate_val = _get_param_values( $q, $meta );
     my @params = (
-        ( map { $q->param($_) } @fields_to_update ),
-        $self->{_id}, ( map { $q->param($_) } splice( @key_copy, 1 ) )
+        ( map { $translate_val->($_) } @fields_to_update ),
+        $self->{_id}, ( map { $translate_val->($_) } splice( @key_copy, 1 ) )
     );
 
     # separate preparation from execution because we may want to send different
@@ -1726,7 +1760,14 @@ sub _body_edit_fields {
         my %cgi_meta = map { $_ => $meta->{$_} } grep { /^-/ } keys %$meta;
         delete $cgi_meta{-disabled} if $unlimited_mode;
         my $method = $meta->{__type__} || 'textfield';
-        my $label  = $meta->{label}    || $symbol;
+        my @key_val;
+        if ( $method eq 'checkbox' ) {
+            @key_val = ( $id_data->{$symbol} ) ? ( -checked => 'checked' ) : ();
+        }
+        else {
+            @key_val = ( -value => $id_data->{$symbol} );
+        }
+        my $label = $meta->{label} || $symbol;
         $cgi_meta{-title} ||= (
             ( $method eq 'textfield' )
             ? 'Enter'
@@ -1736,9 +1777,9 @@ sub _body_edit_fields {
           (
             $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
                 $q->$method(
-                    -id    => $symbol,
-                    -name  => $symbol,
-                    -value => $id_data->{$symbol},
+                    -id   => $symbol,
+                    -name => $symbol,
+                    @key_val,
                     %cgi_meta
                 )
             )
@@ -1761,8 +1802,8 @@ sub _body_create_read_menu {
     my ( $self, %args ) = @_;
     my $q = $self->{_cgi};
 
- # :TODO:09/22/2011 01:36:59:es: fix undefined value bug (appears in Manage...)
-    #warn "$self->{_ActionName} eq $args{'create'}->[0]";
+  # :TODO:09/22/2011 01:36:59:es: fix undefined value bug (appears in Manage...)
+  #warn "$self->{_ActionName} eq $args{'create'}->[0]";
     return $q->ul(
         { -id => 'cr_menu', -class => 'clearfix' },
         ( $self->{_ActionName} eq $args{'create'}->[0] )
