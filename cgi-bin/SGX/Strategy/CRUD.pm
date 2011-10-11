@@ -79,6 +79,7 @@ sub new {
         'head'     => { form_create => 'form_create_head' },
         'body'     => { form_create => 'form_create_body' },
         'redirect' => {
+            # URI: ?b=x   => hook_x
             'ajax_create' => 'ajax_create',
             'ajax_update' => 'ajax_update',
             'ajax_delete' => 'ajax_delete',
