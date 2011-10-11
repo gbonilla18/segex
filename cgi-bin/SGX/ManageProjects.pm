@@ -171,10 +171,11 @@ sub new {
 #===============================================================================
 sub form_create_head {
     my $self = shift;
-    my $s = $self->{_UserSession};
+    my $s    = $self->{_UserSession};
     $self->{_id_data}->{manager} = $s->get_user_id();
     return $self->SUPER::form_create_head();
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
 #       METHOD:  default_body
@@ -259,7 +260,7 @@ sub form_assign_body {
     #  Form: Assign Study to this Project
     #---------------------------------------------------------------------------
 
-    return $q->h2('Editing Project'),
+    return $q->h2( 'Editing Project: ' . $self->{_id_data}->{prname} ),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Project' ],
@@ -330,7 +331,7 @@ sub readrow_body {
     #  Form: Set Project Attributes
     #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2('Editing Project'),
+    return $q->h2( 'Editing Project: ' . $self->{_id_data}->{prname} ),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Project' ],

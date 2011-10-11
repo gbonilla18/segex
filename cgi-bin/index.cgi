@@ -27,7 +27,7 @@ use SGX::Session::Session 0.08;    # email verification
 #---------------------------------------------------------------------------
 #  User Authentication
 #---------------------------------------------------------------------------
-my $softwareVersion = '0.3.0';
+my $softwareVersion = '0.3.1';
 
 use constant FORM           => 'form_';
 use constant LOGIN          => 'login';
@@ -1331,7 +1331,7 @@ sub build_menu {
         'Query' =>
           $link_creator->(qw/compareExperiments findProbes outputData/),
         'Manage' =>
-          $link_creator->(qw/platforms experiments studies projects users/),
+          $link_creator->(qw/experiments studies projects platforms users/),
         'Upload' => $link_creator->(qw/uploadData uploadAnnot/)
     );
 

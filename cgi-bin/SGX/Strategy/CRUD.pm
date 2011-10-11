@@ -1149,6 +1149,7 @@ sub _lookup_prepare {
         $js_store->{names}        = $other_names;
         $js_store->{meta}         = $self->_export_meta($other_meta);
     }
+
     return \%lookup_join_sth;
 }
 

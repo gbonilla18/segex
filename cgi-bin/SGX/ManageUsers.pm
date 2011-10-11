@@ -169,7 +169,7 @@ sub readrow_body {
     #  Form: Set User Attributes
     #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2('Editing User'),
+    return $q->h2( 'Editing User: ' . $self->{_id_data}->{full_name} ),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit User' ],

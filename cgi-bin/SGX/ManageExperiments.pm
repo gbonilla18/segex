@@ -80,9 +80,10 @@ sub new {
                 names => [qw/description/],
                 meta  => {
                     stid => { label => 'No.', parser => 'number' },
-                    description => { label => 'Description' },
-                    pubmed      => { label => 'PubMed' },
-                    pid         => {
+                    description =>
+                      { label => 'Description', __readonly__ => 1 },
+                    pubmed => { label => 'PubMed', __readonly__ => 1 },
+                    pid    => {
                         label        => 'Platform',
                         parser       => 'number',
                         __readonly__ => 1,
@@ -361,9 +362,9 @@ sub form_assign_head {
         { -src => 'PlatformStudyExperiment.js' },
         {
             -code => $self->get_pse_dropdown_js(
-                platforms         => 1,
-                platform_by_study => 1,
-                studies           => 1
+                platforms              => 1,
+                platform_by_experiment => 1,
+                studies                => 1
             )
         }
       );
@@ -389,7 +390,9 @@ sub form_assign_body {
     #  Form: Assign Studies to this Experiment
     #---------------------------------------------------------------------------
 
-    return $q->h2('Editing Experiment'),
+    return $q->h2( 'Editing Experiment: '
+          . $self->{_id_data}->{sample2} . ' / '
+          . $self->{_id_data}->{sample1} ),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Experiment' ],
@@ -458,7 +461,9 @@ sub readrow_body {
     #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
 
-    return $q->h2('Editing Experiment'),
+    return $q->h2( 'Editing Experiment: '
+          . $self->{_id_data}->{sample2} . ' / '
+          . $self->{_id_data}->{sample1} ),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Experiment' ],
@@ -471,7 +476,7 @@ sub readrow_body {
     #---------------------------------------------------------------------------
     #  Experiments table
     #---------------------------------------------------------------------------
-      $q->h3('All Studies assigned to the Experiment'),
+      $q->h3('Studies this Experiment is Assigned to'),
       $q->div(
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
       $q->div( { -style => 'clear:both;', -id => $self->{dom_table_id} } );
@@ -501,11 +506,8 @@ sub get_pse_dropdown_js {
 
     # If a study is set, use the corresponding platform while ignoring the
     # platform parameter.
-    my $stid = $q->param('stid');
-    my $pid =
-      ( defined $stid )
-      ? $pse->getPlatformFromStudy($stid)
-      : $q->param('pid');
+    my $pid = $self->{_id_data}->{pid};
+    $pid = $q->param('pid') if not defined $pid;
 
     return $js->bind(
         [
@@ -523,9 +525,7 @@ sub get_pse_dropdown_js {
                         'study' => {
                             elementId => 'stid',
                             element   => undef,
-                            selected  => ( defined $stid )
-                            ? { $stid => undef }
-                            : {}
+                            selected  => {}
                         }
                       )
                     : ()

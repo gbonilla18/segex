@@ -327,7 +327,7 @@ sub form_assign_body {
     #  Form: Assign Experiment to this Study
     #---------------------------------------------------------------------------
 
-    return $q->h2('Editing Study'),
+    return $q->h2( 'Editing Study: ' . $self->{_id_data}->{description} ),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Study' ],
@@ -405,7 +405,7 @@ sub readrow_body {
     #  Form: Set Study Attributes
     #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2('Editing Study'),
+    return $q->h2( 'Editing Study: ' . $self->{_id_data}->{description} ),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Study' ],

@@ -252,7 +252,7 @@ sub readrow_body {
     #  Form: Set Project Attributes
     #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2('Editing Platform'),
+    return $q->h2('Editing Platform: ' . $self->{_id_data}->{pname}),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Platform' ],
