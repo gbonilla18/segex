@@ -72,7 +72,7 @@ sub new {
             },
             'study' => {
                 key      => [qw/stid/],
-                base     => [qw/description pubmed pid/],
+                base     => [qw/description pubmed/],
                 view     => [qw/description pubmed/],
                 resource => 'studies',
 
@@ -82,16 +82,8 @@ sub new {
                     stid => { label => 'No.', parser => 'number' },
                     description =>
                       { label => 'Description', __readonly__ => 1 },
-                    pubmed => { label => 'PubMed', __readonly__ => 1 },
-                    pid    => {
-                        label        => 'Platform',
-                        parser       => 'number',
-                        __readonly__ => 1,
-                        __tie__      => [ platform => 'pid' ],
-                        __hidden__   => 1
-                    },
+                    pubmed => { label => 'PubMed', __readonly__ => 1 }
                 },
-                lookup => [ platform => [ pid => 'pid' ] ],
                 join   => [
                     StudyExperiment => [
                         stid => 'stid',
