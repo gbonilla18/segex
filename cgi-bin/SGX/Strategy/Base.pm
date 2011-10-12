@@ -259,12 +259,12 @@ sub set_body {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub redirect_unauth {
-    my ( $self, $level ) = @_;
-    my $s = $self->{_UserSession};
+    my $self = shift;
+    my $s    = $self->{_UserSession};
 
     # Because we are using forms authentication (not HTTP authentication),
     # instead of sending 401 Unauthorized, we redirect to login page.
-    if ( !$s->is_authorized($level) ) {
+    if ( !$s->is_authorized( $self->{_permission_level} ) ) {
         $self->set_header(
             -status   => 302,                           # 302 Found
             -location => '?a=form_login&destination='
@@ -361,6 +361,8 @@ sub dispatch_js {
     # preliminary processing routine (e.g. create request handler) tells us so.
     #
     return if $self->_dispatch_by( 'redirect', $action );
+
+    return if $self->redirect_unauth();    # do not show body on redirect
 
     if ( $self->_dispatch_by( 'head', $action ) ) {
         return 1;

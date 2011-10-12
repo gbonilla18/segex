@@ -579,7 +579,7 @@ while ( defined($action) ) {
             # will send a redirect header, so commit the session to data store
             $s->commit();
             print $q->redirect(
-                -uri    => $q->url( -base => 1 ) . './html/wiki/',
+                -uri    => $q->url( -base => 1 ) . '/html/wiki/',
                 -status => 302,           # 302 Found
                 -cookie => $s->cookie_array()
             );

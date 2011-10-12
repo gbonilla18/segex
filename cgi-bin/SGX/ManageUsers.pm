@@ -50,6 +50,8 @@ sub new {
 
     $self->set_attributes(
 
+        _permission_level => 'user',
+
         _table_defs => {
             'users' => {
                 item_name => 'user',

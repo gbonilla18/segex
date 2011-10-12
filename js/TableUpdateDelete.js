@@ -407,7 +407,7 @@ function populateDropdowns(lookupTables, lookup, data) {
             // this_field to names in lookup table
             var records = table_info.records;
             var records_length = records.length;
-            var id_name = [['', '@None']];
+            var id_name = [['', '@Choose ' + table_info.symbol2name[names[0]] + ':']];
             for (var i = 0; i < records_length; i++) {
                 var record = records[i];
                 id_name.push([record[other_index], selectFromArray(record, name_indexes).join(' / ')]);

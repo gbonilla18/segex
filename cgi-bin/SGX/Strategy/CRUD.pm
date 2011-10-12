@@ -63,9 +63,10 @@ sub new {
         _js_env     => $js->register_var( '_glob', [qw/lookupTables/] ),
         _js_buffer  => [],
 
-        _other   => {},
-        _id      => undef,
-        _id_data => {}
+        _other            => {},
+        _id               => undef,
+        _id_data          => {},
+        _permission_level => 'user'
     );
 
     # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?
@@ -79,6 +80,7 @@ sub new {
         'head'     => { form_create => 'form_create_head' },
         'body'     => { form_create => 'form_create_body' },
         'redirect' => {
+
             # URI: ?b=x   => hook_x
             'ajax_create' => 'ajax_create',
             'ajax_update' => 'ajax_update',
@@ -439,7 +441,7 @@ sub dispatch_js {
       if (  $action =~ m/^ajax_/
         and $self->_dispatch_by( 'redirect', $action ) );
 
-    return if $self->redirect_unauth('user');    # do not show body on redirect
+    return if $self->redirect_unauth();    # do not show body on redirect
 
     $self->_head_init();
     $self->set_title(
@@ -2251,7 +2253,8 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } ) ),
+        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } )
+      ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
