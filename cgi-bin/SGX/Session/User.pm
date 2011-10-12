@@ -258,8 +258,8 @@ sub authenticateFromDB {
     #---------------------------------------------------------------------------
     my $query =
       ( defined $password )
-      ? 'select level, full_name, email from users where uname=? and pwd=?'
-      : 'select level, full_name, email from users where uname=?';
+      ? 'select uid, level, full_name, email from users where uname=? and pwd=?'
+      : 'select uid, level, full_name, email from users where uname=?';
 
     my @params =
         ( defined $password )
@@ -287,8 +287,10 @@ sub authenticateFromDB {
     }
 
     # user found in the database
-    my ( $user_level, $user_full_name, $user_email ) = $sth->fetchrow_array;
+    my ( $user_id, $user_level, $user_full_name, $user_email ) =
+      $sth->fetchrow_array;
     $sth->finish;
+    $self->{_user_id} = $user_id;
 
     #---------------------------------------------------------------------------
     #  authenticate
@@ -353,7 +355,6 @@ sub restore {
     # restored from cookies (i.e. for which no session id was provided).
     return 1 unless defined($id);
 
-
     # confirm username
     my $username = $self->{session_stash}->{username};
 
@@ -401,7 +402,7 @@ sub reset_password {
   # similar code in $self->authenticateFromDB().
     my $dbh = $self->{dbh};
     my $sth = $dbh->prepare(
-'select level, full_name, email from users where uname=? and email_confirmed=1'
+'select uid, level, full_name, email from users where uname=? and email_confirmed=1'
     );
     my $rows_found = $sth->execute($username);
     if ( $rows_found < 1 ) {
@@ -421,8 +422,10 @@ sub reset_password {
     }
 
     # single user found in the database
-    my ( $user_level, $user_full_name, $user_email ) = $sth->fetchrow_array;
+    my ( $user_id, $user_level, $user_full_name, $user_email ) =
+      $sth->fetchrow_array;
     $sth->finish;
+    $self->{_user_id} = $user_id;
 
     #---------------------------------------------------------------------------
     #  email a temporary access link
@@ -739,6 +742,8 @@ sub register_user {
         return;
     }
 
+    my $dbh = $self->{dbh};
+
     # Parsing email address with Email::Address->parse() has the side effect of
     # untainting user-entered email (applicable when CGI script is run in taint
     # mode with -T switch).
@@ -749,7 +754,7 @@ sub register_user {
     }
     my $email_address = $email_handle->address;
 
-    my $sth = $self->{dbh}->prepare('select count(*) from users where uname=?');
+    my $sth       = $dbh->prepare('select count(*) from users where uname=?');
     my $row_count = $sth->execute($username);
     my ($user_found) = $sth->fetchrow_array;
     $sth->finish();
@@ -758,7 +763,7 @@ sub register_user {
         return;
     }
 
-    my $rows_affected = $self->{dbh}->do(
+    my $rows_affected = $dbh->do(
 'insert into users set uname=?, pwd=?, email=?, full_name=?, address=?, phone=?',
         undef,
         $username,
@@ -953,7 +958,7 @@ sub read_perm_cookie {
         # is found in the perm2cookie table
         my $perm2session = $self->{perm2session};
         while ( my ( $key, $value ) = each(%val) ) {
-            if (my $entailer = $perm2session->{$key}) {
+            if ( my $entailer = $perm2session->{$key} ) {
                 $self->session_cookie_store( $entailer->($value) );
             }
         }
@@ -1026,14 +1031,25 @@ sub is_authorized {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_user_id {
-    my $self = shift;
-    my $dbh = $self->{dbh};
+    my $self    = shift;
+
+    # first see if cached value is available
+    my $user_id = $self->{_user_id};
+    return $user_id if defined $user_id;
+
+    # attempt to retrieve by login name which is stored in session data
     my $username = $self->{session_stash}->{username};
-    my $sth = $dbh->prepare('select uid from users where uname=?');
-    my $rc = $sth->execute($username);
-    my ( $id ) = $sth->fetchrow_array;
-    $sth->finish;
-    return $id;
+    if ( defined $username ) {
+        my $dbh = $self->{dbh};
+        my $sth = $dbh->prepare('select uid from users where uname=?');
+        my $rc  = $sth->execute($username);
+        $user_id = $sth->fetchrow_array;
+        $sth->finish;
+    }
+
+    # cache the returned value
+    $self->{_user_id} = $user_id;
+    return $user_id;
 }
 
 1;    # for require

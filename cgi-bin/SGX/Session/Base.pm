@@ -101,13 +101,13 @@ use SGX::Abstract::Exception;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, %args ) = @_;
+    my $class = shift;
 
     # set defaults first
     my %param = (
         expire_in => 3600,    # default: one hour
         check_ip  => 1,       # default: true
-        %args
+        @_
     );
 
     my $self = {
