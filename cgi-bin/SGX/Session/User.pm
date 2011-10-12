@@ -152,7 +152,7 @@ use Data::Dumper;
 use Digest::SHA1 qw/sha1_hex/;
 use Mail::Send;
 use SGX::Abstract::Exception;
-use SGX::Session::Session;    # for email confirmation
+use SGX::Session::Base;    # for email confirmation
 use Email::Address;
 
 #===  CLASS METHOD  ============================================================
@@ -430,7 +430,7 @@ sub reset_password {
 
     my $hours_to_expire = 48;
 
-    my $s = SGX::Session::Session->new(
+    my $s = SGX::Session::Base->new(
         dbh       => $self->{dbh},
         expire_in => 3600 * $hours_to_expire,
         check_ip  => 1
@@ -817,7 +817,7 @@ sub send_verify_email {
 
     my $hours_to_expire = 48;
 
-    my $s = SGX::Session::Session->new(
+    my $s = SGX::Session::Base->new(
         dbh       => $self->{dbh},
         expire_in => 3600 * $hours_to_expire,
         check_ip  => 1

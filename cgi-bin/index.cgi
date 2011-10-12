@@ -22,7 +22,7 @@ use lib qw/./;
 use SGX::Debug;                    # all debugging code goes here
 use SGX::Config;                   # all configuration for our project goes here
 use SGX::Session::User 0.07;       # user authentication, sessions and cookies
-use SGX::Session::Session 0.08;    # email verification
+use SGX::Session::Base 0.08;    # email verification
 
 #---------------------------------------------------------------------------
 #  User Authentication
@@ -527,7 +527,7 @@ while ( defined($action) ) {
         }
         case VERIFYEMAIL {
             if ( $s->is_authorized('') ) {
-                my $t = SGX::Session::Session->new(
+                my $t = SGX::Session::Base->new(
                     dbh       => $dbh,
                     expire_in => 3600 * 48,
                     check_ip  => 0

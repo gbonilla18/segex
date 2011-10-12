@@ -93,7 +93,7 @@ use vars qw($VERSION);
 
 $VERSION = '0.11';
 
-use base qw/SGX::Session::Session/;
+use base qw/SGX::Session::Base/;
 use CGI::Cookie;
 use File::Basename;
 use Data::Dumper;
@@ -141,7 +141,7 @@ sub session_cookie_store {
 #       METHOD:  restore
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Overrides SGX::Session::Session::restore. First tries to get
+#  DESCRIPTION:  Overrides SGX::Session::Base::restore. First tries to get
 #                session from the provided id, and, on success stores the id in
 #                the session cookie. If that fails, fetches cookies, looks for
 #                one with name $SESSION_NAME, and tries to get the session id
