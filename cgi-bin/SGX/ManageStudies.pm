@@ -455,7 +455,7 @@ sub get_pse_dropdown_js {
       ? $pse->getPlatformFromStudy($stid)
       : $q->param('pid');
 
-    return $js->bind(
+    return $js->let(
         [
             PlatfStudyExp =>
               $self->{_PlatformStudyExperiment}->get_ByPlatform(),

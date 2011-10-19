@@ -164,6 +164,10 @@ sub false {
 {
 
     package Safe::Hash;
+
+    use strict;
+    use warnings;
+
     use base qw/Tie::StdHash/;
 
     sub FETCH {
@@ -277,7 +281,7 @@ sub init {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Abstract::JSEncode
-#       METHOD:  bind
+#       METHOD:  let
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -285,7 +289,7 @@ sub init {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub bind {
+sub let {
     my ( $self, $href, %args ) = @_;
 
     # @assignments holds the list of assignments to be emitted...

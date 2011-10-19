@@ -501,7 +501,7 @@ sub get_pse_dropdown_js {
     my $pid = $self->{_id_data}->{pid};
     $pid = $q->param('pid') if not defined $pid;
 
-    return $js->bind(
+    return $js->let(
         [
             PlatfStudyExp =>
               $self->{_PlatformStudyExperiment}->get_ByPlatform(),

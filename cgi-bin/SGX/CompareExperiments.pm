@@ -608,7 +608,7 @@ END_query_fs
           . uri_escape( "$currentEID1. " . $ht->{$currentEID1}->{title} ) . '|'
           . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
 
-        $out .= $js->bind(
+        $out .= $js->let(
             [
                 venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
@@ -662,7 +662,7 @@ END_query_fs
           . uri_escape(
             sprintf( '%d. %s', $currentEID3, $ht->{$currentEID3}->{title} ) );
 
-        $out .= $js->bind(
+        $out .= $js->let(
             [
                 venn =>
 "<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
@@ -671,7 +671,7 @@ END_query_fs
         );
     }
     else {
-        $out .= $js->bind( [ venn => '' ], declare => 1 );
+        $out .= $js->let( [ venn => '' ], declare => 1 );
     }
 
     # Summary table -------------------------------------
@@ -690,7 +690,7 @@ END_query_fs
           };
     }
 
-    $out .= $js->bind(
+    $out .= $js->let(
         [
             rep_count => $rep_count,
             eid       => join( ',', @eids ),
@@ -743,7 +743,7 @@ END_query_fs
             ( $rowcount_titles + 1 ) => $h->{$key}->{c}
           };
     }
-    $out .= $js->bind(
+    $out .= $js->let(
         [
             tfs => {
                 caption =>

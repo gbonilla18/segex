@@ -266,7 +266,7 @@ sub _head_data_table {
     );
     my $onloadLambda = $js->lambda(
         [],
-        $js->bind(
+        $js->let(
             [
                 $var->{resourceURIBuilder} => $js->apply(
                     'createResourceURIBuilder',
@@ -304,7 +304,7 @@ sub _head_data_table {
             ],
             declare => 1
         ),
-        $js->bind(
+        $js->let(
             [
                 $var->{DataTable} => $js->apply(
                     'YAHOO.widget.DataTable',
@@ -378,7 +378,7 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     #  return text
     #---------------------------------------------------------------------------
-    return $js->bind(
+    return $js->let(
         [
             $var->{data} => $js->apply(
                 'expandJoinedFields',
@@ -505,7 +505,7 @@ sub _js_dump_lookups {
     my ( $js, $js_env, $code, $_other ) =
       @$self{qw/_js_emitter _js_env _js_buffer _other/};
     unshift @$code,
-      '' . $js->bind( [ $js_env->{lookupTables} => $_other ], declare => 1 );
+      '' . $js->let( [ $js_env->{lookupTables} => $_other ], declare => 1 );
 }
 
 #===  CLASS METHOD  ============================================================

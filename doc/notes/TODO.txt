@@ -111,9 +111,6 @@ to have code that "knows" the shortest way to request the necessary information
 from getTFS. It should "remember" that user queried for Kcne prefix and use that
 query if probe list is too long (longer than original query).
 
-*) Would be very nice if the code that generates experiment table in Manage
-Experiments would also generate table in ManageStudies (or vice versa).
-
 *) For Manage Studies, use YUI buttons for switching between forms for (a)
 editing study fields, (b) assigning existing experiment, (c) adding new
 experiment.

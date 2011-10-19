@@ -377,7 +377,7 @@ sub get_pse_dropdown_js {
     my $prid = $self->{_id};
     $prid = $q->param('prid') if not defined $prid;
 
-    return $js->bind(
+    return $js->let(
         [
             ProjStudyExp => $self->{_ProjectStudyExperiment}->get_ByProject(),
             currentSelection => {

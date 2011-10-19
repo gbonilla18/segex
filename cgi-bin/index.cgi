@@ -52,8 +52,6 @@ my $dbh = eval { sgx_db_connect() };    #or do { $action = ERROR_PAGE };
 # tables and/or databases that we do not want SGX::Session::User to know about.
 # This way we implement separation of concerns.
 
-# :TODO:08/09/2011 17:08:51:es: This code should be a part of SGX::Profile
-# class.
 my $perm2session = {
     curr_proj => sub {
 
