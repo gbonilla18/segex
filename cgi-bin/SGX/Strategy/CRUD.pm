@@ -285,10 +285,6 @@ sub _head_data_table {
                       )
                     : ()
                 ),
-                $var->{DataSource} => $js->apply(
-                    'newDataSourceFromArrays',
-                    [ $var->{data} ]
-                ),
                 $var->{cellUpdater} => $js->apply(
                     'createCellUpdater',
                     [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
@@ -300,16 +296,15 @@ sub _head_data_table {
                 $var->{cellDropdownDirect} => $js->apply(
                     'createCellDropdownDirect',
                     [ $var->{resourceURIBuilder}, $var->{rowNameBuilder} ]
-                )
-            ],
-            declare => 1
-        ),
-        $js->let(
-            [
+                ),
                 $var->{DataTable} => $js->apply(
                     'YAHOO.widget.DataTable',
                     [
-                        $self->{dom_table_id}, \@column_defs, $var->{DataSource}
+                        $self->{dom_table_id},
+                        \@column_defs,
+                        $js->apply(
+                            'newDataSourceFromArrays', [ $var->{data} ]
+                        )
                     ],
                     new_object => 1
                 )
