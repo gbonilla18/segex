@@ -258,7 +258,6 @@ sub _head_data_table {
     #---------------------------------------------------------------------------
     #  YUI table definition
     #---------------------------------------------------------------------------
-    #
     # Need to set a= and id= parameters because otherwise current settings will
     # be used from {_ResourceName} and {_id}.
     my $table_resource_uri = $self->get_resource_uri(

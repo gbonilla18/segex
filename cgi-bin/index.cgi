@@ -19,9 +19,9 @@ use Data::Dumper;
 # Custom modules in SGX directory
 #---------------------------------------------------------------------------
 use lib qw/./;
-use SGX::Debug;                    # all debugging code goes here
-use SGX::Config;                   # all configuration for our project goes here
-use SGX::Session::User 0.07;       # user authentication, sessions and cookies
+use SGX::Debug;                 # all debugging code goes here
+use SGX::Config;                # all configuration for our project goes here
+use SGX::Session::User 0.07;    # user authentication, sessions and cookies
 use SGX::Session::Base 0.08;    # email verification
 
 #---------------------------------------------------------------------------
@@ -224,6 +224,7 @@ my %dispatch_table = (
     compareExperiments => 'SGX::CompareExperiments',
     findProbes         => 'SGX::FindProbes',
     getTFS             => 'SGX::TFSDisplay',
+    graph              => 'SGX::Graph',
 
     # nouns
     platforms   => 'SGX::ManagePlatforms',

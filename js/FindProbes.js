@@ -37,7 +37,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     })();
 
     function buildSVGElement(project_id, reporter, transform) {
-        var resourceURI = "./graph.cgi?proj=" + project_id + "&reporter=" + reporter + "&trans=" + transform;
+        var resourceURI = "./?a=graph&proj=" + project_id + "&reporter=" + reporter + "&trans=" + transform;
         var width = 1200;
         var height = 600;
         return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
