@@ -22,7 +22,7 @@ my $s   = SGX::Session::User->new(
 
 $s->restore;                    # restore old session if it exists
 
-my $q         = new CGI;
+my $q         = CGI->new();
 my $reporter  = $q->param('reporter');
 my $transform = $q->param('trans');
 
@@ -57,7 +57,9 @@ if ( $transform eq 'ln' ) {
     $sql_cutoff   = 'log2(def_f_cutoff)';
     $ytitle_text  = 'Log2 of Intensity Ratio';
     $middle_label = '0';
-} else {
+}
+else {
+
     # default: $transform eq 'fold'
     $y_start      = 1;
     $sql_trans    = 'if(foldchange>0,foldchange-1,foldchange+1)';
@@ -78,8 +80,7 @@ if ( defined($curr_proj) and $curr_proj ne '' ) {
 }
 
 # Get the sequence name for the title
-my $sth = $dbh->prepare(
-    qq{
+my $sth = $dbh->prepare(<<"END_SQL1");
 SELECT 
 GROUP_CONCAT(DISTINCT IF(seqname IS NULL, '', seqname) SEPARATOR ', ') AS seqname, 
 $sql_cutoff AS cutoff, 
@@ -89,13 +90,13 @@ INNER JOIN platform USING(pid) $sql_join_clause
 LEFT JOIN (annotates NATURAL JOIN gene) USING(rid)
 WHERE reporter=? $sql_where_clause
 GROUP BY probe.rid
-}
-);
+END_SQL1
+
 my $rowcount = $sth->execute(@exec_array_title);
 
-if ( $rowcount == 0 ) {
-    warn "Probe $reporter does not exist in the database";
-}
+#if ( $rowcount == 0 ) {
+#    warn "Probe $reporter does not exist in the database";
+#}
 
 #elsif ($rowcount > 1) {
 #    warn "More than one record found with reporter ID $reporter";
@@ -118,8 +119,7 @@ if ( defined($curr_proj) and $curr_proj ne '' ) {
     push @exec_array, $curr_proj;
 }
 
-$sth = $dbh->prepare(
-    qq{
+$sth = $dbh->prepare(<<"END_SQL2");
 SELECT 
 experiment.eid,
 CONCAT(GROUP_CONCAT(study.description SEPARATOR ', '), ': ', experiment.sample2, '/', experiment.sample1) AS label, 
@@ -135,8 +135,7 @@ NATURAL JOIN study
 $sql_project_clause
 GROUP BY experiment.eid
 ORDER BY experiment.eid ASC
-}
-);
+END_SQL2
 
 $rowcount = $sth->execute(@exec_array);
 exit() if $rowcount == 0;
@@ -180,7 +179,7 @@ my $bar_width =
 my ( $min_data, $max_data ) = bounds(@y);
 $max_data = ( $max_data > $cutoff )  ? $max_data : $cutoff;
 $min_data = ( $min_data < -$cutoff ) ? $min_data : -$cutoff;
-my $spread = $max_data - $min_data;
+my $spread    = $max_data - $min_data;
 my $body_prop = 0.9;
 my $scale     = $body_prop * $body_height / $spread;
 my $wspace    = ( 1 - $body_prop ) / 2 * $body_height;
@@ -195,8 +194,8 @@ my $vguides       = '';
 my $datapoints    = '';
 my $rw            = $golden_ratio * $bar_width;
 my $wrw           = $bar_width + $rw;
-my $left          = $xl + $rw;
-my $vguides_shift = $left + $bar_width / 2;
+my $left_off      = $xl + $rw;
+my $vguides_shift = $left_off + $bar_width / 2;
 my $text_left     = $vguides_shift + $text_fudge;
 
 # legend
@@ -237,9 +236,9 @@ for ( my $i = 0 ; $i < @y ; $i++ ) {
         $fill_class = 'fill3';
     }
     $datapoints .=
-"<path d=\"M$left $xaxisy V$top h$bar_width V$xaxisy Z\" class=\"$fill_class\"/>\n";
+"<path d=\"M$left_off $xaxisy V$top h$bar_width V$xaxisy Z\" class=\"$fill_class\"/>\n";
     $text_left     += $wrw;
-    $left          += $wrw;
+    $left_off      += $wrw;
     $legend_top    += $text_height;
     $vguides_shift += $wrw;
 }
@@ -332,75 +331,76 @@ my $ytitley = $yl + $body_height / 2;
 ### main block ####################################
 #
 # not drawing the Y-axis anymore -- if needed, the SVG code to show it was:
-# 	<path d="M$xl $yl v$body_height" id="yAxis"/>
+#     <path d="M$xl $yl v$body_height" id="yAxis"/>
 # also not showing label for the X-axis. The SVG code was:
-# 	<text x=\"$xtitlex\" y=\"$xtitley\" id=\"xAxisTitle\">$xtitle_text</text>
+#     <text x=\"$xtitlex\" y=\"$xtitley\" id=\"xAxisTitle\">$xtitle_text</text>
 # and the Perl code to find xy coords was:
-#	my $xtitlex = $xl + $body_width / 2;
-#	my $xtitley = $total_height - $yl / 3;
+#    my $xtitlex = $xl + $body_width / 2;
+#    my $xtitley = $total_height - $yl / 3;
 
 print $q->header( -type => 'image/svg+xml', -cookie => $s->cookie_array() );
 
-print qq{<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
-	"http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+print <<"END_SVG";
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
+    "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
 <svg width="$total_width" height="$total_height" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <defs>
 <style type="text/css"><![CDATA[
 #svgBackground{
-	fill: #fff;
+    fill: #fff;
 }
 #graphBackground{
-	fill: #f2f2f2;
+    fill: #f2f2f2;
 }
 #mainTitle{
-	text-anchor: left;
-	fill: #000;
-	font-size: 14px;
-	font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
-	font-weight: bold;
+    text-anchor: left;
+    fill: #000;
+    font-size: 14px;
+    font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
+    font-weight: bold;
 }
 #xAxisTitle, #yAxisTitle {
-	text-anchor: middle;
-	fill: #000;
-	font-size: 12px;
-	font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
+    text-anchor: middle;
+    fill: #000;
+    font-size: 12px;
+    font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
 }
 #xAxis, #yAxis{
-	fill: none;
-	stroke: #000;
-	stroke-width: 1px;
+    fill: none;
+    stroke: #000;
+    stroke-width: 1px;
 }
 .hGuideLine, .vGuideLine {
-	fill: none;
-	stroke: #999;
-	stroke-width: 0.2px;
+    fill: none;
+    stroke: #999;
+    stroke-width: 0.2px;
 }
 .hThreshold {
-	fill: none;
-	stroke: #0f0;
-	stroke-width: 1.5px;
+    fill: none;
+    stroke: #0f0;
+    stroke-width: 1.5px;
 }
 .legendLabel, .xAxisLabel, .yAxisLabel, .xNALabel, .legendNALabel {
-	fill: #000;
-	font-size: 12px;
-	font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
-	font-weight: normal;
+    fill: #000;
+    font-size: 12px;
+    font-family: HelveticaNeue, Helvetica, Arial, sans-serif;
+    font-weight: normal;
 }
 .xAxisLabel, .yAxisLabel, .xNALabel {
-	text-anchor: end;
+    text-anchor: end;
 }
 .xNALabel, .legendNALabel {
-	fill: #00f;
+    fill: #00f;
 }
 .fill1, .fill2, .fill3 {
-	fill: #f00;
-	fill-opacity: 0.25;
+    fill: #f00;
+    fill-opacity: 0.25;
 }
 .fill2 {
-	fill-opacity: 0.62;
+    fill-opacity: 0.62;
 }
 .fill3 {
-	fill: #00f;
+    fill: #00f;
 }
 ]]></style>
 </defs>
@@ -425,4 +425,4 @@ $datapoints
 <text x=\"$titlex\" y=\"$titley\" id=\"mainTitle\">$title_text</text>
  
 </svg>
-};
+END_SVG

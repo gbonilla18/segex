@@ -190,7 +190,7 @@ END_PLATFORM_QUERY
     # get a list of studies
     if ( !defined($curr_proj) || $curr_proj eq '' ) {
 
-        # current project not set or set to 'All Projects'
+        # current project not set or set to '@All Projects'
         $sth      = $dbh->prepare(qq{select stid, description, pid from study});
         $rowcount = $sth->execute();
     }

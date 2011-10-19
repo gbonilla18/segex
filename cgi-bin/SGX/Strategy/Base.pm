@@ -49,7 +49,9 @@ sub new {
         _css_src_yui  => [],
         _css_src_code => [],
         _header       => {},
-        _title        => ''
+        _title        => '',
+
+        _permission_level => 'user'
     };
 
     bless $self, $class;

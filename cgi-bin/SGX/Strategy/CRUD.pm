@@ -65,8 +65,7 @@ sub new {
 
         _other            => {},
         _id               => undef,
-        _id_data          => {},
-        _permission_level => 'user'
+        _id_data          => {}
     );
 
     # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?

@@ -327,7 +327,7 @@ sub loadProjectData {
     my $sql = 'SELECT prid, prname FROM project ORDER BY prname ASC';
     my $projectDropDown = SGX::DropDownData->new( $self->{_dbh}, $sql );
 
-    $projectDropDown->Push( '' => 'All Projects' );
+    $projectDropDown->Push( '' => '@All Projects' );
     $self->{_projectList} = $projectDropDown->loadDropDownValues();
 
     #warn Dumper( $self->{_projectList} );

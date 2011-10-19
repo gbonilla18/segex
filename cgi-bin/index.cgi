@@ -1172,7 +1172,7 @@ sub build_sidemenu {
                 $proj_name );
         }
         else {
-            $proj_name = 'All Projects';
+            $proj_name = '@All Projects';
         }
 
         # add  options
