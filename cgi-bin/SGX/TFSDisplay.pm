@@ -74,9 +74,7 @@ sub new {
     );
 
     $self->register_actions(
-        'head' => { CSV => 'CSV_head' },
-        'body' => { CSV => 'CSV_body' }
-    );
+        CSV => { head => 'CSV_head', body => 'CSV_body' } );
 
     # find out what the current project is set to
     $self->getSessionOverrideCGI();
@@ -96,7 +94,7 @@ sub new {
 #       METHOD:  CSV_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a

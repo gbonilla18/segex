@@ -76,19 +76,27 @@ sub new {
     # dispatch table for other requests (returning 1 results in response
     # without a body)
     $self->register_actions(
-        'head'     => { form_create => 'form_create_head' },
-        'body'     => { form_create => 'form_create_body' },
-        'redirect' => {
 
-            # URI: ?b=x   => hook_x
-            'ajax_create' => 'ajax_create',
-            'ajax_update' => 'ajax_update',
-            'ajax_delete' => 'ajax_delete',
-            'assign'      => 'default_assign',
-            'create'      => 'default_create',
-            'update'      => 'default_update',
-            'delete'      => 'default_delete'
-        }
+        # default action
+        (
+            $self->get_id()
+            ? (
+                '' => {
+                    head => 'readrow_head',
+                    body => 'readrow_body'
+                }
+              )
+            : ()
+        ),
+        form_create =>
+          { head => 'form_create_head', body => 'form_create_body' },
+        ajax_create => { redirect => 'ajax_create' },
+        ajax_update => { redirect => 'ajax_update' },
+        ajax_delete => { redirect => 'ajax_delete' },
+        assign      => { redirect => 'default_assign' },
+        create      => { redirect => 'default_create' },
+        update      => { redirect => 'default_update' },
+        delete      => { redirect => 'default_delete' }
     );
 
     bless $self, $class;
@@ -422,23 +430,11 @@ sub dispatch_js {
 
     my $action = $self->get_dispatch_action();
 
-    $self->get_id();
-
-    # ajax_* methods should take care of authorization: may want different
-    # permission levels for update/delete statements for example. Additionally,
-    # for normal requests, 302 Found (with a redirect to login page) should be
-    # returned when user is unauthorized -- while AJAX requests should get 401
-    # Authentication Required. Finally, for AJAX requests we do not display body
-    # or bother to do further processing.
-    return
-      if (  $action =~ m/^ajax_/
-        and $self->_dispatch_by( 'redirect', $action ) );
-
-    return if $self->redirect_unauth();    # do not show body on redirect
-
     $self->_head_init();
     $self->set_title(
         autoformat(
+
+            # PL_N: pluralize noun
             'manage ' . PL_N( $self->get_item_name(), 2 ),
             { case => 'title' }
         )
@@ -448,20 +444,9 @@ sub dispatch_js {
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
     # preliminary processing routine (e.g. create request handler) tells us so.
     #
-    return if $self->_dispatch_by( 'redirect', $action );
+    return if $self->_dispatch_by( $action => 'redirect' );
 
-    if ( $self->_dispatch_by( 'head', $action ) ) {
-        $self->_js_dump();
-        return 1;
-    }
-
-    # default actions
-    if (
-        ( defined $self->{_id} )
-        ? $self->readrow_head()
-        : $self->default_head()
-      )
-    {
+    if ( $self->_dispatch_by( $action => 'head' ) ) {
         $self->_js_dump();
         return 1;
     }
@@ -670,7 +655,7 @@ sub dispatch {
 
     $q->delete_all();
 
-    my (@body) = $self->_dispatch_by( 'body', $action );    # show body
+    my (@body) = $self->_dispatch_by( $action => 'body' );    # show body
     return @body if ( @body > 0 );
 
     # default actions
@@ -1973,11 +1958,12 @@ sub _update_command {
     # This means that we cannot directly set a field to NULL -- unless we
     # specifically map a special character (for example, an empty string), to
     # NULL.
-    my @fields_to_update = grep { defined $q->param($_) } $self->_select_fields(
+    my @fields_to_update =
+      grep { defined $q->param($_) } $self->_select_fields(
         table    => $table_info,
         fieldset => 'base',
         omitting => '__readonly__'
-    );
+      );
 
     my $assignment = join(
         ',',
@@ -2037,22 +2023,6 @@ sub _ajax_process_request {
       ( defined $args{success_code} )
       ? $args{success_code}
       : 204;    # 204 No Content unless specified otherwise
-
-    my $s = $self->{_UserSession};
-
-    # hardcoding 'user' authorization level for now
-    if ( !$s->is_authorized('user') ) {
-
-        $self->set_body(
-            'You do not have sufficient permissions to perform this operation'
-        );
-
-        $self->set_header(
-            -status => 401,    # 401 Unauthorized
-            -cookie => undef
-        );
-        return 1;
-    }
 
     # :TODO:10/05/2011 02:06:01:es: attempt more specific error capture using
     # exceptions

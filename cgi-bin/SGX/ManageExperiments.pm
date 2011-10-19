@@ -84,7 +84,7 @@ sub new {
                       { label => 'Description', __readonly__ => 1 },
                     pubmed => { label => 'PubMed', __readonly__ => 1 }
                 },
-                join   => [
+                join => [
                     StudyExperiment => [
                         stid => 'stid',
                         { constraint => [ eid => sub { shift->{_id} } ] }
@@ -222,8 +222,10 @@ sub new {
     );
 
     $self->register_actions(
-        'head' => { form_assign => 'form_assign_head' },
-        'body' => { form_assign => 'form_assign_body' }
+        form_assign => {
+            head => 'form_assign_head',
+            body => 'form_assign_body'
+        }
     );
 
     bless $self, $class;

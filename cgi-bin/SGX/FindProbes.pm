@@ -94,9 +94,7 @@ sub new {
     );
 
     $self->register_actions(
-        'head' => { Search => 'Search_head' },
-        'body' => { Search => 'Search_body' }
-    );
+        Search => { head => 'Search_head', body => 'Search_body' } );
 
     bless $self, $class;
     return $self;

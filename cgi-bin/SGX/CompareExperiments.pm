@@ -60,9 +60,7 @@ sub new {
     }
 
     $self->register_actions(
-        'head' => { Compare => 'Compare_head' },
-        'body' => { Compare => 'Compare_body' }
-    );
+        Compare => { head => 'Compare_head', body => 'Compare_body' } );
 
     bless $self, $class;
     return $self;

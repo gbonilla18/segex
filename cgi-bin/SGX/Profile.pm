@@ -33,6 +33,7 @@ use base qw/SGX::Strategy::Base/;
 
 use Data::Dumper;
 use URI::Escape;
+use SGX::Util qw/car/;
 
 {
 
@@ -194,7 +195,7 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     $self->set_attributes(
-        _permission_level => undef,
+        _permission_level => 'anonym',
         _title            => 'My Profile',
 
         # model
@@ -203,59 +204,73 @@ sub new {
     );
 
     $self->register_actions(
-        'head' => {
 
-            # private
-            ''                    => 'redirect_if_unauth',    # default_head
-            'form_changePassword' => 'redirect_if_unauth',
-            'form_changeEmail'    => 'redirect_if_unauth',
+        # default
+        '' => { head => 'default_head', body => 'default_body', perm => '' },
 
-            'chooseProject'   => 'chooseProject_head',
-            'changeProjectTo' => 'changeProjectTo_head',
-            'changePassword'  => 'changePassword_head',
-            'changeEmail'     => 'changeEmail_head',
-
-            # public
-            'verifyEmail'   => 'verifyEmail_head',
-            'resetPassword' => 'resetPassword_head',
-            'registerUser'  => 'registerUser_head',
-            'login'         => 'login_head',
-            'form_registerUser' =>
-              'redirect_if_auth',    # only proceed if not authorized
-            'form_resetPassword' =>
-              'redirect_if_auth',    # only proceed if not authorized
-            'form_login' => 'redirect_if_auth', # only proceed if not authorized
-            'logout'     => 'logout_head',
+        # signed in only
+        form_changePassword => {
+            body => 'form_changePassword_body',
+            perm => 'user'
         },
-        'body' => {
-            'chooseProject'       => 'chooseProject_body',
-            'changeProjectTo'     => 'chooseProject_body',
-            'form_changePassword' => 'form_changePassword_body',
-            'form_changeEmail'    => 'form_changeEmail_body',
-            'form_registerUser'   => 'form_registerUser_body',
-            'form_resetPassword'  => 'form_resetPassword_body',
-            'form_login'          => 'form_login_body'
-        }
+        form_changeEmail => {
+            body => 'form_changeEmail_body',
+            perm => 'user'
+        },
+        chooseProject => {
+            head => 'chooseProject_head',
+            body => 'chooseProject_body',
+            perm => 'user'
+        },
+        changeProjectTo => {
+            head => 'changeProjectTo_head',
+            body => 'chooseProject_body',
+            perm => 'user'
+        },
+        changePassword => {
+            head => 'changePassword_head',
+            perm => 'user'
+        },
+        changeEmail => {
+            head => 'changeEmail_head',
+            perm => 'user'
+        },
+
+        # anonymous or signed in
+        verifyEmail => { head => 'verifyEmail_head', perm => 'anonym' },
+        logout      => { head => 'logout_head',      perm => 'anonym' },
+
+        # anonymous only
+        registerUser =>
+          { head => 'registerUser_head', perm => [ 'anonym', 'anonym' ] },
+        form_registerUser => {
+            head => 'default_head',
+            body => 'form_registerUser_body',
+            perm => [ 'anonym', 'anonym' ]
+        },
+        resetPassword =>
+          { head => 'resetPassword_head', perm => [ 'anonym', 'anonym' ] },
+        form_resetPassword => {
+            head => 'default_head',
+            body => 'form_resetPassword_body',
+            perm => [ 'anonym', 'anonym' ]
+        },
+        login      => { head => 'login_head', perm => [ 'anonym', 'anonym' ] },
+        form_login => {
+            head => 'default_head', # cannot leave this field empty since
+                                    # in that case the system will lookup
+                                    # default action ('') for its head hook
+                                    # (default_head), and default action in this
+                                    # module requires user to be logged in and
+                                    # will redirect back to form_login causing
+                                    # an infinite loop.
+            body => 'form_login_body',
+            perm => [ 'anonym', 'anonym' ]
+        },
     );
 
     bless $self, $class;
     return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Profile
-#       METHOD:  redirect_if_unauth
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub redirect_if_unauth {
-    my $self = shift;
-    $self->{_permission_level} = '';
-    return ( $self->redirect_unauth() ) ? () : 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -271,7 +286,8 @@ sub redirect_if_unauth {
 sub logout_head {
     my $self = shift;
     my $s    = $self->{_UserSession};
-    $s->destroy if $s->is_authorized('');
+    $s->destroy;
+    $self->redirect( $self->url( -absolute => 1 ) );
     return;
 }
 
@@ -292,7 +308,7 @@ sub default_body {
 
     return $q->h2('My Profile'), $self->view_show_messages(),
       (
-        ( $s->is_authorized('user') )
+        ( 1 == $s->is_authorized('user') )
         ? $q->p(
             $q->a(
                 {
@@ -338,14 +354,11 @@ sub changeEmail_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    return if !$self->redirect_if_unauth();
-
     my $error_string;
     if (
         $s->change_email(
-            password     => $q->param('password'),
-            email1       => $q->param('email1'),
-            email2       => $q->param('email2'),
+            password     => car( $q->param('password') ),
+            emails       => [ $q->param('email') ],
             project_name => 'Segex',
             login_uri    => $q->url( -full => 1 ) . '?a=verifyEmail',
             error        => \$error_string
@@ -364,28 +377,6 @@ sub changeEmail_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Profile
-#       METHOD:  redirect_if_auth
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub redirect_if_auth {
-    my $self = shift;
-    my $s    = $self->{_UserSession};
-
-    # only perform this actions for users who are not logged in
-    if ( $s->is_authorized('') ) {
-        $self->redirect( $self->url( -relative => 1 ) . '?a=profile' );
-        return;
-    }
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Profile
 #       METHOD:  login_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -398,13 +389,13 @@ sub login_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    # only proceed if not authorized
-    return if !$self->redirect_if_auth();
-
     my $error_string;
-    $s->authenticate( $q->param('username'), $q->param('password'),
-        \$error_string );
-    if ( $s->is_authorized('') ) {
+    $s->authenticate(
+        car( $q->param('username') ),
+        car( $q->param('password') ),
+        \$error_string
+    );
+    if ( 1 == $s->is_authorized('') ) {
 
         my $destination =
           ( defined( $q->url_param('destination') ) )
@@ -463,7 +454,8 @@ sub form_login_body {
         ? $q->url_param('destination')
         : $uri
     );
-    return $q->start_form(
+    return $q->h2('Login to Segex'), $self->view_show_messages(),
+      $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 )
           . "?a=profile&b=login&destination=$destination",
@@ -528,25 +520,15 @@ sub registerUser_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    # only proceed if not authorized
-    return if !$self->redirect_if_auth();
-
-    # only perform this actions for users who are not logged in
-    if ( $s->is_authorized('') ) {
-        $self->redirect( $self->url( -relative => 1 ) . '?a=profile' );
-        return;
-    }
     my $error_string;
     if (
         $s->register_user(
-            username     => $q->param('username'),
-            password1    => $q->param('password1'),
-            password2    => $q->param('password2'),
-            email1       => $q->param('email1'),
-            email2       => $q->param('email2'),
-            full_name    => $q->param('full_name'),
-            address      => $q->param('address'),
-            phone        => $q->param('phone'),
+            username     => car( $q->param('username') ),
+            passwords    => [ $q->param('password') ],
+            emails       => [ $q->param('email') ],
+            full_name    => car( $q->param('full_name') ),
+            address      => car( $q->param('address') ),
+            phone        => car( $q->param('phone') ),
             project_name => 'Segex',
             login_uri    => $q->url( -full => 1 ) . '?a=profile&b=verifyEmail',
             error        => \$error_string
@@ -581,10 +563,10 @@ sub form_registerUser_body {
     my $q    = $self->{_cgi};
 
     # user cannot be logged in
-    return $q->h2('Sign up'),
+    return $q->h2('Apply for Access to Segex'), $self->view_show_messages(),
       $q->start_form(
         -method => 'POST',
-        -action => $q->url( -relative => 1 ) . '?a=profile&b=registerUser',
+        -action => $q->url( -absolute => 1 ) . '?a=profile&b=registerUser',
         -onsubmit =>
 'return validate_fields(this, [\'username\',\'password1\',\'password2\',\'email1\',\'email2\',\'full_name\']);'
       ),
@@ -600,7 +582,7 @@ sub form_registerUser_body {
         $q->dt( $q->label( { -for => 'password1' }, 'Password:' ) ),
         $q->dd(
             $q->password_field(
-                -name      => 'password1',
+                -name      => 'password',
                 -id        => 'password1',
                 -maxlength => 40,
                 -title     => 'Enter your future password'
@@ -609,7 +591,7 @@ sub form_registerUser_body {
         $q->dt( $q->label( { -for => 'password2' }, 'Confirm Password:' ) ),
         $q->dd(
             $q->password_field(
-                -name      => 'password2',
+                -name      => 'password',
                 -id        => 'password2',
                 -maxlength => 40,
                 -title     => 'Type your password again for confirmation'
@@ -618,7 +600,7 @@ sub form_registerUser_body {
         $q->dt( $q->label( { -for => 'email1' }, 'Email:' ) ),
         $q->dd(
             $q->textfield(
-                -name  => 'email1',
+                -name  => 'email',
                 -id    => 'email1',
                 -title => 'Enter your email address here (must be valid)'
             )
@@ -626,7 +608,7 @@ sub form_registerUser_body {
         $q->dt( $q->label( { -for => 'email2' }, 'Confirm Email:' ) ),
         $q->dd(
             $q->textfield(
-                -name  => 'email2',
+                -name  => 'email',
                 -id    => 'email2',
                 -title => 'Type your email address again for confirmation'
             )
@@ -644,8 +626,6 @@ sub form_registerUser_body {
             $q->textarea(
                 -name    => 'address',
                 -id      => 'address',
-                -rows    => 10,
-                -columns => 50,
                 -title   => 'Enter your contact address (optional)'
             )
         ),
@@ -687,13 +667,10 @@ sub resetPassword_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    # only proceed if not authorized
-    return if !$self->redirect_if_auth();
-
     my $error_string;
     if (
         $s->reset_password(
-            username     => $q->param('username'),
+            username     => car( $q->param('username') ),
             project_name => 'Segex',
             login_uri    => $q->url( -full => 1 )
               . '?a=profile&b=form_changePassword',
@@ -701,8 +678,8 @@ sub resetPassword_head {
         )
       )
     {
+        $self->set_action('form_login');
         push @{ $self->{_messages} }, $s->reset_password_text();
-        $self->set_action('');    # default page: profile
     }
     else {
 
@@ -727,9 +704,10 @@ sub form_resetPassword_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    return $q->start_form(
+    return $q->h2('I Forgot My Password'), $self->view_show_messages(),
+      $q->start_form(
         -method   => 'POST',
-        -action   => $q->url( -relative => 1 ) . '?a=profile&b=resetPassword',
+        -action   => $q->url( -absolute => 1 ) . '?a=profile&b=resetPassword',
         -onsubmit => 'return validate_fields(this, [\'username\']);'
       ),
       $q->dl(
@@ -780,7 +758,7 @@ sub verifyEmail_head {
         expire_in => 3600 * 48,
         check_ip  => 0
     );
-    if ( $t->restore( $q->param('sid') ) ) {
+    if ( $t->restore( car( $q->param('sid') ) ) ) {
         if ( $s->verify_email( $t->{session_stash}->{username} ) ) {
             push @{ $self->{_messages} },
               'Success! You email address has been verified.';
@@ -792,7 +770,7 @@ sub verifyEmail_head {
     else {
 
         # redirect to main page
-        $self->redirect( $self->url( -relative => 1 ) );
+        $self->redirect( $self->url( -absolute => 1 ) );
         return;
     }
 }
@@ -811,30 +789,22 @@ sub changePassword_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    return if !$self->redirect_if_unauth();
-
     my $error_string;
-    my $old_password =
-      ( defined $q->param('old_password') )
-      ? $q->param('old_password')
-      : undef;
     if (
-        $s->change_password(
-            old_password  => $old_password,
-            new_password1 => $q->param('new_password1'),
-            new_password2 => $q->param('new_password2'),
+        !$s->change_password(
+            old_password  => car( $q->param('old_password') ),
+            new_passwords => [ $q->param('new_password') ],
             error         => \$error_string
         )
       )
     {
-        $self->set_action('');    # default page: profile
-        push @{ $self->{_messages} },
-'Success! Your password has been changed to the new one you provided.';
-    }
-    else {
         push @{ $self->{_error_messages} }, $error_string;
         $self->set_action('form_changePassword');    # change password form
+        return 1;
     }
+    $self->set_action('');                           # default page: profile
+    push @{ $self->{_messages} },
+      'Success! Your password has been changed to the one you provided.';
     return 1;
 }
 
@@ -879,7 +849,7 @@ sub form_changePassword_body {
         $q->dt( $q->label( { -for => 'new_password1' }, 'New Password:' ) ),
         $q->dd(
             $q->password_field(
-                -name      => 'new_password1',
+                -name      => 'new_password',
                 -id        => 'new_password1',
                 -maxlength => 40,
                 -title => 'Enter the new password you would like to change to'
@@ -890,7 +860,7 @@ sub form_changePassword_body {
         ),
         $q->dd(
             $q->password_field(
-                -name      => 'new_password2',
+                -name      => 'new_password',
                 -id        => 'new_password2',
                 -maxlength => 40,
                 -title     => 'Type the new password again to confirm it'
@@ -933,7 +903,7 @@ sub form_changeEmail_body {
           'return validate_fields(this, [\'password\',\'email1\',\'email2\']);'
       ),
       $q->dl(
-        $q->dt('Password:'),
+        $q->dt( $q->label( { -for => 'password' }, 'Password:' ) ),
         $q->dd(
             $q->password_field(
                 -name      => 'password',
@@ -942,18 +912,18 @@ sub form_changeEmail_body {
                 -title     => 'Enter your current user password'
             )
         ),
-        $q->dt('New Email Address:'),
+        $q->dt( $q->label( { -for => 'email1' }, 'New Email Address:' ) ),
         $q->dd(
             $q->textfield(
-                -name  => 'email1',
+                -name  => 'email',
                 -id    => 'email1',
                 -title => 'Enter your new email address'
             )
         ),
-        $q->dt('Confirm New Address:'),
+        $q->dt( $q->label( { -for => 'email2' }, 'Confirm New Address:' ) ),
         $q->dd(
             $q->textfield(
-                -name  => 'email2',
+                -name  => 'email',
                 -id    => 'email2',
                 -title => 'Confirm your new email address'
             )
@@ -985,8 +955,6 @@ sub form_changeEmail_body {
 sub changeProjectTo_head {
     my $self = shift;
 
-    return if !$self->redirect_if_unauth();
-
     $self->chooseProject_init();
     $self->changeToCurrent();
 
@@ -1008,8 +976,6 @@ sub changeProjectTo_head {
 #===============================================================================
 sub chooseProject_head {
     my $self = shift;
-
-    return if !$self->redirect_if_unauth();
 
     # default action -- only load data for the form
     $self->chooseProject_init();
@@ -1064,7 +1030,7 @@ sub chooseProject_init {
     # First tries to get current project id from the CGI parameter; failing
     # that, looks it up from the session cookie.
 
-    my $curr_proj = $q->param('proj');
+    my $curr_proj = car( $q->param('proj') );
     $self->{_curr_proj} =
       defined($curr_proj)
       ? $curr_proj
@@ -1092,7 +1058,6 @@ sub loadProjectData {
     $projectDropDown->Push( '' => '@All Projects' );
     $self->{_projectList} = $projectDropDown->loadDropDownValues();
 
-    #warn Dumper( $self->{_projectList} );
     return;
 }
 

@@ -25,7 +25,7 @@ use warnings;
 
 use SGX::Config;
 
-my $softwareVersion = '0.3.1';
+my $softwareVersion = '0.3.1.1';
 
 my $all_resources = {
     compareExperiments => [
@@ -249,7 +249,7 @@ sub build_sidemenu {
 
     my @menu;
     my $url_prefix = $q->url( -absolute => 1 );
-    if ( $s->is_authorized('') ) {
+    if ( $s->is_authorized('') == 1 ) {
 
         my $proj_name = $s->{session_cookie}->{proj_name};
         my $curr_proj = $s->{session_cookie}->{curr_proj};
@@ -348,7 +348,7 @@ sub build_sidemenu {
 sub build_menu {
     my $obj = shift;
     my ( $q, $s ) = @$obj{qw/_cgi _UserSession/};
-    return '&nbsp' unless $s->is_authorized('user');
+    return '&nbsp' unless 1 == $s->is_authorized('user');
 
     my $link_creator =
       make_link_creator( $all_resources, $q, $q->url_param('a') );

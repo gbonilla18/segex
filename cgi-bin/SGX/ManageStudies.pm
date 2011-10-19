@@ -181,10 +181,8 @@ sub new {
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
     );
 
-    $self->register_actions(
-        'head' => { form_assign => 'form_assign_head' },
-        'body' => { form_assign => 'form_assign_body' }
-    );
+    $self->register_actions( form_assign =>
+          { head => 'form_assign_head', body => 'form_assign_body' } );
 
     bless $self, $class;
     return $self;

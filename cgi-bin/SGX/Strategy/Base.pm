@@ -21,6 +21,7 @@ use strict;
 use warnings;
 
 use URI::Escape qw/uri_escape/;
+use Data::Dumper;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
@@ -55,6 +56,13 @@ sub new {
     };
 
     bless $self, $class;
+
+    $self->register_actions(
+
+        # default action
+        '' => { head => 'default_head', body => 'default_body' }
+
+    );
 
     return $self;
 }
@@ -203,35 +211,13 @@ sub set_body {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub redirect {
-    shift->set_header(
-        -location => shift,
-        -status   => 302      # 302 Found
+    my $self = shift;
+    my $location = shift || '';
+    $self->set_header(
+        -location => $location,
+        -status   => 302          # 302 Found
     );
     return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  require_authorization
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub redirect_unauth {
-    my $self = shift;
-    my $s    = $self->{_UserSession};
-
-    # Because we are using forms authentication (not HTTP authentication),
-    # instead of sending 401 Unauthorized, we redirect to login page.
-    if ( !$s->is_authorized( $self->{_permission_level} ) ) {
-        $self->redirect(
-            '?a=profile&b=form_login&destination=' . uri_escape( $self->request_uri() ) );
-        return 1;
-    }
-    return;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -282,7 +268,7 @@ sub get_dispatch_action {
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
 #       METHOD:  _dispatch_by
-#   PARAMETERS:  ????
+#   PARAMETERS:  action => method
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
@@ -290,15 +276,70 @@ sub get_dispatch_action {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _dispatch_by {
-    my ( $self, $type, $action, @info ) = @_;
-    my $dispatch_table = $self->{_dispatch_tables}->{$type};
+    my $self   = shift;
+    my $action = shift || '';
+    my $hook   = shift;
+
+    my $s = $self->{_UserSession};
 
     # execute methods that are in the intersection of those found in the
-    # requested dispatch table and those tha can actually be executed.
-    my $method = $dispatch_table->{$action};
-    return if ( !defined($method) || !$self->can($method) );
+    # requested dispatch table and those which can actually be executed.
+    my $dispatch_tables = $self->{_dispatch_tables} || {};
+    my $meta = ( $self->{_dispatch_tables} || {} )->{$action} || {};
 
-    return $self->$method(@info);
+    my $perm =
+      ( defined $meta->{perm} ) ? $meta->{perm} : $self->{_permission_level};
+
+    my $is_auth = $s->is_authorized($perm);
+    if ( $is_auth == 1 ) {
+
+        # execute hook
+        my $method = $meta->{$hook};
+        my @ret =
+          ( defined($method) && $self->can($method) ) ? $self->$method(@_)
+          : (
+            ( ( $hook eq 'head' or $hook eq 'body' ) and $action ne '' )
+            ? $self->_dispatch_by( '' => $hook )
+            : ()
+          );
+        return @ret;
+    }
+    else {
+
+        # For normal requests, 302 Found (with a redirect to login page) should
+        # be returned when user is unauthorized -- while AJAX requests should
+        # get 401 Authentication Required. Finally, for AJAX requests we do not
+        # display body or bother to do further processing.
+        if ( $action =~ m/^ajax_/ ) {
+            $self->set_body(
+'Your user account does not have the necessary privileges to perform this operation'
+            );
+
+            $self->set_header(
+                -status => 401,    # 401 Unauthorized
+                -cookie => undef
+            );
+            return 1;              # don't show body
+        }
+        elsif ( $is_auth == 0 ) {
+
+            # redirect to login
+            $self->redirect( '?a=profile&b=form_login&destination='
+                  . uri_escape( $self->request_uri() ) );
+            return 1;              # don't show body
+        }
+        elsif ( $is_auth == -1 and $hook eq 'head' and $action ) {
+
+            # try default action
+            return $self->_dispatch_by( '' => $hook );
+        }
+        else {
+
+            # redirect to main page
+            $self->redirect( $self->url( -absolute => 1 ) );
+            return 1;              # don't show body
+        }
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -316,25 +357,13 @@ sub dispatch_js {
 
     my $action = $self->get_dispatch_action();
 
-    $self->set_title( $self->{_title} );
-
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
     # preliminary processing routine (e.g. create request handler) tells us so.
     #
-    return if $self->_dispatch_by( 'redirect', $action );
 
-    return if $self->redirect_unauth();    # do not show body on redirect
-
-    if ( $self->_dispatch_by( 'head', $action ) ) {
-        return 1;
-    }
-
-    # default actions
-    if ( $self->default_head() ) {
-        return 1;
-    }
-    return;
+    return if $self->_dispatch_by( $action => 'redirect' );   # do not show body
+    return $self->_dispatch_by( $action => 'head' );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -375,8 +404,7 @@ sub dispatch {
     my $q = $self->{_cgi};
     $q->delete_all();
 
-    my (@body) = $self->_dispatch_by( 'body', $action );    # show body
-    return ( @body > 0 ) ? @body : $self->default_body();
+    return $self->_dispatch_by( $action => 'body' );    # show body
 }
 
 #===  CLASS METHOD  ============================================================
@@ -433,13 +461,14 @@ sub set_attributes {
 #===============================================================================
 sub register_actions {
     my ( $self, %args ) = @_;
-    my $dispatch_tables = $self->{_dispatch_tables};
-    while ( my ( $type, $table_slice ) = each(%args) ) {
-        my $table =
-          ( defined $dispatch_tables->{$type} )
-          ? $dispatch_tables->{$type}
-          : {};
-        $self->{_dispatch_tables}->{$type} = { %$table, %$table_slice };
+    my $dispatch_tables = $self->{_dispatch_tables} || {};
+    $self->{_dispatch_tables} = $dispatch_tables;
+    while ( my ( $action, $table_slice ) = each %args ) {
+        my $action_table = $dispatch_tables->{$action} || {};
+        $dispatch_tables->{$action} = $action_table;
+        while ( my ( $type, $hook ) = each %$table_slice ) {
+            $action_table->{$type} = $hook;
+        }
     }
     return 1;
 }
@@ -463,7 +492,7 @@ sub view_start_get_form {
     return $q->start_form(
         -method  => 'GET',
         -enctype => 'application/x-www-form-urlencoded',
-        -action  => $self->url( -relative => 1 )
+        -action  => $self->url( -absolute => 1 )
     );
 }
 
@@ -491,7 +520,7 @@ sub view_show_messages {
 #       METHOD:  view_show_content
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -500,7 +529,7 @@ sub view_show_content {
     my $self = shift;
 
     require SGX::Body;
-    my $body = SGX::Body->new($self); # Body class knows about Strategy::Base
+    my $body = SGX::Body->new($self);    # Body class knows about Strategy::Base
     return $body->get_content();
 }
 

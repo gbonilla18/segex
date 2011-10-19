@@ -52,7 +52,7 @@ To send a cookie to the user:
 Note: is_authorized('admin') checks whether the session user has the credential
 'admin'.
 
-    if ($s->is_authorized('admin')) {
+    if ($s->is_authorized('admin') == 1) {
         # do admin stuff...
     } else {
         print 'have to be logged in!';
@@ -143,7 +143,6 @@ use strict;
 use warnings;
 
 use vars qw($VERSION);
-
 $VERSION = '0.11';
 
 use base qw/SGX::Session::Cookie/;
@@ -154,6 +153,9 @@ use Mail::Send;
 use SGX::Abstract::Exception;
 use SGX::Session::Base;    # for email confirmation
 use Email::Address;
+use SGX::Util qw/jam/;
+
+my $MIN_PWD_LENGTH = 6;    # minimum password length (in characters)
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
@@ -519,26 +521,29 @@ sub change_password {
 
     my $require_old = !defined( $self->{session_stash}->{change_pwd} );
 
-    my ( $old_password, $new_password1, $new_password2, $error ) =
-      @param{qw{old_password new_password1 new_password2 error}};
+    my ( $old_password, $new_passwords, $error ) =
+      @param{qw{old_password new_passwords error}};
 
-    if ( $require_old && ( !defined($old_password) || $old_password eq '' ) ) {
-        $$error = 'Old password not specified';
+    if ( $require_old && !defined($old_password) ) {
+        $$error = 'You did not provide your current password';
         return;
     }
-    if ( !defined($new_password1) || $new_password1 eq '' ) {
-        $$error = 'New password not specified';
+    if ( @$new_passwords < 2 ) {
+        $$error =
+'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.';
         return;
     }
-    if ( !defined($new_password2) || $new_password2 eq '' ) {
-        $$error = 'New password not confirmed';
-        return;
-    }
-    if ( $new_password1 ne $new_password2 ) {
+    my $new_password = jam @$new_passwords;
+    if ( !defined($new_password) ) {
         $$error = 'New password and its confirmation do not match';
         return;
     }
-    if ( $require_old and $new_password1 eq $old_password ) {
+    if ( length($new_password) < $MIN_PWD_LENGTH ) {
+        $$error =
+          "New password must be at least $MIN_PWD_LENGTH characters long";
+        return;
+    }
+    if ( $require_old and $new_password eq $old_password ) {
         $$error = 'The new and the old passwords you entered are the same.';
         return;
     }
@@ -556,8 +561,8 @@ sub change_password {
 
     my @params =
         ($require_old)
-      ? ( sha1_hex($new_password1), $username, sha1_hex($old_password) )
-      : ( sha1_hex($new_password1), $username );
+      ? ( sha1_hex($new_password), $username, sha1_hex($old_password) )
+      : ( sha1_hex($new_password), $username );
 
     my $dbh = $self->{dbh};
     my $rows_affected = $dbh->do( $query, undef, @params );
@@ -599,32 +604,32 @@ sub change_email {
     my ( $self, %param ) = @_;
 
     # extract values from a hash of named arguments and place them into an array
-    my ( $password, $email1, $email2, $project_name, $login_uri, $error ) =
-      @param{qw{password email1 email2 project_name login_uri error}};
+    my ( $password, $emails, $project_name, $login_uri, $error ) =
+      @param{qw{password emails project_name login_uri error}};
 
-    if ( !defined($password) || $password eq '' ) {
+    if ( !defined($password) ) {
         $$error = 'Password not specified';
         return;
     }
-    if ( !defined($email1) || $email1 eq '' ) {
-        $$error = 'Email not specified';
+    if ( @$emails < 2 ) {
+        $$error =
+'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.';
         return;
     }
-    if ( !defined($email2) || $email2 eq '' ) {
-        $$error = 'Email not confirmed';
-        return;
-    }
-    if ( $email1 ne $email2 ) {
-        $$error = 'Email and its confirmation do not match';
+    my $email = jam @$emails;
+    if ( !defined($email) ) {
+        $$error =
+          'Email address you entered and its confirmation do not match.';
         return;
     }
 
     # Parsing email address with Email::Address->parse() has the side effect of
     # untainting user-entered email (applicable when CGI script is run in taint
     # mode with -T switch).
-    my ($email_handle) = Email::Address->parse($email1);
+    my ($email_handle) = Email::Address->parse($email);
     if ( !defined($email_handle) ) {
-        $$error = 'Email address provided is not in valid format';
+        $$error =
+'You did not provide an email address or the email address entered is not in a valid format.';
         return;
     }
     my $email_address = $email_handle->address;
@@ -701,44 +706,46 @@ sub register_user {
     my ( $self, %param ) = @_;
 
     my (
-        $username,     $password1, $password2, $email1,
-        $email2,       $full_name, $address,   $phone,
-        $project_name, $login_uri, $error
+        $username, $passwords,    $emails,    $full_name, $address,
+        $phone,    $project_name, $login_uri, $error
       )
       = @param{
-        qw{username password1 password2 email1 email2 full_name address phone project_name login_uri error}
+        qw/username passwords emails full_name address phone project_name login_uri error/
       };
 
     if ( !defined($username) || $username eq '' ) {
         $$error = 'Username not specified';
         return;
     }
-    if ( !defined($password1) || $password1 eq '' ) {
-        $$error = 'Password not specified';
+
+    if ( @$passwords < 2 ) {
+        $$error =
+'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.';
         return;
     }
-    if ( !defined($password2) || $password2 eq '' ) {
-        $$error = 'Password not confirmed';
+    my $password = jam @$passwords;
+    if ( !defined($password) ) {
+        $$error = 'New password and its confirmation do not match';
         return;
     }
-    if ( $password1 ne $password2 ) {
-        $$error = 'Password and its confirmation do not match';
+    if ( length($password) < $MIN_PWD_LENGTH ) {
+        $$error =
+          "New password must be at least $MIN_PWD_LENGTH characters long";
         return;
     }
     if ( !defined($full_name) || $full_name eq '' ) {
         $$error = 'Full name not specified';
         return;
     }
-    if ( !defined($email1) || $email1 eq '' ) {
-        $$error = 'Email not specified';
+    if ( @$emails < 2 ) {
+        $$error =
+'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.';
         return;
     }
-    if ( !defined($email2) || $email2 eq '' ) {
-        $$error = 'Email not confirmed';
-        return;
-    }
-    if ( $email1 ne $email2 ) {
-        $$error = 'Email and its confirmation do not match';
+    my $email = jam @$emails;
+    if ( !defined($email) ) {
+        $$error =
+          'Email address you entered and its confirmation do not match.';
         return;
     }
 
@@ -747,9 +754,10 @@ sub register_user {
     # Parsing email address with Email::Address->parse() has the side effect of
     # untainting user-entered email (applicable when CGI script is run in taint
     # mode with -T switch).
-    my ($email_handle) = Email::Address->parse($email1);
+    my ($email_handle) = Email::Address->parse($email);
     if ( !defined($email_handle) ) {
-        $$error = 'Email address provided is not in valid format';
+        $$error =
+'You did not provide an email address or the email address entered is not in a valid format.';
         return;
     }
     my $email_address = $email_handle->address;
@@ -767,7 +775,7 @@ sub register_user {
 'insert into users set uname=?, pwd=?, email=?, full_name=?, address=?, phone=?',
         undef,
         $username,
-        sha1_hex($password1),
+        sha1_hex($password),
         $email_address,
         $full_name,
         $address,
@@ -975,9 +983,12 @@ sub read_perm_cookie {
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
 #       METHOD:  is_authorized
-#   PARAMETERS:  $self - reference to object instance
-#                $req_user_level - required credential level
-#      RETURNS:  1 if yes, 0 if no
+#   PARAMETERS:  $self           - reference to object instance
+#                $req_user_level - required credential level (either scalar
+#                representing range [$scalar, +Inf) or tuple representing range
+#                [$scalar1, $scalar2]).
+#      RETURNS:  1 if golden, 0 if not logged in, -1 if logged in with different
+#                privileges from required ones.
 #  DESCRIPTION:  checks whether the currently logged-in user has the required
 #                credentials
 #       THROWS:  no exceptions
@@ -987,30 +998,56 @@ sub read_perm_cookie {
 sub is_authorized {
     my ( $self, $req_user_level ) = @_;
 
-    # authorize if request level is undefined
-    return 1 if not defined $req_user_level;
+    # do not authorize if request level is undefined
+    return if not defined $req_user_level;
 
     # otherwise we need session information to compare requested permission
     # level with the current one.
     my $session = $self->{session_stash} || {};
-    my $current_level = $session->{user_level};
-    return if not defined $current_level;
+    my $current_level =
+      ( defined $session->{user_level} ) ? $session->{user_level} : 'anonym';
 
- # :TODO:10/14/2011 11:54:35:es: This mapping will be replaced by actual numeric
- # values in the database.
+    # :TODO:10/14/2011 11:54:35:es: This mapping will be replaced by actual
+    # numeric values in the database.
     my %level = (
-        ''      => 0,
-        'user'  => 1,
-        'admin' => 2
+        'anonym' => -1,
+        ''       => 0,
+        'user'   => 1,
+        'admin'  => 2
     );
 
-    my $num_current_level  = $level{$current_level};
-    my $num_req_user_level = $level{$req_user_level};
-    return
-      if ( !defined($num_current_level)
-        || !defined($num_req_user_level)
-        || $num_current_level < $num_req_user_level );
-    return 1;
+    my $num_current_level   = $level{$current_level};
+    my $req_user_level_type = ref $req_user_level;
+    if ( $req_user_level_type eq '' ) {
+
+        # authorized if current level is larger or equal to required
+        my $num_req_user_level = $level{$req_user_level};
+
+        return ( defined($num_current_level)
+              && defined($num_req_user_level)
+              && $num_current_level >= $num_req_user_level )
+          ? 1
+          : ( ( defined $session->{user_level} ) ? -1 : 0 );
+    }
+    elsif ( $req_user_level_type eq 'ARRAY' ) {
+
+        # authorized if current level lies in the required range
+        my ( $req_level_from, $req_level_to ) = @$req_user_level;
+        my $level_from = $level{$req_level_from};
+        my $level_to   = $level{$req_level_to};
+
+        return ( defined($num_current_level)
+              && defined($level_from)
+              && defined($level_to)
+              && $num_current_level >= $level_from
+              && $num_current_level <= $level_to )
+          ? 1
+          : ( ( defined $session->{user_level} ) ? -1 : 0 );
+    }
+    else {
+        SGX::Exception::Internal->throw( error =>
+              'Unknown reference type in argument to User::is_authorized' );
+    }
 }
 
 #===  CLASS METHOD  ============================================================

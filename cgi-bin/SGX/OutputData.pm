@@ -67,9 +67,7 @@ sub new {
     );
 
     $self->register_actions(
-        'head' => { Load => 'Load_head' },
-        'body' => { Load => 'Load_body' }
-    );
+        Load => { head => 'Load_head', body => 'Load_body' } );
 
     bless $self, $class;
     return $self;
@@ -80,7 +78,7 @@ sub new {
 #       METHOD:  Load_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -110,7 +108,7 @@ sub Load_head {
 #       METHOD:  default_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a

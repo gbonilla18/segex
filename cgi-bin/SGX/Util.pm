@@ -10,7 +10,8 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK =
   qw/trim max min bounds label_format replace all_match count_gtzero
-  inherit_hash enum_array array2hash list_keys list_values tuples car cdr/;
+  inherit_hash enum_array array2hash list_keys list_values tuples car cdr
+  jam/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -56,6 +57,21 @@ sub all_match {
       : sub { ( defined && m/$regex/ ) || return for @_; return 1 };
 }
 
+#===  FUNCTION  ================================================================
+#         NAME:  jam
+#      PURPOSE:  Check whether all members of a list are equal to each other
+#   PARAMETERS:  ????
+#      RETURNS:  Returns first member if yes, empty list if otherwise
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub jam {
+    my $first = shift;
+    $first eq $_ || return for @_;
+    return $first;
+}
 #===  FUNCTION  ================================================================
 #         NAME:  array2hash
 #      PURPOSE:

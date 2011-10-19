@@ -47,7 +47,7 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     $self->set_attributes(
-        _permission_level => undef,
+        _permission_level => 'anonym',
         _title            => '',
 
         # model
@@ -56,10 +56,8 @@ sub new {
     );
 
     $self->register_actions(
-        'body' => {
-            'about'  => 'about_body',
-            'schema' => 'schema_body',
-        }
+        about  => { body => 'about_body' },
+        schema => { body => 'schema_body' }
     );
 
     bless $self, $class;
@@ -100,7 +98,7 @@ sub default_body {
 #===============================================================================
 sub schema_body {
     my $self = shift;
-    my $q = $self->{_cgi};
+    my $q    = $self->{_cgi};
 
     return $q->img(
         {

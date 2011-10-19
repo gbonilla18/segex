@@ -19,7 +19,7 @@ use Carp;    # croak exported automatically
 #---------------------------------------------------------------------------
 use lib qw/./;
 
-#use SGX::Debug;                 # all debugging code goes here
+use SGX::Debug;                 # all debugging code goes here
 use SGX::Config;                # all configuration for our project goes here
 use SGX::Session::User 0.07;    # user authentication, sessions and cookies
 
@@ -172,7 +172,7 @@ if ( $loadModule->dispatch_js() ) {
     # desirable to make changes to existing code to have the same behavior
     # apply to response headers.
 
-    my %header_command_body = (
+    my %header_command = (
         -status => 200,                  # 200 OK
         -type   => 'text/html',          # do not send Content-Type
         -cookie => $s->cookie_array(),
@@ -181,10 +181,11 @@ if ( $loadModule->dispatch_js() ) {
 
     # This is the only statement in the entire application that prints HTML
     # body.
+    #warn Dumper( \%header_command );
     print
 
       # HTTP response header
-      $q->header(%header_command_body),
+      $q->header(%header_command),
 
       # HTTP response body
       $loadModule->view_show_content();
@@ -205,6 +206,7 @@ else {
         -cookie => $s->cookie_array(),
         $loadModule->get_header()
     );
+    #warn Dumper( \%header_command );
 
     $s->commit();    # flushes the session data and prepares cookies
     eval { $dbh->disconnect() }; # do not disconnect before session data are committed

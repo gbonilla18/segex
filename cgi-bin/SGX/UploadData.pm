@@ -103,10 +103,7 @@ sub new {
         _error_messages  => []
     );
 
-    $self->register_actions(
-        'head' => { Upload => 'Upload_head' },
-        'body' => { Upload => 'default_body' }
-    );
+    $self->register_actions( Upload => { head => 'Upload_head' } );
 
     my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};

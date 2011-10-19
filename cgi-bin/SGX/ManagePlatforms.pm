@@ -190,10 +190,8 @@ sub new {
 
     );
 
-    $self->register_actions(
-        'head' => { form_assign => 'form_assign_head' },
-        'body' => { form_assign => 'form_assign_body' }
-    );
+    $self->register_actions( form_assign =>
+          { head => 'form_assign_head', body => 'form_assign_body' } );
 
     bless $self, $class;
     return $self;
@@ -252,7 +250,7 @@ sub readrow_body {
     #  Form: Set Project Attributes
     #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2('Editing Platform: ' . $self->{_id_data}->{pname}),
+    return $q->h2( 'Editing Platform: ' . $self->{_id_data}->{pname} ),
 
       $self->body_create_read_menu(
         'read'   => [ undef,         'Edit Platform' ],
@@ -261,7 +259,7 @@ sub readrow_body {
       $q->h3('Set Platform Attributes'),
 
       # Resource URI: /platforms/id
-      $self->body_create_update_form(mode => 'update'),
+      $self->body_create_update_form( mode => 'update' ),
 
     #---------------------------------------------------------------------------
     #  Studies table

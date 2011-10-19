@@ -55,9 +55,7 @@ sub new {
     $self->set_attributes( _title => 'Upload Annotations' );
 
     $self->register_actions(
-        'head' => { Upload => 'Upload_head' },
-        'body' => { Upload => 'Upload_body' }
-    );
+        Upload => { head => 'Upload_head', body => 'Upload_body' } );
 
     bless $self, $class;
     return $self;
@@ -90,7 +88,7 @@ sub Upload_head {
 #       METHOD:  default_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
