@@ -122,7 +122,7 @@ our @cookies;
 #  DESCRIPTION:  Stores key-value combinations to session cookie
 #       THROWS:  no exceptions
 #     COMMENTS:  Setting fields in $self->{session_cookie} directly won't
-#                trigger the $self->{session_cookie_modified} state change so it
+#                trigger the $self->{_session_cookie_modified} state change so it
 #                important that only the interface implemented by this method
 #                is used for setting session cookie data.
 #     SEE ALSO:  n/a
@@ -132,7 +132,7 @@ sub session_cookie_store {
     while ( my ( $key, $value ) = each(%param) ) {
         $self->{session_cookie}->{$key} = $value;
     }
-    $self->{session_cookie_modified} = 1;
+    $self->{_session_cookie_modified} = 1;
     return 1;
 }
 
@@ -151,7 +151,7 @@ sub session_cookie_store {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub restore {
-    my ($self, $id) = @_;
+    my ( $self, $id ) = @_;
 
     # Makes sure cookies are fetched when restoring from ?sid= URI parameter,
     my %cookies = fetch CGI::Cookie;
@@ -160,7 +160,7 @@ sub restore {
     # first try to restore session from provided id
     if ( defined($id) && $self->SUPER::restore($id) ) {
         $self->{session_cookie} = { $SID_FIELD => $id };
-        $self->{session_cookie_modified} = 1;
+        $self->{_session_cookie_modified} = 1;
         return 1;
     }
 
@@ -169,7 +169,7 @@ sub restore {
     $id = $session_cookie{$SID_FIELD};
     if ( defined($id) && $self->SUPER::restore($id) ) {
 
-        # do not set session_cookie_modified here to 1 -- otherwise a cookie
+        # do not set _session_cookie_modified here to 1 -- otherwise a cookie
         # will be sent every time a page is loaded.
         $self->{session_cookie} = \%session_cookie;
         return 1;
@@ -205,7 +205,7 @@ sub cookie_array {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub add_cookie {
-    my ($self, %param) = @_;
+    my $self = shift;
 
     # set defaults first
     my %cookie_opts = (
@@ -213,7 +213,7 @@ sub add_cookie {
         #-domain   => $ENV{SERVER_NAME},
         -path     => dirname( $ENV{SCRIPT_NAME} ),
         -httponly => 1,
-        %param
+        @_
     );
 
     # prepare the cookie
@@ -235,11 +235,9 @@ sub add_cookie {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub commit {
-
     my $self = shift;
 
     if ( $self->SUPER::commit() ) {
-
         my $session_id = $self->get_session_id();
 
         # one-way sync with session data: if cookie is missing or doesn't match
@@ -249,7 +247,7 @@ sub commit {
         {
             $self->session_cookie_store( $SID_FIELD => $session_id );
         }
-        if ( $self->{session_cookie_modified} ) {
+        if ( $self->{_session_cookie_modified} ) {
 
             # cookie could be modified either because of different session id
             # being set directly above this block or due to user calling

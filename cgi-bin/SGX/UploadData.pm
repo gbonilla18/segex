@@ -98,7 +98,9 @@ sub new {
         _ExperimentDesc => '',
         _AdditionalInfo => '',
 
-        _recordsInserted => undef
+        _recordsInserted => undef,
+        _messages        => [],
+        _error_messages  => []
     );
 
     $self->register_actions(
@@ -108,7 +110,6 @@ sub new {
 
     my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-    return unless $s->is_authorized('user');
     push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
     push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
     $self->{_PlatformStudyExperiment}->init(
@@ -139,6 +140,20 @@ sub Upload_head {
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
     $self->uploadData();
 
+    push @{ $self->{_messages} },
+      'The uploaded data were placed in a new experiment under: '
+      . $q->a(
+        {
+            -href => $q->url( -absolute => 1 )
+              . sprintf(
+                '?a=experiments&b=Load&pid=%s&stid=%s',
+                $self->{_pid}, $self->{_stid}
+              )
+        },
+        $self->{_PlatformStudyExperiment}
+          ->getPlatformStudyName( $self->{_pid}, $self->{_stid} )
+      );
+
     # show form
     push @$js_src_code, { -code => $self->getDropDownJS() };
 }
@@ -148,7 +163,7 @@ sub Upload_head {
 #       METHOD:  default_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -174,51 +189,9 @@ sub default_head {
 #===============================================================================
 sub default_body {
     my $self = shift;
-    return ( $self->displayMessages(), $self->showForm() );
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  displayMessages
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Display messages if any are present
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub displayMessages {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    my @ret;
-    if ( defined( $self->{_error_message} ) && $self->{_error_message} ne '' ) {
-        push @ret,
-          $q->pre( { -style => 'color:red; font-weight:bold;' },
-            $self->{_error_message} );
-    }
-    if ( defined( $self->{_message} ) && $self->{_message} ne '' ) {
-        push @ret,
-          (
-            $q->p( { -style => 'font-weight:bold;' }, $self->{_message} ),
-            $q->p(
-                { -style => 'font-weight:bold;' },
-                'The uploaded data were placed in a new experiment under: ',
-                $q->a(
-                    {
-                        -href => $q->url( -absolute => 1 )
-                          . sprintf(
-                            '?a=experiments&b=Load&pid=%s&stid=%s',
-                            $self->{_pid}, $self->{_stid}
-                          )
-                    },
-                    $self->{_PlatformStudyExperiment}
-                      ->getPlatformStudyName( $self->{_pid}, $self->{_stid} )
-                )
-            )
-          );
-    }
-    return @ret;
+    return
+      $self->view_show_messages(),
+      $self->showForm();
 }
 
 #===  CLASS METHOD  ============================================================
@@ -454,7 +427,7 @@ sub uploadData {
         # Notify user of User exception; rethrow Internal and other types of
         # exceptions.
         if ( $exception->isa('SGX::Exception::User') ) {
-            $self->{_error_message} =
+            push @{ $self->{_error_messages} },
               'There was a problem with your input: ' . $exception->error;
         }
         else {
@@ -462,7 +435,7 @@ sub uploadData {
         }
     }
     elsif ( $recordsValid == 0 ) {
-        $self->{_error_message} = 'No valid records were uploaded.';
+        push @{ $self->{_error_messages} }, 'No valid records were uploaded.';
     }
     else {
 
@@ -488,7 +461,7 @@ sub uploadData {
             if ( $exception->isa('SGX::Exception::User') ) {
 
                 # Catch User exceptions
-                $self->{_error_message} = sprintf(
+                push @{ $self->{_error_messages} }, sprintf(
                     <<"END_User_exception",
 Error loading data into the database:\n\n%s\n
 No changes to the database were stored.
@@ -500,7 +473,7 @@ END_User_exception
 
                 # Catch DBI::STH exceptions. Note: this block catches duplicate
                 # key record exceptions.
-                $self->{_error_message} = sprintf(
+                push @{ $self->{_error_messages} }, sprintf(
                     <<"END_DBI_STH_exception",
 Error loading data into the database. The database response was:\n\n%s\n
 No changes to the database were stored.
@@ -517,7 +490,8 @@ END_DBI_STH_exception
         elsif ( $recordsLoaded == 0 ) {
             $dbh->rollback;
             $self->loadToDatabase_finish($sth_hash);
-            $self->{_error_message} = 'Failed to add data to the database.';
+            push @{ $self->{_error_messages} },
+              'Failed to add data to the database.';
         }
         else {
             $dbh->commit;
@@ -525,7 +499,7 @@ END_DBI_STH_exception
 
             my $totalProbes = $self->probesPerPlatform();
             if ( $recordsLoaded == $totalProbes ) {
-                $self->{_message} = sprintf(
+                push @{ $self->{_messages} }, sprintf(
                     <<"END_FULL_SUCCESS",
 Success! Data for all %d probes from the selected platform 
 were added to the database.
@@ -534,7 +508,7 @@ END_FULL_SUCCESS
                 );
             }
             elsif ( $recordsLoaded < $totalProbes ) {
-                $self->{_message} = sprintf(
+                push @{ $self->{_messages} }, sprintf(
                     <<"END_PARTIAL_SUCCESS",
 You added data for %d probes out of total %d in the selected platform
 (no data were added for %d probes).

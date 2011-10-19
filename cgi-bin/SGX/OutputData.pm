@@ -89,7 +89,6 @@ sub Load_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
-    return unless $s->is_authorized('user');
     push @{ $self->{_css_src_yui} },
       (
         'paginator/assets/skins/sam/paginator.css',
@@ -120,8 +119,6 @@ sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
-
-    return unless $s->is_authorized('user');
 
     push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
 

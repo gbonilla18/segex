@@ -84,7 +84,6 @@ sub Compare_head {
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
     # process form and display results
-    return unless $s->is_authorized('user');
     push @{ $self->{_css_src_yui} },
       (
         'paginator/assets/skins/sam/paginator.css',
@@ -115,7 +114,6 @@ sub default_head {
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
     # show form
-    return unless $s->is_authorized('user');
     push @{ $self->{_css_src_yui} }, 'button/assets/skins/sam/button.css';
     push @$js_src_yui,
       (

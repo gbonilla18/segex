@@ -31,7 +31,6 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use Switch;
 use Tie::IxHash;
 use File::Basename;
 use JSON::XS;
@@ -117,7 +116,6 @@ sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
-    return unless $s->is_authorized('user');
     push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
     $self->getSessionOverrideCGI();
     push @$js_src_code, { -src => 'FormFindProbes.js' };
@@ -139,8 +137,6 @@ sub Search_head {
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
-    return unless $s->is_authorized('user');
-
     push @{ $self->{_css_src_yui} },
       (
         'paginator/assets/skins/sam/paginator.css',
@@ -155,7 +151,7 @@ sub Search_head {
         'paginator/paginator-min.js',         'datatable/datatable-min.js',
         'selector/selector-min.js'
       );
-    $self->fp_init();
+    $self->FindProbes_init();
     $self->getSessionOverrideCGI();
     push @$js_src_code, { -code => $self->findProbes_js($s) };
     push @$js_src_code, { -src  => 'FindProbes.js' };
@@ -164,7 +160,7 @@ sub Search_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  fp_init
+#       METHOD:  FindProbes_init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -172,7 +168,7 @@ sub Search_head {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub fp_init {
+sub FindProbes_init {
     my ( $self, $fh ) = @_;
 
     my $q = $self->{_cgi};
@@ -309,26 +305,22 @@ sub _setSearchPredicate {
     my $qtext;
     my $predicate;
 
-    switch ($match) {
-        case 'full' {
-            my $inner =
-              ( @$items > 0 ) ? join( ',', map { '?' } @$items ) : 'NULL';
-            $predicate = "IN ($inner)";
-            $qtext     = [@$items];
-        }
-        case 'prefix' {
-            $predicate = ( @$items > 0 ) ? 'REGEXP ?' : 'IN (NULL)';
-            $qtext =
-              ( @$items > 0 ) ? [ join( '|', map { "^$_" } @$items ) ] : [];
-        }
-        case 'part' {
-            $predicate = ( @$items > 0 ) ? 'REGEXP ?' : 'IN (NULL)';
-            $qtext = ( @$items > 0 ) ? [ join( '|', @$items ) ] : [];
-        }
-        else {
-            SGX::Exception::Internal->throw(
-                error => "Invalid match value $match\n" );
-        }
+    if ( $match eq 'full' ) {
+        my $inner = ( @$items > 0 ) ? join( ',', map { '?' } @$items ) : 'NULL';
+        $predicate = "IN ($inner)";
+        $qtext     = [@$items];
+    }
+    elsif ( $match eq 'prefix' ) {
+        $predicate = ( @$items > 0 ) ? 'REGEXP ?' : 'IN (NULL)';
+        $qtext = ( @$items > 0 ) ? [ join( '|', map { "^$_" } @$items ) ] : [];
+    }
+    elsif ( $match eq 'part' ) {
+        $predicate = ( @$items > 0 ) ? 'REGEXP ?' : 'IN (NULL)';
+        $qtext = ( @$items > 0 ) ? [ join( '|', @$items ) ] : [];
+    }
+    else {
+        SGX::Exception::Internal->throw(
+            error => "Invalid match value $match\n" );
     }
 
     $self->{_Predicate}   = $predicate;
@@ -808,7 +800,7 @@ sub Search_body {
 #       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a

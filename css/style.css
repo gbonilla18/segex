@@ -12,6 +12,13 @@ em {
 .hidden {
 	visibility:hidden;
 }
+.message {
+	font-weight:bold;
+}
+.error_message {
+	color:red;
+	font-weight:bold;
+}
 address, ul, p, pre { margin-bottom:1.4167em; }
 pre { font-size: 120%; }
 h1, h2, h3, h4, h5, h6, caption {
@@ -160,6 +167,7 @@ form dl dd.error input, form dl dd.error textarea {
 	color:#000;
 	background:#E6E6B2;
 }
+/* TODO: replace this with .error_message */
 div#errormsg {
 	color:#ec1b23;
 	font-weight:bold;

@@ -852,8 +852,7 @@ sub send_verify_email {
 Hi $full_name,
 
 You have recently applied for user access to $project_name. Please click on the
-link below to confirm your email address with $project_name. You may be asked to
-enter your username and password if you are not currently logged in.
+link below to confirm your email address with $project_name.
 
 $login_uri&sid=$session_id
 
@@ -988,34 +987,30 @@ sub read_perm_cookie {
 sub is_authorized {
     my ( $self, $req_user_level ) = @_;
 
-    if ( !defined( $self->{session_stash} ) ) {
-        return;
-    }
-    my $current_level = $self->{session_stash}->{user_level};
-    if ( !defined($current_level) ) {
-        return;
-    }
-    if ( $req_user_level eq 'admin' ) {
-        if ( $current_level eq 'admin' ) {
-            return 1;
-        }
-    }
-    elsif ( $req_user_level eq 'user' ) {
-        if (   $current_level eq 'admin'
-            || $current_level eq 'user' )
-        {
-            return 1;
-        }
-    }
-    elsif ( $req_user_level eq '' ) {
-        if (   $current_level eq 'admin'
-            || $current_level eq 'user'
-            || $current_level eq '' )
-        {
-            return 1;
-        }
-    }
-    return;
+    # authorize if request level is undefined
+    return 1 if not defined $req_user_level;
+
+    # otherwise we need session information to compare requested permission
+    # level with the current one.
+    my $session = $self->{session_stash} || {};
+    my $current_level = $session->{user_level};
+    return if not defined $current_level;
+
+ # :TODO:10/14/2011 11:54:35:es: This mapping will be replaced by actual numeric
+ # values in the database.
+    my %level = (
+        ''      => 0,
+        'user'  => 1,
+        'admin' => 2
+    );
+
+    my $num_current_level  = $level{$current_level};
+    my $num_req_user_level = $level{$req_user_level};
+    return
+      if ( !defined($num_current_level)
+        || !defined($num_req_user_level)
+        || $num_current_level < $num_req_user_level );
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1031,7 +1026,7 @@ sub is_authorized {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_user_id {
-    my $self    = shift;
+    my $self = shift;
 
     # first see if cached value is available
     my $user_id = $self->{_user_id};

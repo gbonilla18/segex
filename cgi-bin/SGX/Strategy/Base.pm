@@ -61,18 +61,16 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
-#       METHOD:  get_uri
+#       METHOD:  url
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:
+#  DESCRIPTION:  Simply a wrapper around CGI.pm's $q->url() method.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub get_uri {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-    return $q->url( -absolute => 1 );
+sub url {
+    return shift->{_cgi}->url(@_);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -130,62 +128,6 @@ sub set_title {
 #===============================================================================a
 sub get_title {
     return shift->{_title};
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  get_yui_js_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_yui_js_head {
-    return @{ shift->{_js_src_yui} };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  get_js_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_js_head {
-    return @{ shift->{_js_src_code} };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  get_yui_css_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_yui_css_head {
-    return @{ shift->{_css_src_yui} };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  get_css_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_css_head {
-    return @{ shift->{_css_src_code} };
 }
 
 #===  CLASS METHOD  ============================================================
@@ -252,6 +194,24 @@ sub set_body {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
+#       METHOD:  redirect
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub redirect {
+    shift->set_header(
+        -location => shift,
+        -status   => 302      # 302 Found
+    );
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
 #       METHOD:  require_authorization
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -267,11 +227,8 @@ sub redirect_unauth {
     # Because we are using forms authentication (not HTTP authentication),
     # instead of sending 401 Unauthorized, we redirect to login page.
     if ( !$s->is_authorized( $self->{_permission_level} ) ) {
-        $self->set_header(
-            -status   => 302,                           # 302 Found
-            -location => '?a=form_login&destination='
-              . uri_escape( $self->request_uri() )
-        );
+        $self->redirect(
+            '?a=profile&b=form_login&destination=' . uri_escape( $self->request_uri() ) );
         return 1;
     }
     return;
@@ -309,13 +266,16 @@ sub get_dispatch_action {
     my $self = shift;
     my $q    = $self->{_cgi};
 
+    my $action = $self->{_ActionName};
+    return $action if defined $action;
+
     # first try to get action name from URL parameters (this will allow us to
     # define certain actions as resources later). If that fails, check POSTed
     # data.
-    my $action = $q->url_param('b');
+    $action = $q->url_param('b');
     $action = $q->param('b') if not defined $action;
-    $action = ''             if not defined $action;
-    $self->{_ActionName} = $action;
+    $action = '' if not defined $action;
+    $self->set_action($action);
     return $action;
 }
 
@@ -378,7 +338,23 @@ sub dispatch_js {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::CRUD
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  set_action
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub set_action {
+    my $self = shift;
+    $self->{_ActionName} = shift;
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
 #       METHOD:  dispatch
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -388,7 +364,7 @@ sub dispatch_js {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub dispatch {
-    my ($self) = @_;
+    my $self = shift;
 
     my $action = $self->get_dispatch_action();
 
@@ -402,6 +378,30 @@ sub dispatch {
     my (@body) = $self->_dispatch_by( 'body', $action );    # show body
     return ( @body > 0 ) ? @body : $self->default_body();
 }
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  default_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  Stub method (to be overridden)
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_head { return 1; }
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  default_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  Stub method (to be overridden)
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_body { return ''; }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
@@ -452,7 +452,7 @@ sub register_actions {
 #  DESCRIPTION:  Convenience method for startingn HTML form that uses GET
 #                request. Such forms should not include URI parameters in the
 #                action string because they will be ignored, so we use
-#                $self->get_uri() method.
+#                $q->url(-relative => 1) method.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  view_hidden_resource
@@ -463,8 +463,45 @@ sub view_start_get_form {
     return $q->start_form(
         -method  => 'GET',
         -enctype => 'application/x-www-form-urlencoded',
-        -action  => $self->get_uri()
+        -action  => $self->url( -relative => 1 )
     );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  view_show_messages
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub view_show_messages {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    return ( map { $q->pre( { -class => 'error_message' }, $_ ) }
+          @{ $self->{_error_messages} || [] } ),
+      ( map { $q->p( { -class => 'message' }, $_ ) }
+          @{ $self->{_messages} || [] } );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  view_show_content
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub view_show_content {
+    my $self = shift;
+
+    require SGX::Body;
+    my $body = SGX::Body->new($self); # Body class knows about Strategy::Base
+    return $body->get_content();
 }
 
 #===  CLASS METHOD  ============================================================

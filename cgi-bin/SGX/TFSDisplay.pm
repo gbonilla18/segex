@@ -105,7 +105,6 @@ sub CSV_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
-    return unless $s->is_authorized('user');
 
     #Clear our headers so all we get back is the CSV file.
     print $self->{_cgi}->header(
@@ -142,8 +141,6 @@ sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
-    return
-      unless $s->is_authorized('user');
 
     push @{ $self->{_css_src_yui} },
       (

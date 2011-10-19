@@ -63,9 +63,9 @@ sub new {
         _js_env     => $js->register_var( '_glob', [qw/lookupTables/] ),
         _js_buffer  => [],
 
-        _other            => {},
-        _id               => undef,
-        _id_data          => {}
+        _other   => {},
+        _id      => undef,
+        _id_data => {}
     );
 
     # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?
@@ -796,10 +796,7 @@ sub default_create {
 
     if ( defined $insert_id ) {
         $self->{_id} = $insert_id;
-        $self->set_header(
-            -location => $self->get_resource_uri( id => $insert_id ),
-            -status   => 302                         # 302 Found
-        );
+        $self->redirect( $self->get_resource_uri( id => $insert_id ) );
         return 1;    # redirect (do not show body)
     }
     return;
@@ -2251,8 +2248,7 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } )
-      ),
+        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } ) ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]

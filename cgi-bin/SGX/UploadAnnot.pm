@@ -36,6 +36,7 @@ use Data::Dumper;
 use JSON::XS;
 use SGX::Model::PlatformStudyExperiment;
 use Text::CSV;
+use Tie::IxHash;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadAnnot
@@ -64,7 +65,7 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadAnnot
-#       METHOD:  dispatch_js
+#       METHOD:  Upload_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -77,7 +78,6 @@ sub Upload_head {
     my ($self) = @_;
     my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-    return unless $s->is_authorized('user');
     my @eids = $self->{_cgi}->param('eids');
     $self->{_eidList} = \@eids;
     $self->loadReportData();
@@ -85,11 +85,20 @@ sub Upload_head {
     return 1;
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadAnnot
+#       METHOD:  default_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub default_head {
     my ($self) = @_;
     my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-    return unless $s->is_authorized('user');
     push @$js_src_yui,
       (
         'yahoo-dom-event/yahoo-dom-event.js',
