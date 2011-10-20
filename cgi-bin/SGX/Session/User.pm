@@ -25,7 +25,7 @@ use SGX::Util qw/jam/;
 # minimum password length (in characters)
 Readonly::Scalar my $MIN_PWD_LENGTH => 6;
 
-Readonly::Hash my %level => (
+Readonly::Hash my %user_rank => (
 
     # :TODO:10/14/2011 11:54:35:es: This mapping will be replaced by actual
     # numeric values in the database.
@@ -34,6 +34,21 @@ Readonly::Hash my %level => (
     'user'   => 1,
     'admin'  => 2
 );
+
+#===  FUNCTION  ================================================================
+#         NAME:  get_user_rank
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_user_rank {
+    my $level = shift;
+    return $rank{$level};
+}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
@@ -893,12 +908,12 @@ sub is_authorized {
     my $current_level =
       ( defined $session->{user_level} ) ? $session->{user_level} : 'anonym';
 
-    my $num_current_level   = $level{$current_level};
+    my $num_current_level   = $user_rank{$current_level};
     my $req_user_level_type = ref $req_user_level;
     if ( $req_user_level_type eq '' ) {
 
         # authorized if current level is larger or equal to required
-        my $num_req_user_level = $level{$req_user_level};
+        my $num_req_user_level = $user_rank{$req_user_level};
 
         return ( defined($num_current_level)
               && defined($num_req_user_level)
@@ -910,8 +925,8 @@ sub is_authorized {
 
         # authorized if current level lies in the required range
         my ( $req_level_from, $req_level_to ) = @$req_user_level;
-        my $level_from = $level{$req_level_from};
-        my $level_to   = $level{$req_level_to};
+        my $level_from = $user_rank{$req_level_from};
+        my $level_to   = $user_rank{$req_level_to};
 
         return ( defined($num_current_level)
               && defined($level_from)

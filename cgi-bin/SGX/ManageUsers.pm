@@ -5,6 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
+#use SGX::Session::User qw/get_user_rank/;
 use SGX::Abstract::Exception;
 use Digest::SHA1 qw/sha1_hex/;
 
@@ -49,12 +50,12 @@ sub new {
                         __confirm__ => 1
                     },
                     pwd => {
-                        label        => 'Password',
-                        -size        => 30,
-                        __encode__   => sub { sha1_hex(shift) },
-                        __confirm__  => 1,
+                        label          => 'Password',
+                        -size          => 30,
+                        __encode__     => sub { sha1_hex(shift) },
+                        __confirm__    => 1,
                         __createonly__ => 1,
-                        __valid__    => sub {
+                        __valid__      => sub {
                             SGX::Exception::User->throw( error =>
                                   'Passwords must be at least 6 characters long'
                             ) if length(shift) < 6;
@@ -83,9 +84,21 @@ sub new {
                         label           => 'Permissions',
                         __type__        => 'popup_menu',
                         dropdownOptions => [
-                            { value => '',      label => 'Not Granted' },
-                            { value => 'user',  label => 'User' },
-                            { value => 'admin', label => 'Administrator' }
+                            {
+                                value    => '',
+                                label    => 'Not Granted',
+                                #__perm__ => get_user_rank('anonym')
+                            },
+                            {
+                                value    => 'user',
+                                label    => 'User',
+                                #__perm__ => get_user_rank('user')
+                            },
+                            {
+                                value    => 'admin',
+                                label    => 'Administrator',
+                                #__perm__ => get_user_rank('admin')
+                            }
                         ]
                     },
                     email_confirmed => {
