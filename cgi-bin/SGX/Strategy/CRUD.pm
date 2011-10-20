@@ -33,7 +33,7 @@ use Lingua::EN::Inflect qw/PL_N/;
 # autoformat('nice shoes', { case => 'title'});
 use Text::Autoformat qw/autoformat/;
 
-use SGX::Util qw/inherit_hash tuples car cdr list_values/;
+use SGX::Util qw/inherit_hash tuples car cdr list_values jam/;
 use SGX::Abstract::Exception;
 use SGX::Debug;
 
@@ -1802,22 +1802,28 @@ sub _get_param_values {
         my $param     = shift;
         my @result    = $q->param($param);
         my $this_meta = $meta->{$param} || {};
-        my $type      = $this_meta->{__type__};
-        if ( !defined($type) ) {
-            return _validate_val( $this_meta, car(@result) );
-        }
-        elsif ( $type eq 'checkbox' ) {
+        my $type      = $this_meta->{__type__} || '';
+        if ( $type eq 'checkbox' ) {
             return ( @result > 1 ) ? 1 : 0;
         }
         else {
-            return _validate_val( $this_meta, car(@result) );
+            if ( $this_meta->{__confirm__} ) {
+                my $label = $this_meta->{label} || $param;
+                SGX::Exception::Internal->throw(
+                    error => "$label field requires confirmation" )
+                  if @result < 2;
+                SGX::Exception::User->throw(
+                    error => "$label field does not match confirmation" )
+                  unless ( jam @result );
+            }
+            return _process_val( $this_meta, car(@result) );
         }
     };
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _validate_val
+#       METHOD:  _process_val
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -1825,11 +1831,14 @@ sub _get_param_values {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _validate_val {
+sub _process_val {
     my $this_meta = shift;
     my $val       = shift;
     if ( my $validator = $this_meta->{__valid__} ) {
         $validator->($val);
+    }
+    if ( my $encoder = $this_meta->{__encode__} ) {
+        return $encoder->($val);
     }
     return $val;
 }
@@ -2213,7 +2222,11 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        autoformat( 'manage ' . $self->get_item_name(), { case => 'title' } ) ),
+        autoformat(
+            'manage ' . PL_N( $self->get_item_name(), 2 ),
+            { case => 'title' }
+        )
+      ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
@@ -2303,7 +2316,7 @@ sub body_edit_fields {
     my ( $self, %args ) = @_;
     my ( $q, $table, $table_defs ) =
       @$self{qw/_cgi _default_table _table_defs/};
-    my $is_unlimited =
+    my $unlimited_mode =
         ( defined $args{mode} )
       ? ( ( $args{mode} eq 'create' ) ? 1 : 0 )
       : 0;
@@ -2324,11 +2337,14 @@ sub body_edit_fields {
         my $meta = $fields_meta->{$symbol} || {};
         my %cgi_meta = _meta_get_cgi(
             $symbol   => $meta,
-            unlimited => $is_unlimited
+            unlimited => $unlimited_mode
         );
         my $method = $meta->{__type__} || 'textfield';
         my $label  = $meta->{label}    || $symbol;
 
+        my $label_class = ( $meta->{__optional__} ) ? 'optional' : undef;
+
+        next if $meta->{__createonly__} and !$unlimited_mode;
         if ( $method eq 'checkbox' ) {
             push @tmp,
               (
@@ -2359,26 +2375,48 @@ sub body_edit_fields {
             }
             push @tmp,
               (
-                $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
+                $q->dt( { -class => $label_class },
+                    $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
                     $q->$method(
                         -values  => \@values,
                         -labels  => \%labels,
                         -default => $id_data->{$symbol},
                         %cgi_meta
                     )
-                )
+                    )
               );
         }
         else {
             push @tmp,
               (
-                $q->dt( $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
+                $q->dt( { -class => $label_class },
+                    $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
                     $q->$method(
                         -value => $id_data->{$symbol},
                         %cgi_meta
                     )
-                )
+                    )
               );
+            if ( $unlimited_mode && $meta->{__confirm__} ) {
+                my $suffix = '_confirm';
+                push @tmp,
+                  (
+                    $q->dt(
+                        { -class => $label_class },
+                        $q->label(
+                            { -for => $symbol . $suffix },
+                            "Confirm $label:"
+                        )
+                      ) => $q->dd(
+                        $q->$method(
+                            %cgi_meta,
+                            -id    => $cgi_meta{-id} . $suffix,
+                            -title => $cgi_meta{-title}
+                              . ' Again to Prevent Typos'
+                        )
+                      )
+                  );
+            }
         }
 
     }

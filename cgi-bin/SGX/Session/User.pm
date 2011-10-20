@@ -284,7 +284,7 @@ sub authenticateFromDB {
         # throw Internal::Duplicate exception
         $sth->finish;
         $self->destroy();
-        SGX::Abstract::Exception::Internal::Duplicate->throw(
+        SGX::Exception::Internal::Duplicate->throw(
             error => "Expected one user record but encountered $row_count.\n" );
     }
 
@@ -380,7 +380,7 @@ sub restore {
 #  DESCRIPTION:  Issues a new password and emails it to the user's email address.
 #                The email address must be marked as "confirmed" in the "users"
 #                table in the dataase.
-#       THROWS:  Exception::Class::DBI, SGX::Abstract::Exception::Internal::Mail
+#       THROWS:  Exception::Class::DBI, SGX::Exception::Internal::Mail
 #     COMMENTS:
 # # :TODO:08/08/2011 12:26:07:es: rename this function to something else because
 # no password is actually being reset anymore.
@@ -388,25 +388,31 @@ sub restore {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub reset_password {
+    my $self  = shift;
+    my %param = @_;
 
-    my ( $self, %param ) = @_;
+    my ( $username_or_email, $project_name, $login_uri, $error ) =
+      @param{qw{username_or_email project_name login_uri error}};
 
-    my ( $username, $project_name, $login_uri, $error ) =
-      @param{qw{username project_name login_uri error}};
+    my ($email_handle) = Email::Address->parse($username_or_email);
+    my ( $lvalue => $rvalue ) =
+        ( defined $email_handle )
+      ? ( 'email' => $email_handle->address )
+      : ( 'uname' => $username_or_email );
 
-    if ( !defined($username) || $username eq '' ) {
-        $$error = 'No username specified';
+    if ( !defined($rvalue) || $rvalue eq '' ) {
+        $$error = 'You did not provide your login ID or a valid email address.';
         return;
     }
 
-  # :TODO:08/08/2011 13:57:26:es: Can abstract out a method
-  # $self->getSingleUser($uname, {pwd => '...', email_confirmed => 0..1}) -- see
-  # similar code in $self->authenticateFromDB().
+    # :TODO:08/08/2011 13:57:26:es: Can abstract out a method
+    # $self->getSingleUser($uname, {pwd => '...', email_confirmed => 0..1}) --
+    # see similar code in $self->authenticateFromDB().
     my $dbh = $self->{dbh};
     my $sth = $dbh->prepare(
-'select uid, level, full_name, email from users where uname=? and email_confirmed=1'
+"select uid, uname, level, full_name, email from users where $lvalue=? and email_confirmed=1"
     );
-    my $rows_found = $sth->execute($username);
+    my $rows_found = $sth->execute($rvalue);
     if ( $rows_found < 1 ) {
 
         # user not found in the database
@@ -417,14 +423,16 @@ sub reset_password {
     }
     elsif ( $rows_found > 1 ) {
 
-        # should never happen
+        # several users found (e.g. when two or more users share the same email
+        # address).
         $sth->finish;
-        SGX::Abstract::Exception::Internal::Duplicate->throw( error =>
-              "Expected one user record but encountered $rows_found.\n" );
+        $$error =
+"Cannot fulfill the request to reset password: more than one user were found matching $lvalue=$rvalue.\n";
+        return;
     }
 
     # single user found in the database
-    my ( $user_id, $user_level, $user_full_name, $user_email ) =
+    my ( $user_id, $username, $user_level, $user_full_name, $user_email ) =
       $sth->fetchrow_array;
     $sth->finish;
     $self->{_user_id} = $user_id;
@@ -461,7 +469,7 @@ sub reset_password {
     );
     $msg->add( 'From', 'no-reply' );
     my $fh = $msg->open()
-      or SGX::Abstract::Exception::Internal::Mail->throw(
+      or SGX::Exception::Internal::Mail->throw(
         error => 'Failed to open default mailer' );
     print $fh <<"END_RESET_PWD_MSG";
 Hi $user_full_name,
@@ -481,7 +489,7 @@ $project_name administrator.
 END_RESET_PWD_MSG
 
     $fh->close()
-      or SGX::Abstract::Exception::Internal::Mail->throw(
+      or SGX::Exception::Internal::Mail->throw(
         error => 'Failed to send email message' );
 
     return 1;
@@ -549,7 +557,7 @@ sub change_password {
     }
     my $username = $self->{session_stash}->{username};
     if ( !defined($username) || $username eq '' ) {
-        SGX::Abstract::Exception::Internal->throw( error =>
+        SGX::Exception::Internal->throw( error =>
 "Expected to see a defined username in session data but none was found\n"
         );
     }
@@ -573,7 +581,7 @@ sub change_password {
         return;
     }
     elsif ( $rows_affected > 1 ) {
-        SGX::Abstract::Exception::Internal::Duplicate->throw( error =>
+        SGX::Exception::Internal::Duplicate->throw( error =>
               "Expected one user record but encountered $rows_affected.\n" );
         return;
     }
@@ -637,7 +645,7 @@ sub change_email {
     $password = sha1_hex($password);
     my $username = $self->{session_stash}->{username};
     if ( !defined($username) || $username eq '' ) {
-        SGX::Abstract::Exception::Internal->throw( error =>
+        SGX::Exception::Internal->throw( error =>
 "Expected to see a defined username in session data but none was found\n"
         );
     }
@@ -668,7 +676,7 @@ END_noEmailChangeMsg
     else {
 
         # should never happen
-        SGX::Abstract::Exception::Internal::Duplicate->throw( error =>
+        SGX::Exception::Internal::Duplicate->throw( error =>
               "Expected one user record but encountered $rows_affected.\n" );
     }
 }
@@ -854,7 +862,7 @@ sub send_verify_email {
     );
     $msg->add( 'From', 'no-reply' );
     my $fh = $msg->open()
-      or SGX::Abstract::Exception::Internal::Mail->throw(
+      or SGX::Exception::Internal::Mail->throw(
         error => 'Failed to open default mailer' );
     print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $full_name,
@@ -874,7 +882,7 @@ $project_name administrator.
 END_CONFIRM_EMAIL_MSG
 
     $fh->close()
-      or SGX::Abstract::Exception::Internal::Mail->throw(
+      or SGX::Exception::Internal::Mail->throw(
         error => 'Failed to send email message' );
 
     return 1;
@@ -900,7 +908,7 @@ sub verify_email {
         undef, $username );
 
     if ( $rows_affected != 1 ) {
-        SGX::Abstract::Exception::Internal->throw( error =>
+        SGX::Exception::Internal->throw( error =>
 "Expected to find one user record for login $username but $rows_affected were found.\n"
         );
     }

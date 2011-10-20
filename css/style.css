@@ -133,6 +133,10 @@ dl dt {
 	line-height:1em;
 	font-weight:bold;
 }
+dl dt.optional {
+	color:#666;
+	font-weight:normal;
+}
 /* Hide from IE Mac \*/
 dl dt { clear:left; }
 /* End hide from IE Mac */

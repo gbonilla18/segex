@@ -158,7 +158,7 @@ sub session_is_tied {
 #      RETURNS:  returns 1 if a new session was started or an old one restored *by
 #                this subroutine*, 0 otherwise
 #  DESCRIPTION:
-#       THROWS:  SGX::Abstract::Exception::Internal::Session
+#       THROWS:  SGX::Exception::Internal::Session
 #     COMMENTS:  Deals with session_obj only
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -168,7 +168,7 @@ sub tie_session {
     # throw exception -- attempting to tie a session to a hash that's currently
     # occupied
     if ( $self->session_is_tied() ) {
-        SGX::Abstract::Exception::Internal::Session->throw( error =>
+        SGX::Exception::Internal::Session->throw( error =>
               'Cannot tie to session hash: another session is currently active'
         );
     }
@@ -186,7 +186,7 @@ sub tie_session {
     };
     my $generated_id = $self->{session_obj}->{_session_id};
     if ( defined($id) and $id ne $generated_id ) {
-        SGX::Abstract::Exception::Internal::Session->throw(
+        SGX::Exception::Internal::Session->throw(
             error => 'Generated session id does not match requested' );
     }
     return 1;
@@ -288,7 +288,7 @@ sub checkin {
     if ( !$self->session_is_tied() ) {
 
         # Internal error -- no session tied
-        SGX::Abstract::Exception::Internal::Session->throw(
+        SGX::Exception::Internal::Session->throw(
             error => 'No session attached: cannot checkin' );
     }
 
@@ -348,7 +348,7 @@ sub stash_session {
     my $session_id = $self->get_session_id();
 
     if ( !defined($session_id) ) {
-        SGX::Abstract::Exception::Internal::Session->throw(
+        SGX::Exception::Internal::Session->throw(
             error => 'Undefined session id' );
     }
     return 1;
@@ -376,7 +376,7 @@ sub get_session_id {
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Attempt to attach to a session. On fail, return false.
-#       THROWS:  SGX::Abstract::Exception::Internal::Session
+#       THROWS:  SGX::Exception::Internal::Session
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -384,7 +384,7 @@ sub restore {
     my ( $self, $id ) = @_;
 
     if ( !defined($id) ) {
-        SGX::Abstract::Exception::Internal::Session->throw(
+        SGX::Exception::Internal::Session->throw(
             error => 'Cannot restore session from unspecified id' );
     }
 
@@ -468,7 +468,7 @@ sub cleanse {
 #   PARAMETERS:  ????
 #      RETURNS:  True value on success
 #  DESCRIPTION:  Initialize a freshly tied session object with values
-#       THROWS:  SGX::Abstract::Exception::Internal::Session
+#       THROWS:  SGX::Exception::Internal::Session
 #     COMMENTS:  Call after opening a new session. After initialization,
 #                checkin(), if called, must return true.
 #     SEE ALSO:  n/a
@@ -477,11 +477,11 @@ sub init_session {
     my $self = shift;
 
     if ( !defined( $self->{session_obj}->{_session_id} ) ) {
-        SGX::Abstract::Exception::Internal::Session->throw( error =>
+        SGX::Exception::Internal::Session->throw( error =>
               'Session hash does not contain required field _session_id' );
     }
     if ( !$self->session_is_tied() ) {
-        SGX::Abstract::Exception::Internal::Session->throw(
+        SGX::Exception::Internal::Session->throw(
             error => 'Cannot initialize untied session hash' );
     }
 
@@ -497,7 +497,7 @@ sub init_session {
     my $ok = $self->checkin();
 
     if ( !$ok ) {
-        SGX::Abstract::Exception::Internal::Session->throw(
+        SGX::Exception::Internal::Session->throw(
             error => 'Cannot checkin' );
     }
 

@@ -28,34 +28,38 @@ use SGX::Config;
 my $softwareVersion = '0.3.1.1';
 
 my $all_resources = {
-    compareExperiments => [
-        'Compare Experiments',
-        'Compare multiple experiments for significant probes'
-    ],
-    findProbes => [
-        'Find Probes',
-        'Search for probes by probe ids, gene symbols, accession numbers'
-    ],
-    outputData  => ['Output Data'],
-    platforms   => ['Manage Platforms'],
-    experiments => ['Manage Experiments'],
-    studies     => ['Manage Studies'],
-    projects    => ['Manage Projects'],
-    users       => ['Manage Users'],
-    uploadData  => [ 'Upload Data', 'Upload data to a new experiment' ],
-    uploadAnnot => [ 'Upload Annotation', 'Upload probe annotations' ],
+    compareExperiments => {
+        label => 'Compare Experiments',
+        title => 'Compare multiple experiments for significant probes'
+    },
+    findProbes => {
+        label => 'Find Probes',
+        title =>
+          'Search for probes by probe ids, gene symbols, accession numbers'
+    },
+    outputData  => { label => 'Output Data' },
+    platforms   => { label => 'Manage Platforms' },
+    experiments => { label => 'Manage Experiments' },
+    studies     => { label => 'Manage Studies' },
+    projects    => { label => 'Manage Projects' },
+    users       => { label => 'Manage Users', perm => 'admin' },
+    uploadData =>
+      { label => 'Upload Data', title => 'Upload data to a new experiment' },
+    uploadAnnot =>
+      { label => 'Upload Annotation', title => 'Upload probe annotations' },
 };
 
 sub make_link_creator {
-    my ( $resource_table, $q, $current_action ) = @_;
+    my ( $resource_table, $s, $q, $current_action ) = @_;
     my $url_prefix = $q->url( -absolute => 1 );
     return sub {
         my @result;
         foreach my $action (@_) {
-            my $val = $resource_table->{$action};
-            if ( defined $val ) {
-                my ( $label, $title ) = @$val;
-                $title = $label if not defined $title;
+            if ( my $properties = $resource_table->{$action} ) {
+                my $perm = $properties->{perm};
+                next if defined($perm) and 1 != $s->is_authorized($perm);
+                my $label = $properties->{label} || $action;
+                my $title = $properties->{title} || $label;
                 my $link_class =
                   ( defined($current_action) && $action eq $current_action )
                   ? 'pressed_link'
@@ -351,7 +355,7 @@ sub build_menu {
     return '&nbsp' unless 1 == $s->is_authorized('user');
 
     my $link_creator =
-      make_link_creator( $all_resources, $q, $q->url_param('a') );
+      make_link_creator( $all_resources, $s, $q, $q->url_param('a') );
 
     my @menu = (
         'Query' =>

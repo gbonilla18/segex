@@ -624,9 +624,9 @@ sub form_registerUser_body {
         $q->dt( $q->label( { -for => 'address' }, 'Address:' ) ),
         $q->dd(
             $q->textarea(
-                -name    => 'address',
-                -id      => 'address',
-                -title   => 'Enter your contact address (optional)'
+                -name  => 'address',
+                -id    => 'address',
+                -title => 'Enter your contact address (optional)'
             )
         ),
         $q->dt( $q->label( { -for => 'phone' }, 'Contact Phone:' ) ),
@@ -670,9 +670,9 @@ sub resetPassword_head {
     my $error_string;
     if (
         $s->reset_password(
-            username     => car( $q->param('username') ),
-            project_name => 'Segex',
-            login_uri    => $q->url( -full => 1 )
+            username_or_email => car( $q->param('username') ),
+            project_name      => 'Segex',
+            login_uri         => $q->url( -full => 1 )
               . '?a=profile&b=form_changePassword',
             error => \$error_string
         )
@@ -711,12 +711,17 @@ sub form_resetPassword_body {
         -onsubmit => 'return validate_fields(this, [\'username\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'username' }, 'Your login id:' ) ),
+        $q->dt(
+            $q->label(
+                { -for => 'username' },
+                'Your login ID or email address:'
+            )
+        ),
         $q->dd(
             $q->textfield(
                 -name  => 'username',
                 -id    => 'username',
-                -title => 'Enter your login id'
+                -title => 'Enter your login ID or email address'
             )
         ),
         $q->dt('&nbsp;'),

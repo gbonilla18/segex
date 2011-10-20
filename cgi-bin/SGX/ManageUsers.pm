@@ -33,6 +33,7 @@ use warnings;
 use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Abstract::Exception;
+use Digest::SHA1 qw/sha1_hex/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageUsers
@@ -50,7 +51,7 @@ sub new {
 
     $self->set_attributes(
 
-        _permission_level => 'user',
+        _permission_level => 'admin',
 
         _table_defs => {
             'users' => {
@@ -60,7 +61,7 @@ sub new {
                 # table key to the left, URI param to the right
                 selectors => { uname => 'uname' },
                 base      => [
-                    qw/uname full_name address phone level email email_confirmed/
+                    qw/uname pwd full_name address phone level email email_confirmed/
                 ],
                 view => [
                     qw/uname full_name address phone level email email_confirmed udate/
@@ -69,15 +70,31 @@ sub new {
                 names    => [qw/uname/],
                 meta     => {
                     email => {
-                        label     => 'Email',
-                        formatter => sub { 'formatEmail' },
-                        -size     => 35
+                        label       => 'Email',
+                        formatter   => sub { 'formatEmail' },
+                        -size       => 35,
+                        __confirm__ => 1
+                    },
+                    pwd => {
+                        label        => 'Password',
+                        -size        => 30,
+                        __encode__   => sub { sha1_hex(shift) },
+                        __confirm__  => 1,
+                        __createonly__ => 1,
+                        __valid__    => sub {
+                            SGX::Exception::User->throw( error =>
+                                  'Passwords must be at least 6 characters long'
+                            ) if length(shift) < 6;
+                          }
                     },
                     uid => {
                         label  => 'ID',
                         parser => 'number'
                     },
-                    uname     => { label => 'Login ID' },
+                    uname => {
+                        label => 'Login ID',
+                        -size => 30
+                    },
                     full_name => {
                         label        => 'Full Name',
                         -size        => 55,
