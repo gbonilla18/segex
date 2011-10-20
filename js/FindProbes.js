@@ -70,7 +70,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             var hClass = (searchColumn === oColumn.key && matchesQuery(b))
                 ? 'class="highlight"' 
                 : '';
-            if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
+            if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
                 out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
             } else {
                 out.push("<a " + hClass + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "[NACC]\">" + b + "</a>");
@@ -86,7 +86,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             var hClass = (searchColumn === oColumn.key && matchesQuery(b))
                 ? 'class="highlight"' 
                 : '';
-            if (b.match(/^ENS[A-Z]{4}\d{11}/i)) {
+            if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
                 out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
             } else {
                 out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "\">" + b + "</a>");
