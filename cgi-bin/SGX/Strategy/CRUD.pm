@@ -24,18 +24,43 @@ use base qw/SGX::Strategy::Base/;
 
 use Tie::IxHash;
 use Scalar::Util qw/looks_like_number/;
-
-# pluralise English nouns and pronouns
-# PL_N('word', 2);
-use Lingua::EN::Inflect qw/PL_N/;
-
-# capitalize first letters of words in titles
-# autoformat('nice shoes', { case => 'title'});
-use Text::Autoformat qw/autoformat/;
+use Lingua::EN::Inflect;
+use Text::Autoformat;
 
 use SGX::Util qw/inherit_hash tuples car cdr list_values jam/;
 use SGX::Abstract::Exception;
 use SGX::Debug;
+
+#===  FUNCTION  ================================================================
+#         NAME:  clean_autoformat
+#      PURPOSE:  Text::Autoformat::autoformat leaves blank space at the end of
+#                output which needs to be trimmed.
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  capitalize first letters of words in titles
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub format_title {
+    my $out = Text::Autoformat::autoformat( shift, { case => 'title' } );
+    $out =~ s/\s+$//;
+    return $out;
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  pluralize_noun
+#      PURPOSE:  pluralise English nouns and pronouns
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  PL_N('word', 2) returns 'words'.
+#     SEE ALSO:  n/a
+#===============================================================================
+sub pluralize_noun {
+    return Lingua::EN::Inflect::PL_N( shift, 2 );
+}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
@@ -432,11 +457,9 @@ sub dispatch_js {
 
     $self->_head_init();
     $self->set_title(
-        autoformat(
+        format_title(
 
-            # PL_N: pluralize noun
-            'manage ' . PL_N( $self->get_item_name(), 2 ),
-            { case => 'title' }
+            'manage ' . pluralize_noun( $self->get_item_name() )
         )
     );
 
@@ -1917,14 +1940,13 @@ sub _meta_get_cgi {
     return (
 
         # defaults
-        -title => autoformat(
+        -title => format_title(
             (
                   ( $method =~ m/^text/ ) ? 'Enter'
                 : ( ( $method eq 'popup_menu' ) ? 'Choose' : 'Set' )
             )
             . ' '
-              . $label,
-            { case => 'title' }
+              . $label
         ),
         (
               ( $meta->{__readonly__} && !$args{unlimited} )
@@ -2222,24 +2244,13 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        autoformat(
-            'manage ' . PL_N( $self->get_item_name(), 2 ),
-            { case => 'title' }
-        )
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
       ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
-      $q->h3(
-        autoformat(
-            'create new ' . $self->get_item_name(),
-            {
-                case => 'title
-                  '
-            }
-        )
-      ),
+      $q->h3( format_title( 'create new ' . $self->get_item_name() ) ),
 
       # form
       $self->body_create_update_form( mode => 'create' );
@@ -2292,10 +2303,7 @@ sub body_create_update_form {
             $q->submit(
                 -class => 'button black bigrounded',
                 -value => $mode,
-                -title => autoformat(
-                    $mode . ' ' . $self->get_item_name(),
-                    { case => 'title' }
-                )
+                -title => format_title( $mode . ' ' . $self->get_item_name() )
             )
         )
       ),
@@ -2343,6 +2351,8 @@ sub body_edit_fields {
         my $label  = $meta->{label}    || $symbol;
 
         my $label_class = ( $meta->{__optional__} ) ? 'optional' : undef;
+        $cgi_meta{-title} .= ' (Optional)'
+          if $cgi_meta{-title} and $meta->{__optional__};
 
         next if $meta->{__createonly__} and !$unlimited_mode;
         if ( $method eq 'checkbox' ) {
@@ -2451,8 +2461,7 @@ sub body_create_read_menu {
                     {
                         -href =>
                           $self->get_resource_uri( b => $args{'read'}->[0] ),
-                        -title =>
-                          autoformat( $args{'read'}->[1], { case => 'title' } )
+                        -title => format_title( $args{'read'}->[1] )
                     },
                     $args{'read'}->[1]
                 )
@@ -2466,9 +2475,8 @@ sub body_create_read_menu {
                     {
                         -href =>
                           $self->get_resource_uri( b => $args{'create'}->[0] ),
-                        -title => autoformat(
-                            $args{'create'}->[1] . ' ' . $self->get_item_name(),
-                            { case => 'title' }
+                        -title => format_title(
+                            $args{'create'}->[1] . ' ' . $self->get_item_name()
                         )
                     },
                     $args{'create'}->[1]
