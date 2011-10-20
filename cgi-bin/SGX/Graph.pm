@@ -50,12 +50,12 @@ sub default_head {
     my $self = shift;
     my ( $dbh, $q, $s ) = @$self{qw/_dbh _cgi _UserSession/};
 
-    my $reporter  = $q->param('reporter');
+    my $reporter  = $q->param('rid');
     my $transform = $q->param('trans');
     my $curr_proj = $q->param('proj');
     return if !$reporter;
 
-    $self->{_reporter} = $reporter;
+    $self->{_reporter_name} =  $q->param('reporter');
 
     my $sql_trans;
     my $sql_cutoff;
@@ -103,7 +103,7 @@ def_p_cutoff AS cutoff_p
 FROM probe 
 INNER JOIN platform USING(pid) $sql_join_clause
 LEFT JOIN (annotates NATURAL JOIN gene) USING(rid)
-WHERE reporter=? $sql_where_clause
+WHERE rid=? $sql_where_clause
 GROUP BY probe.rid
 END_SQL1
 
@@ -126,11 +126,11 @@ END_SQL1
     # Get the data
     my $xtitle_text = 'Experiment';
 
-    my $sql_project_clause = '';
+    my $sql_project_clause = 'WHERE microarray.rid=?';
     my @exec_array         = ($reporter);
 
     if ( defined($curr_proj) and $curr_proj ne '' ) {
-        $sql_project_clause = 'NATURAL JOIN ProjectStudy WHERE prid=?';
+        $sql_project_clause = 'NATURAL JOIN ProjectStudy WHERE microarray.rid=? AND ProjectStudy.prid=?';
         push @exec_array, $curr_proj;
     }
 
@@ -141,9 +141,6 @@ CONCAT(GROUP_CONCAT(study.description SEPARATOR ', '), ': ', experiment.sample2,
 $sql_trans as y, 
 pvalue 
 FROM microarray 
-RIGHT JOIN (
-    SELECT rid FROM probe WHERE reporter=?
-) AS d3 ON microarray.rid=d3.rid 
 NATURAL JOIN experiment 
 NATURAL JOIN StudyExperiment 
 NATURAL JOIN study 
@@ -197,7 +194,7 @@ sub default_body {
 
     my $self = shift;
 
-    my $reporter = $self->{_reporter};
+    my $reporter_name = $self->{_reporter_name};
 
     my ( $exp_ids, $labels, $y, $pvalues ) = @{ $self->{_data} };
 
@@ -205,7 +202,7 @@ sub default_body {
 
     my ( $seqname, $cutoff, $cutoff_p ) = @{ $self->{_scc} };
 
-    my $title_text = "$seqname Differential Expression Reported by $reporter";
+    my $title_text = "$seqname Differential Expression Reported by $reporter_name";
 
     #Set particulars for graph
     my $xl                   = 55;

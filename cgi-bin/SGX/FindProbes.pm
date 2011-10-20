@@ -1173,20 +1173,17 @@ sub findProbes_js {
         );
 
         my @json_records;
-        foreach my $row ( values %{ $self->{_ProbeHash} } ) {
+        while ( my ( $rid, $row ) = each %{ $self->{_ProbeHash} } ) {
 
-            # the below "trick" converts an array into a hash such that array
-            # elements become hash values and array indexes become hash keys
-            #
             # Skipping the first value in the array (it's platform ID)
             push @json_records,
-              +{ map { ( $_ - 1 ) => $row->[$_] } 1 .. ( @$row - 1 ) };
+              +{ 0 => $rid, map { $_ => $row->[$_] } 1 .. $#$row };
         }
 
         my %type_to_column = (
-            'probe'  => '0',
-            'accnum' => '2',
-            'gene'   => '3'
+            'probe'  => '1',
+            'accnum' => '3',
+            'gene'   => '4'
         );
 
         my %json_probelist = (

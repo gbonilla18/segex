@@ -36,8 +36,17 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }
     })();
 
-    function buildSVGElement(project_id, reporter, transform) {
-        var resourceURI = "./?a=graph&proj=" + project_id + "&reporter=" + reporter + "&trans=" + transform;
+
+    function buildSVGElement(obj) {
+        function uriFromKeyVal(obj) {
+            var uri_part = [];
+            for (var key in obj) {
+                var val = obj[key];
+                uri_part.push(key + '=' + val);
+            }
+            return uri_part.join('&');
+        }
+        var resourceURI = "./?a=graph&" + uriFromKeyVal(obj);
         var width = 1200;
         var height = 600;
         return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
@@ -55,7 +64,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
             : '';
         var i = oRecord.getCount();
         if (show_graphs) {
-            graph_content += "<li id=\"reporter_" + i + "\">" + buildSVGElement(project_id, oData, response_transform) + "</li>";
+            var this_rid = oRecord.getData("0");
+            graph_content += "<li id=\"reporter_" + i + "\">" + buildSVGElement({proj: project_id, rid: this_rid, reporter: oData, trans: response_transform}) + "</li>";
             elCell.innerHTML = "<div id=\"container" + i + "\"><a " + hClass + " title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
         } else {
             elCell.innerHTML = "<div id=\"container" + i + "\"><a " + hClass + " title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
@@ -73,7 +83,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
                 out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
             } else {
-                out.push("<a " + hClass + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>");
+                out.push("<a " + hClass + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>");
             }
         }
         elCell.innerHTML = out.join(', ');
@@ -89,42 +99,42 @@ YAHOO.util.Event.addListener(window, "load", function() {
             if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
                 out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
             } else {
-                out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("4") + "[ORGN]+AND+" + b + "[GENE]\">" + b + "</a>");
+                out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[GENE]\">" + b + "</a>");
             }
         }
         elCell.innerHTML = out.join(', ');
     };
     YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("6") + "&rev=0&fc=" + oRecord.getData("9") + "&pval=" + oRecord.getData("8") + "&opts=2\">" + oData + "</a>";
+        elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("7") + "&rev=0&fc=" + oRecord.getData("10") + "&pval=" + oRecord.getData("9") + "&opts=2\">" + oData + "</a>";
     };
     YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("4") + "\" title=\"Search for this sequence using BLAT in " + oRecord.getData("4") + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
+        elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("5") + "\" title=\"Search for this sequence using BLAT in " + oRecord.getData("5") + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
     };
 
     var myDataSource = new YAHOO.util.DataSource(probelist.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
 
-    var myColumnList = ["0","1","2","3","4"];
+    var myColumnList = ["0","1","2","3","4","5"];
     var myColumnDefs = [
-        {key:"0", sortable:true, resizeable:true, 
-            label:probelist.headers[0], formatter:"formatProbe"},
         {key:"1", sortable:true, resizeable:true, 
-            label:probelist.headers[1]},
+            label:probelist.headers[0], formatter:"formatProbe"},
         {key:"2", sortable:true, resizeable:true, 
-            label:probelist.headers[2], formatter:"formatAccNum"}, 
+            label:probelist.headers[1]},
         {key:"3", sortable:true, resizeable:true, 
-            label:probelist.headers[3], formatter:"formatGene"},
+            label:probelist.headers[2], formatter:"formatAccNum"}, 
         {key:"4", sortable:true, resizeable:true, 
+            label:probelist.headers[3], formatter:"formatGene"},
+        {key:"5", sortable:true, resizeable:true, 
             label:probelist.headers[4]}
     ];
     if (extra_fields) {
-        myColumnList.push("5","6","7");
+        myColumnList.push("6","7","8");
         myColumnDefs.push(
-            {key:"5", sortable:true, resizeable:true, 
-                label:probelist.headers[5], formatter:"formatSequence"},
             {key:"6", sortable:true, resizeable:true, 
-                label:probelist.headers[6]},
+                label:probelist.headers[5], formatter:"formatSequence"},
             {key:"7", sortable:true, resizeable:true, 
+                label:probelist.headers[6]},
+            {key:"8", sortable:true, resizeable:true, 
                 label:probelist.headers[7]}
         );
     }
@@ -152,7 +162,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
     myDataTable.onEventUnhighlightCell); 
     myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
 
-    var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-0 a");
+    // TODO: fix this -- no need to know anything about actual data
+    // representation
+    var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-1 a");
     var nl = nodes.length;
 
     // Ideally, would want to use a "pre-formatter" event to clear graph_content
@@ -185,17 +197,18 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     if (panel_old === null) {
                         // replaced ".text" with ".innerHTML" because of IE
                         // problem
-                        var imgFile = this.innerHTML;    
                         var panel = new YAHOO.widget.Panel("panel" + index, { 
                             close:true, visible:true, draggable:true, 
                             constraintoviewport:false, 
                             context:["container" + index, "tl", "br"] 
                         });
-                        panel.setHeader(imgFile);
-                        panel.setBody(buildSVGElement(project_id,
-                            imgFile, 
-                            response_transform
-                        ));
+                        var this_reporter = this.innerHTML;
+                        panel.setHeader(this_reporter);
+
+                        var this_rid = myDataTable.getRecord(this).getData("0");
+                        panel.setBody(buildSVGElement({
+                            proj: project_id, rid: this_rid, reporter: this_reporter, trans: response_transform
+                        }));
                         manager.register(panel);
                         panel.render("container" + index);
                         // panel.show is unnecessary here because visible:true
