@@ -19,7 +19,7 @@ use Carp qw/croak/;
 #---------------------------------------------------------------------------
 use lib qw/./;
 use SGX::Debug;
-use SGX::Config qw/init_context get_module_from_action/;
+use SGX::Config qw/init_context get_module_from_action require_path/;
 use SGX::Session::User 0.07 ();
 
 #---------------------------------------------------------------------------
@@ -40,8 +40,7 @@ my $module = get_module_from_action($action)
 my $obj = eval {
 
     # convert Perl path to system path and load the file
-    ( my $file = $module ) =~ s/::/\//g;
-    require "$file.pm";    ## no critic
+    require_path($module);
     $module->new( _ResourceName => $action, init_context($q) )->init();
 } or do {
     my $error = $@;

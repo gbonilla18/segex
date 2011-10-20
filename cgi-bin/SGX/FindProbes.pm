@@ -11,8 +11,6 @@ use JSON qw/encode_json/;
 use File::Temp;
 use SGX::Abstract::Exception;
 use SGX::Util qw/all_match trim min/;
-require SGX::Model::PlatformStudyExperiment;
-require Text::CSV;
 use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
@@ -177,6 +175,7 @@ sub FindProbes_init {
             /\r\n|\n|\r/,
             do { local $/ = <$fh> }
         );
+        require Text::CSV;
         my $csv_in =
           Text::CSV->new( { sep_char => "\t", allow_whitespace => 1 } );
 
@@ -520,6 +519,7 @@ sub printFindProbeCSV {
     print "Working Project,$workingProjectText\n\n";
 
     # initialize platform model
+    require SGX::Model::PlatformStudyExperiment;
     my $platforms =
       SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
     $platforms->init( platforms => 1 );

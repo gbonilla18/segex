@@ -14,7 +14,7 @@ use SGX::Util qw/replace/;
 our @EXPORT =
   qw/PROJECT_NAME CGI_ROOT YUI_BUILD_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR/;
 
-our @EXPORT_OK = qw/init_context get_module_from_action/;
+our @EXPORT_OK = qw/init_context get_module_from_action require_path/;
 
 #---------------------------------------------------------------------------
 #  Dispatch table that associates action symbols ('?a=' URL parameter) with
@@ -94,6 +94,35 @@ $ENV{PATH} = join(
       }
 );
 
+#===  FUNCTION  ================================================================
+#         NAME:  require_path
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Converts strings such as SGX::Abstract::JSEmitter into
+#                something like SGX/Abstract/JSEmitter.pm
+#
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub require_path {
+    my $module_string = shift;
+    $module_string =~ s/::/\//g;
+    require "$module_string.pm";    ## no critic
+    return 1;
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  init_context
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
 sub init_context {
     my $q = shift;
 

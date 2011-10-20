@@ -413,8 +413,8 @@ sub runReport_js {
             map {
                 +{
                     key        => "$_",
-                    sortable   => JSON::XS::true,
-                    resizeable => JSON::XS::true,
+                    sortable   => JSON::true,
+                    resizeable => JSON::true,
                     label      => $headers_ref->[$_]
                   }
               } @columns
