@@ -1,64 +1,3 @@
-
-=head1 NAME
-
-SGX::Session::Base
-
-=head1 SYNOPSIS
-
-Create an instance:
-(1) $dbh must be an active database handle,
-(2) 3600 is 60 * 60 s = 1 hour (session time to live),
-(3) check_ip determines whether user IP is verified,
-(4) id is old session id (either from a cookie or from a query string).
-
-    use SGX::Session::Base;
-    my $s = SGX::Session::Base->new(
-        dbh    => $dbh, 
-        expire_in => 3600,
-        check_ip  => 1
-    );
-
-Restore previous session if it exists:
-    $s->restore('1c287c065fc22df74e3e57c63ceedd20');
-
-Delete previous session, active session, or both if both exist:
-    $s->destroy();
-
-Flush session data (writes to data store)
-    $s->commit();
-
-=head1 DESCRIPTION
-
-This is mainly an interface to the Apache::Session module with
-focus on user management.
-
-The table `sessions' is created as follows:
-
-    CREATE TABLE sessions (
-        id CHAR(32) NOT NULL UNIQUE,
-        a_session TEXT NOT NULL
-    ) ENGINE=InnoDB;
-
-=head1 AUTHORS
-
-Written by Eugene Scherba <escherba@gmail.com>
-
-=head1 SEE ALSO
-
-http://search.cpan.org/~chorny/Apache-Session-1.88/Session.pm
-http://search.cpan.org/dist/perl/pod/perlmodstyle.pod
-
-=head1 COPYRIGHT
-
-Copyright (c) 2009 Eugene Scherba
-
-=head1 LICENSE
-
-Artistic License 2.0
-http://www.opensource.org/licenses/artistic-license-2.0.php
-
-=cut
-
 package SGX::Session::Base;
 
 use strict;
@@ -570,3 +509,66 @@ sub destroy {
 1;    # for require
 
 __END__
+
+
+=head1 NAME
+
+SGX::Session::Base
+
+=head1 SYNOPSIS
+
+Create an instance:
+(1) $dbh must be an active database handle,
+(2) 3600 is 60 * 60 s = 1 hour (session time to live),
+(3) check_ip determines whether user IP is verified,
+(4) id is old session id (either from a cookie or from a query string).
+
+    use SGX::Session::Base;
+    my $s = SGX::Session::Base->new(
+        dbh    => $dbh, 
+        expire_in => 3600,
+        check_ip  => 1
+    );
+
+Restore previous session if it exists:
+    $s->restore('1c287c065fc22df74e3e57c63ceedd20');
+
+Delete previous session, active session, or both if both exist:
+    $s->destroy();
+
+Flush session data (writes to data store)
+    $s->commit();
+
+=head1 DESCRIPTION
+
+This is mainly an interface to the Apache::Session module with
+focus on user management.
+
+The table `sessions' is created as follows:
+
+    CREATE TABLE sessions (
+        id CHAR(32) NOT NULL UNIQUE,
+        a_session TEXT NOT NULL
+    ) ENGINE=InnoDB;
+
+=head1 AUTHORS
+
+Written by Eugene Scherba <escherba@gmail.com>
+
+=head1 SEE ALSO
+
+http://search.cpan.org/~chorny/Apache-Session-1.88/Session.pm
+http://search.cpan.org/dist/perl/pod/perlmodstyle.pod
+
+=head1 COPYRIGHT
+
+Copyright (c) 2009 Eugene Scherba
+
+=head1 LICENSE
+
+Artistic License 2.0
+http://www.opensource.org/licenses/artistic-license-2.0.php
+
+=cut
+
+

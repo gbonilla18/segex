@@ -1,74 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  PlatformStudyExperiment.pm
-#
-#  DESCRIPTION:  This is a model class for setting up the data in the platform,
-#                study, and experiment tables in easy-to-use Perl data
-#                structures.
-#
-#                /* Result of composition of var StudyExperiment and
-#                * var PlatformExperiment */
-#
-#                var platformStudyExperiment = {
-#
-#                   /*** Platforms enumerated by their ids ***/
-#                   '13': {
-#
-#                       /* Study section. Only experiment ids are listed for
-#                        * each study. Note that the 'experiments' field of each
-#                        * study has the same structure as the platform-wide
-#                        * 'experiments' field. This allows us to write code
-#                        * that is ignorant of where the experiment object came
-#                        * from. */
-#                       'studies': {
-#                           '':    { 'experiments': { '2315':null } },
-#                           '108': { 'experiments': { '1120':null, '2311':null } },
-#                           '120': { 'experiments': { '1120':null } }
-#                       },
-#
-#                       /* Experiment info is separated from study info in its
-#                        * own section for compactness because one experiment
-#                        * can belong to several studies
-#                        */
-#                       'experiments': {
-#                           '2311': [
-#                              'Male Tasmanian Devil wild type',
-#                              'Female Tasmanian Devil knockout'
-#                           ],
-#                           '1120': [
-#                              'Female Three-Toed Sloth Type A',
-#                              'Male Three-Toed Sloth Type B'
-#                           ],
-#                           '2315': [
-#                               'Male Anteater wild type',
-#                               'Male Anteater knockout'
-#                           ]
-#                       }
-#                   },
-#                   '14': {
-#                       'studies': {
-#                           '':    { 'experiments': { '1297':null } }
-#                       }
-#                       'experiments': {
-#                           '1297': [
-#                               'Male Aardvark Knockout',
-#                               'Male Aardvark Wild Type'
-#                           ]
-#                       }
-#                   }
-#                };
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  ---
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:  07/11/2011 03:32:43
-#     REVISION:  ---
-#===============================================================================
-
 package SGX::Model::PlatformStudyExperiment;
 
 use strict;
@@ -667,3 +596,78 @@ END_STUDYEXPERIMENTQUERY
 }
 
 1;
+
+__END__
+
+#
+#===============================================================================
+#
+#         FILE:  PlatformStudyExperiment.pm
+#
+#  DESCRIPTION:  This is a model class for setting up the data in the platform,
+#                study, and experiment tables in easy-to-use Perl data
+#                structures.
+#
+#                /* Result of composition of var StudyExperiment and
+#                * var PlatformExperiment */
+#
+#                var platformStudyExperiment = {
+#
+#                   /*** Platforms enumerated by their ids ***/
+#                   '13': {
+#
+#                       /* Study section. Only experiment ids are listed for
+#                        * each study. Note that the 'experiments' field of each
+#                        * study has the same structure as the platform-wide
+#                        * 'experiments' field. This allows us to write code
+#                        * that is ignorant of where the experiment object came
+#                        * from. */
+#                       'studies': {
+#                           '':    { 'experiments': { '2315':null } },
+#                           '108': { 'experiments': { '1120':null, '2311':null } },
+#                           '120': { 'experiments': { '1120':null } }
+#                       },
+#
+#                       /* Experiment info is separated from study info in its
+#                        * own section for compactness because one experiment
+#                        * can belong to several studies
+#                        */
+#                       'experiments': {
+#                           '2311': [
+#                              'Male Tasmanian Devil wild type',
+#                              'Female Tasmanian Devil knockout'
+#                           ],
+#                           '1120': [
+#                              'Female Three-Toed Sloth Type A',
+#                              'Male Three-Toed Sloth Type B'
+#                           ],
+#                           '2315': [
+#                               'Male Anteater wild type',
+#                               'Male Anteater knockout'
+#                           ]
+#                       }
+#                   },
+#                   '14': {
+#                       'studies': {
+#                           '':    { 'experiments': { '1297':null } }
+#                       }
+#                       'experiments': {
+#                           '1297': [
+#                               'Male Aardvark Knockout',
+#                               'Male Aardvark Wild Type'
+#                           ]
+#                       }
+#                   }
+#                };
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:  07/11/2011 03:32:43
+#     REVISION:  ---
+#===============================================================================
+
+

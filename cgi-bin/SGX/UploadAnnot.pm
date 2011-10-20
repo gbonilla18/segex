@@ -1,29 +1,3 @@
-
-=head1 NAME
-
-SGX::UploadAnnot
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-Upload platform annotations
-
-=head1 AUTHORS
-Eugene Scherba
-
-=head1 SEE ALSO
-
-
-=head1 COPYRIGHT
-
-
-=head1 LICENSE
-
-Artistic License 2.0
-http://www.opensource.org/licenses/artistic-license-2.0.php
-
-=cut
-
 package SGX::UploadAnnot;
 
 use strict;
@@ -581,3 +555,33 @@ sub default_body {
 }
 
 1;
+
+__END__
+
+
+=head1 NAME
+
+SGX::UploadAnnot
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+Upload platform annotations
+
+=head1 AUTHORS
+Eugene Scherba
+
+=head1 SEE ALSO
+
+
+=head1 COPYRIGHT
+
+
+=head1 LICENSE
+
+Artistic License 2.0
+http://www.opensource.org/licenses/artistic-license-2.0.php
+
+=cut
+
+

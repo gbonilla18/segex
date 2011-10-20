@@ -1,89 +1,3 @@
-
-=head1 NAME
-
-SGX::Session::Cookie
-
-=head1 SYNOPSIS
-
-Create an instance:
-(1) $dbh must be an active database handle,
-(2) 3600 is 60 * 60 s = 1 hour (session time to live),
-(3) check_ip determines whether user IP is verified,
-(4) cookie_name can be anything
-
-    use SGX::Session::Cookie;
-    my $s = SGX::Session::Cookie->new(
-        dbh     => $dbh, 
-        expire_in   => 3600,
-        check_ip    => 1
-    );
-
-Restore previous session if it exists
-    $s->restore;
-
-Delete previous session, active session, or both if both exist
-    $s->destroy;
-
-To make a cookie and flush session data:
-    $s->commit;
-
-You can set another cookie by opening another session like this:
-
-    my $t = SGX::Session::Cookie->new(
-        dbh      => $dbh, 
-        expire_in   => 3600*48, 
-        check_ip    => 0
-    );
-    
-    if (!$t->restore) $t->start;
-    $t->commit;
-
-You can create several instances of this class at the same time. The
-@SGX::Session::Cookie::cookies array will contain the cookies created by all
-instances of the SGX::Session::User or SGX::Session::Cookie classes. If the
-array reference is sent to CGI::header, for example, as many cookies will be
-created as there are members in the array.
-
-To send a cookie to the user:
-
-    $q = CGI->new();
-    print $q->header(
-        -type=>'text/html',
-        -cookie=>\@SGX::Session::Cookie::cookies
-    );
-
-=head1 DESCRIPTION
-
-This is mainly an interface to the Apache::Session module with
-focus on user management.
-
-The table `sessions' is created as follows:
-
-    CREATE TABLE sessions (
-        id CHAR(32) NOT NULL UNIQUE,
-        a_session TEXT NOT NULL
-    ) ENGINE=InnoDB;
-
-=head1 AUTHORS
-
-Written by Eugene Scherba <escherba@gmail.com>
-
-=head1 SEE ALSO
-
-http://search.cpan.org/~chorny/Apache-Session-1.88/Session.pm
-http://search.cpan.org/dist/perl/pod/perlmodstyle.pod
-
-=head1 COPYRIGHT
-
-Copyright (c) 2009 Eugene Scherba
-
-=head1 LICENSE
-
-Artistic License 2.0
-http://www.opensource.org/licenses/artistic-license-2.0.php
-
-=cut
-
 package SGX::Session::Cookie;
 
 use strict;
@@ -265,3 +179,91 @@ sub commit {
 1;    # for require
 
 __END__
+
+
+=head1 NAME
+
+SGX::Session::Cookie
+
+=head1 SYNOPSIS
+
+Create an instance:
+(1) $dbh must be an active database handle,
+(2) 3600 is 60 * 60 s = 1 hour (session time to live),
+(3) check_ip determines whether user IP is verified,
+(4) cookie_name can be anything
+
+    use SGX::Session::Cookie;
+    my $s = SGX::Session::Cookie->new(
+        dbh     => $dbh, 
+        expire_in   => 3600,
+        check_ip    => 1
+    );
+
+Restore previous session if it exists
+    $s->restore;
+
+Delete previous session, active session, or both if both exist
+    $s->destroy;
+
+To make a cookie and flush session data:
+    $s->commit;
+
+You can set another cookie by opening another session like this:
+
+    my $t = SGX::Session::Cookie->new(
+        dbh      => $dbh, 
+        expire_in   => 3600*48, 
+        check_ip    => 0
+    );
+    
+    if (!$t->restore) $t->start;
+    $t->commit;
+
+You can create several instances of this class at the same time. The
+@SGX::Session::Cookie::cookies array will contain the cookies created by all
+instances of the SGX::Session::User or SGX::Session::Cookie classes. If the
+array reference is sent to CGI::header, for example, as many cookies will be
+created as there are members in the array.
+
+To send a cookie to the user:
+
+    $q = CGI->new();
+    print $q->header(
+        -type=>'text/html',
+        -cookie=>\@SGX::Session::Cookie::cookies
+    );
+
+=head1 DESCRIPTION
+
+This is mainly an interface to the Apache::Session module with
+focus on user management.
+
+The table `sessions' is created as follows:
+
+    CREATE TABLE sessions (
+        id CHAR(32) NOT NULL UNIQUE,
+        a_session TEXT NOT NULL
+    ) ENGINE=InnoDB;
+
+=head1 AUTHORS
+
+Written by Eugene Scherba <escherba@gmail.com>
+
+=head1 SEE ALSO
+
+http://search.cpan.org/~chorny/Apache-Session-1.88/Session.pm
+http://search.cpan.org/dist/perl/pod/perlmodstyle.pod
+
+=head1 COPYRIGHT
+
+Copyright (c) 2009 Eugene Scherba
+
+=head1 LICENSE
+
+Artistic License 2.0
+http://www.opensource.org/licenses/artistic-license-2.0.php
+
+=cut
+
+

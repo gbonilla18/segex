@@ -1,20 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  Base.pm
-#
-#  DESCRIPTION:
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  ---
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:  08/11/2011 11:50:41
-#     REVISION:  ---
-#===============================================================================
-
 package SGX::Strategy::Base;
 
 use strict;
@@ -550,3 +533,24 @@ sub view_hidden_resource {
 }
 
 1;
+
+__END__
+
+#
+#===============================================================================
+#
+#         FILE:  Base.pm
+#
+#  DESCRIPTION:
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:  08/11/2011 11:50:41
+#     REVISION:  ---
+#===============================================================================
+
+

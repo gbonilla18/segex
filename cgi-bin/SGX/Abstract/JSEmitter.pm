@@ -1,20 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  JSEmitter.pm
-#
-#  DESCRIPTION:
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  ---
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:  07/30/2011 13:48:58
-#     REVISION:  ---
-#===============================================================================
-
 package SGX::Abstract::JSEmitter;
 
 use strict;
@@ -512,3 +495,24 @@ sub apply {
 }
 
 1;
+
+__END__
+
+#
+#===============================================================================
+#
+#         FILE:  JSEmitter.pm
+#
+#  DESCRIPTION:
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:  07/30/2011 13:48:58
+#     REVISION:  ---
+#===============================================================================
+
+

@@ -1,20 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  CRUD.pm
-#
-#  DESCRIPTION:
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  ---
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:  08/11/2011 11:59:04
-#     REVISION:  ---
-#===============================================================================
-
 package SGX::Strategy::CRUD;
 
 use strict;
@@ -2487,3 +2470,24 @@ sub body_create_read_menu {
 }
 
 1;
+
+__END__
+
+#
+#===============================================================================
+#
+#         FILE:  CRUD.pm
+#
+#  DESCRIPTION:
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:  08/11/2011 11:59:04
+#     REVISION:  ---
+#===============================================================================
+
+

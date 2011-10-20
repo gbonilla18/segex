@@ -1,24 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  Debug.pm
-#
-#  DESCRIPTION:  This is a module for any debugging or testing subroutines.
-#                Expect any code you put in here to be removed from the
-#                production version.
-#                Avoid adding exported symbols to this module -- and if you do
-#                add them, structure your code such that it would still
-#                function when this module is removed.
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  ---
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:
-#     REVISION:  ---
-#===============================================================================
 package SGX::Debug;
 
 use strict;
@@ -92,3 +71,26 @@ END_COOKIE_BLOCK
 }
 
 1;
+
+__END__
+
+#===============================================================================
+#
+#         FILE:  Debug.pm
+#
+#  DESCRIPTION:  This is a module for any debugging or testing subroutines.
+#                Expect any code you put in here to be removed from the
+#                production version.
+#                Avoid adding exported symbols to this module -- and if you do
+#                add them, structure your code such that it would still
+#                function when this module is removed.
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:
+#     REVISION:  ---
+#===============================================================================

@@ -1,30 +1,3 @@
-
-=head1 NAME
-
-SGX::ManageStudies
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-Grouping of functions for managing studies.
-
-=head1 AUTHORS
-Michael McDuffie
-Eugene Scherba
-
-=head1 SEE ALSO
-
-
-=head1 COPYRIGHT
-
-
-=head1 LICENSE
-
-Artistic License 2.0
-http://www.opensource.org/licenses/artistic-license-2.0.php
-
-=cut
-
 package SGX::ManageExperiments;
 
 use strict;
@@ -629,3 +602,33 @@ sub get_pse_dropdown_js {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+SGX::ManageStudies
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+Grouping of functions for managing studies.
+
+=head1 AUTHORS
+Michael McDuffie
+Eugene Scherba
+
+=head1 SEE ALSO
+
+
+=head1 COPYRIGHT
+
+
+=head1 LICENSE
+
+Artistic License 2.0
+http://www.opensource.org/licenses/artistic-license-2.0.php
+
+=cut
+
+

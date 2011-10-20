@@ -1,138 +1,3 @@
-
-=head1 NAME
-
-SGX::Session::User
-
-=head1 SYNOPSIS
-
-To create an instance:
-(1) $dbh must be an active database handle
-(2) 3600 is 60 * 60 s = 1 hour (session time to live)
-(3) check_ip determines whether user IP is verified
-(4) cookie_name can be anything
-
-    use SGX::Session::User;
-    my $s = SGX::Session::User->new (
-        dbh         => $dbh, 
-        expire_in   => 3600,
-        check_ip    => 1,
-    );
-
-To restore previous session if it exists
-    $s->restore;
-
-To delete previous session, active session, or both if both exist -- useful when
-user logs out, for example:
-
-    $s->destroy;
-
-    $s->authenticate($username, $password, \$error_string);
-
-Note: $login_uri must be in this form: /cgi-bin/my/path/index.cgi?a=login
-
-    $s->reset_password($username, $project_name, $login_uri, \$error_string);
-
-To make a cookie and flush session data:
-    $s->commit;
-
-You can create several instances of this class at the same time. The
-@SGX::Session::Cookie::cookies array will contain the cookies created by all
-instances of the SGX::Session::User or SGX::Session::Cookie classes. If the
-array reference is sent to CGI::header, for example, as many cookies will be
-created as there are members in the array.
-
-To send a cookie to the user:
-
-    $q = new CGI;
-    print $q->header(
-        -type=>'text/html',
-        -cookie=>\@SGX::Session::Cookie::cookies
-    );
-
-Note: is_authorized('admin') checks whether the session user has the credential
-'admin'.
-
-    if ($s->is_authorized('admin') == 1) {
-        # do admin stuff...
-    } else {
-        print 'have to be logged in!';
-    }
-
-=head1 DESCRIPTION
-
-This is mainly an interface to the Apache::Session module with focus on user
-management.
-
-For a user to be registered, he/she must be approved by an admin.  Valid email
-address is not required, however when an email *is* entered, it must be
-verified, otherwise the user will not be able to reset a password without admin
-help.
-
-If the user enters or changes an email address, a validation message is sent to
-this address with a link and a special code that is valid only for 48 hours.
-When the user clicks on this link, he/she is presented with a login page. After
-the user enters the name and the password, the email validation is complete.
-
-To accomplish this, the "secret code" is embedded in the URL being emailed to
-the user.  At the same time, a new session is opened (so that the "secret code"
-is actually the session_id) with expiration time 48 * 3600. The url looks like:
-
-http://mydomain/my/path/index.cgi?a=verifyEmail&code=343ytgsr468das
-
-On being sent a verifyEmail command, index.cgi checks the logged-in status of a
-user (which is independent from is_authorized() because the user may not have
-yet obtained authorization from the site admin). If a user is logged in,
-username is compared with the username from the 48-hr session.  This is done via
-opening two session objects at once.
-
-Passwords are not stored in the database directly; instead, an SHA1 hash is
-being used.  SHA1 gives relatively decent level of security, but it is possible
-to crack it given enough computing resources. The NSA does not recommend this
-hash since 2005 when it was first cracked.
-
-The table `sessions' is created as follows:
-
-    CREATE TABLE sessions (
-        id CHAR(32) NOT NULL UNIQUE,
-        a_session TEXT NOT NULL
-    ) ENGINE=InnoDB;
-
-The table `users' is created as follows:
-
-    CREATE TABLE `users` (
-        `uid` int(10) unsigned NOT NULL auto_increment,
-        `uname` varchar(60) NOT NULL,
-        `pwd` char(40) NOT NULL,
-        `email` varchar(60) NOT NULL,
-        `full_name` varchar(100) NOT NULL,
-        `address` varchar(200) default NULL,
-        `phone` varchar(60) default NULL,
-        `level` enum('','user','admin') NOT NULL,
-        `email_confirmed` tinyint(1) default '0',
-        PRIMARY KEY  (`uid`),
-        UNIQUE KEY `uname` (`uname`)
-    ) ENGINE=InnoDB;
-
-=head1 AUTHORS
-
-Written by Eugene Scherba <escherba@gmail.com>
-
-=head1 SEE ALSO
-
-http://search.cpan.org/~chorny/Apache-Session-1.88/Session.pm
-http://search.cpan.org/dist/perl/pod/perlmodstyle.pod
-
-=head1 COPYRIGHT
-
-Copyright (c) 2009 Eugene Scherba
-
-=head1 LICENSE
-
-Artistic License 2.0
-http://www.opensource.org/licenses/artistic-license-2.0.php
-
-=cut
-
 package SGX::Session::User;
 
 # :TODO:07/31/2011 15:38:04:es: scan this module for error handling mechanisms
@@ -1095,3 +960,140 @@ sub get_user_id {
 1;    # for require
 
 __END__
+
+
+=head1 NAME
+
+SGX::Session::User
+
+=head1 SYNOPSIS
+
+To create an instance:
+(1) $dbh must be an active database handle
+(2) 3600 is 60 * 60 s = 1 hour (session time to live)
+(3) check_ip determines whether user IP is verified
+(4) cookie_name can be anything
+
+    use SGX::Session::User;
+    my $s = SGX::Session::User->new (
+        dbh         => $dbh, 
+        expire_in   => 3600,
+        check_ip    => 1,
+    );
+
+To restore previous session if it exists
+    $s->restore;
+
+To delete previous session, active session, or both if both exist -- useful when
+user logs out, for example:
+
+    $s->destroy;
+
+    $s->authenticate($username, $password, \$error_string);
+
+Note: $login_uri must be in this form: /cgi-bin/my/path/index.cgi?a=login
+
+    $s->reset_password($username, $project_name, $login_uri, \$error_string);
+
+To make a cookie and flush session data:
+    $s->commit;
+
+You can create several instances of this class at the same time. The
+@SGX::Session::Cookie::cookies array will contain the cookies created by all
+instances of the SGX::Session::User or SGX::Session::Cookie classes. If the
+array reference is sent to CGI::header, for example, as many cookies will be
+created as there are members in the array.
+
+To send a cookie to the user:
+
+    $q = new CGI;
+    print $q->header(
+        -type=>'text/html',
+        -cookie=>\@SGX::Session::Cookie::cookies
+    );
+
+Note: is_authorized('admin') checks whether the session user has the credential
+'admin'.
+
+    if ($s->is_authorized('admin') == 1) {
+        # do admin stuff...
+    } else {
+        print 'have to be logged in!';
+    }
+
+=head1 DESCRIPTION
+
+This is mainly an interface to the Apache::Session module with focus on user
+management.
+
+For a user to be registered, he/she must be approved by an admin.  Valid email
+address is not required, however when an email *is* entered, it must be
+verified, otherwise the user will not be able to reset a password without admin
+help.
+
+If the user enters or changes an email address, a validation message is sent to
+this address with a link and a special code that is valid only for 48 hours.
+When the user clicks on this link, he/she is presented with a login page. After
+the user enters the name and the password, the email validation is complete.
+
+To accomplish this, the "secret code" is embedded in the URL being emailed to
+the user.  At the same time, a new session is opened (so that the "secret code"
+is actually the session_id) with expiration time 48 * 3600. The url looks like:
+
+http://mydomain/my/path/index.cgi?a=verifyEmail&code=343ytgsr468das
+
+On being sent a verifyEmail command, index.cgi checks the logged-in status of a
+user (which is independent from is_authorized() because the user may not have
+yet obtained authorization from the site admin). If a user is logged in,
+username is compared with the username from the 48-hr session.  This is done via
+opening two session objects at once.
+
+Passwords are not stored in the database directly; instead, an SHA1 hash is
+being used.  SHA1 gives relatively decent level of security, but it is possible
+to crack it given enough computing resources. The NSA does not recommend this
+hash since 2005 when it was first cracked.
+
+The table `sessions' is created as follows:
+
+    CREATE TABLE sessions (
+        id CHAR(32) NOT NULL UNIQUE,
+        a_session TEXT NOT NULL
+    ) ENGINE=InnoDB;
+
+The table `users' is created as follows:
+
+    CREATE TABLE `users` (
+        `uid` int(10) unsigned NOT NULL auto_increment,
+        `uname` varchar(60) NOT NULL,
+        `pwd` char(40) NOT NULL,
+        `email` varchar(60) NOT NULL,
+        `full_name` varchar(100) NOT NULL,
+        `address` varchar(200) default NULL,
+        `phone` varchar(60) default NULL,
+        `level` enum('','user','admin') NOT NULL,
+        `email_confirmed` tinyint(1) default '0',
+        PRIMARY KEY  (`uid`),
+        UNIQUE KEY `uname` (`uname`)
+    ) ENGINE=InnoDB;
+
+=head1 AUTHORS
+
+Written by Eugene Scherba <escherba@gmail.com>
+
+=head1 SEE ALSO
+
+http://search.cpan.org/~chorny/Apache-Session-1.88/Session.pm
+http://search.cpan.org/dist/perl/pod/perlmodstyle.pod
+
+=head1 COPYRIGHT
+
+Copyright (c) 2009 Eugene Scherba
+
+=head1 LICENSE
+
+Artistic License 2.0
+http://www.opensource.org/licenses/artistic-license-2.0.php
+
+=cut
+
+

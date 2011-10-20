@@ -1,29 +1,3 @@
-
-=head1 NAME
-
-SGX::Profile
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-
-=head1 AUTHORS
-Eugene Scherba
-Michael McDuffie
-
-=head1 SEE ALSO
-
-
-=head1 COPYRIGHT
-
-
-=head1 LICENSE
-
-Artistic License 2.0
-http://www.opensource.org/licenses/artistic-license-2.0.php
-
-=cut
-
 package SGX::Static;
 
 use strict;
@@ -144,3 +118,33 @@ sub about_body {
 }
 
 1;
+
+__END__
+
+
+=head1 NAME
+
+SGX::Profile
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+=head1 AUTHORS
+Eugene Scherba
+Michael McDuffie
+
+=head1 SEE ALSO
+
+
+=head1 COPYRIGHT
+
+
+=head1 LICENSE
+
+Artistic License 2.0
+http://www.opensource.org/licenses/artistic-license-2.0.php
+
+=cut
+
+

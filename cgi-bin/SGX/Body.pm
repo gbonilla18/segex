@@ -1,23 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  Body.pm
-#
-#  DESCRIPTION:
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  Motivation:
-# To avoid loading all the heavy HTML-generating methods every time a
-# request is made, we are putting them in separate class SGX::Body.
-#
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:  10/15/2011 21:56:29
-#     REVISION:  ---
-#===============================================================================
-
 package SGX::Body;
 
 use strict;
@@ -373,3 +353,27 @@ sub build_menu {
 }
 
 1;
+
+__END__
+
+#
+#===============================================================================
+#
+#         FILE:  Body.pm
+#
+#  DESCRIPTION:
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  Motivation:
+# To avoid loading all the heavy HTML-generating methods every time a
+# request is made, we are putting them in separate class SGX::Body.
+#
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:  10/15/2011 21:56:29
+#     REVISION:  ---
+#===============================================================================
+
+

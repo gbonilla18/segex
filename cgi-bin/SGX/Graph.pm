@@ -1,20 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  Graph.pm
-#
-#  DESCRIPTION:
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  ---
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:  10/13/2011 14:57:32
-#     REVISION:  ---
-#===============================================================================
-
 package SGX::Graph;
 
 use strict;
@@ -495,3 +478,22 @@ END_SVG
 }
 
 1;
+
+__END__
+#===============================================================================
+#
+#         FILE:  Graph.pm
+#
+#  DESCRIPTION:
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:  10/13/2011 14:57:32
+#     REVISION:  ---
+#===============================================================================
+
+

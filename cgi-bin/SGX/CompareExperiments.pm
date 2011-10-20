@@ -1,20 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  CompareExperiments.pm
-#
-#  DESCRIPTION:
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  ---
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:  06/27/2011 21:07:40
-#     REVISION:  ---
-#===============================================================================
-
 package SGX::CompareExperiments;
 
 use strict;
@@ -868,3 +851,23 @@ sub Compare_body {
 }
 
 1;
+
+__END__
+
+#===============================================================================
+#
+#         FILE:  CompareExperiments.pm
+#
+#  DESCRIPTION:
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:  06/27/2011 21:07:40
+#     REVISION:  ---
+#===============================================================================
+
+
