@@ -66,14 +66,13 @@ function validate_fields(of,reqfields) {
     // test if DOM is available
     if(!document.getElementById || !document.createTextNode || !document.appendChild){return;}
 
-    // define error messages
-    var errorID="errormsg";
-    var errorClass="error"
+    // clear error messages
+    var content_div = document.getElementById('content');
+    var error_container = document.getElementById('message');
+    if (error_container !== null ) {
+        error_container.parentNode.removeChild(error_container);
+    }
     var errorMsg="There is a problem with your input. Please fill out or correct the highlighted field(s).";
-
-    // cleanup: if there is an old errormessage field, delete it
-    var em = document.getElementById(errorID);
-    if(em){em.parentNode.removeChild(em);}
 
     // split the required fields and loop throught them
     for (var i=0, reqfields_length = reqfields.length; i < reqfields_length; i++) {
@@ -108,30 +107,23 @@ function validate_fields(of,reqfields) {
                 break;
         }
     }
-    return (document.getElementById(errorID) === null);
+    return (document.getElementById('message') === null);
 
     /* tool methods */
     function cf_adderr(o) {
         // colourise the error fields
-        o.parentNode.className=errorClass;
+        o.parentNode.className = 'error';
         // check if there is no error message
-        if(document.getElementById(errorID) === null) {
+        if(document.getElementById('message') === null) {
             // create errormessage and insert before submit button
-            var em=document.createElement("div");
-            em.id=errorID;
+            error_container = document.createElement('div');
+            error_container.id = 'message';
             var newp=document.createElement("p");
+            newp.className = 'error';
             newp.appendChild(document.createTextNode(errorMsg))
-            em.appendChild(newp);
-            // find the submit button
-            for(var i=0;i<of.getElementsByTagName("input").length;i++) {
-                if(/submit/i.test(of.getElementsByTagName("input")[i].type)) {
-                    var sb=of.getElementsByTagName("input")[i];
-                    break;
-                }
-            }
-            if(sb) {
-                sb.parentNode.insertBefore(em,sb);
-            }
+            error_container.appendChild(newp);
+            content_div.insertBefore(error_container, content_div.firstChild);
+            window.location.hash = 'message';
         }
     }
     function cf_isEmailAddr(str) {

@@ -75,6 +75,27 @@ sub new {
         _id      => undef,
         _id_data => {}
     );
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Initialize parts that deal with responding to CGI queries
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
+    $self->set_attributes(
+        _permission_level => 'user'
+    );
 
     # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?
     # E.g.:
@@ -107,7 +128,6 @@ sub new {
         delete      => { redirect => 'default_delete' }
     );
 
-    bless $self, $class;
     return $self;
 }
 
@@ -2042,7 +2062,7 @@ sub _ajax_process_request {
     # exceptions
     my $command = eval { $command_factory->($self) } or do {
         my $exception = $@;
-        $self->set_body("$exception")
+        $self->add_message( { -class => 'error' }, "$exception" )
           if $exception
               and $exception->isa('SGX::Exception::User');
         $self->set_header(
@@ -2057,7 +2077,7 @@ sub _ajax_process_request {
         my $exception = $@;
         if ( $exception or $rows_affected != 0 ) {
 
-            $self->set_body("$exception")
+            $self->add_message( { -class => 'error' }, "$exception" )
               if $exception
                   and $exception->isa('SGX::Exception::User');
 
@@ -2072,7 +2092,8 @@ sub _ajax_process_request {
         }
         else {
 
-            $self->set_body(
+            $self->add_message(
+                { -class => 'error' },
                 'The record you are trying to modify has been deleted or moved'
             );
 
@@ -2227,8 +2248,7 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
-      ),
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) ) ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]

@@ -11,10 +11,31 @@ use base qw/Exporter/;
 our @EXPORT = qw/dump_cookies_sent_to_user print_truth_table Dumper/;
 
 BEGIN {
-    #use constant LOG_PATH => '/var/www/error_log/segex_dev_log'; # Linux
-    use constant LOG_PATH => '/Users/escherba/log/apache2/segex_dev_log'; # Mac OS X
+    use CGI::Carp qw/carpout fatalsToBrowser warningsToBrowser croak/;
+    use Carp qw/carp/;
+#---------------------------------------------------------------------------
+#  Log the location of warnings which is sometimes not reported without the
+#  below signal handler. For example, without handler often see: 
+#
+#  [Thu Oct 20 14:49:04 2011] index.cgi: Use of uninitialized value $rest[0] in
+#  join or string at (eval 65) line 15.
+#
+#  With the __WARN__ handler, however:
+#
+#  Warning generated at line 94 in SGX/Body.pm:
+#  Use of uninitialized value $rest[0] in join or string at (eval 65) line 15.
+#
+#---------------------------------------------------------------------------
+    $SIG{__WARN__} = sub {
+        my @loc = caller(1);
+        warn "Warning generated at line $loc[2] in $loc[1]:\n", @_, "\n";
+        return 1;
+    };
 
-    use CGI::Carp qw(carpout fatalsToBrowser warningsToBrowser croak);
+    #use constant LOG_PATH => '/var/www/error_log/segex_dev_log'; # Linux
+    use constant LOG_PATH =>
+      '/Users/escherba/log/apache2/segex_dev_log';    # Mac OS X
+
     open( my $LOG, '>>', LOG_PATH )
       or croak 'Unable to append to log file at ' . LOG_PATH . " $!";
     carpout($LOG);

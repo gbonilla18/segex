@@ -3,6 +3,7 @@ package SGX::Body;
 use strict;
 use warnings;
 
+use SGX::Debug;
 use SGX::Config;
 
 my $softwareVersion = '0.3.1.1';
@@ -30,14 +31,14 @@ my $all_resources = {
 };
 
 sub make_link_creator {
-    my ( $resource_table, $s, $q, $current_action ) = @_;
+    my ( $resource_table, $obj, $q, $current_action ) = @_;
     my $url_prefix = $q->url( -absolute => 1 );
     return sub {
         my @result;
         foreach my $action (@_) {
             if ( my $properties = $resource_table->{$action} ) {
                 my $perm = $properties->{perm};
-                next if defined($perm) and 1 != $s->is_authorized($perm);
+                next if defined($perm) and 1 != $obj->is_authorized($perm);
                 my $label = $properties->{label} || $action;
                 my $title = $properties->{title} || $label;
                 my $link_class =
@@ -78,6 +79,33 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Body
+#       METHOD:  view_show_messages
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub view_show_messages {
+    my $obj = shift;
+    my $q   = $obj->{_cgi};
+
+    # form a list of paragraphs (removing all undefined values on the way)
+    my @error_content = (
+        map {
+            $q->p( grep { defined } @$_ )
+          } @{ $obj->{_messages} || [] }
+    );
+
+    # wrap it into a div
+    return (@error_content)
+      ? $q->div( { -id => 'message' }, @error_content )
+      : ();
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Body
 #       METHOD:  get_content
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -96,7 +124,10 @@ sub get_content {
 
         # -- do not delete line below -- useful for debugging cookie sessions
         #SGX::Debug::dump_cookies_sent_to_user($s),
-        $q->div( { -id => 'content' }, $friend_object->dispatch() ),
+        $q->div(
+            { -id => 'content' }, view_show_messages($friend_object),
+            $friend_object->dispatch()
+        ),
         content_footer($friend_object),
         cgi_end_html($friend_object)
     );
@@ -113,7 +144,10 @@ sub cgi_start_html {
     my @js;
     foreach (@$js_src_yui) {
         push @js,
-          { -type => 'text/javascript', -src => YUI_BUILD_ROOT . '/' . $_ };
+          {
+            -type => 'text/javascript',
+            -src  => YUI_BUILD_ROOT . '/' . $_
+          };
     }
     foreach ( { -src => 'form.js' }, @$js_src_code ) {
         $_->{-type} = 'text/javascript';
@@ -125,7 +159,11 @@ sub cgi_start_html {
 
     my @css;
     foreach ( 'reset-fonts/reset-fonts.css', @$css_src_yui ) {
-        push @css, { -type => 'text/css', -src => YUI_BUILD_ROOT . '/' . $_ };
+        push @css,
+          {
+            -type => 'text/css',
+            -src  => YUI_BUILD_ROOT . '/' . $_
+          };
     }
     foreach ( { -src => 'style.css' }, @$css_src_code ) {
         $_->{-type} = 'text/css';
@@ -229,14 +267,14 @@ sub content_footer {
 #===============================================================================
 sub build_sidemenu {
     my $obj = shift;
-    my ( $q, $s ) = @$obj{qw/_cgi _UserSession/};
+    my $q   = $obj->{_cgi};
 
     my @menu;
     my $url_prefix = $q->url( -absolute => 1 );
-    if ( $s->is_authorized('') == 1 ) {
+    if ( $obj->is_authorized('') == 1 ) {
 
-        my $proj_name = $s->{session_cookie}->{proj_name};
-        my $curr_proj = $s->{session_cookie}->{curr_proj};
+        my $proj_name = $obj->get_volatile('session_cookie')->{proj_name};
+        my $curr_proj = $obj->get_volatile('session_cookie')->{curr_proj};
         if ( defined($curr_proj) and $curr_proj ne '' ) {
             $proj_name =
               $q->a( { -href => "$url_prefix?a=projects&id=$curr_proj" },
@@ -248,8 +286,10 @@ sub build_sidemenu {
 
         # add  options
         push @menu,
-          $q->span( { -style => 'color:#999' },
-            'Logged in as ' . $s->{session_cookie}->{full_name} );
+          $q->span(
+            { -style => 'color:#999' },
+            'Logged in as ' . $obj->get_volatile('session_cookie')->{full_name}
+          );
         push @menu,
           $q->span(
             { -style => 'color:#999' },
@@ -271,7 +311,7 @@ sub build_sidemenu {
             {
                 -href  => "$url_prefix?a=profile&b=logout",
                 -title => 'You are signed in as '
-                  . $s->{session_stash}->{username}
+                  . $obj->get_volatile('session_stash')->{username}
                   . '. Click on this link to log out.'
             },
             'Log out'
@@ -331,11 +371,11 @@ sub build_sidemenu {
 #===============================================================================
 sub build_menu {
     my $obj = shift;
-    my ( $q, $s ) = @$obj{qw/_cgi _UserSession/};
-    return '&nbsp' unless 1 == $s->is_authorized('user');
+    my $q   = $obj->{_cgi};
+    return '&nbsp;' unless 1 == $obj->is_authorized('user');
 
     my $link_creator =
-      make_link_creator( $all_resources, $s, $q, $q->url_param('a') );
+      make_link_creator( $all_resources, $obj, $q, $q->url_param('a') );
 
     my @menu = (
         'Query' =>
@@ -349,7 +389,7 @@ sub build_menu {
     while ( my ( $key, $links ) = splice( @menu, 0, 2 ) ) {
         push @result, $q->div( $q->h3($key), $q->ul( $q->li($links) ) );
     }
-    return $q->div( { -id => 'menu' }, ( @result > 0 ) ? @result : '&nbsp' );
+    return $q->div( { -id => 'menu' }, ( @result > 0 ) ? @result : '&nbsp;' );
 }
 
 1;

@@ -41,11 +41,27 @@ sub new {
             _UserFullName       => $session_cookie->{full_name}
         );
     }
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Initialize parts tht deal with responding to CGI queries
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
 
     $self->register_actions(
         Compare => { head => 'Compare_head', body => 'Compare_body' } );
 
-    bless $self, $class;
     return $self;
 }
 

@@ -71,13 +71,8 @@ sub new {
         _AdditionalInfo => '',
 
         _recordsInserted => undef,
-        _messages        => [],
-        _error_messages  => []
     );
 
-    $self->register_actions( Upload => { head => 'Upload_head' } );
-
-    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
     push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
     push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
@@ -87,9 +82,28 @@ sub new {
         platform_by_study => 1,
         extra_studies     => { '' => { name => '@Unassigned Experiments' } }
     );
-    $self->ud_init();
 
     bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadData
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
+    $self->register_actions( Upload => { head => 'Upload_head' } );
+    $self->initUploadData();
+
     return $self;
 }
 
@@ -109,19 +123,20 @@ sub Upload_head {
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
     $self->uploadData();
 
-    push @{ $self->{_messages} },
-      'The uploaded data were placed in a new experiment under: '
-      . $q->a(
-        {
-            -href => $q->url( -absolute => 1 )
-              . sprintf(
-                '?a=experiments&b=Load&pid=%s&stid=%s',
-                $self->{_pid}, $self->{_stid}
-              )
-        },
-        $self->{_PlatformStudyExperiment}
-          ->getPlatformStudyName( $self->{_pid}, $self->{_stid} )
-      );
+    $self->add_message(
+        'The uploaded data were placed in a new experiment under: '
+          . $q->a(
+            {
+                -href => $q->url( -absolute => 1 )
+                  . sprintf(
+                    '?a=experiments&b=Load&pid=%s&stid=%s',
+                    $self->{_pid}, $self->{_stid}
+                  )
+            },
+            $self->{_PlatformStudyExperiment}
+              ->getPlatformStudyName( $self->{_pid}, $self->{_stid} )
+          )
+    );
 
     # show form
     push @$js_src_code, { -code => $self->getDropDownJS() };
@@ -148,24 +163,7 @@ sub default_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  default_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub default_body {
-    my $self = shift;
-    return
-      $self->view_show_messages(),
-      $self->showForm();
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  ud_init
+#       METHOD:  initUploadData
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Get state (mostly from CGI parameters)
@@ -173,7 +171,7 @@ sub default_body {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub ud_init {
+sub initUploadData {
     my $self = shift;
 
     my $q = $self->{_cgi};
@@ -253,7 +251,7 @@ END_ret
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  showForm
+#       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  returns array of HTML element strings
@@ -261,7 +259,7 @@ END_ret
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub showForm {
+sub default_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
@@ -396,15 +394,18 @@ sub uploadData {
         # Notify user of User exception; rethrow Internal and other types of
         # exceptions.
         if ( $exception->isa('SGX::Exception::User') ) {
-            push @{ $self->{_error_messages} },
-              'There was a problem with your input: ' . $exception->error;
+            $self->add_message( { -class => 'error' },
+                'There was a problem with your input: ' . $exception->error );
         }
         else {
             $exception->throw();
         }
     }
     elsif ( $recordsValid == 0 ) {
-        push @{ $self->{_error_messages} }, 'No valid records were uploaded.';
+        $self->add_message(
+            { -class => 'error' }, 'No valid records were
+            uploaded.'
+        );
     }
     else {
 
@@ -430,24 +431,30 @@ sub uploadData {
             if ( $exception->isa('SGX::Exception::User') ) {
 
                 # Catch User exceptions
-                push @{ $self->{_error_messages} }, sprintf(
-                    <<"END_User_exception",
+                $self->add_message(
+                    { -class => 'error' },
+                    sprintf(
+                        <<"END_User_exception",
 Error loading data into the database:\n\n%s\n
 No changes to the database were stored.
 END_User_exception
-                    $exception->error
+                        $exception->error
+                    )
                 );
             }
             elsif ( $exception->isa('Exception::Class::DBI::STH') ) {
 
                 # Catch DBI::STH exceptions. Note: this block catches duplicate
                 # key record exceptions.
-                push @{ $self->{_error_messages} }, sprintf(
-                    <<"END_DBI_STH_exception",
+                $self->add_message(
+                    { -class => 'error' },
+                    sprintf(
+                        <<"END_DBI_STH_exception",
 Error loading data into the database. The database response was:\n\n%s\n
 No changes to the database were stored.
 END_DBI_STH_exception
-                    $exception->error
+                        $exception->error
+                    )
                 );
             }
             else {
@@ -459,8 +466,8 @@ END_DBI_STH_exception
         elsif ( $recordsLoaded == 0 ) {
             $dbh->rollback;
             $self->loadToDatabase_finish($sth_hash);
-            push @{ $self->{_error_messages} },
-              'Failed to add data to the database.';
+            $self->add_message( { -class => 'error' },
+                'Failed to add data to the database.' );
         }
         else {
             $dbh->commit;
@@ -468,23 +475,27 @@ END_DBI_STH_exception
 
             my $totalProbes = $self->probesPerPlatform();
             if ( $recordsLoaded == $totalProbes ) {
-                push @{ $self->{_messages} }, sprintf(
-                    <<"END_FULL_SUCCESS",
+                $self->add_message(
+                    sprintf(
+                        <<"END_FULL_SUCCESS",
 Success! Data for all %d probes from the selected platform 
 were added to the database.
 END_FULL_SUCCESS
-                    $recordsLoaded
+                        $recordsLoaded
+                    )
                 );
             }
             elsif ( $recordsLoaded < $totalProbes ) {
-                push @{ $self->{_messages} }, sprintf(
-                    <<"END_PARTIAL_SUCCESS",
+                $self->add_message(
+                    sprintf(
+                        <<"END_PARTIAL_SUCCESS",
 You added data for %d probes out of total %d in the selected platform
 (no data were added for %d probes).
 END_PARTIAL_SUCCESS
-                    $recordsLoaded,
-                    $totalProbes,
-                    $totalProbes - $recordsLoaded
+                        $recordsLoaded,
+                        $totalProbes,
+                        $totalProbes - $recordsLoaded
+                    )
                 );
             }
             else {

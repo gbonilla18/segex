@@ -12,12 +12,15 @@ em {
 .hidden {
 	visibility:hidden;
 }
-.message {
+#message {
 	font-weight:bold;
+	background-color:#ffd; /* pale yellow */
+	padding: 5px;
+	border: 1px solid #ddd; /* pale grey */
+	margin-bottom:1em;
 }
-.error_message {
-	color:red;
-	font-weight:bold;
+#message p.error {
+	color:#f00; /* red; also try #ec1b23 */
 }
 address, ul, p, pre { margin-bottom:1.4167em; }
 pre { font-size: 120%; }
@@ -170,13 +173,6 @@ dl dd {
 form dl dd.error input, form dl dd.error textarea {
 	color:#000;
 	background:#E6E6B2;
-}
-/* TODO: replace this with .error_message */
-div#errormsg {
-	color:#ec1b23;
-	font-weight:bold;
-	font-size:1em;
-	/*line-height:1.4167em;*/
 }
 input, select {
 	font-size:1em;

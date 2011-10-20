@@ -67,10 +67,26 @@ sub new {
         _match => undef
     );
 
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Initialize parts that deal with responding to CGI queries
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
     $self->register_actions(
         Search => { head => 'Search_head', body => 'Search_body' } );
-
-    bless $self, $class;
     return $self;
 }
 
@@ -1212,6 +1228,7 @@ END_JSON_DATA
 1;
 
 __END__
+
 =head1 NAME
 
 SGX::FindProbes

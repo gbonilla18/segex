@@ -169,14 +169,31 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     $self->set_attributes(
-        _permission_level => 'anonym',
-        _title            => 'My Profile',
+        _title => 'My Profile',
 
         # model
         _curr_proj   => '',
         _projectList => {}
     );
+    bless $self, $class;
+    return $self;
+}
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  Profile
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
+    $self->set_attributes( _permission_level => 'anonym' );
     $self->register_actions(
 
         # default
@@ -243,7 +260,6 @@ sub new {
         },
     );
 
-    bless $self, $class;
     return $self;
 }
 
@@ -280,9 +296,9 @@ sub default_body {
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
     my $url_absolute = $q->url( -absolute => 1 );
 
-    return $q->h2('My Profile'), $self->view_show_messages(),
+    return $q->h2('My Profile'),
       (
-        ( 1 == $s->is_authorized('user') )
+        ( 1 == $self->is_authorized('user') )
         ? $q->p(
             $q->a(
                 {
@@ -340,10 +356,10 @@ sub changeEmail_head {
       )
     {
         $self->set_action('');    # default page: profile
-        push @{ $self->{_messages} }, $s->change_email_text();
+        $self->add_message( $s->change_email_text() );
     }
     else {
-        push @{ $self->{_error_messages} }, $error_string;
+        $self->add_message( { -class => 'error' }, $error_string );
         $self->set_action('form_changeEmail');    # change email form
     }
     return 1;
@@ -364,12 +380,16 @@ sub login_head {
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
     my $error_string;
-    $s->authenticate(
-        car( $q->param('username') ),
-        car( $q->param('password') ),
-        \$error_string
-    );
-    if ( 1 == $s->is_authorized('') ) {
+    if (
+        defined($s)
+        and $s->authenticate(
+            car( $q->param('username') ),
+            car( $q->param('password') ),
+            \$error_string
+        )
+        and 1 == $self->is_authorized('')
+      )
+    {
 
         my $destination =
           ( defined( $q->url_param('destination') ) )
@@ -383,7 +403,7 @@ sub login_head {
 
             # will send a redirect header, so commit the session to data
             # store now
-            $s->commit();
+            $s->commit() if defined $s;
 
             # if the user is heading to a specific placce, pass him/her
             # along, otherwise continue to the main page (script_name)
@@ -398,7 +418,7 @@ sub login_head {
     else {
 
         # error: show corresponding form again
-        push @{ $self->{_error_messages} }, $error_string;
+        $self->add_message( { -class => 'error' }, $error_string );
         $self->set_action('form_login');
     }
     return 1;
@@ -428,7 +448,7 @@ sub form_login_body {
         ? $q->url_param('destination')
         : $uri
     );
-    return $q->h2('Login to Segex'), $self->view_show_messages(),
+    return $q->h2('Login to Segex'),
       $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 )
@@ -509,13 +529,13 @@ sub registerUser_head {
         )
       )
     {
-        push @{ $self->{_messages} }, $s->register_user_text();
+        $self->add_message( $s->register_user_text() );
         $self->set_action('');    # default page: profile
     }
     else {
 
         # error: show corresponding form again
-        push @{ $self->{_error_messages} }, $error_string;
+        $self->add_message( { -class => 'error' }, $error_string );
         $self->set_action('form_registerUser');
     }
     return 1;
@@ -537,7 +557,7 @@ sub form_registerUser_body {
     my $q    = $self->{_cgi};
 
     # user cannot be logged in
-    return $q->h2('Apply for Access to Segex'), $self->view_show_messages(),
+    return $q->h2('Apply for Access to Segex'),
       $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=profile&b=registerUser',
@@ -653,12 +673,12 @@ sub resetPassword_head {
       )
     {
         $self->set_action('form_login');
-        push @{ $self->{_messages} }, $s->reset_password_text();
+        $self->add_message( $s->reset_password_text() );
     }
     else {
 
         # error: show corresponding form again
-        push @{ $self->{_error_messages} }, $error_string;
+        $self->add_message( { -class => 'error' }, $error_string );
         $self->set_action('form_resetPassword');
     }
     return 1;
@@ -678,7 +698,7 @@ sub form_resetPassword_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    return $q->h2('I Forgot My Password'), $self->view_show_messages(),
+    return $q->h2('I Forgot My Password'),
       $q->start_form(
         -method   => 'POST',
         -action   => $q->url( -absolute => 1 ) . '?a=profile&b=resetPassword',
@@ -739,8 +759,7 @@ sub verifyEmail_head {
     );
     if ( $t->restore( car( $q->param('sid') ) ) ) {
         if ( $s->verify_email( $t->{session_stash}->{username} ) ) {
-            push @{ $self->{_messages} },
-              'Success! You email address has been verified.';
+            $self->add_message('Success! You email address has been verified.');
         }
         $self->set_action('');    # default page: profile
         $t->destroy();
@@ -777,13 +796,13 @@ sub changePassword_head {
         )
       )
     {
-        push @{ $self->{_error_messages} }, $error_string;
+        $self->add_message( { -class => 'error' }, $error_string );
         $self->set_action('form_changePassword');    # change password form
         return 1;
     }
     $self->set_action('');                           # default page: profile
-    push @{ $self->{_messages} },
-      'Success! Your password has been changed to the one you provided.';
+    $self->add_message(
+        'Success! Your password has been changed to the one you provided.');
     return 1;
 }
 
@@ -803,7 +822,7 @@ sub form_changePassword_body {
 
     # user has to be logged in
     my $require_old = !defined( $s->{session_stash}->{change_pwd} );
-    return $q->h2('Change Password'), $self->view_show_messages(),
+    return $q->h2('Change Password'),
       $q->start_form(
         -method   => 'POST',
         -action   => $q->url( -absolute => 1 ) . '?a=profile&b=changePassword',
@@ -874,7 +893,7 @@ sub form_changeEmail_body {
     my $q    = $self->{_cgi};
 
     # user has to be logged in
-    return $q->h2('Change Email Address'), $self->view_show_messages(),
+    return $q->h2('Change Email Address'),
       $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=profile&b=changeEmail',
@@ -1115,7 +1134,6 @@ sub chooseProject_body {
 
 1;
 
-
 =head1 NAME
 
 SGX::Profile
@@ -1140,5 +1158,4 @@ Artistic License 2.0
 http://www.opensource.org/licenses/artistic-license-2.0.php
 
 =cut
-
 

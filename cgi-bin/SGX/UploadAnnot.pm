@@ -26,10 +26,27 @@ sub new {
 
     $self->set_attributes( _title => 'Upload Annotations' );
 
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  UploadAnnot
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
     $self->register_actions(
         Upload => { head => 'Upload_head', body => 'Upload_body' } );
 
-    bless $self, $class;
     return $self;
 }
 

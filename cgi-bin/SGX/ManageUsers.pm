@@ -24,9 +24,6 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     $self->set_attributes(
-
-        _permission_level => 'admin',
-
         _table_defs => {
             'users' => {
                 item_name => 'user',
@@ -85,18 +82,21 @@ sub new {
                         __type__        => 'popup_menu',
                         dropdownOptions => [
                             {
-                                value    => '',
-                                label    => 'Not Granted',
+                                value => '',
+                                label => 'Not Granted',
+
                                 #__perm__ => get_user_rank('anonym')
                             },
                             {
-                                value    => 'user',
-                                label    => 'User',
+                                value => 'user',
+                                label => 'User',
+
                                 #__perm__ => get_user_rank('user')
                             },
                             {
-                                value    => 'admin',
-                                label    => 'Administrator',
+                                value => 'admin',
+                                label => 'Administrator',
+
                                 #__perm__ => get_user_rank('admin')
                             }
                         ]
@@ -118,6 +118,25 @@ sub new {
     );
 
     bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageUsers
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
+    $self->set_attributes( _permission_level => 'admin' );
+
     return $self;
 }
 

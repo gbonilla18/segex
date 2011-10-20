@@ -48,19 +48,37 @@ sub new {
         _searchFilters => ''
     );
 
-    $self->register_actions(
-        CSV => { head => 'CSV_head', body => 'CSV_body' } );
-
     # find out what the current project is set to
     $self->getSessionOverrideCGI();
-    $self->loadDataFromSubmission();
+
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  TFSDisplay
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
+    $self->loadDataFromSubmission(); # sets _format attribute
 
     # two lines below modify action value and therefore affect which hook will
     # get called
     my $action = $self->{_format} || '';
     $self->{_cgi}->param( -name => 'b', -value => $action );
 
-    bless $self, $class;
+    $self->register_actions(
+        CSV => { head => 'CSV_head', body => 'CSV_body' } );
+
     return $self;
 }
 

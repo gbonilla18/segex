@@ -47,7 +47,60 @@ Readonly::Hash my %user_rank => (
 #===============================================================================
 sub get_user_rank {
     my $level = shift;
-    return $rank{$level};
+    return $user_rank{$level};
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  static_auth
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub static_auth {
+
+    # first argument: scalar
+    my $current_level = shift;
+    $current_level = 'anonym' if not defined $current_level;
+
+    # second argument: tuple or scalar
+    my $req_user_level = shift;
+
+    my $num_current_level   = $user_rank{$current_level};
+    my $req_user_level_type = ref $req_user_level;
+    if ( $req_user_level_type eq '' ) {
+
+        # authorized if current level is larger or equal to required
+        my $num_req_user_level = $user_rank{$req_user_level};
+
+        return ( defined($num_current_level)
+              && defined($num_req_user_level)
+              && $num_current_level >= $num_req_user_level )
+          ? 1
+          : ();
+    }
+    elsif ( $req_user_level_type eq 'ARRAY' ) {
+
+        # authorized if current level lies in the required range
+        my ( $req_level_from, $req_level_to ) = @$req_user_level;
+        my $level_from = $user_rank{$req_level_from};
+        my $level_to   = $user_rank{$req_level_to};
+
+        return ( defined($num_current_level)
+              && defined($level_from)
+              && defined($level_to)
+              && $num_current_level >= $level_from
+              && $num_current_level <= $level_to )
+          ? 1
+          : ();
+    }
+    else {
+        SGX::Exception::Internal->throw( error =>
+              'Unknown reference type in argument to User::is_authorized' );
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -904,42 +957,11 @@ sub is_authorized {
 
     # otherwise we need session information to compare requested permission
     # level with the current one.
-    my $session = $self->{session_stash} || {};
-    my $current_level =
-      ( defined $session->{user_level} ) ? $session->{user_level} : 'anonym';
+    my $session_level = ( $self->{session_stash} || {} )->{user_level};
 
-    my $num_current_level   = $user_rank{$current_level};
-    my $req_user_level_type = ref $req_user_level;
-    if ( $req_user_level_type eq '' ) {
-
-        # authorized if current level is larger or equal to required
-        my $num_req_user_level = $user_rank{$req_user_level};
-
-        return ( defined($num_current_level)
-              && defined($num_req_user_level)
-              && $num_current_level >= $num_req_user_level )
-          ? 1
-          : ( ( defined $session->{user_level} ) ? -1 : 0 );
-    }
-    elsif ( $req_user_level_type eq 'ARRAY' ) {
-
-        # authorized if current level lies in the required range
-        my ( $req_level_from, $req_level_to ) = @$req_user_level;
-        my $level_from = $user_rank{$req_level_from};
-        my $level_to   = $user_rank{$req_level_to};
-
-        return ( defined($num_current_level)
-              && defined($level_from)
-              && defined($level_to)
-              && $num_current_level >= $level_from
-              && $num_current_level <= $level_to )
-          ? 1
-          : ( ( defined $session->{user_level} ) ? -1 : 0 );
-    }
-    else {
-        SGX::Exception::Internal->throw( error =>
-              'Unknown reference type in argument to User::is_authorized' );
-    }
+    return static_auth( $session_level, $req_user_level )
+      ? 1
+      : ( ( defined $session_level ) ? -1 : 0 );
 }
 
 #===  CLASS METHOD  ============================================================

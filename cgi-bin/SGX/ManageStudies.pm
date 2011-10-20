@@ -154,10 +154,27 @@ sub new {
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
     );
 
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageStudies
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
     $self->register_actions( form_assign =>
           { head => 'form_assign_head', body => 'form_assign_body' } );
 
-    bless $self, $class;
     return $self;
 }
 

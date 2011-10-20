@@ -21,20 +21,37 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     $self->set_attributes(
-        _permission_level => 'anonym',
-        _title            => '',
+        _title => '',
 
         # model
         _curr_proj   => '',
         _projectList => {}
     );
 
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Static
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
+    $self->set_attributes( _permission_level => 'anonym' );
     $self->register_actions(
         about  => { body => 'about_body' },
         schema => { body => 'schema_body' }
     );
 
-    bless $self, $class;
     return $self;
 }
 

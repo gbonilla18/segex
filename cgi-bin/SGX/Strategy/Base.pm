@@ -19,15 +19,9 @@ use Data::Dumper;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, %param ) = @_;
-    my ( $dbh, $q, $s, $action ) = @param{qw{dbh cgi user_session selector}};
+    my $class = shift;
 
     my $self = {
-        _dbh          => $dbh,
-        _cgi          => $q,
-        _UserSession  => $s,
-        _ResourceName => $action,
-
         _js_src_yui   => [],
         _js_src_code  => [],
         _css_src_yui  => [],
@@ -35,19 +29,52 @@ sub new {
         _header       => {},
         _title        => '',
 
-        _permission_level => 'user'
+        @_
     };
 
     bless $self, $class;
+    return $self;
+}
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Base
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Initialize parts that deal with responding to CGI queries
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->set_attributes(
+
+        # :TODO:10/20/2011 11:12:05:es: change 'user' to 'guest' here...
+        _permission_level => 'user'
+    );
     $self->register_actions(
 
         # default action
         '' => { head => 'default_head', body => 'default_body' }
 
     );
-
     return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Base
+#       METHOD:  add_message
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub add_message {
+    my $self = shift;
+    push @{ $self->{_messages} }, \@_;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -116,7 +143,7 @@ sub set_title {
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
-#===============================================================================a
+#===============================================================================
 sub get_title {
     return shift->{_title};
 }
@@ -132,7 +159,10 @@ sub get_title {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_header {
-    return %{ shift->{_header} };
+    my $self    = shift;
+    my $s       = $self->{_UserSession};
+    my $cookies = ( defined $s ) ? $s->cookie_array() : [];
+    return ( -cookie => $cookies, %{ $self->{_header} } );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -148,38 +178,6 @@ sub get_header {
 sub set_header {
     my ( $self, %args ) = @_;
     $self->{_header} = \%args;
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  get_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_body {
-    my $body = shift->{_body};
-    return if not defined $body;
-    return $body;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  set_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub set_body {
-    my ( $self, $arg ) = @_;
-    $self->{_body} = $arg;
     return 1;
 }
 
@@ -250,6 +248,47 @@ sub get_dispatch_action {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
+#       METHOD:  get_volatile
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_volatile {
+    my $self  = shift;
+    my $field = shift;
+    my $s     = $self->{_UserSession};
+    return ( defined $s ) ? ( $s->{$field} || {} ) : {};
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  is_authorized
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub is_authorized {
+    my $self = shift;
+    my $perm = shift;
+    my $s    = $self->{_UserSession};
+
+    if ( defined $s ) {
+        return $s->is_authorized($perm);
+    }
+    else {
+        require SGX::Session::User;
+        return SGX::Session::User::static_auth( undef, $perm ) ? 1 : 0;
+    }
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
 #       METHOD:  _dispatch_by
 #   PARAMETERS:  action => method
 #      RETURNS:  ????
@@ -263,8 +302,6 @@ sub _dispatch_by {
     my $action = shift || '';
     my $hook   = shift;
 
-    my $s = $self->{_UserSession};
-
     # execute methods that are in the intersection of those found in the
     # requested dispatch table and those which can actually be executed.
     my $dispatch_tables = $self->{_dispatch_tables} || {};
@@ -273,7 +310,7 @@ sub _dispatch_by {
     my $perm =
       ( defined $meta->{perm} ) ? $meta->{perm} : $self->{_permission_level};
 
-    my $is_auth = $s->is_authorized($perm);
+    my $is_auth = $self->is_authorized($perm);
     if ( $is_auth == 1 ) {
 
         # execute hook
@@ -306,9 +343,11 @@ sub _dispatch_by {
         }
         elsif ( $is_auth == 0 ) {
 
-            # redirect to login
+            # redirect to login (unless block prevents infinite loops)
             $self->redirect( '?a=profile&b=form_login&destination='
-                  . uri_escape( $self->request_uri() ) );
+                  . uri_escape( $self->request_uri() ) )
+              unless $self->{_ResourceName} eq 'profile'
+                  and $action eq 'form_login';
             return 1;              # don't show body
         }
         elsif ( $is_auth == -1 and $hook eq 'head' and $action ) {
@@ -319,10 +358,36 @@ sub _dispatch_by {
         else {
 
             # redirect to main page
-            $self->redirect( $self->url( -absolute => 1 ) );
-            return 1;              # don't show body
+            $self->redirect( $self->url( -absolute => 1 ) )
+              if $self->{_ResourceName}
+                  or $action;
+            return 1;    # don't show body
         }
     }
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  prepare_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub prepare_head {
+    my $self = shift;
+    my ( $dbh, $s ) = @$self{qw/_dbh _UserSession/};
+    my $show_html = $self->dispatch_js();
+
+    # flush the session data and prepare cookies
+    $s->commit() if defined $s;
+
+    # do not disconnect before session data are committed
+    $dbh->disconnect() if defined $dbh;
+
+    return $show_html;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -481,25 +546,6 @@ sub view_start_get_form {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
-#       METHOD:  view_show_messages
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub view_show_messages {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-    return ( map { $q->pre( { -class => 'error_message' }, $_ ) }
-          @{ $self->{_error_messages} || [] } ),
-      ( map { $q->p( { -class => 'message' }, $_ ) }
-          @{ $self->{_messages} || [] } );
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
 #       METHOD:  view_show_content
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -509,11 +555,20 @@ sub view_show_messages {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub view_show_content {
-    my $self = shift;
+    my $self      = shift;
+    my $show_html = shift;
 
-    require SGX::Body;
-    my $body = SGX::Body->new($self);    # Body class knows about Strategy::Base
-    return $body->get_content();
+    if ($show_html) {
+        require SGX::Body;
+        my $body =
+          SGX::Body->new($self);    # Body class knows about Strategy::Base
+        return $body->get_content();
+    }
+    else {
+        return join( "\n",
+            map { my $x = shift @$_; ( ref $x eq '' ) ? $x : @$_ }
+              @{ $self->{_messages} } );
+    }
 }
 
 #===  CLASS METHOD  ============================================================

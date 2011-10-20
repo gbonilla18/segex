@@ -39,10 +39,27 @@ sub new {
         _eidList         => []
     );
 
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  OutputData
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
     $self->register_actions(
         Load => { head => 'Load_head', body => 'Load_body' } );
 
-    bless $self, $class;
     return $self;
 }
 
@@ -71,7 +88,7 @@ sub Load_head {
         'datasource/datasource-min.js',       'paginator/paginator-min.js',
         'datatable/datatable-min.js'
       );
-    $self->init();
+    $self->initOutputData();
     $self->loadReportData();
     push @$js_src_code, { -code => $self->runReport_js() };
 }
@@ -117,7 +134,7 @@ sub default_head {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub init {
+sub initOutputData {
     my $self = shift;
     my $q    = $self->{_cgi};
 
