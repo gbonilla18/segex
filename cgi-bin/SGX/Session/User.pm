@@ -12,15 +12,28 @@ $VERSION = '0.11';
 
 use base qw/SGX::Session::Cookie/;
 
-use Data::Dumper;
+use Readonly ();
 use Digest::SHA1 qw/sha1_hex/;
-use Mail::Send;
+require Mail::Send;
+require Email::Address;
+
+use SGX::Debug;
 use SGX::Abstract::Exception;
-use SGX::Session::Base;    # for email confirmation
-use Email::Address;
+require SGX::Session::Base;    # for email confirmation
 use SGX::Util qw/jam/;
 
-my $MIN_PWD_LENGTH = 6;    # minimum password length (in characters)
+# minimum password length (in characters)
+Readonly::Scalar my $MIN_PWD_LENGTH => 6;
+
+Readonly::Hash my %level => (
+
+    # :TODO:10/14/2011 11:54:35:es: This mapping will be replaced by actual
+    # numeric values in the database.
+    'anonym' => -1,
+    ''       => 0,
+    'user'   => 1,
+    'admin'  => 2
+);
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
@@ -879,15 +892,6 @@ sub is_authorized {
     my $session = $self->{session_stash} || {};
     my $current_level =
       ( defined $session->{user_level} ) ? $session->{user_level} : 'anonym';
-
-    # :TODO:10/14/2011 11:54:35:es: This mapping will be replaced by actual
-    # numeric values in the database.
-    my %level = (
-        'anonym' => -1,
-        ''       => 0,
-        'user'   => 1,
-        'admin'  => 2
-    );
 
     my $num_current_level   = $level{$current_level};
     my $req_user_level_type = ref $req_user_level;

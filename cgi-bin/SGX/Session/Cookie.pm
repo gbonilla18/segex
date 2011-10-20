@@ -8,16 +8,16 @@ use vars qw($VERSION);
 $VERSION = '0.11';
 
 use base qw/SGX::Session::Base/;
-use CGI::Cookie;
-use File::Basename;
-use Data::Dumper;
+
+use Readonly ();
+require CGI::Cookie;
+use File::Basename qw/dirname/;
 
 # some (constant) globals
-my $SESSION_NAME = 'session';
-my $SID_FIELD    = 'sid';
+Readonly::Scalar my $SESSION_NAME => 'session';
+Readonly::Scalar my $SID_FIELD    => 'sid';
 
-#use SGX::Debug;
-#use Data::Dumper;    # for debugging
+use SGX::Debug;
 
 # Variables declared as "our" within a class (package) scope will be shared between
 # all instances of the class *and* can be addressed from the outside like so:
@@ -68,7 +68,7 @@ sub restore {
     my ( $self, $id ) = @_;
 
     # Makes sure cookies are fetched when restoring from ?sid= URI parameter,
-    my %cookies = fetch CGI::Cookie;
+    my %cookies = CGI::Cookie->fetch;
     $self->{fetched_cookies} = \%cookies;
 
     # first try to restore session from provided id

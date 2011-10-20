@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception;
-use SGX::Model::PlatformStudyExperiment;
+require SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments

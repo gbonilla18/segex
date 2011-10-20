@@ -5,9 +5,9 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-#use Data::Dumper;
-use Math::BigInt;
-use JSON::XS;
+#use SGX::Debug;
+require Math::BigInt;
+use JSON qw/encode_json/;
 use SGX::Abstract::Exception;
 
 #===  CLASS METHOD  ============================================================

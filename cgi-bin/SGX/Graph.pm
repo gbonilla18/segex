@@ -2,9 +2,10 @@ package SGX::Graph;
 
 use strict;
 use warnings;
-use SGX::Util qw/bounds label_format/;
 
 use base qw/SGX::Strategy::Base/;
+
+use SGX::Util qw/bounds label_format/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  Graph

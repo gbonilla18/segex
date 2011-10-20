@@ -6,7 +6,7 @@ use warnings;
 use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Abstract::Exception;
-use SGX::Model::ProjectStudyExperiment;
+require SGX::Model::ProjectStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects

@@ -3,7 +3,7 @@ package SGX::CSV;
 use strict;
 use warnings;
 
-use Text::CSV;
+require Text::CSV;
 use SGX::Util qw/all_match/;
 use SGX::Abstract::Exception;
 

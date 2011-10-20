@@ -7,13 +7,11 @@ use vars qw($VERSION);
 
 $VERSION = '0.11';
 
-use Apache::Session::MySQL;
+require Apache::Session::MySQL;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Debug;
-use Data::Dumper;
 use SGX::Abstract::Exception;
 
-#use Data::Dumper;    # for debugging
+use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Base

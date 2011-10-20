@@ -5,15 +5,15 @@ use warnings;
 
 #use Time::HiRes qw/clock/;
 #use Benchmark;
-use Data::Dumper;
+use Data::Dumper qw/Dumper/;
 
 use base qw/Exporter/;
 our @EXPORT = qw/dump_cookies_sent_to_user print_truth_table Dumper/;
 
-#use constant LOG_PATH => '/var/www/error_log/segex_dev_log'; # Linux
-use constant LOG_PATH => '/Users/escherba/log/apache2/segex_dev_log'; # Mac OS X
-
 BEGIN {
+    #use constant LOG_PATH => '/var/www/error_log/segex_dev_log'; # Linux
+    use constant LOG_PATH => '/Users/escherba/log/apache2/segex_dev_log'; # Mac OS X
+
     use CGI::Carp qw(carpout fatalsToBrowser warningsToBrowser croak);
     open( my $LOG, '>>', LOG_PATH )
       or croak 'Unable to append to log file at ' . LOG_PATH . " $!";
@@ -45,7 +45,7 @@ sub print_truth_table {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub dump_cookies_sent_to_user {
-    my ($s) = @_;
+    my $s = shift;
 
     my $cookie_array  = Dumper( $s->cookie_array()  || [] );
     my $session_stash = Dumper( $s->{session_stash} || {} );

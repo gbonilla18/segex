@@ -6,13 +6,13 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 #use Benchmark;
-#use Data::Dumper;
-use URI::Escape;
-use JSON::XS;
-use Tie::IxHash;
-use SGX::FindProbes;
+#use SGX::Debug;
+use URI::Escape qw/uri_escape/;
+use JSON qw/encode_json/;
+require Tie::IxHash;
+require SGX::FindProbes;
+require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception;
-use SGX::Abstract::JSEmitter;
 use SGX::Util qw/count_gtzero max/;
 
 #===  CLASS METHOD  ============================================================

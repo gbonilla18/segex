@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
-use Data::Dumper;
+use SGX::Debug;
 use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 

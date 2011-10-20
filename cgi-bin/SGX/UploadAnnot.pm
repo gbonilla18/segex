@@ -6,11 +6,9 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 use Carp;
-use Data::Dumper;
-use JSON::XS;
-use SGX::Model::PlatformStudyExperiment;
-use Text::CSV;
-use Tie::IxHash;
+use SGX::Debug;
+require Text::CSV;
+require Tie::IxHash;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadAnnot

@@ -5,10 +5,10 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use Tie::IxHash;
+require Tie::IxHash;
+require Lingua::EN::Inflect;
+require Text::Autoformat;
 use Scalar::Util qw/looks_like_number/;
-use Lingua::EN::Inflect;
-use Text::Autoformat;
 
 use SGX::Util qw/inherit_hash tuples car cdr list_values jam/;
 use SGX::Abstract::Exception;

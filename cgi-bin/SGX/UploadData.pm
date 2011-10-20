@@ -5,13 +5,12 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use JSON::XS;
+use JSON qw/encode_json/;
 use SGX::CSV;
-use Data::Dumper;
+use SGX::Debug;
 use File::Temp;
-use Carp;
 use SGX::Abstract::Exception;
-use SGX::Model::PlatformStudyExperiment;
+require SGX::Model::PlatformStudyExperiment;
 use Scalar::Util qw/looks_like_number/;
 
 my @parser = (

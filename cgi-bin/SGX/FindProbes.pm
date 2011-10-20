@@ -5,15 +5,15 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use Tie::IxHash;
+require Tie::IxHash;
 use File::Basename;
-use JSON::XS;
+use JSON qw/encode_json/;
 use File::Temp;
 use SGX::Abstract::Exception;
 use SGX::Util qw/all_match trim min/;
-use SGX::Model::PlatformStudyExperiment;
-use Text::CSV;
-use Data::Dumper;
+require SGX::Model::PlatformStudyExperiment;
+require Text::CSV;
+use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes

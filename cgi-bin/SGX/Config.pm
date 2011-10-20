@@ -4,8 +4,8 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
-use File::Basename;
-use Exception::Class::DBI;
+require Exception::Class::DBI;
+use File::Basename qw/dirname/;
 use SGX::Util qw/replace/;
 
 # :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are

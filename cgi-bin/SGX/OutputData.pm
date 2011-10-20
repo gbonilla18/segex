@@ -5,8 +5,8 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use JSON::XS;
-use SGX::Model::PlatformStudyExperiment;
+use JSON qw/encode_json/;
+require SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  OutputData

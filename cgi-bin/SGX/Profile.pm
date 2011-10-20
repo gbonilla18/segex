@@ -5,8 +5,8 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use Data::Dumper;
-use URI::Escape;
+use SGX::Debug;
+use URI::Escape qw/uri_unescape uri_escape/;
 use SGX::Util qw/car/;
 
 {
@@ -16,7 +16,7 @@ use SGX::Util qw/car/;
     use strict;
     use warnings;
 
-    #use Data::Dumper;
+    #use SGX::Debug
     use SGX::Abstract::Exception;
     use Tie::IxHash;
 

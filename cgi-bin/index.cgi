@@ -12,7 +12,7 @@ use warnings;
 use CGI 2.47 qw/-nosticky -private_tempfiles/;
 
 #use CGI::Pretty 2.47 qw/-nosticky/;
-use Carp;    # croak exported automatically
+use Carp qw/croak/;
 
 #---------------------------------------------------------------------------
 # Custom modules in SGX directory
@@ -21,7 +21,7 @@ use lib qw/./;
 
 use SGX::Debug;                 # all debugging code goes here
 use SGX::Config;                # all configuration for our project goes here
-use SGX::Session::User 0.07;    # user authentication, sessions and cookies
+use SGX::Session::User 0.07 ();    # user authentication, sessions and cookies
 
 #---------------------------------------------------------------------------
 #  init
