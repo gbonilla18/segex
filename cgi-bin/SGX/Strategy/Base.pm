@@ -331,7 +331,8 @@ sub _dispatch_by {
         # get 401 Authentication Required. Finally, for AJAX requests we do not
         # display body or bother to do further processing.
         if ( $action =~ m/^ajax_/ ) {
-            $self->set_body(
+            $self->add_message(
+                { -class => 'error' },
 'Your user account does not have the necessary privileges to perform this operation'
             );
 
