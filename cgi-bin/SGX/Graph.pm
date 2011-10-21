@@ -163,11 +163,8 @@ END_SQL2
         push @y,       $row->[2];
         push @pvalues, $row->[3];
     }
-
     $self->{_data} = [ \@exp_ids, \@labels, \@y, \@pvalues ];
-
     $sth->finish;
-    $self->set_header( -type => 'image/svg+xml' );
 
 # this is a hack (temporary until we put content wrapping into Strategy::Base):
 # call body to send data to the client but do not do it normal way (do not return true value).

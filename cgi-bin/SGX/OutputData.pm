@@ -5,6 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
+use SGX::Util qw/car/;
 use JSON qw/encode_json/;
 require SGX::Model::PlatformStudyExperiment;
 
@@ -48,7 +49,7 @@ sub new {
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -75,22 +76,50 @@ sub init {
 #===============================================================================
 sub Load_head {
     my $self = shift;
-    my ( $s, $js_src_yui, $js_src_code ) =
-      @$self{qw{_UserSession _js_src_yui _js_src_code}};
-    push @{ $self->{_css_src_yui} },
-      (
-        'paginator/assets/skins/sam/paginator.css',
-        'datatable/assets/skins/sam/datatable.css'
-      );
-    push @$js_src_yui,
-      (
-        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
-        'datasource/datasource-min.js',       'paginator/paginator-min.js',
-        'datatable/datatable-min.js'
-      );
+
     $self->initOutputData();
     $self->loadReportData();
-    push @$js_src_code, { -code => $self->runReport_js() };
+
+    my $format = $self->{_format};
+    if ( $format eq 'html' ) {
+        my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
+        push @{ $self->{_css_src_yui} },
+          (
+            'paginator/assets/skins/sam/paginator.css',
+            'datatable/assets/skins/sam/datatable.css'
+          );
+        push @$js_src_yui,
+          (
+            'yahoo-dom-event/yahoo-dom-event.js',
+            'element/element-min.js',
+            'datasource/datasource-min.js',
+            'paginator/paginator-min.js',
+            'datatable/datatable-min.js'
+          );
+        push @$js_src_code, { -code => $self->runReport_js() };
+        return 1;
+    }
+    elsif ( $format eq 'csv' ) {
+        my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
+        $s->commit;
+        print $q->header( -type => 'text/csv', -cookie => $s->cookie_array() );
+
+        # :TODO:10/21/2011 00:49:20:es: Use Text::CSV types:
+        # http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm#types
+        require Text::CSV;
+        my $csv = Text::CSV->new(
+            {
+                eol      => "\r\n",
+                sep_char => "\t"
+            }
+        ) or die 'Cannot use Text::CSV';
+        $csv->print( \*STDOUT, $self->{_FieldNames} );
+        $csv->print( \*STDOUT, $_ ) for @{ $self->{_Data} };
+        exit;
+    }
+    else {
+        die "Unrecognized parameter value format=$format";
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -139,8 +168,9 @@ sub initOutputData {
     my $q    = $self->{_cgi};
 
     # optional
-    $self->{_pid}  = $q->param('pid');
-    $self->{_stid} = $q->param('stid');
+    $self->{_pid}    = car $q->param('pid');
+    $self->{_stid}   = car $q->param('stid');
+    $self->{_format} = ( car $q->param('format') ) || 'html';
 
     # required
     $self->{_eidList} = [ $q->param('eid') ];
@@ -158,18 +188,19 @@ sub initOutputData {
 #===============================================================================
 sub loadReportData {
     my $self = shift;
+    my $dbh  = $self->{_dbh};
 
-    # cache database handle
-    my $dbh = $self->{_dbh};
+    my $experiments = $self->{_eidList};
+
+    my $experiment_field =
+      ( @$experiments > 1 )
+      ? qq{CONCAT(experiment.sample1,' / ',experiment.sample2) AS 'Sample 1 / Sample 2',}
+      : '';
 
     my $query_text = sprintf(
         <<"END_ReportQuery",
-SELECT  
-    study.description     AS 'Study',
-    CONCAT(
-        experiment.sample1, ' / ', 
-        experiment.sample2
-    )                     AS 'Sample 1 / Sample 2',
+SELECT
+    $experiment_field
     probe.reporter        AS 'Probe ID',
     gene.accnum           AS 'Accession Number',
     gene.seqname          AS 'Gene',
@@ -179,8 +210,6 @@ SELECT
     microarray.intensity1 AS 'Intensity 1',
     microarray.intensity2 AS 'Intensity 2'
 FROM experiment
-LEFT JOIN StudyExperiment USING(eid)
-LEFT JOIN study USING(stid)
 INNER JOIN microarray USING(eid)
 LEFT JOIN probe ON probe.rid = microarray.rid
 LEFT JOIN annotates ON annotates.rid = probe.rid
@@ -190,56 +219,16 @@ GROUP BY experiment.eid, microarray.rid
 ORDER BY experiment.eid
 
 END_ReportQuery
-        join( ',', map { '?' } @{ $self->{_eidList} } )
+        join( ',', map { '?' } @$experiments )
     );
 
     my $sth = $dbh->prepare($query_text);
-
-    $self->{_RecordsReturned} = $sth->execute( @{ $self->{_eidList} } );
-
-    $self->{_FieldNames} = $sth->{NAME};
-    $self->{_Data}       = $sth->fetchall_arrayref;
-
+    $self->{_RecordsReturned} = $sth->execute(@$experiments);
+    $self->{_FieldNames}      = $sth->{NAME};
+    $self->{_Data}            = $sth->fetchall_arrayref;
     $sth->finish;
+
     return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  OutputData
-#       METHOD:  getJSRecords
-#   PARAMETERS:  none; relies on _Data field
-#      RETURNS:  ARRAY reference
-#  DESCRIPTION:  Returns data structure containing body of the table.
-#       THROWS:  no exceptions
-#     COMMENTS:  Remaps an array of array references into an array of hash
-#                references.
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getJSRecords {
-    my $self = shift;
-
-    return [
-        map {
-            my $i   = 0;
-            my $row = $_;
-            +{ map { $i++ => $_ } @$row }
-          } @{ $self->{_Data} }
-    ];
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  OutputData
-#       METHOD:  getJSHeaders
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  returns data structure containing table headers
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getJSHeaders {
-    my $self = shift;
-    return $self->{_FieldNames};
 }
 
 #===  CLASS METHOD  ============================================================
@@ -296,17 +285,26 @@ sub default_body {
                 -size     => 7
             )
         ),
+        $q->dt('Output Format:'),
+        $q->dd(
+            $q->radio_group(
+                -name    => 'format',
+                -default => 'html',
+                -values  => [ 'html', 'csv' ],
+                -labels  => { 'html' => 'HTML', 'csv' => 'CSV (plain-text)' },
+                -title   => 'Output format'
+            )
+        ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden(
                 -name  => 'a',
                 -value => 'outputData'
             ),
+            $q->hidden( -name => 'b', -value => 'Load' ),
             $q->submit(
-                -name  => 'b',
-                -id    => 'b',
                 -class => 'button black bigrounded',
-                -value => 'Load',
+                -value => 'Output File',
                 -title => 'Get data for selected experiments'
             )
         )
@@ -402,11 +400,16 @@ sub Load_body {
 sub runReport_js {
     my $self = shift;
 
-    my $headers_ref = getJSHeaders($self);
-    my $records     = encode_json( getJSRecords($self) );
-    my $headers     = encode_json($headers_ref);
-
-    my @columns = 0 .. ( @$headers_ref - 1 );
+    my $records      = $self->{_Data};
+    my $headers      = $self->{_FieldNames};
+    my $OutputReport = encode_json(
+        {
+            caption => 'Showing all Experiments',
+            records => $records,
+            headers => $headers
+        }
+    );
+    my @columns = 0 .. $#$headers;
 
     my $myColumnDefs = encode_json(
         [
@@ -415,7 +418,7 @@ sub runReport_js {
                     key        => "$_",
                     sortable   => JSON::true,
                     resizeable => JSON::true,
-                    label      => $headers_ref->[$_]
+                    label      => $headers->[$_]
                   }
               } @columns
         ]
@@ -423,23 +426,11 @@ sub runReport_js {
 
     my $responseSchemaFields = encode_json( [ map { "$_" } @columns ] );
 
- # :TODO:07/12/2011 10:00:04:es: rewrite export_table() Javascript function such
- # that it assumes that .headers field is in the same format as DataTable column
- # definitions. Then change column definition code everytwhere from being
- # hardcoded into Javascript to being Perl-generated and JSON-encoded.
- #
- # Also conider treating DataSource responseSchema.fields the same way.
- #
     return <<"END_JSOuputList";
-var OutputReport = {
-    caption: "Showing all Experiments",
-    records: $records,
-    headers: $headers
-};
+var OutputReport = $OutputReport;
 YAHOO.util.Event.addListener("OutPut_astext", "click", export_table, OutputReport, true);
 YAHOO.util.Event.addListener(window, 'load', function() {
     var myColumnDefs = $myColumnDefs;
-
     var myDataSource = new YAHOO.util.DataSource(OutputReport.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
     myDataSource.responseSchema = {fields: $responseSchemaFields};
