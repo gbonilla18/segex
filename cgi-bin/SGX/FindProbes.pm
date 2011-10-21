@@ -886,7 +886,7 @@ END_EXAMPLE_TEXT
         ),
         $q->dt(
             { -id => 'graph_names' },
-            $q->label( { -for => 'graph' }, 'Differential Expression Graphs:' )
+            'Plot Differential Expression:' 
         ),
         $q->dd(
             { -id => 'graph_values' },
@@ -894,7 +894,7 @@ END_EXAMPLE_TEXT
                 -id      => 'graph',
                 -checked => 0,
                 -name    => 'graph',
-                -label   => '',
+                -label   => 'Show graphs',
                 -title   => <<"END_BROWSER_NOTICE"
 Works best with Firefox or Safari. SVG support on Internet Explorer (IE) requires either 
 IE 9 or Adobe SVG plugin.
