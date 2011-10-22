@@ -105,7 +105,7 @@ sub default_head {
     push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     $self->getSessionOverrideCGI();
     push @$js_src_code,
-      ( { -src => 'form.js' }, { -src => 'FormFindProbes.js' } );
+      ( { -src => 'FormFindProbes.js' } );
     return 1;
 }
 
@@ -805,9 +805,9 @@ sub default_body {
     my %opts_dropdown;
     my $opts_dropdown_t = tie(
         %opts_dropdown, 'Tie::IxHash',
-        '1' => 'Basic (names and ids only)',
-        '2' => 'Full annotation',
-        '3' => 'Full annotation with experiment data (CSV)'
+        'basic' => 'Basic (names and ids only)',
+        'full' => 'Full annotation',
+        'csv' => 'Full annotation with experiment data (CSV)'
     );
     my %trans_dropdown;
     my $trans_dropdown_t = tie(
@@ -852,7 +852,7 @@ END_terms_title
                 -title   => 'Where to look in the database'
             )
         ),
-        $q->dt('Pattern to match:'),
+        $q->dt('Match pattern:'),
         $q->dd(
             $q->popup_menu(
                 -id        => 'pattern',
@@ -1138,12 +1138,12 @@ sub findProbes_js {
     $self->build_InsideTableQuery();
 
     my ( $opts, $trans ) = @$self{qw/_opts _trans/};
-    $opts  = 1      if not defined $opts;
+    $opts  = 'full'      if not defined $opts;
     $trans = 'fold' if not defined $trans;
 
     $self->build_ProbeQuery( extra_fields => $opts );
 
-    if ( $opts == 3 ) {
+    if ( $opts eq 'csv' ) {
 
     #---------------------------------------------------------------------------
     #  CSV output
@@ -1214,7 +1214,7 @@ END_JSON_DATA
             $self->{_cgi}->url( -absolute => 1 ),
             $trans,
             ($print_graphs) ? 'true' : 'false',
-            ( $opts > 1 )   ? 'true' : 'false',
+            ( $opts ne 'basic' ) ? 'true' : 'false',
             $self->{_WorkingProject}
         );
 
