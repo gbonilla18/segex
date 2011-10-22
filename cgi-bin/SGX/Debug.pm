@@ -29,7 +29,13 @@ BEGIN {
  #---------------------------------------------------------------------------
     $SIG{__WARN__} = sub {
         my @loc = caller(1);
-        warn "Warning generated at line $loc[2] in $loc[1]:\n", @_, "\n";
+        my $header = 'Warning';
+        my ($module, $file, $line, $block) = @loc;
+        $header .= " at $file" if defined $file;
+        $header .= " line $line" if defined $line;
+        $header .= ", calling $block" if defined $block;
+        my $timestamp = scalar localtime();
+        warn "$timestamp: $header:\n", @_, "\n";
         return 1;
     };
 

@@ -11,9 +11,7 @@ use SGX::Util qw/replace/;
 # :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are
 # exported by default with @EXPORT) with one where symbols need to be
 # explicitely specified (@EXPORT_OK).
-our @EXPORT =
-  qw/PROJECT_NAME CGI_ROOT YUI_BUILD_ROOT DOCUMENTS_ROOT IMAGES_DIR JS_DIR CSS_DIR/;
-
+our @EXPORT    = qw/YUI_BUILD_ROOT IMAGES_DIR JS_DIR CSS_DIR/;
 our @EXPORT_OK = qw/init_context get_module_from_action require_path/;
 
 #---------------------------------------------------------------------------
@@ -59,24 +57,18 @@ sub get_module_from_action {
 #  Path to default mailer executable (sendmail, postfix, etc). On both Mac OS X
 #  and CentOS, this is /usr/sbin.
 #---------------------------------------------------------------------------
-use constant MAILER_PATH => '/usr/sbin';
-
-#---------------------------------------------------------------------------
-#  General
-#---------------------------------------------------------------------------
-use constant PROJECT_NAME => 'Segex';
+Readonly::Scalar my $MAILER_PATH => '/usr/sbin';
 
 #---------------------------------------------------------------------------
 #  Directories
 #---------------------------------------------------------------------------
-# convert cgi root to documents root by dropping /cgi-bin prefix
-use constant CGI_ROOT       => dirname( $ENV{SCRIPT_NAME} );
-use constant DOCUMENTS_ROOT => replace( CGI_ROOT, '^\/cgi-bin', '' );
+# converting CGI_ROOT to documents root by dropping /cgi-bin prefix
+use constant DOCUMENTS_ROOT =>
+  replace( dirname( $ENV{SCRIPT_NAME} ), '^\/cgi-bin', '' );
+use constant IMAGES_DIR     => DOCUMENTS_ROOT . '/images';
+use constant JS_DIR         => DOCUMENTS_ROOT . '/js';
+use constant CSS_DIR        => DOCUMENTS_ROOT . '/css';
 use constant YUI_BUILD_ROOT => '/yui/build';
-
-use constant IMAGES_DIR => DOCUMENTS_ROOT . '/images';
-use constant JS_DIR     => DOCUMENTS_ROOT . '/js';
-use constant CSS_DIR    => DOCUMENTS_ROOT . '/css';
 
 #---------------------------------------------------------------------------
 #  Set $ENV{PATH} by transforming an input list of symbols in qw//. This also
@@ -87,9 +79,9 @@ $ENV{PATH} = join(
     keys %{
         {
             map {
-                ( my $key = ( \&$_ )->() ) =~ s/\/*$//;
+                ( my $key = $_ ) =~ s/\/*$//;
                 $key => undef
-              } qw/MAILER_PATH/
+              } ($MAILER_PATH)
         }
       }
 );

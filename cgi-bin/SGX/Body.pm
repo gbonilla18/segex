@@ -224,8 +224,8 @@ sub content_header {
                         src    => IMAGES_DIR . '/logo.png',
                         width  => 448,
                         height => 108,
-                        alt    => PROJECT_NAME,
-                        title  => PROJECT_NAME
+                        alt    => 'Segex',
+                        title  => 'Segex'
                     }
                 )
             )

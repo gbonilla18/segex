@@ -40,8 +40,7 @@ function export_table(e) {
 }
 
 function setupToggles(attr, getValue) {
-    // Example: setupPopupToggle({pattern: {part: ['pattern_part_hint']}});
-    // (place in window.onload)
+    // See FormFindProbes.js for example usage of this function
 
     // inverse inside hash
     var inverse_attr = {};
@@ -63,7 +62,7 @@ function setupToggles(attr, getValue) {
         }
         inverse_attr[id] = tmp;
     }
-    function createToggle(id, attr) {
+    function createToggle(id) {
         var obj = document.getElementById(id);
         var inv_prop = inverse_attr[id];
 
@@ -79,16 +78,18 @@ function setupToggles(attr, getValue) {
             // and show all objects that are.
             for (var dep_id in dependents) {
                 dependents[dep_id].style.display = 
-                    (sel in inv_prop[dep_id]) ? 'block' : 'none';
+                (sel in inv_prop[dep_id]) ? 'block' : 'none';
             }
             return true;
         }
     }
-    for (var id in attr) {
-        var toggle = createToggle(id, attr);
-        toggle();
-        YAHOO.util.Event.addListener(id, 'change', toggle);
-    }
+    YAHOO.util.Event.addListener(window, 'load', function() {
+        for (var id in attr) {
+            var toggle = createToggle(id);
+            toggle();
+            YAHOO.util.Event.addListener(id, 'change', toggle);
+        }
+    });
 }
 
 
