@@ -40,7 +40,7 @@ sub new {
         %match_dropdown, 'Tie::IxHash',
         'full'   => 'Full Word',
         'prefix' => 'Prefix',
-        'part'   => 'Part of the Word / Regular Expression'
+        'part'   => 'Partial / Regular Expression'
     );
 
     $self->set_attributes(
@@ -102,9 +102,10 @@ sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
-    push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
+    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     $self->getSessionOverrideCGI();
-    push @$js_src_code, { -src => 'FormFindProbes.js' };
+    push @$js_src_code,
+      ( { -src => 'form.js' }, { -src => 'FormFindProbes.js' } );
     return 1;
 }
 
@@ -811,8 +812,8 @@ sub default_body {
     my %trans_dropdown;
     my $trans_dropdown_t = tie(
         %trans_dropdown, 'Tie::IxHash',
-        'fold' => 'Fold Change +/- 1',
-        'ln'   => 'Log2 Ratio'
+        'fold' => 'Fold Change',
+        'ln'   => 'Log Ratio'
     );
 
     return $q->start_form(
@@ -840,7 +841,7 @@ or be on separate lines.
 END_terms_title
             )
         ),
-        $q->dt( $q->label( { -for => 'type' }, 'Search type:' ) ),
+        $q->dt( $q->label( { -for => 'type' }, 'Search these fields:' ) ),
         $q->dd(
             $q->popup_menu(
                 -name    => 'type',
@@ -848,29 +849,27 @@ END_terms_title
                 -default => 'gene',
                 -values  => [ keys %{ $self->{_typeDesc} } ],
                 -labels  => $self->{_typeDesc},
-                -title   => 'Choose which fields you would like to be searched.'
+                -title   => 'Where to look in the database'
             )
         ),
         $q->dt('Pattern to match:'),
         $q->dd(
-            $q->radio_group(
+            $q->popup_menu(
+                -id        => 'pattern',
                 -name      => 'match',
                 -linebreak => 'true',
                 -default   => 'full',
                 -values    => [ keys %{ $self->{_matchDesc} } ],
                 -labels    => $self->{_matchDesc},
-                -title     => <<"END_match_title"
-Example of a regular expression: entering ^cyp.b into the Search Terms box above 
-and choosing "Gene Symbols" under Search Type would tell the database to 
-retrieve all genes starting with cyp.b where the period represents any one 
-character (either letter or digit).
-END_match_title
+                -title =>
+                  'What parts of search words to match (full, prefix, partial)'
             ),
-            $q->p( { -style => 'color:#777' }, <<"END_EXAMPLE_TEXT")
-* Example: "^cyp.b" (no quotation marks) would retrieve all genes starting with 
-cyp.b where the period represents any one character (2, 3, 4, "a", etc.).  See 
-<a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for 
-more examples.
+            $q->p( { -class => 'hint', -id => 'pattern_part_hint' },
+                <<"END_EXAMPLE_TEXT")
+Example of a regular expression: entering "^cyp.b" (no quotation marks) would retrieve
+all genes starting with cyp.b where the period represents any one character (2,
+3, 4, "a", etc.).  See <a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> 
+for more examples.
 END_EXAMPLE_TEXT
         ),
         $q->dt( $q->label( { -for => 'opts' }, 'Output options:' ) ),
@@ -878,16 +877,15 @@ END_EXAMPLE_TEXT
             $q->popup_menu(
                 -name    => 'opts',
                 -id      => 'opts',
-                -values  => [ keys %opts_dropdown ],
                 -default => '2',
+                -values  => [ keys %opts_dropdown ],
                 -labels  => \%opts_dropdown,
-                -title => 'Choose output format and how many fields to include'
+                -title   => 'How many fields to add to output'
             )
         ),
-        $q->dt(
-            { -id => 'graph_names' },
-            'Plot Differential Expression:' 
-        ),
+
+        # BEGIN GRAPH STUFF
+        $q->dt( { -id => 'graph_names' }, 'Plot Differential Expression:' ),
         $q->dd(
             { -id => 'graph_values' },
             $q->checkbox(
@@ -900,18 +898,20 @@ Works best with Firefox or Safari. SVG support on Internet Explorer (IE) require
 IE 9 or Adobe SVG plugin.
 END_BROWSER_NOTICE
             ),
-        ),
-        $q->dt( { -id => 'graph_option_names' }, "Response variable:" ),
-        $q->dd(
-            { -id => 'graph_option_values' },
-            $q->radio_group(
-                -name      => 'trans',
-                -linebreak => 'true',
-                -default   => 'fold',
-                -values    => [ keys %trans_dropdown ],
-                -labels    => \%trans_dropdown
+            $q->div(
+                { -id => 'graph_option_values' },
+                $q->radio_group(
+                    -name    => 'trans',
+                    -default => 'fold',
+                    -values  => [ keys %trans_dropdown ],
+                    -labels  => \%trans_dropdown,
+                    -title => 'Which response variable to plot along the Y axis'
+                )
             )
         ),
+
+        # END GRAPH STUFF
+
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'proj', -value => $curr_proj ),

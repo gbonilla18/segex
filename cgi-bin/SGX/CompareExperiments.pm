@@ -120,6 +120,7 @@ sub default_head {
     push @$js_src_code,
       (
         +{ -code => $self->getFormJS() },
+        +{ -src  => 'form.js' }
         +{ -src  => 'FormCompareExperiments.js' }
       );
 }

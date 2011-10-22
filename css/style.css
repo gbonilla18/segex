@@ -22,6 +22,9 @@ em {
 #message p.error {
 	color:#f00; /* red; also try #ec1b23 */
 }
+#graph_option_values {
+	padding: 1em 0 1em 0;
+}
 address, ul, p, pre { margin-bottom:1.4167em; }
 pre { font-size: 120%; }
 h1, h2, h3, h4, h5, h6, caption {
@@ -294,7 +297,12 @@ dl, table, div.table_cont {
 	border-top:1px solid #000;
 	clear:both;
 }
-
+.hint {
+	display:none;
+	color: #777;
+	background:#ffd;
+	padding: 1em;
+}
 /* word-wrap: break-word -- breaks long words such as DNA sequences */
 td.yui-dt-col-5 .yui-dt-liner {
 	width:100px;

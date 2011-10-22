@@ -39,6 +39,59 @@ function export_table(e) {
     win.focus();
 }
 
+function setupToggles(attr, getValue) {
+    // Example: setupPopupToggle({pattern: {part: ['pattern_part_hint']}});
+    // (place in window.onload)
+
+    // inverse inside hash
+    var inverse_attr = {};
+    for (id in attr) {
+        var hash = attr[id];
+        var tmp = {};
+        for (var key in hash) {
+            var idList = hash[key];
+            for (var i = 0, len = idList.length; i < len; i++) {
+                var id2 = idList[i];
+                if (id2 in tmp) {
+                    tmp[id2][key] = null;
+                } else {
+                    var tmp2 = {};
+                    tmp2[key] = null;
+                    tmp[id2] = tmp2;
+                }
+            }
+        }
+        inverse_attr[id] = tmp;
+    }
+    function createToggle(id, attr) {
+        var obj = document.getElementById(id);
+        var inv_prop = inverse_attr[id];
+
+        // fill out 'dependents' helper hash
+        var dependents = {};
+        for (var inv_id in inv_prop) {
+            dependents[inv_id] = document.getElementById(inv_id);
+        }
+
+        return function() {
+            var sel = getValue(obj);
+            // need to hide all objects not referenced by sel
+            // and show all objects that are.
+            for (var dep_id in dependents) {
+                dependents[dep_id].style.display = 
+                    (sel in inv_prop[dep_id]) ? 'block' : 'none';
+            }
+            return true;
+        }
+    }
+    for (var id in attr) {
+        var toggle = createToggle(id, attr);
+        toggle();
+        YAHOO.util.Event.addListener(id, 'change', toggle);
+    }
+}
+
+
 function deleteConfirmation(oArg)
 {
     var itemName = (oArg && oArg.itemName) ? oArg.itemName : "item";
@@ -130,5 +183,5 @@ function validate_fields(of,reqfields) {
         // RFC 2822 regex from
         // http://www.regular-expressions.info/email.html
         return str.match(/(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/);
-    }
-}
+        }
+        }
