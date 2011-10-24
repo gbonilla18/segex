@@ -794,8 +794,11 @@ sub displayTFSInfoCSV {
         ]
     );
 
-    # Print Experiment data sorting by TFS in descending order
-    $print->($_) for sort { $b->[0] cmp $a->[0] } @$data_array;
+    # Print Experiment data sorting by TFS in descending order, then by gene
+    # name in ascending order.
+    $print->($_)
+      for sort { $b->[0] cmp $a->[0] || ( $a->[3] || '' ) cmp( $b->[3] || '' ) }
+      @$data_array;
 
     return 1;
 }
@@ -941,7 +944,12 @@ sub displayTFSInfo {
                 parsers => [ 'string',     @table_parser ],
                 formats => [ 'formatText', @table_format ],
                 frm_tpl => \%format_template,
-                records => [ sort { $b->[0] cmp $a->[0] } @$data_array ]
+                records => [
+                    sort {
+                        $b->[0] cmp $a->[0]
+                          || ( $a->[3] || '' ) cmp( $b->[3] || '' )
+                      } @$data_array
+                ]
             }
         )
     );
