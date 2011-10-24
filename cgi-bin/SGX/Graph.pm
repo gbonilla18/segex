@@ -9,35 +9,6 @@ use SGX::Util qw/bounds label_format/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  Graph
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-    my ( $class, @param ) = @_;
-
-    my $self = $class->SUPER::new(@param);
-
-    # find out what the current project is set to
-    if ( my $s = $self->{_UserSession} ) {
-        my $session_cookie = $s->{session_cookie};
-        $self->set_attributes(
-            _WorkingProject     => $session_cookie->{curr_proj},
-            _WorkingProjectName => $session_cookie->{proj_name},
-            _UserFullName       => $session_cookie->{full_name}
-        );
-    }
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  Graph
 #       METHOD:  default_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????

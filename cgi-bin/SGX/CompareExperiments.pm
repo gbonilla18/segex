@@ -17,36 +17,6 @@ use SGX::Util qw/count_gtzero max/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-    my ( $class, @param ) = @_;
-
-    my $self = $class->SUPER::new(@param);
-
-    $self->set_attributes( _title => 'Compare Experiments' );
-
-    # find out what the current project is set to
-    if ( my $s = $self->{_UserSession} ) {
-        my $session_cookie = $s->{session_cookie};
-        $self->set_attributes(
-            _WorkingProject     => $session_cookie->{curr_proj},
-            _WorkingProjectName => $session_cookie->{proj_name},
-            _UserFullName       => $session_cookie->{full_name}
-        );
-    }
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  CompareExperiments
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -59,6 +29,7 @@ sub init {
     my $self = shift;
     $self->SUPER::init();
 
+    $self->set_attributes( _title => 'Compare Experiments' );
     $self->register_actions(
         Compare => { head => 'Compare_head', body => 'Compare_body' } );
 
