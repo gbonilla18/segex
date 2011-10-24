@@ -296,7 +296,7 @@ sub default_body {
                 -title => 'Choose platform',
             )
         ),
-        $q->dt( $q->label( { -for => 'stid' }, 'Study' ) ),
+        $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
         $q->dd(
             $q->popup_menu(
                 -name  => 'stid',

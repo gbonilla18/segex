@@ -18,7 +18,7 @@ use SGX::Util qw/car/;
 
     #use SGX::Debug
     use SGX::Abstract::Exception ();
-    use Tie::IxHash;
+    require Tie::IxHash;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  DropDownData
