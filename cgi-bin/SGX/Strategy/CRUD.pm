@@ -1069,7 +1069,8 @@ sub getJSRecords {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getJSHeaders {
-    return shift->{_this_index2name};
+    my $self = shift;
+    return $self->{_this_index2name};
 }
 
 #===  CLASS METHOD  ============================================================

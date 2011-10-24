@@ -88,7 +88,8 @@ sub add_message {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub url {
-    return shift->{_cgi}->url(@_);
+    my $self = shift;
+    return $self->{_cgi}->url(@_);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -129,7 +130,8 @@ sub get_resource_uri {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_title {
-    return shift->{_title};
+    my $self = shift;
+    return $self->{_title};
 }
 
 #===  CLASS METHOD  ============================================================
@@ -407,7 +409,8 @@ sub dispatch_js {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub set_action {
-    shift->{_ActionName} = shift;
+    my $self = shift;
+    $self->{_ActionName} = shift;
     return 1;
 }
 
