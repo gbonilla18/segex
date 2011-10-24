@@ -93,9 +93,7 @@ sub init {
     my $self = shift;
     $self->SUPER::init();
 
-    $self->set_attributes(
-        _permission_level => 'user'
-    );
+    $self->set_attributes( _permission_level => 'user' );
 
     # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?
     # E.g.:
@@ -459,12 +457,8 @@ sub dispatch_js {
     my $action = $self->get_dispatch_action();
 
     $self->_head_init();
-    $self->set_title(
-        format_title(
-
-            'manage ' . pluralize_noun( $self->get_item_name() )
-        )
-    );
+    $self->{_title} =
+      format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) );
 
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if

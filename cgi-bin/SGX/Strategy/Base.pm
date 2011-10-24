@@ -120,22 +120,6 @@ sub get_resource_uri {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
-#       METHOD:  set_title
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================a
-sub set_title {
-    my ( $self, $title ) = @_;
-    $self->{_title} = $title;
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
 #       METHOD:  get_title
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -230,15 +214,14 @@ sub request_uri {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_dispatch_action {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
+    my $self   = shift;
     my $action = $self->{_ActionName};
     return $action if defined $action;
 
     # first try to get action name from URL parameters (this will allow us to
     # define certain actions as resources later). If that fails, check POSTed
     # data.
+    my $q = $self->{_cgi};
     $action = $q->url_param('b');
     $action = $q->param('b') if not defined $action;
     $action = '' if not defined $action;
@@ -403,14 +386,12 @@ sub prepare_head {
 #===============================================================================
 sub dispatch_js {
     my $self = shift;
-
     my $action = $self->get_dispatch_action();
 
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
     # preliminary processing routine (e.g. create request handler) tells us so.
     #
-
     return if $self->_dispatch_by( $action => 'redirect' );   # do not show body
     return $self->_dispatch_by( $action => 'head' );
 }
@@ -426,8 +407,7 @@ sub dispatch_js {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub set_action {
-    my $self = shift;
-    $self->{_ActionName} = shift;
+    shift->{_ActionName} = shift;
     return 1;
 }
 
@@ -443,16 +423,15 @@ sub set_action {
 #===============================================================================
 sub dispatch {
     my $self = shift;
-
     my $action = $self->get_dispatch_action();
 
     # :TRICKY:08/17/2011 13:00:12:es: CGI.pm -nosticky option seems to not be
     # working as intended. See: http://www.perlmonks.org/?node_id=689507. Using
     # delete_all() ensures that param array is cleared and no form field
     # inherits old values.
+    #
     my $q = $self->{_cgi};
     $q->delete_all();
-
     return $self->_dispatch_by( $action => 'body' );    # show body
 }
 
