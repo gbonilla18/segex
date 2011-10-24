@@ -44,21 +44,13 @@ sub new {
     );
 
     $self->set_attributes(
-        _title                   => 'Find Probes',
-        _typeDesc                => \%type_dropdown,
-        _matchDesc               => \%match_dropdown,
-        _ProbeHash               => undef,
-        _Names                   => undef,
-        _ProbeCount              => undef,
-        _ProbeExperimentHash     => '',
-        _FullExperimentData      => '',
-        _InsideTableQuery        => '',
-        _SearchItems             => '',
-        _ProbeQuery              => '',
-        _ExperimentListHash      => '',
-        _ExperimentStudyListHash => '',
-        _ExperimentNameListHash  => '',
-        _ExperimentDataQuery     => undef,
+        _title               => 'Find Probes',
+        _typeDesc            => \%type_dropdown,
+        _matchDesc           => \%match_dropdown,
+        _ProbeHash           => undef,
+        _Names               => undef,
+        _ProbeCount          => undef,
+        _ExperimentDataQuery => undef,
 
         _type  => undef,
         _graph => undef,
@@ -515,12 +507,16 @@ sub printFindProbeCSV {
 
     my $currentPID;
 
+    my $ProbeHash              = $self->{_ProbeHash};
+    my $ExperimentListHash     = $self->{_ExperimentListHash};
+    my $ProbeExperimentHash    = $self->{_ProbeExperimentHash};
+    my $FullExperimentData     = $self->{_FullExperimentData};
+    my $ExperimentNameListHash = $self->{_ExperimentNameListHash};
+
     # Sort the hash so the PID's are together.
     foreach my $key (
-        sort {
-            $self->{_ProbeHash}->{$a}->[0] cmp $self->{_ProbeHash}->{$b}->[0]
-        }
-        keys %{ $self->{_ProbeHash} }
+        sort { $ProbeHash->{$a}->[0] cmp $ProbeHash->{$b}->[0] }
+        keys %{$ProbeHash}
       )
     {
 
@@ -528,7 +524,7 @@ sub printFindProbeCSV {
         my $printHeaders = 0;
 
         # Extract the PID from the string in the hash.
-        my $row = $self->{_ProbeHash}->{$key};
+        my $row = $ProbeHash->{$key};
 
         if ( not defined $currentPID ) {
 
@@ -568,15 +564,14 @@ sub printFindProbeCSV {
             # this platform.
             foreach my $value (
                 sort { $a <=> $b }
-                keys %{ $self->{_ExperimentListHash} }
+                keys %$ExperimentListHash
               )
             {
-                if ( $self->{_ExperimentListHash}->{$value} == $currentPID ) {
+                if ( $ExperimentListHash->{$value} == $currentPID ) {
 
                     #Experiment Number, Study Description, Experiment
                     #Heading, Experiment Description
-                    my $fullExperimentDataValue =
-                      $self->{_FullExperimentData}->{$value};
+                    my $fullExperimentDataValue = $FullExperimentData->{$value};
                     $print->(
                         [
                             $value,
@@ -589,7 +584,7 @@ sub printFindProbeCSV {
                     # The list of experiments goes with the Ratio line for each
                     # block of 5 columns.
                     push @experimentList,
-                      $value . ':' . $self->{_ExperimentNameListHash}->{$value},
+                      $value . ':' . $ExperimentNameListHash->{$value},
                       (undef) x 4;
 
                     # Form the line that goes above the data. Each experiment
@@ -619,28 +614,21 @@ sub printFindProbeCSV {
 
         # Print the probe info: Probe ID, Accession, Gene Name, Probe
         # Sequence, Gene description, Gene Ontology
-        my @outRow = ( @$row[ 1, 3, 4, 6, 7, 8 ], undef );
+        my @outRow = @$row[ 1, 3, 4, 6, 7, 8 ];
 
         # For this reporter we print out a column for all the experiments that
         # we have data for.
-        foreach my $EIDvalue (
+        foreach my $eid (
             sort { $a <=> $b }
-            keys %{ $self->{_ExperimentListHash} }
+            keys %$ExperimentListHash
           )
         {
 
-            # Only try to see the EID's for platform $currentPID.
-            if ( $self->{_ExperimentListHash}->{$EIDvalue} == $currentPID ) {
-
-                # Add all the experiment data to the output string.
-                my $outputColumns =
-                  $self->{_ProbeExperimentHash}->{$key}->{$EIDvalue};
-                my @outputColumns_array =
-                  ( defined $outputColumns )
-                  ? @$outputColumns
-                  : map { undef } 1 .. 5;
-                push @outRow, @outputColumns_array;
-            }
+            # Only try to see the EID's for platform $currentPID.  Add all the
+            # experiment data to the output string.
+            push( @outRow,
+                @{ $ProbeExperimentHash->{$key}->{$eid} || [ (undef) x 5 ] } )
+              if $ExperimentListHash->{$eid} == $currentPID;
         }
         $print->( \@outRow );
     }
