@@ -14,27 +14,19 @@ BEGIN {
     use CGI::Carp qw/carpout fatalsToBrowser warningsToBrowser croak/;
     use Carp qw/carp/;
 
- #---------------------------------------------------------------------------
- #  Log the location of warnings which is sometimes not reported without the
- #  below signal handler. For example, without handler often see:
- #
- #  [Thu Oct 20 14:49:04 2011] index.cgi: Use of uninitialized value $rest[0] in
- #  join or string at (eval 65) line 15.
- #
- #  With the __WARN__ handler, however:
- #  
- #  Use of uninitialized value $rest[0] in join or string at (eval 65) line 15.
- #
- #---------------------------------------------------------------------------
+    #---------------------------------------------------------------------------
+    # For warnings, display caller info:
+    #---------------------------------------------------------------------------
     $SIG{__WARN__} = sub {
-        my @loc = caller(1);
-        my $header = 'Warning';
-        my ($module, $file, $line, $block) = @loc;
-        $header .= " at $file" if defined $file;
-        $header .= " line $line" if defined $line;
-        $header .= ", calling $block" if defined $block;
+        my @loc       = caller(1);
         my $timestamp = scalar localtime();
-        warn "[$timestamp]: $header:\n", @_, "\n";
+        my $header    = "[$timestamp]";
+        my ( $module, $file, $line, $block ) = @loc;
+        $header .= " $file line $line:"    if defined $file;
+        $header .= ' Warning';
+        $header .= " when called $block()" if defined $block;
+        $header .= ':';
+        warn $header, "\n", @_;
         return 1;
     };
 

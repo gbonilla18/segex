@@ -5,10 +5,32 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-#use SGX::Debug;
+use SGX::Debug;
 require Math::BigInt;
 use JSON qw/encode_json/;
 use SGX::Abstract::Exception ();
+
+#===  FUNCTION  ================================================================
+#         NAME:  get_tfs
+#      PURPOSE:  Get total flagsum (TFS), which is a sum of absolute flagsum and
+#                directional flagsum.
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_tfs {
+    my ( $abs_fs, $dir_fs, $num ) = @_;
+    return sprintf(
+        "$abs_fs.%0${num}s",
+        Math::BigInt->badd(
+            substr( unpack( 'b32', pack( 'V', $abs_fs ) ), 0, $num ),
+            substr( unpack( 'b32', pack( 'V', $dir_fs ) ), 0, $num )
+        )
+    );
+}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::TFSDisplay
@@ -25,7 +47,7 @@ sub new {
 
     my $self = $class->SUPER::new(@param);
 
-    $self->set_attributes( _title => 'View Slice', );
+    $self->set_attributes( _title => 'View Slice' );
 
     # find out what the current project is set to
     $self->getSessionOverrideCGI();
@@ -213,7 +235,7 @@ sub loadDataFromSubmission {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getSessionOverrideCGI {
-    my ($self) = @_;
+    my $self = shift;
     my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
 
     # For user name, just look it up from the session
@@ -741,48 +763,19 @@ sub displayTFSInfoCSV {
 
     #Print TFS list along with distinct counts.
     my %TFSCounts;
-
-    # Loop through data and create a hash entry for each TFS, increment the
-    # counter.
     foreach my $row ( @{ $self->{_Data} } ) {
-        my $abs_fs = $row->[0];
-        my $dir_fs = $row->[1];
-
-        # Math::BigInt->badd(x,y) is used to add two very large numbers x and y
-        # actually Math::BigInt library is supposed to overload Perl addition
-        # operator, but if fails to do so for some reason in this CGI program.
-        my $currentTFS = sprintf(
-            "$abs_fs.%0" . @{ $self->{_eids} } . 's',
-            Math::BigInt->badd(
-                substr(
-                    unpack( 'b32', pack( 'V', $abs_fs ) ),
-                    0, @{ $self->{_eids} }
-                ),
-                substr(
-                    unpack( 'b32', pack( 'V', $dir_fs ) ),
-                    0, @{ $self->{_eids} }
-                )
-            )
-        );
-
-        #Increment our counter if it exists.
+        my $currentTFS =
+          get_tfs( $row->[0], $row->[1], scalar( @{ $self->{_eids} } ) );
         $TFSCounts{$currentTFS} =
           ( defined $TFSCounts{$currentTFS} )
-          ? 1.0 + $TFSCounts{$currentTFS}
-          : 1.0;
+          ? 1 + $TFSCounts{$currentTFS}
+          : 1;
     }
-
-    #Print a blank line.
     print "TFS Summary\n";
-
-    # Sort on hash values
-    foreach
-      my $TFS ( sort { $TFSCounts{$a} <=> $TFSCounts{$b} } keys %TFSCounts )
-    {
-        print "$TFS,$TFSCounts{$TFS}\n";
-    }
-
-    #Print a blank line.
+    print "TFS,Probe Count\n";
+    print "$_,$TFSCounts{$_}\n"
+      for sort { $TFSCounts{$b} <=> $TFSCounts{$a} }
+      keys %TFSCounts;
     print "\n";
 
     #Print header line.
@@ -815,26 +808,8 @@ sub displayTFSInfoCSV {
     #Print Experiment data.
     foreach my $row ( @{ $self->{_Data} } ) {
 
-        # remove first two elements from @$row and place them into ($abs_fs,
-        # $dir_fs)
-        my ( $abs_fs, $dir_fs ) = splice @$row, 0, 2;
-
-        # Math::BigInt->badd(x,y) is used to add two very large numbers x and y
-        # actually Math::BigInt library is supposed to overload Perl addition
-        # operator, but if fails to do so for some reason in this CGI program.
-        my $TFS = sprintf(
-            "$abs_fs.%0" . @{ $self->{_eids} } . 's',
-            Math::BigInt->badd(
-                substr(
-                    unpack( 'b32', pack( 'V', $abs_fs ) ),
-                    0, @{ $self->{_eids} }
-                ),
-                substr(
-                    unpack( 'b32', pack( 'V', $dir_fs ) ),
-                    0, @{ $self->{_eids} }
-                )
-            )
-        );
+        my $TFS =
+          get_tfs( splice( @$row, 0, 2 ), scalar( @{ $self->{_eids} } ) );
 
         # :TODO:08/06/2011 14:38:16:es: Replace this block with Text::CSV
         print "$TFS,", join(
@@ -862,56 +837,58 @@ sub displayTFSInfoCSV {
 #===============================================================================
 sub displayTFSInfo {
     my $self = shift;
-    my $i    = 0;
-
-    my $out = '
-var summary = {
-caption: "Experiments compared",
-headers: ["&nbsp;","Experiment Number", "Study Description", "Sample2/Sample1", "Experiment Description", "&#124;Fold Change&#124; &gt;", "P &lt;", "&nbsp;"],
-parsers: ["number","number", "string", "string", "string", "number", "number", "string"],
-records: 
-';
 
     my @tmpArrayHead;
-    for ( $i = 0 ; $i < @{ $self->{_eids} } ; $i++ ) {
-
+    for ( my $i = 0 ; $i < @{ $self->{_eids} } ; $i++ ) {
         my ( $currentSTID, $currentEID ) =
           split( /\|/, $self->{_eids}->[$i] );
-
-        my $this_eid     = $self->{_headerRecords}->{$currentEID};
-        my $currentTitle = $this_eid->{title};
-
-        my $currentStudyDescription      = $this_eid->{description};
-        my $currentExperimentHeading     = $this_eid->{experimentHeading};
+        my $this_eid                 = $self->{_headerRecords}->{$currentEID};
+        my $currentTitle             = $this_eid->{title};
+        my $currentStudyDescription  = $this_eid->{description};
+        my $currentExperimentHeading = $this_eid->{experimentHeading};
         my $currentExperimentDescription = $this_eid->{ExperimentDescription};
 
         # test for bit presence (store in 7:)
         push @tmpArrayHead,
-          {
-            0 => ( $i + 1 ),
-            1 => $currentEID,
-            2 => $currentStudyDescription,
-            3 => $currentExperimentHeading,
-            4 => $currentExperimentDescription,
-            5 => $self->{_fcs}->[$i],
-            6 => $self->{_pvals}->[$i],
-            7 => ( defined( $self->{_fs} ) && 1 << $i & $self->{_fs} )
-            ? 'x'
-            : ''
-          };
+          [
+            ( $i + 1 ),
+            $currentEID,
+            $currentStudyDescription,
+            $currentExperimentHeading,
+            $currentExperimentDescription,
+            $self->{_fcs}->[$i],
+            $self->{_pvals}->[$i],
+            (
+                ( defined( $self->{_fs} ) && 1 << $i & $self->{_fs} )
+                ? 'x'
+                : ''
+            )
+          ];
     }
 
-    $out .= encode_json( \@tmpArrayHead ) . '
-};
-';
-
-    #0:Counter
-    #1:EID
-    #2:Study Description
-    #3:Experiment Heading
-    #4:Experiment Description
-    #5:Fold Change
-    #6:p-value
+    my $out = sprintf(
+        'var summary = %s;',
+        encode_json(
+            {
+                caption => 'Experiments compared',
+                headers => [
+                    '&nbsp;',
+                    'Experiment Number',
+                    'Study Description',
+                    'Sample2/Sample1',
+                    'Experiment Description',
+                    '&#124;Fold Change&#124; &gt;',
+                    'P &lt;',
+                    '&nbsp;'
+                ],
+                parsers => [
+                    'number', 'number', 'string', 'string',
+                    'string', 'number', 'number', 'string'
+                ],
+                records => \@tmpArrayHead
+            }
+        )
+    );
 
 # Fields with indexes less num_start are formatted as strings,
 # fields with indexes equal to or greater than num_start are formatted as numbers.
@@ -971,44 +948,33 @@ records:
         $format_template[3] = $blat;
     }
 
-    $out .= '
-var tfs = {
-caption: "Your selection includes ' . $self->{_RowCountAll} . ' probes",
-headers: ["TFS",         "' . join( '","', @table_header ) . '" ],
-parsers: ["string",     "' . join( '","', @table_parser ) . '" ],
-formats: ["formatText", "' . join( '","', @table_format ) . '" ],
-frm_tpl: ["",             "' . join( '","', @format_template ) . '" ],
-records: 
-';
-
-    # print table body
+    #---------------------------------------------------------------------------
+    #  print table body
+    #---------------------------------------------------------------------------
     my @tmpArray;
     while ( my @row = $self->{_Records}->fetchrow_array ) {
-        my ( $abs_fs, $dir_fs ) = splice @row, 0, 2;
-
- # Math::BigInt->badd(x,y) is used to add two very large numbers x and y
- # actually Math::BigInt library is supposed to overload Perl addition operator,
- # but if fails to do so for some reason in this CGI program.
-        my $TFS = sprintf(
-            "$abs_fs.%0" . @{ $self->{_eids} } . 's',
-            Math::BigInt->badd(
-                substr(
-                    unpack( 'b32', pack( 'V', $abs_fs ) ),
-                    0, @{ $self->{_eids} }
-                ),
-                substr(
-                    unpack( 'b32', pack( 'V', $dir_fs ) ),
-                    0, @{ $self->{_eids} }
-                )
-            )
-        );
-
-        push @tmpArray, { 0 => $TFS, map { $_ => $row[ $_ - 1 ] } 1 .. @row };
+        my $TFS =
+          get_tfs( splice( @row, 0, 2 ), scalar( @{ $self->{_eids} } ) );
+        push @tmpArray, [ $TFS, @row ];
     }
     $self->{_Records}->finish;
-    return $out . encode_json( \@tmpArray ) . '
-};
 
+    $out .= sprintf(
+        'var tfs = %s;',
+        encode_json(
+            {
+                caption => sprintf( 'Your selection includes %d probes',
+                    $self->{_RowCountAll} ),
+                headers => [ 'TFS',        @table_header ],
+                parsers => [ 'string',     @table_parser ],
+                formats => [ 'formatText', @table_format ],
+                frm_tpl => [ '',           @format_template ],
+                records => \@tmpArray
+            }
+        )
+    );
+
+    return $out . '
 YAHOO.util.Event.addListener("summ_astext", "click", export_table, summary, true);
 YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
 YAHOO.util.Event.addListener(window, "load", function() {
