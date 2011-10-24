@@ -55,7 +55,7 @@ sub default_head {
     my $curr_proj = $q->param('proj');
     return if !$reporter;
 
-    $self->{_reporter_name} =  $q->param('reporter');
+    $self->{_reporter_name} = $q->param('reporter');
 
     my $sql_trans;
     my $sql_cutoff;
@@ -108,29 +108,18 @@ GROUP BY probe.rid
 END_SQL1
 
     my $rowcount = $sth->execute(@exec_array_title);
-
-    #if ( $rowcount == 0 ) {
-    #    warn "Probe $reporter does not exist in the database";
-    #}
-
-    #elsif ($rowcount > 1) {
-    #    warn "More than one record found with reporter ID $reporter";
-    #}
-    my $result = $sth->fetchrow_arrayref;
+    $self->{_scc} = $sth->fetchrow_arrayref;
     $sth->finish;
-
-    my ( $seqname, $cutoff, $cutoff_p ) = @$result;
-    $self->{_scc} = $result;
 
 ####################################################################
     # Get the data
-    my $xtitle_text = 'Experiment';
-
+    my $xtitle_text        = 'Experiment';
     my $sql_project_clause = 'WHERE microarray.rid=?';
     my @exec_array         = ($reporter);
 
     if ( defined($curr_proj) and $curr_proj ne '' ) {
-        $sql_project_clause = 'NATURAL JOIN ProjectStudy WHERE microarray.rid=? AND ProjectStudy.prid=?';
+        $sql_project_clause =
+'NATURAL JOIN ProjectStudy WHERE microarray.rid=? AND ProjectStudy.prid=?';
         push @exec_array, $curr_proj;
     }
 
@@ -188,18 +177,14 @@ END_SQL2
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_body {
-
-    my $self = shift;
-
+    my $self          = shift;
     my $reporter_name = $self->{_reporter_name};
-
     my ( $exp_ids, $labels, $y, $pvalues ) = @{ $self->{_data} };
-
     my ( $ytitle_text, $y_start, $middle_label ) = @{ $self->{_meta} };
+    my ( $seqname,     $cutoff,  $cutoff_p )     = @{ $self->{_scc} };
 
-    my ( $seqname, $cutoff, $cutoff_p ) = @{ $self->{_scc} };
-
-    my $title_text = "$seqname Differential Expression Reported by $reporter_name";
+    my $title_text =
+      "$seqname Differential Expression Reported by $reporter_name";
 
     #Set particulars for graph
     my $xl                   = 55;
@@ -218,13 +203,16 @@ sub default_body {
 
     #my $total_height = $label_shift + $longest_xlabel;
     my $total_height = $label_shift + 265;
-    my $golden_ratio =
-      1.61803399;    # space between bars is wider than the bars by golden ratio
+
+    # space between bars is wider than the bars by golden ratio
+    my $golden_ratio = 1.61803399;
     my $bar_width =
-      $body_width / ( @$y * ( 1 + $golden_ratio ) + $golden_ratio ); # bar width
+      $body_width / ( @$y * ( 1 + $golden_ratio ) + $golden_ratio );
+
     my ( $min_data, $max_data ) = bounds(@$y);
-    $max_data = ( $max_data > $cutoff )  ? $max_data : $cutoff;
-    $min_data = ( $min_data < -$cutoff ) ? $min_data : -$cutoff;
+    $max_data = $cutoff  if $max_data < $cutoff;
+    $min_data = -$cutoff if $min_data > -$cutoff;
+
     my $spread    = $max_data - $min_data;
     my $body_prop = 0.9;
     my $scale     = $body_prop * $body_height / $spread;
@@ -250,7 +238,7 @@ sub default_body {
     my $legend_top  = $yl + $text_fudge_inv;
     for ( my $i = 0 ; $i < @$y ; $i++ ) {
         my ( $yvalue, $lab_class, $leg_class );
-        if ( defined( $y->[$i] ) ) {
+        if ( defined $y->[$i] ) {
             $lab_class = 'xAxisLabel';
             $leg_class = 'legendLabel';
             $yvalue    = $y->[$i];
@@ -274,15 +262,13 @@ sub default_body {
           . "</text>\n";
         $vguides .=
 "<path d=\"M$vguides_shift $yl v$body_height\" class=\"vGuideLine\" />\n";
-        my $fill_class;
-        if ( defined( $pvalues->[$i] ) ) {
-            $fill_class = ( $pvalues->[$i] < $cutoff_p ) ? 'fill2' : 'fill1';
-        }
-        else {
-            $fill_class = 'fill3';
-        }
+        my $fill_class =
+            ( defined $pvalues->[$i] )
+          ? ( $pvalues->[$i] < $cutoff_p ? 'fill2' : 'fill1' )
+          : 'fill3';
         $datapoints .=
 "<path d=\"M$left_off $xaxisy V$top h$bar_width V$xaxisy Z\" class=\"$fill_class\"/>\n";
+
         $text_left     += $wrw;
         $left_off      += $wrw;
         $legend_top    += $text_height;
@@ -292,22 +278,27 @@ sub default_body {
     my $hguides = '';
     my $ylabels = '';
 
-    # make sure we have at least around 4 labels
-    my $num_sep = label_format( $spread / 4 )
-      ; # round to one significant figure which then becomes either 1, 2, 5, or 10
-    my $split = 0;
+    # Make sure we have at least around 4 labels. Round to one significant
+    # figure which then becomes either 1, 2, 5, or 10
+    my $num_sep = label_format( $spread / 4 );
+    my $split   = 0;
     if ( $body_height / ( $scale * $num_sep ) < 6 ) {
 
         # make sure we have at least around 6 gridlines
         $num_sep /= 2;
         $split = 1;
     }
-    my $ysep      = $scale * $num_sep;
-    my $offset    = $ysep;
-    my $ylabel    = $y_start;
-    my $put_label = 0;
-    while ( $offset <= $yupper ) {
-        $ylabel += $num_sep;
+
+    my $ysep = $scale * $num_sep;
+
+    #---------------------------------------------------------------------------
+    for (
+        my ( $put_label, $offset, $ylabel ) =
+        ( 0, $ysep, $y_start + $num_sep ) ;
+        $offset <= $yupper ;
+        $offset += $ysep, $ylabel += $num_sep
+      )
+    {
         my $real_offset = $xaxisy - $offset;
         my $text_offset = $real_offset + $text_fudge;
         if ($split) {
@@ -326,14 +317,16 @@ sub default_body {
         }
         $hguides .=
           "<path d=\"M$xl $real_offset h$body_width\" class=\"hGuideLine\"/>\n";
-        $offset += $ysep;
     }
 
-    $ylabel    = -$y_start;
-    $offset    = $ysep;
-    $put_label = 0;
-    while ( $offset <= $ylower ) {
-        $ylabel -= $num_sep;
+    #---------------------------------------------------------------------------
+    for (
+        my ( $put_label, $offset, $ylabel ) =
+        ( 0, $ysep, -$y_start - $num_sep ) ;
+        $offset <= $ylower ;
+        $offset += $ysep, $ylabel -= $num_sep
+      )
+    {
         my $real_offset = $xaxisy + $offset;
         my $text_offset = $real_offset + $text_fudge;
         if ($split) {
@@ -352,20 +345,26 @@ sub default_body {
         }
         $hguides .=
           "<path d=\"M$xl $real_offset h$body_width\" class=\"hGuideLine\"/>\n";
-        $offset += $ysep;
     }
+
+    #---------------------------------------------------------------------------
+
     $cutoff = $scale * $cutoff;
-    if ( $cutoff <= $yupper ) {
-        my $real_offset = $xaxisy - $cutoff;
-        $hguides .=
-          "<path d=\"M$xl $real_offset h$body_width\" class=\"hThreshold\"/>\n";
-    }
-    if ( $cutoff <= $ylower ) {
-        my $real_offset = $xaxisy + $cutoff;
-        $hguides .=
-          "<path d=\"M$xl $real_offset h$body_width\" class=\"hThreshold\"/>\n";
-    }
+
+    $hguides .=
+        "<path d=\"M$xl "
+      . ( $xaxisy - $cutoff )
+      . " h$body_width\" class=\"hThreshold\"/>\n"
+      if $cutoff <= $yupper;
+
+    $hguides .=
+        "<path d=\"M$xl "
+      . ( $xaxisy + $cutoff )
+      . " h$body_width\" class=\"hThreshold\"/>\n"
+      if $cutoff <= $ylower;
+
     my $text_offset = $xaxisy + $text_fudge;
+
     $ylabels .=
 "<text x=\"$left_pos\" y=\"$text_offset\" class=\"yAxisLabel\">$middle_label</text>\n";
 
