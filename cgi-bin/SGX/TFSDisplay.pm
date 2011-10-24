@@ -45,7 +45,6 @@ sub get_tfs {
 #===============================================================================
 sub new {
     my ( $class, @param ) = @_;
-
     my $self = $class->SUPER::new(@param);
 
     $self->set_attributes( _title => 'View Slice' );
@@ -476,8 +475,6 @@ sub getPlatformData {
     my $singleItemQuery = <<"END_LoadQuery";
 SELECT
     platform.pname              AS 'Platform',
-    platform.def_f_cutoff       AS 'FC-cutoff',
-    platform.def_p_cutoff       AS 'P-cutoff',
     platform.species            AS 'Species',
     IF(isAnnotated, 'Y', 'N')   AS 'Is Annotated',
     COUNT(probe.rid)            AS 'ProbeCount',
