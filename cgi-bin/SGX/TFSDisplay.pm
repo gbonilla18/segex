@@ -9,7 +9,7 @@ use SGX::Debug;
 require Math::BigInt;
 use JSON qw/encode_json/;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/bind_csv_handle/;
+use SGX::Util qw/car bind_csv_handle/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  get_tfs
@@ -183,38 +183,31 @@ sub default_body {
 #===============================================================================
 sub loadDataFromSubmission {
     my $self = shift;
-
-    my $q = $self->{_cgi};
+    my $q    = $self->{_cgi};
 
     # The $self->{_fs} parameter is the flagsum for which the data will be
     # filtered If the $self->{_fs} is zero or undefined, all data will be
     # output.
     my $split_on_commas = qr/\s*,\s*/;
-    my @eidsArray       = split( $split_on_commas, $q->param('eid') );
-    my @reversesArray   = split( $split_on_commas, $q->param('rev') );
-    my @fcsArray        = split( $split_on_commas, $q->param('fc') );
-    my @pvalArray       = split( $split_on_commas, $q->param('pval') );
-
-    $self->{_eids}     = \@eidsArray;
-    $self->{_reverses} = \@reversesArray;
-    $self->{_fcs}      = \@fcsArray;
-    $self->{_pvals}    = \@pvalArray;
+    $self->{_eids} =
+      [ map { [ split /\|/ ] } split( $split_on_commas, $q->param('eid') ) ];
+    $self->{_reverses} = [ split( $split_on_commas, $q->param('rev') ) ];
+    $self->{_fcs}      = [ split( $split_on_commas, $q->param('fc') ) ];
+    $self->{_pvals}    = [ split( $split_on_commas, $q->param('pval') ) ];
 
     $self->{_allProbes}     = $q->param('allProbes')    || '';
     $self->{_searchFilters} = $q->param('searchFilter') || '';
     $self->{_fs}            = $q->param('get')          || '';
     $self->{_opts}          = $q->param('opts')         || '0';
 
-    my $get   = $q->param('get');
-    my $regex = qr/^\s*TFS\s*(\d*)\s*\((CSV|HTML)\)\s*$/i;
-
-    if ( $get =~ m/$regex/i ) {
+    if ( ( car $q->param('get') ) =~ m/^\s*TFS\s*(\d*)\s*\((CSV|HTML)\)\s*$/i )
+    {
         ( $self->{_fs}, $self->{_format} ) = ( $1, $2 );
+        $self->{_fs} = undef if $self->{_fs} eq '';
     }
     else {
         ( $self->{_fs}, $self->{_format} ) = ( undef, undef );
     }
-    $self->{_fs} = undef if $self->{_fs} eq '';
 
     return 1;
 }
@@ -328,10 +321,7 @@ sub loadTFSData {
     my @query_titles;
     my $allProbes = $self->{_allProbes};
     foreach my $eid ( @{ $self->{_eids} } ) {
-
-        #The EID is actually STID|EID. We need to split the string on '|' and
-        #extract the app
-        my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
+        my ( $currentSTID, $currentEID ) = @$eid;
 
         my ( $fc, $pval ) =
           ( $self->{_fcs}->[ $i - 1 ], $self->{_pvals}->[ $i - 1 ] );
@@ -473,13 +463,7 @@ sub getPlatformData {
 
     my $dbh = $self->{_dbh};
 
-    my @eidList;
-    foreach ( @{ $self->{_eids} } ) {
-
-        #The EID is actually STID|EID. We need to split the string on '|'.
-        my ( $currentSTID, $currentEID ) = split /\|/;
-        push @eidList, $currentEID;
-    }
+    my @eidList = map { $_->[1] } @{ $self->{_eids} };
 
     my $placeholders =
       ( @eidList > 0 )
@@ -547,7 +531,7 @@ sub loadAllData {
     my $i = 1;
 
     foreach my $eid ( @{ $self->{_eids} } ) {
-        my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
+        my ( $currentSTID, $currentEID ) = @$eid;
 
         my ( $fc, $pval ) =
           ( $self->{_fcs}->[ $i - 1 ], $self->{_pvals}->[ $i - 1 ] );
@@ -735,12 +719,13 @@ sub displayTFSInfoCSV {
     my @experimentNameHeader = (undef) x 8;
 
     my $eid_count = @{ $self->{_eids} };
+    my @eidList;
 
     # Print Experiment info.
     for ( my $i = 0 ; $i < $eid_count ; $i++ ) {
+        my ( $currentSTID, $currentEID ) = @{ $self->{_eids}->[$i] };
 
-        my ( $currentSTID, $currentEID ) =
-          split( /\|/, $self->{_eids}->[$i] );
+        push @eidList, $currentEID;
 
         # Form the line that displays experiment names above data columns.
         push @experimentNameHeader,
@@ -796,13 +781,12 @@ sub displayTFSInfoCSV {
             'Gene Ontology',
             'Species',
             map {
-                my ( $stid, $eid ) = split /\|/;
                 (
-                    "$eid:Ratio",       "$eid:Fold Change",
-                    "$eid:Intensity-1", "$eid:Intensity-2",
-                    "$eid:P"
+                    "$_:Ratio",       "$_:Fold Change",
+                    "$_:Intensity-1", "$_:Intensity-2",
+                    "$_:P"
                   )
-              } @{ $self->{_eids} }
+              } @eidList
         ]
     );
 
@@ -825,11 +809,11 @@ sub displayTFSInfoCSV {
 #===============================================================================
 sub displayTFSInfo {
     my $self = shift;
+    my $q    = $self->{_cgi};
 
     my @tmpArrayHead;
     for ( my $i = 0 ; $i < @{ $self->{_eids} } ; $i++ ) {
-        my ( $currentSTID, $currentEID ) =
-          split( /\|/, $self->{_eids}->[$i] );
+        my ( $currentSTID, $currentEID ) = @{ $self->{_eids}->[$i] };
         my $this_eid                 = $self->{_headerRecords}->{$currentEID};
         my $currentTitle             = $this_eid->{title};
         my $currentStudyDescription  = $this_eid->{description};
@@ -901,39 +885,37 @@ sub displayTFSInfo {
         push @table_format, 'formatNumber';
     }
 
-    my $find_probes = $self->{_cgi}->a(
-        {
-            -target => '_blank',
-            -href   => $self->{_cgi}->url( -absolute => 1 )
-              . '?a=findProbes&b=Search&match=full&graph=on&type=%1$s&terms={0}',
-            -title => 'Find all %1$ss related to %1$s {0}'
-        },
-        '{0}'
-    );
-    $find_probes =~ s/"/\\"/g;    # prepend all double quotes with backslashes
-
-    my @format_template;
-    push @format_template, sprintf( $find_probes, 'probe' );
-    push @format_template, sprintf( $find_probes, 'accnum' );
-    push @format_template, sprintf( $find_probes, 'gene' );
+    my %format_template;
+    {
+        my $find_probes = $q->a(
+            {
+                -title  => 'Find all %1$ss related to %1$s {0}',
+                -target => '_blank',
+                -href   => $self->url( -absolute => 1 )
+                  . '?a=findProbes&b=Search&match=full&graph=on&type=%1$s&terms={0}',
+            },
+            '{0}'
+        );
+        $format_template{probe}  = sprintf( $find_probes, 'probe' );
+        $format_template{accnum} = sprintf( $find_probes, 'accnum' );
+        $format_template{gene}   = sprintf( $find_probes, 'gene' );
+    }
 
     $table_format[0] = 'formatProbe';
     $table_format[1] = 'formatAccNum';
     $table_format[2] = 'formatGene';
 
     if ( $self->{_opts} > 1 ) {
-        my $blat = $self->{_cgi}->a(
+        $table_format[3] = 'formatProbeSequence';
+        $format_template{probeseq} = $q->a(
             {
-                -target => '_blank',
                 -title  => 'UCSC BLAT on DNA',
+                -target => '_blank',
                 -href =>
 'http://genome.ucsc.edu/cgi-bin/hgBlat?org={1}&type=DNA&userSeq={0}'
             },
             '{0}'
         );
-        $blat =~ s/"/\\"/g;    # prepend all double quotes with backslashes
-        $table_format[3]    = 'formatProbeSequence';
-        $format_template[3] = $blat;
     }
 
     #---------------------------------------------------------------------------
@@ -956,13 +938,14 @@ sub displayTFSInfo {
                 headers => [ 'TFS',        @table_header ],
                 parsers => [ 'string',     @table_parser ],
                 formats => [ 'formatText', @table_format ],
-                frm_tpl => [ '',           @format_template ],
+                frm_tpl => \%format_template,
                 records => \@tmpArray
             }
         )
     );
 
-    return $out . '
+    return <<"END_JS";
+$out
 YAHOO.util.Event.addListener("summ_astext", "click", export_table, summary, true);
 YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
 YAHOO.util.Event.addListener(window, "load", function() {
@@ -982,21 +965,21 @@ YAHOO.util.Event.addListener(window, "load", function() {
     summary_data.responseSchema = { fields: summary_schema_fields };
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 
-    var template_probe = tfs.frm_tpl[1];
-    var template_accnum = tfs.frm_tpl[2];
-    var template_gene = tfs.frm_tpl[3];
-    var template_probeseq = tfs.frm_tpl[4];
     Formatter.formatProbe = function (elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = lang.substitute(template_probe, {"0":oData});
+        var clean = (oData === null) ? '' : oData;
+        elCell.innerHTML = lang.substitute(tfs.frm_tpl.probe, {"0":clean});
     }
     Formatter.formatAccNum = function (elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = lang.substitute(template_accnum, {"0":oData});
+        var clean = (oData === null) ? '' : oData;
+        elCell.innerHTML = lang.substitute(tfs.frm_tpl.accnum, {"0":clean});
     }
     Formatter.formatGene = function (elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = lang.substitute(template_gene, {"0":oData});
+        var clean = (oData === null) ? '' : oData;
+        elCell.innerHTML = lang.substitute(tfs.frm_tpl.gene, {"0":clean});
     }
     Formatter.formatProbeSequence = function (elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = lang.substitute(lang.substitute(template_probeseq, {"0":oData}),{"1":oRecord.getData("6")});
+        var clean = (oData === null) ? '' : oData;
+        elCell.innerHTML = lang.substitute(lang.substitute(tfs.frm_tpl.probeseq, {"0":clean}),{"1":oRecord.getData("6")});
 
     }
     Formatter.formatNumber = function(elCell, oRecord, oColumn, oData) {
@@ -1022,7 +1005,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     tfs_data.responseSchema = { fields: tfs_schema_fields };
     var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
 });
-';
+END_JS
 }
 
 1;
