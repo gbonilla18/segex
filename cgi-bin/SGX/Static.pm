@@ -7,32 +7,6 @@ use base qw/SGX::Strategy::Base/;
 use SGX::Config;
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  Profile
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-    my ( $class, @param ) = @_;
-    my $self = $class->SUPER::new(@param);
-
-    $self->set_attributes(
-        _title => '',
-
-        # model
-        _curr_proj   => '',
-        _projectList => {}
-    );
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Static
 #       METHOD:  init
 #   PARAMETERS:  ????
