@@ -724,7 +724,16 @@ sub get_id {
 sub default_delete {
     my $self = shift;
     my $q    = $self->{_cgi};
-    $self->_delete_command()->();
+    eval { $self->_delete_command()->() == 1; } or do {
+
+      # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
+      # fully to spec.
+        my $exception = $@;
+        $self->set_action('');
+        $q->delete_all();
+        $self->add_message( { -class => 'error' }, "$exception" );
+        return;
+    };
     $q->delete_all();
     return;
 }
@@ -742,7 +751,16 @@ sub default_delete {
 sub default_update {
     my $self = shift;
     my $q    = $self->{_cgi};
-    $self->_update_command()->();
+    eval { $self->_update_command()->() == 1; } or do {
+
+      # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
+      # fully to spec.
+        my $exception = $@;
+        $self->set_action('');
+        $q->delete_all();
+        $self->add_message( { -class => 'error' }, "$exception" );
+        return;
+    };
     $q->delete_all();
     return;
 }
@@ -777,10 +795,19 @@ sub default_assign {
 #===============================================================================
 sub default_create {
     my $self = shift;
+    my $q    = $self->{_cgi};
     return if defined $self->{_id};
 
-    my $command = $self->_create_command();
-    return if ( $command->() != 1 );
+    eval { $self->_create_command()->() == 1; } or do {
+
+      # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
+      # fully to spec.
+        my $exception = $@;
+        $self->set_action('');
+        $q->delete_all();
+        $self->add_message( { -class => 'error' }, "$exception" );
+        return;
+    };
 
     # get inserted row id when inserting a new row, then redirect to the
     # newly created resource.
@@ -2244,8 +2271,7 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
-      ),
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) ) ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
