@@ -25,28 +25,7 @@ sub new {
 
     my $self = $class->SUPER::new(@param);
 
-    $self->set_attributes(
-        _title => 'View Slice',
-
-        # model
-        _Records       => '',
-        _RowCountAll   => 0,
-        _headerRecords => '',
-        _DataPlatform  => '',
-        _Data          => '',
-
-        # form data
-        _eids          => '',
-        _reverses      => '',
-        _fcs           => '',
-        _pvals         => '',
-        _fs            => '',
-        _outType       => '',
-        _numStart      => 0,
-        _opts          => '',
-        _allProbes     => '',
-        _searchFilters => ''
-    );
+    $self->set_attributes( _title => 'View Slice', );
 
     # find out what the current project is set to
     $self->getSessionOverrideCGI();
@@ -60,7 +39,7 @@ sub new {
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -69,7 +48,7 @@ sub init {
     my $self = shift;
     $self->SUPER::init();
 
-    $self->loadDataFromSubmission(); # sets _format attribute
+    $self->loadDataFromSubmission();    # sets _format attribute
 
     # two lines below modify action value and therefore affect which hook will
     # get called
@@ -203,11 +182,10 @@ sub loadDataFromSubmission {
     $self->{_fcs}      = \@fcsArray;
     $self->{_pvals}    = \@pvalArray;
 
-    $self->{_allProbes}     = $q->param('allProbes');
-    $self->{_searchFilters} = $q->param('searchFilter');
-    $self->{_fs}            = $q->param('get');
-    $self->{_outType}       = $q->param('outType');
-    $self->{_opts}          = $q->param('opts');
+    $self->{_allProbes}     = $q->param('allProbes')    || '';
+    $self->{_searchFilters} = $q->param('searchFilter') || '';
+    $self->{_fs}            = $q->param('get')          || '';
+    $self->{_opts}          = $q->param('opts')         || '0';
 
     my $get   = $q->param('get');
     my $regex = qr/^\s*TFS\s*(\d*)\s*\((CSV|HTML)\)\s*$/i;
@@ -218,9 +196,7 @@ sub loadDataFromSubmission {
     else {
         ( $self->{_fs}, $self->{_format} ) = ( undef, undef );
     }
-    if ( $self->{_fs} eq '' ) {
-        $self->{_fs} = undef;
-    }
+    $self->{_fs} = undef if $self->{_fs} eq '';
 
     return 1;
 }
@@ -344,19 +320,19 @@ sub loadTFSData {
 
         my $abs_flag = 1 << $i - 1;
         my $dir_flag =
-          ( $self->{_reverses}[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
+          ( $self->{_reverses}->[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
         push @query_proj,
-          ( $self->{_reverses}[ $i - 1 ] )
+          ( $self->{_reverses}->[ $i - 1 ] )
           ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue"
           : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue";
 
         if ( $self->{_opts} > 0 ) {
             push @query_proj,
-              ( $self->{_reverses}[ $i - 1 ] )
+              ( $self->{_reverses}->[ $i - 1 ] )
               ? "-m$i.foldchange AS \'$i: Fold Change\'"
               : "m$i.foldchange AS \'$i: Fold Change\'";
             push @query_proj,
-              ( $self->{_reverses}[ $i - 1 ] )
+              ( $self->{_reverses}->[ $i - 1 ] )
               ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
               : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'";
             push @query_proj, "m$i.pvalue AS \'$i: P\'";
@@ -391,7 +367,7 @@ END_no_allProbes
 
         # account for sample order when building title query
         my $title =
-          ( $self->{_reverses}[ $i - 1 ] )
+          ( $self->{_reverses}->[ $i - 1 ] )
           ? "experiment.sample1, ' / ', experiment.sample2"
           : "experiment.sample2, ' / ', experiment.sample1";
 
@@ -458,7 +434,7 @@ GROUP BY probe.rid
 ORDER BY abs_fs DESC
 END_query
 
-    $self->{_Records}     = $self->{_dbh}->prepare($query);
+    $self->{_Records}     = $dbh->prepare($query);
     $self->{_RowCountAll} = $self->{_Records}->execute;
 
     return 1;
@@ -556,23 +532,23 @@ sub loadAllData {
         my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
 
         my ( $fc, $pval ) =
-          ( ${ $self->{_fcs} }[ $i - 1 ], ${ $self->{_pvals} }[ $i - 1 ] );
+          ( $self->{_fcs}->[ $i - 1 ], $self->{_pvals}->[ $i - 1 ] );
         my $abs_flag = 1 << $i - 1;
         my $dir_flag =
-          ( $self->{_reverses}[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
+          ( $self->{_reverses}->[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
 
         push @query_proj,
-          ( $self->{_reverses}[ $i - 1 ] )
+          ( $self->{_reverses}->[ $i - 1 ] )
           ? "1/m$i.ratio AS \'$i: Ratio\'"
           : "m$i.ratio AS \'$i: Ratio\'";
 
         push @query_proj,
-          ( $self->{_reverses}[ $i - 1 ] )
+          ( $self->{_reverses}->[ $i - 1 ] )
           ? "-m$i.foldchange AS \'$i: Fold Change\'"
           : "m$i.foldchange AS \'$i: Fold Change\'";
 
         push @query_proj,
-          ( $self->{_reverses}[ $i - 1 ] )
+          ( $self->{_reverses}->[ $i - 1 ] )
           ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
           : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'";
 
@@ -603,7 +579,7 @@ END_no_allProbesCSV
 
         # account for sample order when building title query
         my $title =
-          ( $self->{_reverses}[ $i - 1 ] )
+          ( $self->{_reverses}->[ $i - 1 ] )
           ? "experiment.sample1, ' / ', experiment.sample2"
           : "experiment.sample2, ' / ', experiment.sample1";
 
@@ -744,8 +720,8 @@ sub displayTFSInfoCSV {
             $self->{_headerRecords}->{$currentEID}->{description},
             $self->{_headerRecords}->{$currentEID}->{experimentHeading},
             $self->{_headerRecords}->{$currentEID}->{ExperimentDescription},
-            ${ $self->{_fcs} }[$i],
-            ${ $self->{_pvals} }[$i]
+            $self->{_fcs}->[$i],
+            $self->{_pvals}->[$i]
         );
 
         #Form the line that displays experiment names above data columns.
@@ -919,8 +895,8 @@ records:
             2 => $currentStudyDescription,
             3 => $currentExperimentHeading,
             4 => $currentExperimentDescription,
-            5 => ${ $self->{_fcs} }[$i],
-            6 => ${ $self->{_pvals} }[$i],
+            5 => $self->{_fcs}->[$i],
+            6 => $self->{_pvals}->[$i],
             7 => ( defined( $self->{_fs} ) && 1 << $i & $self->{_fs} )
             ? 'x'
             : ''
