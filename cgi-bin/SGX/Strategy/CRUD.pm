@@ -742,7 +742,8 @@ sub default_delete {
 sub default_update {
     my $self = shift;
     my $q    = $self->{_cgi};
-    $self->_update_command()->(), $q->delete_all();
+    $self->_update_command()->();
+    $q->delete_all();
     return;
 }
 
@@ -2243,7 +2244,8 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) ) ),
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
+      ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
