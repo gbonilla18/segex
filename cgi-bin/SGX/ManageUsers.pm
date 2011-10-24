@@ -49,6 +49,7 @@ sub new {
                     pwd => {
                         label          => 'Password',
                         -size          => 30,
+                        __type__       => 'password_field',
                         __encode__     => sub { sha1_hex(shift) },
                         __confirm__    => 1,
                         __createonly__ => 1,

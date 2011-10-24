@@ -11,7 +11,7 @@ use Scalar::Util qw/looks_like_number/;
 our @EXPORT_OK =
   qw/trim max min bounds label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
-  jam/;
+  equal bind_csv_handle/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -58,7 +58,35 @@ sub all_match {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  jam
+#         NAME:  bind_csv_handle
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:
+#
+# :TODO:10/21/2011 00:49:20:es: Use Text::CSV types:
+# http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm#types
+#
+#     SEE ALSO:  n/a
+#===============================================================================
+sub bind_csv_handle {
+    my $handle = shift;
+    require Text::CSV;
+    my $csv = Text::CSV->new(
+        {
+            eol      => "\r\n",
+            sep_char => ","
+        }
+    ) or die 'Cannot use Text::CSV';
+    return sub {
+        return $csv->print( $handle, shift || [] );
+    };
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  equal
 #      PURPOSE:  Check whether all members of a list are equal to each other
 #   PARAMETERS:  ????
 #      RETURNS:  Returns first member if yes, empty list if otherwise
@@ -67,11 +95,12 @@ sub all_match {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub jam {
+sub equal {
     my $first = shift;
     $first eq $_ || return for @_;
-    return $first;
+    return 1;
 }
+
 #===  FUNCTION  ================================================================
 #         NAME:  array2hash
 #      PURPOSE:

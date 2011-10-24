@@ -10,7 +10,7 @@ require Lingua::EN::Inflect;
 require Text::Autoformat;
 use Scalar::Util qw/looks_like_number/;
 
-use SGX::Util qw/inherit_hash tuples car cdr list_values jam/;
+use SGX::Util qw/inherit_hash tuples car cdr list_values equal/;
 use SGX::Abstract::Exception ();
 use SGX::Debug;
 
@@ -1835,7 +1835,7 @@ sub _get_param_values {
                   if @result < 2;
                 SGX::Exception::User->throw(
                     error => "$label field does not match confirmation" )
-                  unless ( jam @result );
+                  unless equal @result;
             }
             return _process_val( $this_meta, car(@result) );
         }

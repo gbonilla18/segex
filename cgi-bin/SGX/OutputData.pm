@@ -5,7 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use SGX::Util qw/car/;
+use SGX::Util qw/car bind_csv_handle/;
 use JSON qw/encode_json/;
 require SGX::Model::PlatformStudyExperiment;
 
@@ -108,17 +108,10 @@ sub Load_head {
             -cookie     => $s->cookie_array()
         );
 
-        # :TODO:10/21/2011 00:49:20:es: Use Text::CSV types:
-        # http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm#types
-        require Text::CSV;
-        my $csv = Text::CSV->new(
-            {
-                eol      => "\r\n",
-                sep_char => "\t"
-            }
-        ) or die 'Cannot use Text::CSV';
-        $csv->print( \*STDOUT, $self->{_FieldNames} );
-        $csv->print( \*STDOUT, $_ ) for @{ $self->{_Data} };
+        # print CSV output and exit
+        my $print = bind_csv_handle( \*STDOUT );
+        $print->( $self->{_FieldNames} );
+        $print->($_) for @{ $self->{_Data} };
         exit;
     }
     else {

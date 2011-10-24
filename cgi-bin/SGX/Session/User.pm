@@ -20,7 +20,7 @@ require Email::Address;
 use SGX::Debug;
 use SGX::Abstract::Exception ();
 require SGX::Session::Base;    # for email confirmation
-use SGX::Util qw/jam/;
+use SGX::Util qw/car equal/;
 
 # minimum password length (in characters)
 Readonly::Scalar my $MIN_PWD_LENGTH => 6;
@@ -487,11 +487,11 @@ sub change_password {
 'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.';
         return;
     }
-    my $new_password = jam @$new_passwords;
-    if ( !defined($new_password) ) {
+    if ( not equal @$new_passwords ) {
         $$error = 'New password and its confirmation do not match';
         return;
     }
+    my $new_password = car @$new_passwords;
     if ( length($new_password) < $MIN_PWD_LENGTH ) {
         $$error =
           "New password must be at least $MIN_PWD_LENGTH characters long";
@@ -570,12 +570,12 @@ sub change_email {
 'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.';
         return;
     }
-    my $email = jam @$emails;
-    if ( !defined($email) ) {
+    if ( not equal @$emails ) {
         $$error =
           'Email address you entered and its confirmation do not match.';
         return;
     }
+    my $email = car @$emails;
 
     # Parsing email address with Email::Address->parse() has the side effect of
     # untainting user-entered email (applicable when CGI script is run in taint
@@ -677,11 +677,11 @@ sub register_user {
 'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.';
         return;
     }
-    my $password = jam @$passwords;
-    if ( !defined($password) ) {
+    if ( not equal @$passwords ) {
         $$error = 'New password and its confirmation do not match';
         return;
     }
+    my $password = car @$passwords;
     if ( length($password) < $MIN_PWD_LENGTH ) {
         $$error =
           "New password must be at least $MIN_PWD_LENGTH characters long";
@@ -696,12 +696,12 @@ sub register_user {
 'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.';
         return;
     }
-    my $email = jam @$emails;
-    if ( !defined($email) ) {
+    if ( not equal @$emails ) {
         $$error =
           'Email address you entered and its confirmation do not match.';
         return;
     }
+    my $email = car @$emails;
 
     my $dbh = $self->{dbh};
 
