@@ -104,8 +104,7 @@ sub default_head {
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
     push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     $self->getSessionOverrideCGI();
-    push @$js_src_code,
-      ( { -src => 'FormFindProbes.js' } );
+    push @$js_src_code, ( { -src => 'FormFindProbes.js' } );
     return 1;
 }
 
@@ -806,8 +805,8 @@ sub default_body {
     my $opts_dropdown_t = tie(
         %opts_dropdown, 'Tie::IxHash',
         'basic' => 'Basic (names and ids only)',
-        'full' => 'Full annotation',
-        'csv' => 'Full annotation with experiment data (CSV)'
+        'full'  => 'Full annotation',
+        'csv'   => 'Full annotation with experiment data (CSV)'
     );
     my %trans_dropdown;
     my $trans_dropdown_t = tie(
@@ -1047,7 +1046,7 @@ sub build_ProbeQuery {
     my ( $self, %p ) = @_;
     my $sql_select_fields = '';
 
-    if ( $p{extra_fields} == 1 ) {
+    if ( $p{extra_fields} eq 'basic' ) {
 
         # basic output
         $sql_select_fields = <<"END_select_fields_basic";
@@ -1138,7 +1137,7 @@ sub findProbes_js {
     $self->build_InsideTableQuery();
 
     my ( $opts, $trans ) = @$self{qw/_opts _trans/};
-    $opts  = 'full'      if not defined $opts;
+    $opts  = 'full' if not defined $opts;
     $trans = 'fold' if not defined $trans;
 
     $self->build_ProbeQuery( extra_fields => $opts );
