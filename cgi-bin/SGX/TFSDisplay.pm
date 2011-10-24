@@ -345,8 +345,8 @@ sub loadTFSData {
           ( $self->{_reverses}->[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
         push @query_proj,
           ( $self->{_reverses}->[ $i - 1 ] )
-          ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue"
-          : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue";
+          ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue AS \'$i: P-value\'"
+          : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue AS \'$i: P-value\'";
 
         if ( $self->{_opts} > 0 ) {
             push @query_proj,
@@ -357,7 +357,7 @@ sub loadTFSData {
               ( $self->{_reverses}->[ $i - 1 ] )
               ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
               : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'";
-            push @query_proj, "m$i.pvalue AS \'$i: P\'";
+            push @query_proj, "m$i.pvalue AS \'$i: P-value\'";
         }
 
         push @query_join,
