@@ -288,7 +288,7 @@ sub default_body {
                 -name    => 'format',
                 -default => 'html',
                 -values  => [ 'html', 'csv' ],
-                -labels => { 'html' => 'HTML', 'csv' => 'CSV (tab-delimited)' },
+                -labels => { 'html' => 'HTML', 'csv' => 'CSV' },
                 -title  => 'Output format'
             )
         ),

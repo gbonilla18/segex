@@ -414,7 +414,7 @@ sub loadExperimentData {
 
     $self->{_ProbeExperimentHash}     = {};
     $self->{_ExperimentListHash}      = {};
-    $self->{_ExperimentStudyListHash} = {};
+    $self->{_ExperimentStudyListHash} = [];
     $self->{_ExperimentNameListHash}  = {};
 
 #Grab the format for the output from the form.
@@ -454,17 +454,16 @@ sub loadExperimentData {
             $self->{_ExperimentListHash}->{ $_->[0] } = $_->[8];
 
             # [EID, STID] => 1
-            $self->{_ExperimentStudyListHash}->{ $_->[0] . '|' . $_->[7] } = 1;
+            push @{ $self->{_ExperimentStudyListHash} }, [ $_->[0], $_->[7] ];
 
             # EID => Name
             $self->{_ExperimentNameListHash}->{ $_->[0] } = $_->[6];
-
         }
 
         #Add the hash of experiment data to the hash of reporters.
         $self->{_ProbeExperimentHash}->{$key} = \%tempHash;
-
     }
+
     $sth->finish;
     return;
 }
@@ -664,11 +663,12 @@ sub getProbeList {
 sub getFullExperimentData {
     my $self = shift;
 
+    my $dbh = $self->{_dbh};
     my @eid_list;
     my @stid_list;
 
-    foreach ( keys %{ $self->{_ExperimentStudyListHash} } ) {
-        my ( $eid, $stid ) = split /\|/;
+    foreach ( @{ $self->{_ExperimentStudyListHash} } ) {
+        my ( $eid, $stid ) = @$_;
         push @eid_list,  $eid;
         push @stid_list, $stid;
     }
@@ -679,7 +679,7 @@ sub getFullExperimentData {
     my $whereSQL;
     my $curr_proj = $self->{_WorkingProject};
     if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $curr_proj = $self->{_dbh}->quote($curr_proj);
+        $curr_proj = $dbh->quote($curr_proj);
         $whereSQL  = <<"END_whereTitlesSQL";
 INNER JOIN ProjectStudy USING(stid)
 WHERE prid=$curr_proj AND eid IN ($eid_string) AND study.stid IN ($stid_string)
@@ -702,7 +702,7 @@ $whereSQL
 ORDER BY study.stid ASC, experiment.eid ASC
 END_query_titles_element
 
-    my $sth = $self->{_dbh}->prepare($query_titles);
+    my $sth = $dbh->prepare($query_titles);
     my $rc  = $sth->execute();
     $self->{_FullExperimentData} = $sth->fetchall_hashref('eid');
 
