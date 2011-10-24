@@ -44,20 +44,30 @@ sub new {
                         label       => 'Email',
                         formatter   => sub { 'formatEmail' },
                         -size       => 35,
-                        __confirm__ => 1
+                        __confirm__ => 1,
+                        __encode__  => sub {
+                            my $value = shift;
+                            require Email::Address;
+                            my ($email_handle) = Email::Address->parse($value);
+                            SGX::Exception::User->throw( error =>
+"Could not parse email address from string '$value'"
+                            ) if not defined $email_handle;
+                            return $email_handle->address;
+                          }
                     },
                     pwd => {
-                        label          => 'Password',
-                        -size          => 30,
-                        __type__       => 'password_field',
-                        __encode__     => sub { sha1_hex(shift) },
-                        __confirm__    => 1,
-                        __createonly__ => 1,
-                        __valid__      => sub {
+                        label      => 'Password',
+                        -size      => 30,
+                        __type__   => 'password_field',
+                        __encode__ => sub {
+                            my $value = shift;
                             SGX::Exception::User->throw( error =>
                                   'Passwords must be at least 6 characters long'
-                            ) if length(shift) < 6;
-                          }
+                            ) if length($value) < 6;
+                            return sha1_hex($value);
+                        },
+                        __confirm__    => 1,
+                        __createonly__ => 1
                     },
                     uid => {
                         label  => 'ID',

@@ -426,7 +426,6 @@ sub _head_data_table {
         ],
         declare => 1
       )
-
       . $js->apply(
         'YAHOO.util.Event.addListener',
         [
@@ -729,7 +728,7 @@ sub default_delete {
       # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
       # fully to spec.
         my $exception = $@;
-        $self->set_action('');
+        $self->set_action('');    # show body for "readall"
         $q->delete_all();
         $self->add_message( { -class => 'error' }, "$exception" );
         return;
@@ -756,7 +755,7 @@ sub default_update {
       # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
       # fully to spec.
         my $exception = $@;
-        $self->set_action('');
+        $self->set_action('');    # show body for "readrow"
         $q->delete_all();
         $self->add_message( { -class => 'error' }, "$exception" );
         return;
@@ -803,7 +802,7 @@ sub default_create {
       # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
       # fully to spec.
         my $exception = $@;
-        $self->set_action('');
+        $self->set_action('form_create');    # show body for form_create again
         $q->delete_all();
         $self->add_message( { -class => 'error' }, "$exception" );
         return;
@@ -1819,7 +1818,8 @@ sub _create_command {
         return;
     };
 
-    my $translate_val = $self->_get_param_values( $table_info->{meta} );
+    my $translate_val =
+      $self->_get_param_values( $table_info->{meta}, 'create' );
     my @params =
         ( defined $id )
       ? ( $id, map { $translate_val->($_) } cdr @assigned_fields )
@@ -1845,7 +1845,7 @@ sub _create_command {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _get_param_values {
-    my ( $self, $meta ) = @_;
+    my ( $self, $meta, $mode ) = @_;
     my $q = $self->{_cgi};
     return sub {
         my $param     = shift;
@@ -1856,14 +1856,12 @@ sub _get_param_values {
             return ( @result > 1 ) ? 1 : 0;
         }
         else {
-            if ( $this_meta->{__confirm__} ) {
+            if ( $mode eq 'create' && $this_meta->{__confirm__} ) {
                 my $label = $this_meta->{label} || $param;
-                SGX::Exception::Internal->throw(
-                    error => "$label field requires confirmation" )
-                  if @result < 2;
                 SGX::Exception::User->throw(
-                    error => "$label field does not match confirmation" )
-                  unless equal @result;
+                    error => "You need to enter the same $label value twice" )
+                  if @result < 2
+                      or not equal @result;
             }
             return _process_val( $this_meta, car(@result) );
         }
@@ -1873,7 +1871,8 @@ sub _get_param_values {
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _process_val
-#   PARAMETERS:  ????
+#   PARAMETERS:  {} - meta
+#                SCALAR - value
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
@@ -1883,9 +1882,6 @@ sub _get_param_values {
 sub _process_val {
     my $this_meta = shift;
     my $val       = shift;
-    if ( my $validator = $this_meta->{__valid__} ) {
-        $validator->($val);
-    }
     if ( my $encoder = $this_meta->{__encode__} ) {
         return $encoder->($val);
     }
@@ -2041,12 +2037,12 @@ sub _update_command {
     my $query = "UPDATE $table SET $assignment WHERE $predicate";
 
     # assuming that $self->{_id} corresponds to the first key field
-    my $translate_val = $self->_get_param_values( $table_info->{meta} );
-    my @params        = (
+    my $translate_val =
+      $self->_get_param_values( $table_info->{meta}, 'update' );
+    my @params = (
         ( map { $translate_val->($_) } @fields_to_update ),
         $self->{_id}, ( map { $translate_val->($_) } cdr @key )
     );
-
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
         SGX::Exception::Internal->throw( error => $error );
@@ -2271,7 +2267,8 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) ) ),
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
+      ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]

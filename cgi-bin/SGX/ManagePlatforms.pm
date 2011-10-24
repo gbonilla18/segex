@@ -65,13 +65,14 @@ sub new {
                         -maxlength => 20,
 
                         # validate def_p_cutoff
-                        __valid__ => sub {
+                        __encode__ => sub {
                             my $val = shift;
                             (        looks_like_number($val)
                                   && $val >= 0
                                   && $val <= 1 )
                               or SGX::Exception::User->throw( error =>
                                   'P-value must be a number from 0.0 to 1.0' );
+                            return $val;
                         },
                     },
 
@@ -82,12 +83,13 @@ sub new {
                         -maxlength => 20,
 
                         # validate def_f_cutoff
-                        __valid__ => sub {
+                        __encode__ => sub {
                             my $val = shift;
                             ( looks_like_number($val) && abs($val) >= 1 )
                               or SGX::Exception::User->throw( error =>
 'Fold change must be a number <= -1.0 or >= 1.0'
                               );
+                            return $val;
                         },
                     },
                 },
