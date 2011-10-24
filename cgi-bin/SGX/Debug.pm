@@ -22,8 +22,7 @@ BEGIN {
  #  join or string at (eval 65) line 15.
  #
  #  With the __WARN__ handler, however:
- #
- #  Warning generated at line 94 in SGX/Body.pm:
+ #  
  #  Use of uninitialized value $rest[0] in join or string at (eval 65) line 15.
  #
  #---------------------------------------------------------------------------
@@ -35,7 +34,7 @@ BEGIN {
         $header .= " line $line" if defined $line;
         $header .= ", calling $block" if defined $block;
         my $timestamp = scalar localtime();
-        warn "$timestamp: $header:\n", @_, "\n";
+        warn "[$timestamp]: $header:\n", @_, "\n";
         return 1;
     };
 
