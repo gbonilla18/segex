@@ -18,7 +18,7 @@ require Mail::Send;
 require Email::Address;
 
 use SGX::Debug;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 require SGX::Session::Base;    # for email confirmation
 use SGX::Util qw/jam/;
 

@@ -6,7 +6,7 @@ use warnings;
 use base qw/SGX::Strategy::CRUD/;
 
 #use SGX::Session::User qw/get_user_rank/;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 use Digest::SHA1 qw/sha1_hex/;
 
 #===  CLASS METHOD  ============================================================
@@ -172,7 +172,7 @@ sub default_body {
       $q->h3( { -id => 'caption' }, '' ),
       $q->div(
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -id => $self->{dom_table_id} }, '' );
+      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} }, '' );
 }
 
 #===  CLASS METHOD  ============================================================

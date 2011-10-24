@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use URI::Escape qw/uri_escape/;
-use Data::Dumper;
+use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
@@ -345,7 +345,7 @@ sub _dispatch_by {
         elsif ( $is_auth == 0 ) {
 
             # redirect to login (unless block prevents infinite loops)
-            $self->redirect( '?a=profile&b=form_login&destination='
+            $self->redirect( '?a=profile&b=form_login&next='
                   . uri_escape( $self->request_uri() ) )
               unless $self->{_ResourceName} eq 'profile'
                   and $action eq 'form_login';

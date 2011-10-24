@@ -9,7 +9,7 @@ require Tie::IxHash;
 use File::Basename;
 use JSON qw/encode_json/;
 use File::Temp;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 use SGX::Util qw/all_match trim min/;
 use SGX::Debug;
 

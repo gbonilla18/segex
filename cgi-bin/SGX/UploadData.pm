@@ -9,7 +9,7 @@ use JSON qw/encode_json/;
 use SGX::CSV;
 use SGX::Debug;
 use File::Temp;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 use Scalar::Util qw/looks_like_number/;
 

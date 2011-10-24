@@ -55,7 +55,7 @@ sub get_module_from_action {
 
 #---------------------------------------------------------------------------
 #  Path to default mailer executable (sendmail, postfix, etc). On both Mac OS X
-#  and CentOS, this is /usr/sbin.
+#  and CentOS Linux, this is /usr/sbin.
 #---------------------------------------------------------------------------
 Readonly::Scalar my $MAILER_PATH => '/usr/sbin';
 

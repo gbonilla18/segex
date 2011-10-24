@@ -17,7 +17,7 @@ use SGX::Util qw/car/;
     use warnings;
 
     #use SGX::Debug
-    use SGX::Abstract::Exception;
+    use SGX::Abstract::Exception ();
     use Tie::IxHash;
 
 #===  CLASS METHOD  ============================================================
@@ -392,8 +392,8 @@ sub login_head {
     {
 
         my $destination =
-          ( defined( $q->url_param('destination') ) )
-          ? uri_unescape( $q->url_param('destination') )
+          ( defined( $q->url_param('next') ) )
+          ? uri_unescape( $q->url_param('next') )
           : undef;
         if (   defined($destination)
             && $destination ne $q->url( -absolute => 1 )
@@ -444,15 +444,15 @@ sub form_login_body {
     $uri = $q->url( -absolute => 1 )
       if $uri =~ m/(?:&|\?|&amp;)b=logout(?:\z|&|#)/;
     my $destination = uri_escape(
-        ( defined $q->url_param('destination') )
-        ? $q->url_param('destination')
+        ( defined $q->url_param('next') )
+        ? $q->url_param('next')
         : $uri
     );
     return $q->h2('Login to Segex'),
       $q->start_form(
         -method => 'POST',
         -action => $q->url( -absolute => 1 )
-          . "?a=profile&b=login&destination=$destination",
+          . "?a=profile&b=login&next=$destination",
         -onsubmit =>
           'return validate_fields(this, [\'username\',\'password\']);'
       ),

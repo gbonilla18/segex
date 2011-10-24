@@ -5,7 +5,7 @@ use warnings;
 
 require Text::CSV;
 use SGX::Util qw/all_match/;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 
 #===  FUNCTION  ================================================================
 #         NAME:  csv_rewrite

@@ -11,7 +11,7 @@ require Text::Autoformat;
 use Scalar::Util qw/looks_like_number/;
 
 use SGX::Util qw/inherit_hash tuples car cdr list_values jam/;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 use SGX::Debug;
 
 #===  FUNCTION  ================================================================

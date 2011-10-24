@@ -12,7 +12,7 @@ use JSON qw/encode_json/;
 require Tie::IxHash;
 require SGX::FindProbes;
 require SGX::Abstract::JSEmitter;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 use SGX::Util qw/count_gtzero max/;
 
 #===  CLASS METHOD  ============================================================

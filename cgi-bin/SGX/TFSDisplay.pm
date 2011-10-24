@@ -8,7 +8,7 @@ use base qw/SGX::Strategy::Base/;
 #use SGX::Debug;
 require Math::BigInt;
 use JSON qw/encode_json/;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::TFSDisplay

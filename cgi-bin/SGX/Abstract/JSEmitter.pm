@@ -4,10 +4,9 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
-use Data::Dumper;
+use SGX::Debug;
 use JSON;
-use SGX::Abstract::Exception;
-use Tie::Hash;
+use SGX::Abstract::Exception ();
 
 #use Scalar::Util qw/looks_like_number/;
 #use SGX::Util qw/trim/;

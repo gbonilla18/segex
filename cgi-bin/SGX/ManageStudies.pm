@@ -6,7 +6,7 @@ use warnings;
 use base qw/SGX::Strategy::CRUD/;
 
 use Scalar::Util qw/looks_like_number/;
-use SGX::Abstract::Exception;
+use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
@@ -262,7 +262,7 @@ sub default_body {
       $q->h3( { -id => 'caption' }, '' ),
       $q->div(
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -id => $self->{dom_table_id} }, '' );
+      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} }, '' );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -410,7 +410,7 @@ sub readrow_body {
       $q->h3('All Experiments in the Study'),
       $q->div(
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -style => 'clear:both;', -id => $self->{dom_table_id} } );
+      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} } );
 }
 
 #===  CLASS METHOD  ============================================================
