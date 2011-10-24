@@ -474,23 +474,22 @@ sub getPlatformData {
   # cannot be comoared using Compare Experiments, this query is a little bit too
   # fat for what we need.
     my $singleItemQuery = <<"END_LoadQuery";
-SELECT 
-    platform.pname, 
-    platform.def_f_cutoff, 
-    platform.def_p_cutoff, 
-    platform.species,
-    IF(isAnnotated, 'Y', 'N')                           AS 'Is Annotated',
-    COUNT(probe.rid)                                    AS 'ProbeCount',
-    SUM(IF(IFNULL(probe.probe_sequence,'') <> '',1,0))  AS 'Sequences Loaded',
-    SUM(IF(IFNULL(annotates.gid,'') <> '',1,0))         AS 'Accession Number IDs',
-    SUM(IF(IFNULL(gene.seqname,'') <> '',1,0))          AS 'Gene Names',
-    SUM(IF(IFNULL(gene.description,'') <> '',1,0))      AS 'Gene Description'    
+SELECT
+    platform.pname              AS 'Platform',
+    platform.def_f_cutoff       AS 'FC-cutoff',
+    platform.def_p_cutoff       AS 'P-cutoff',
+    platform.species            AS 'Species',
+    IF(isAnnotated, 'Y', 'N')   AS 'Is Annotated',
+    COUNT(probe.rid)            AS 'ProbeCount',
+    COUNT(probe.probe_sequence) AS 'Sequences Loaded',
+    COUNT(probe.location)       AS 'Probe Locations',
+    COUNT(annotates.gid)        AS 'Accession Numbers',
+    COUNT(gene.seqname)         AS 'Gene Names'
 FROM platform
-INNER JOIN probe      ON probe.pid = platform.pid
-INNER JOIN experiment ON platform.pid = experiment.pid
-LEFT JOIN annotates   ON annotates.rid = probe.rid
-LEFT JOIN gene        ON gene.gid = annotates.gid
-WHERE experiment.eid  IN ($placeholders)
+LEFT JOIN probe      ON probe.pid = platform.pid
+LEFT JOIN annotates  ON annotates.rid = probe.rid
+LEFT JOIN gene       ON gene.gid = annotates.gid
+WHERE platform.pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
 GROUP BY platform.pid
 END_LoadQuery
 
@@ -650,6 +649,9 @@ END_queryCSV
     my $dbh = $self->{_dbh};
     my $sth = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
     my $rc  = $sth->execute;
+
+    # :TODO:10/24/2011 11:48:10:es: Do we really need a hashref here? Maybe an
+    # arrayref will do?
     $self->{_headerRecords} = $sth->fetchall_hashref('eid');
     $sth->finish;
 
@@ -683,23 +685,8 @@ sub displayTFSInfoCSV {
     $print->( [ 'Working Project',            $self->{_WorkingProjectName} ] );
     $print->();
 
-    # Print Platform header.
-    $print->(
-        [
-            'Platform',
-            'FC-cutoff',
-            'P-cutoff',
-            'Species',
-            'Is Annotated',
-            'Probe Count',
-            'Sequences Loaded',
-            'Accession Numbers',
-            'Gene Symbols',
-            'Gene Names'
-        ]
-    );
-
     # Print Platform info.
+    $print->( $self->{_FieldNames} );
     $print->($_) for @{ $self->{_DataPlatform} };
     $print->();
 
