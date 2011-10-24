@@ -102,7 +102,11 @@ sub Load_head {
     elsif ( $format eq 'csv' ) {
         my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
         $s->commit;
-        print $q->header( -type => 'text/csv', -cookie => $s->cookie_array() );
+        print $q->header(
+            -type       => 'text/csv',
+            -attachment => 'output.csv',
+            -cookie     => $s->cookie_array()
+        );
 
         # :TODO:10/21/2011 00:49:20:es: Use Text::CSV types:
         # http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm#types
@@ -291,8 +295,8 @@ sub default_body {
                 -name    => 'format',
                 -default => 'html',
                 -values  => [ 'html', 'csv' ],
-                -labels  => { 'html' => 'HTML', 'csv' => 'CSV (tab-delimited)' },
-                -title   => 'Output format'
+                -labels => { 'html' => 'HTML', 'csv' => 'CSV (tab-delimited)' },
+                -title  => 'Output format'
             )
         ),
         $q->dt('&nbsp;'),

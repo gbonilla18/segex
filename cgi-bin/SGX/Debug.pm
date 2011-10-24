@@ -39,11 +39,7 @@ BEGIN {
         return 1;
     };
 
-    # Linux:
     use constant LOG_PATH => '/var/www/error_log/segex_dev_log';
-
-    # Mac OS X:
-    #use constant LOG_PATH => '/Users/escherba/log/apache2/segex_dev_log';
 
     open( my $LOG, '>>', LOG_PATH )
       or croak 'Unable to append to log file at ' . LOG_PATH . " $!";
