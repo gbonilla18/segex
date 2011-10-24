@@ -187,7 +187,7 @@ sub initOutputData {
     my $eid_count = scalar(@eids);
     if ( $eid_count < 1 ) {
         $self->add_message( { -class => 'error' },
-            'You did not enter eany input' );
+            'You did not enter any input' );
         return;
     }
     return $eid_count;
