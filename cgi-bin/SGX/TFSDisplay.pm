@@ -742,17 +742,21 @@ sub displayTFSInfoCSV {
         );
 
         # Test for bit presence and print out 1 if present, 0 if absent
-        if ( defined( $self->{_fs} ) ) {
-            push @currentLine, ( 1 << $i & $self->{_fs} ) ? 'x' : '';
-        }
+        push( @currentLine, ( 1 << $i & $self->{_fs} ) ? 'x' : '' )
+          if defined $self->{_fs};
+
         $print->( \@currentLine );
     }
     $print->();
 
-    #Print TFS list along with distinct counts.
+    # Calculate TFS along with distinct counts
     my %TFSCounts;
-    foreach my $row ( @{ $self->{_Data} } ) {
-        my $currentTFS = get_tfs( $row->[0], $row->[1], $eid_count );
+    my $data_array = $self->{_Data};
+    foreach (@$data_array) {
+
+        # for each row
+        my $currentTFS = get_tfs( shift @$_, shift @$_, $eid_count );
+        unshift @$_, $currentTFS;
         $TFSCounts{$currentTFS} =
           ( defined $TFSCounts{$currentTFS} )
           ? 1 + $TFSCounts{$currentTFS}
@@ -766,10 +770,10 @@ sub displayTFSInfoCSV {
       keys %TFSCounts;
     $print->();
 
-    #Print header line.
+    # Print header line.
     $print->( \@experimentNameHeader );
 
-    #Experiment Data header.
+    # Experiment Data header.
     $print->(
         [
             'TFS',
@@ -790,9 +794,8 @@ sub displayTFSInfoCSV {
         ]
     );
 
-    #Print Experiment data.
-    $print->( [ get_tfs( splice( @$_, 0, 2 ), $eid_count ), @$_ ] )
-      for @{ $self->{_Data} };
+    # Print Experiment data sorting by TFS in descending order
+    $print->($_) for sort { $b->[0] cmp $a->[0] } @$data_array;
 
     return 1;
 }
@@ -812,7 +815,8 @@ sub displayTFSInfo {
     my $q    = $self->{_cgi};
 
     my @tmpArrayHead;
-    for ( my $i = 0 ; $i < @{ $self->{_eids} } ; $i++ ) {
+    my $eid_count = @{ $self->{_eids} };
+    for ( my $i = 0 ; $i < $eid_count ; $i++ ) {
         my ( $currentSTID, $currentEID ) = @{ $self->{_eids}->[$i] };
         my $this_eid                 = $self->{_headerRecords}->{$currentEID};
         my $currentTitle             = $this_eid->{title};
@@ -921,13 +925,11 @@ sub displayTFSInfo {
     #---------------------------------------------------------------------------
     #  print table body
     #---------------------------------------------------------------------------
-    my @tmpArray;
-    while ( my @row = $self->{_Records}->fetchrow_array ) {
-        my $TFS =
-          get_tfs( splice( @row, 0, 2 ), scalar( @{ $self->{_eids} } ) );
-        push @tmpArray, [ $TFS, @row ];
-    }
+    my $data_array = $self->{_Records}->fetchall_arrayref;
     $self->{_Records}->finish;
+
+    unshift( @$_, get_tfs( shift @$_, shift @$_, $eid_count ) )
+      for @$data_array;
 
     $out .= sprintf(
         'var tfs = %s;',
@@ -939,7 +941,7 @@ sub displayTFSInfo {
                 parsers => [ 'string',     @table_parser ],
                 formats => [ 'formatText', @table_format ],
                 frm_tpl => \%format_template,
-                records => \@tmpArray
+                records => [ sort { $b->[0] cmp $a->[0] } @$data_array ]
             }
         )
     );
