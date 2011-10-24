@@ -6,9 +6,7 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 use JSON qw/encode_json/;
-use SGX::CSV;
 use SGX::Debug;
-use File::Temp;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 use Scalar::Util qw/looks_like_number/;
@@ -384,6 +382,7 @@ sub uploadData {
     # namespace of this function, the temporary file will be deleted when the
     # function exists (when the reference to File::Temp will go out of context).
     #
+    require File::Temp;
     my $tmp = File::Temp->new( SUFFIX => '.txt', UNLINK => 1 );
     my $outputFileName = $tmp->filename();
 
@@ -587,6 +586,7 @@ sub sanitizeUploadFile {
 
     # Note: expression 'my ($x) = shift =~ /(.*)/' untaints input value and
     # assigns it to $x (untainting is important when perl -T option is used).
+    require SGX::CSV;
     my $recordsValid = eval {
         SGX::CSV::csv_rewrite(
             \@lines,
