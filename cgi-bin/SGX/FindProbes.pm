@@ -1165,7 +1165,7 @@ sub findProbes_js {
         my $caption   = sprintf(
             '%sFound %d probe%s',
             ( defined($proj_name) and $proj_name ne '' )
-            ? "${proj_name}: "
+            ? "$proj_name: "
             : '',
             $rowcount,
             ( $rowcount == 1 ) ? '' : 's',

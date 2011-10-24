@@ -652,7 +652,7 @@ END_queryCSV
     $sth->finish;
 
     #Run the query for the actual data records.
-    $self->{_Records}     = $self->{_dbh}->prepare($query);
+    $self->{_Records}     = $dbh->prepare($query);
     $self->{_RowCountAll} = $self->{_Records}->execute;
     $self->{_Data}        = $self->{_Records}->fetchall_arrayref;
 
@@ -713,7 +713,7 @@ sub displayTFSInfoCSV {
     for ( my $i = 0 ; $i < @{ $self->{_eids} } ; $i++ ) {
 
         my ( $currentSTID, $currentEID ) =
-          split( /\|/, ${ $self->{_eids} }[$i] );
+          split( /\|/, $self->{_eids}->[$i] );
 
         my @currentLine = (
             $currentEID,
@@ -766,12 +766,10 @@ sub displayTFSInfoCSV {
         );
 
         #Increment our counter if it exists.
-        if ( defined $TFSCounts{$currentTFS} ) {
-            $TFSCounts{$currentTFS} = $TFSCounts{$currentTFS} + 1.0;
-        }
-        else {
-            $TFSCounts{$currentTFS} = 1.0;
-        }
+        $TFSCounts{$currentTFS} =
+          ( defined $TFSCounts{$currentTFS} )
+          ? 1.0 + $TFSCounts{$currentTFS}
+          : 1.0;
     }
 
     #Print a blank line.
@@ -878,7 +876,7 @@ records:
     for ( $i = 0 ; $i < @{ $self->{_eids} } ; $i++ ) {
 
         my ( $currentSTID, $currentEID ) =
-          split( /\|/, ${ $self->{_eids} }[$i] );
+          split( /\|/, $self->{_eids}->[$i] );
 
         my $this_eid     = $self->{_headerRecords}->{$currentEID};
         my $currentTitle = $this_eid->{title};
