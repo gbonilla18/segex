@@ -6,6 +6,9 @@ body {
 	font-family:Verdana,Geneva,'Lucida Grande','Lucida Sans','Lucida Sans Unicode',sans-serif;
 	font-size:75%; /* default 'medium' text in modern browsers is 16px */
 }
+strong {
+	font-weight:bold;
+}
 em {
 	font-style:italic;
 }

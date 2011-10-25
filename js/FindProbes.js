@@ -6,7 +6,7 @@
 YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
 YAHOO.util.Event.addListener(window, "load", function() {
     var graph_ul;
-    var graph_content;
+    var graph_content = '';
 
     var matchesQuery = (function() {
         // first see if we have an array

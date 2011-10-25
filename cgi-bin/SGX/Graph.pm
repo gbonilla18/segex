@@ -39,7 +39,7 @@ sub default_head {
         $sql_trans  = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
         $sql_cutoff = 'log2(def_f_cutoff)';
 
-        $ytitle_text  = 'Log2 of Intensity Ratio';
+        $ytitle_text  = 'Log2 of Normalized Ratio';
         $y_start      = 0;
         $middle_label = '0';
     }
@@ -49,7 +49,7 @@ sub default_head {
         $sql_trans  = 'if(foldchange>0,foldchange-1,foldchange+1)';
         $sql_cutoff = '(def_f_cutoff-1)';
 
-        $ytitle_text  = 'Fold Change';
+        $ytitle_text  = 'Fold Change (Normalized Ratio)';
         $y_start      = 1;
         $middle_label = '&#177;1';
     }
@@ -155,7 +155,7 @@ sub default_body {
     my ( $seqname,     $cutoff,  $cutoff_p )     = @{ $self->{_scc} };
 
     my $title_text =
-      "$seqname Differential Expression Reported by $reporter_name";
+      "$seqname Differential Expression: Probe $reporter_name";
 
     #Set particulars for graph
     my $xl                   = 55;

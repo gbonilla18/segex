@@ -764,6 +764,11 @@ sub Search_body {
     );
 
     if ( $self->{_graph} ) {
+        push @ret, $q->p(<<"END_LEGEND");
+<strong>Dark bars</strong>: values meething the P threshold. 
+<strong>Light bars</strong>: values above the P threshold. 
+<strong>Green horizontal lines</strong>: fold-change threshold.
+END_LEGEND
         push @ret, $q->ul( { -id => 'graphs' }, '' );
     }
     return @ret;
