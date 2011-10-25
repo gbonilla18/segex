@@ -427,8 +427,7 @@ sub getResultsJS {
             _UserSession => $s
         );
 
-        my $ok = eval { $findProbes->FindProbes_init($fh) } || 0;
-
+        my $ok = eval { $findProbes->FindProbes_init() } || 0;
         $findProbes->getSessionOverrideCGI();
         $findProbes->build_SearchPredicate();
         $findProbes->build_InsideTableQuery();
