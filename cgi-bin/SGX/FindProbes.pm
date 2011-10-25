@@ -10,7 +10,7 @@ use File::Basename;
 use JSON qw/encode_json/;
 use File::Temp;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/all_match trim min bind_csv_handle/;
+use SGX::Util qw/car all_match trim min bind_csv_handle/;
 use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
@@ -191,7 +191,7 @@ sub FindProbes_init {
     else {
 
         #Split the input on commas and spaces
-        my $text = $q->param('terms');
+        my $text = car $q->param('terms');
         @textSplit = split( /[,\s]+/, trim($text) );
     }
 
@@ -285,17 +285,22 @@ sub _setSearchPredicate {
     my $predicate;
 
     if ( $match eq 'full' ) {
-        my $inner = ( @$items > 0 ) ? join( ',', map { '?' } @$items ) : 'NULL';
-        $predicate = "IN ($inner)";
-        $qtext     = [@$items];
+        ( $predicate => $qtext ) =
+          @$items
+          ? ( 'IN (' . join( ',', map { '?' } @$items ) . ')' => $items )
+          : ( 'IN (NULL)' => [] );
     }
     elsif ( $match eq 'prefix' ) {
-        $predicate = ( @$items > 0 ) ? 'REGEXP ?' : 'IN (NULL)';
-        $qtext = ( @$items > 0 ) ? [ join( '|', map { "^$_" } @$items ) ] : [];
+        ( $predicate => $qtext ) =
+          @$items
+          ? ( 'REGEXP ?' => [ join( '|', map { "^$_" } @$items ) ] )
+          : ( 'IN (NULL)' => [] );
     }
     elsif ( $match eq 'part' ) {
-        $predicate = ( @$items > 0 ) ? 'REGEXP ?' : 'IN (NULL)';
-        $qtext = ( @$items > 0 ) ? [ join( '|', @$items ) ] : [];
+        ( $predicate => $qtext ) =
+          @$items
+          ? ( 'REGEXP ?' => [ join( '|', @$items ) ] )
+          : ( 'IN (NULL)' => [] );
     }
     else {
         SGX::Exception::Internal->throw(

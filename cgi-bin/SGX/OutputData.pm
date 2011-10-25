@@ -234,9 +234,8 @@ LEFT JOIN gene ON gene.gid = annotates.gid
 WHERE experiment.eid IN (%s)
 GROUP BY experiment.eid, microarray.rid
 ORDER BY experiment.eid
-
 END_ReportQuery
-        join( ',', map { '?' } @$experiments )
+        ( @$experiments ? join( ',', map { '?' } @$experiments ) : 'NULL' )
     );
 
     my $sth = $dbh->prepare($query_text);
