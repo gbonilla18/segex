@@ -13,7 +13,7 @@ require Tie::IxHash;
 require SGX::FindProbes;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/count_gtzero max/;
+use SGX::Util qw/car count_gtzero max/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments
@@ -48,6 +48,13 @@ sub init {
 #===============================================================================
 sub Compare_head {
     my $self = shift;
+
+    if ( !$self->get_eids() ) {
+        $self->set_action('');
+        $self->default_head();
+        return 1;
+    }
+
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
@@ -362,6 +369,32 @@ sub default_body {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments
+#       METHOD:  get_eids
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_eids {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    my @eids;
+    for ( my $i = 1 ; defined( $q->param("eid_$i") ) ; $i++ ) {
+        push @eids, car $q->param("eid_$i");
+    }
+    if ( @eids < 1 ) {
+        $self->add_message( { -class => 'error' },
+            'You did not provide any input' );
+        return;
+    }
+    $self->{_xExpList} = \@eids;
+    return scalar(@eids);
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
 #       METHOD:  getResultsJS
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -373,8 +406,8 @@ sub default_body {
 sub getResultsJS {
     my $self = shift;
     my $q    = $self->{_cgi};
-    my $s    = $self->{_UserSession};
     my $dbh  = $self->{_dbh};
+    my $s    = $self->{_UserSession};
 
     #This flag tells us whether or not to ignore the thresholds.
     my $allProbes = $q->param('chkAllProbes');
@@ -445,8 +478,9 @@ sub getResultsJS {
     my @query_fs_body;
     my ( @eids, @reverses, @fcs, @pvals, @true_eids );
 
-    my $i;
-    for ( $i = 1 ; defined( $q->param("eid_$i") ) ; $i++ ) {
+    my $i = 0;
+    foreach ( @{ $self->{_xExpList} } ) {
+        $i++;
         my ( $eid, $fc, $pval ) =
           ( $q->param("eid_$i"), $q->param("fc_$i"), $q->param("pval_$i") );
         my $reverse = ( defined( $q->param("reverse_$i") ) ) ? 1 : 0;

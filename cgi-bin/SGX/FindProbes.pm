@@ -112,9 +112,15 @@ sub default_head {
 #===============================================================================
 sub Search_head {
     my $self = shift;
+
+    if ( !$self->FindProbes_init() ) {
+        $self->set_action('');
+        $self->default_head();
+        return 1;
+    }
+
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
-
     push @{ $self->{_css_src_yui} },
       (
         'paginator/assets/skins/sam/paginator.css',
@@ -129,7 +135,7 @@ sub Search_head {
         'paginator/paginator-min.js',         'datatable/datatable-min.js',
         'selector/selector-min.js'
       );
-    $self->FindProbes_init();
+
     $self->getSessionOverrideCGI();
     push @$js_src_code, { -code => $self->findProbes_js($s) };
     push @$js_src_code, { -src  => 'FindProbes.js' };
@@ -192,6 +198,11 @@ sub FindProbes_init {
         #Split the input on commas and spaces
         my $text = car $q->param('terms');
         @textSplit = split( /[,\s]+/, trim($text) );
+    }
+    if ( @textSplit < 1 ) {
+        $self->add_message( { -class => 'error' },
+            'You did not provide any input' );
+        return;
     }
     $self->{_xMatchType}   = $match;
     $self->{_xSearchTerms} = \@textSplit;
@@ -280,7 +291,7 @@ sub getSessionOverrideCGI {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_SearchPredicate {
-    my $self = shift;
+    my $self  = shift;
     my $match = $self->{_xMatchType};
     my $items = $self->{_xSearchTerms};
 
@@ -973,7 +984,7 @@ END_InsideTableQuery_probe
 #      RETURNS:  ????
 #  DESCRIPTION:
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  Currently only used by SGX::CompareExperiments
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_SimpleProbeQuery {
