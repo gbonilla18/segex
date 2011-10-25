@@ -148,7 +148,6 @@ sub Search_head {
 #===============================================================================
 sub FindProbes_init {
     my ( $self, $fh ) = @_;
-
     my $q = $self->{_cgi};
 
     $self->{_type}  = $q->param('type');
@@ -194,8 +193,10 @@ sub FindProbes_init {
         my $text = car $q->param('terms');
         @textSplit = split( /[,\s]+/, trim($text) );
     }
+    $self->{_xMatchType}   = $match;
+    $self->{_xSearchTerms} = \@textSplit;
 
-    return $self->_setSearchPredicate( $match, \@textSplit );
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -270,7 +271,7 @@ sub getSessionOverrideCGI {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  _setSearchPredicate
+#       METHOD:  build_SearchPredicate
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -278,8 +279,10 @@ sub getSessionOverrideCGI {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _setSearchPredicate {
-    my ( $self, $match, $items ) = @_;
+sub build_SearchPredicate {
+    my $self = shift;
+    my $match = $self->{_xMatchType};
+    my $items = $self->{_xSearchTerms};
 
     my $qtext;
     my $predicate;
@@ -909,8 +912,7 @@ END_BROWSER_NOTICE
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_InsideTableQuery {
-    my ( $self, %optarg ) = @_;
-
+    my $self = shift;
     my $type = $self->{_type};
 
     my $predicate = 'WHERE %s ' . $self->{_Predicate};
@@ -1105,7 +1107,7 @@ END_ProbeQuery
 sub findProbes_js {
     my $self = shift;
 
-    # call to build_InsideTableQuery() followed by one to build_ProbeQuery()
+    $self->build_SearchPredicate();
     $self->build_InsideTableQuery();
 
     my ( $opts, $trans ) = @$self{qw/_opts _trans/};

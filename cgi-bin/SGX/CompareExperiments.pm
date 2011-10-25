@@ -388,34 +388,29 @@ sub getResultsJS {
        # subsection don't matter
        #assert( !$q->param('terms') );
         my $findProbes = SGX::FindProbes->new(
-            dbh          => $dbh,
-            cgi          => $q,
-            user_session => $s
+            _dbh         => $dbh,
+            _cgi         => $q,
+            _UserSession => $s
         );
 
         # parse uploaded file (highly likely to fail!)
         my $fh = $q->upload('upload_file')
           or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
 
-        my $ok = eval { $findProbes->init($fh) } || 0;
+        my $ok = eval { $findProbes->FindProbes_init($fh) } || 0;
 
         # :TODO:07/29/2011 16:59:31:es: test zero-length upload files here
         if ( ( my $exception = $@ ) || !$ok ) {
             close $fh;
-            $exception->throw();
+            $exception->throw() if $exception;
         }
         close $fh;
 
         $findProbes->getSessionOverrideCGI();
+        $findProbes->build_SearchPredicate();
         $findProbes->build_InsideTableQuery();
         $findProbes->build_SimpleProbeQuery();
-
-        #my $t0 = Benchmark->new;
         $findProbes->loadProbeData();
-
-        #my $t1 = Benchmark->new;
-        #my $td = timediff( $t1, $t0 );
-        #warn "the code took:", timestr($td), "\n";
 
         # get list of probe record ids (rid)
         $probeList          = $findProbes->getProbeList();
@@ -427,13 +422,15 @@ sub getResultsJS {
         # if $q->param('terms') is not set, all other fields in Filter List
         # subsection don't matter
         my $findProbes = SGX::FindProbes->new(
-            dbh          => $dbh,
-            cgi          => $q,
-            user_session => $s
+            _dbh         => $dbh,
+            _cgi         => $q,
+            _UserSession => $s
         );
 
-        $findProbes->init();    # followed by build_ProbeQuery
+        my $ok = eval { $findProbes->FindProbes_init($fh) } || 0;
+
         $findProbes->getSessionOverrideCGI();
+        $findProbes->build_SearchPredicate();
         $findProbes->build_InsideTableQuery();
         $findProbes->build_SimpleProbeQuery();
         $findProbes->loadProbeData();
