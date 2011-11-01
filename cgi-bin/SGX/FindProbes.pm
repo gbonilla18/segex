@@ -196,7 +196,7 @@ sub FindProbes_init {
     else {
 
         #Split the input on commas and spaces
-        my $text = car $q->param('terms');
+        my $text = car $q->param('q');
         @textSplit = split( /[,\s]+/, trim($text) );
     }
     if ( @textSplit < 1 ) {
@@ -818,11 +818,11 @@ You can enter here a list of probes, accession numbers, or gene names.
 The results will contain probes that are related to the search terms.
 END_H2P_TEXT
       $q->dl(
-        $q->dt( $q->label( { -for => 'terms' }, 'Search term(s):' ) ),
+        $q->dt( $q->label( { -for => 'q' }, 'Search term(s):' ) ),
         $q->dd(
             $q->textarea(
-                -name    => 'terms',
-                -id      => 'terms',
+                -name    => 'q',
+                -id      => 'q',
                 -rows    => 10,
                 -columns => 50,
                 -title   => <<"END_terms_title"

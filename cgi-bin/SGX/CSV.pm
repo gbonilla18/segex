@@ -52,34 +52,23 @@ sub csv_rewrite {
       ? $param{input_header}
       : 0;    # default: no header
 
-    # Text::CSV options for input file
-    my $param_csv_in_opts =
-      ( exists $param{csv_in_opts} )
-      ? $param{csv_in_opts}
-      : {};
-
     # Default value for sep_char is as indicated below unless overridden by
     # $param{csv_out_opts}. Also, other Text::CSV options can be set through
     # $param{csv_out_opts}.
-    my %csv_in_opts = ( sep_char => ',', %$param_csv_in_opts );
-
-    # Text::CSV options for output file
-    my $param_csv_out_opts =
-      ( exists $param{csv_out_opts} )
-      ? $param{csv_out_opts}
-      : {};
+    my %csv_in_opts = ( sep_char => ',', %{ $param{csv_in_opts} || {} } );
 
     # Default values for sep_char and eol are as indicated below unless
     # overridden by $param{csv_out_opts}. Also, other Text::CSV options can be
     # set through $param{csv_out_opts}.
-    my %csv_out_opts = ( sep_char => ',', eol => "\n", %$param_csv_out_opts );
+    my %csv_out_opts = (
+        sep_char => ',',
+        eol      => "\n",
+        %{ $param{csv_out_opts} || {} }
+    );
 
     my $csv_in  = Text::CSV->new( \%csv_in_opts );
     my $csv_out = Text::CSV->new( \%csv_out_opts );
     my $record_num = 0;    # record is a non-empty line
-
-    # require as many fields as have validating functions
-    my $req_fields = @$parse;
 
     # Generate a custom function that will check whether array consists of
     # elements we consider to be empty. When "allow_whitespace" is set during
@@ -101,10 +90,12 @@ sub csv_rewrite {
 
         # skip header if requested to
         $record_num++;
-        next if $input_header and $record_num == 1;
+        next if $record_num == 1 and $input_header;
 
         # check total number of fields present
-        if ( ( my $fc = @fields ) < $req_fields ) {
+        if ( @fields < @$parse ) {
+            my $fc         = @fields;
+            my $req_fields = @$parse;
             SGX::Exception::User->throw( error =>
 "Only $fc field(s) found ($req_fields required) at line $line_num\n"
             );
@@ -112,11 +103,11 @@ sub csv_rewrite {
 
         # perform validation on each column
         my @out_fields;
-        foreach ( 0 .. ( $req_fields - 1 ) ) {
+        foreach ( 0 .. $#$parse ) {
             my $parsed_value = $parse->[$_]->( shift @fields );
             unless ( defined $parsed_value ) {
-                SGX::Exception::User->throw(
-                        error => "Cannot parse input value at line $line_num column "
+                SGX::Exception::User->throw( error =>
+                        "Cannot parse input value at line $line_num column "
                       . ( $_ + 1 )
                       . "\n" );
             }

@@ -304,14 +304,14 @@ sub default_body {
         { -id => 'filterList', -style => 'display:none;' },
         $q->h3('Filter on the following terms:'),
         $q->dl(
-            $q->dt( $q->label( { -for => 'terms' }, 'Search term(s):' ) ),
+            $q->dt( $q->label( { -for => 'q' }, 'Search term(s):' ) ),
             $q->dd(
                 $q->textarea(
                     -rows     => 10,
                     -columns  => 50,
                     -tabindex => 1,
-                    -name     => 'terms',
-                    -id       => 'terms'
+                    -name     => 'q',
+                    -id       => 'q'
                 )
             ),
         )
@@ -450,7 +450,7 @@ sub getResultsJS {
         $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
             ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
     }
-    elsif ( $q->param('terms') ) {
+    elsif ( $q->param('q') ) {
 
         # if $q->param('terms') is not set, all other fields in Filter List
         # subsection don't matter
