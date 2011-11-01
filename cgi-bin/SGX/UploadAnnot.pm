@@ -209,7 +209,7 @@ sub uploadAnnot {
 
         # if the assertion below fails, the field specified by the user
         # either doesn't exist or is protected.
-        croak if !( $probe_fields{$_} || $gene_fields{$_} );
+        croak unless ( $probe_fields{$_} || $gene_fields{$_} );
 
         if ( $probe_fields{$_} ) {
             $col{ $probe_fields{$_} } = $i;

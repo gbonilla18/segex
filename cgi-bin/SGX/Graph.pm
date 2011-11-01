@@ -5,7 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use SGX::Util qw/bounds label_format/;
+use SGX::Util qw/car bounds label_format/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  Graph
@@ -21,10 +21,10 @@ sub default_head {
     my $self = shift;
     my ( $dbh, $q, $s ) = @$self{qw/_dbh _cgi _UserSession/};
 
-    my $reporter  = $q->param('rid');
-    my $transform = $q->param('trans');
-    my $curr_proj = $q->param('proj');
-    return if !$reporter;
+    my $reporter  = car $q->param('rid');
+    my $transform = car $q->param('trans');
+    my $curr_proj = car $q->param('proj');
+    return unless defined $reporter;
 
     $self->{_reporter_name} = $q->param('reporter');
 

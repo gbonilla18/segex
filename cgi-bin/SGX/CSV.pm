@@ -145,7 +145,7 @@ __END__
 #  use SGX::CSV;
 #
 #  my ( $infile, $outfile ) = splice @ARGV, 0, 2;
-#  exit if !(defined($infile) && defined($outfile));
+#  exit unless (defined($infile) && defined($outfile));
 #
 #  print "Opening files...\n";
 #  open( my $in,  '<', $infile )  or croak "$infile: $!";
