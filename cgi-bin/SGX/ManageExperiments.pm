@@ -125,9 +125,10 @@ sub new {
                         -size      => 35
                     },
                     ExperimentDescription => {
-                        label      => 'Description',
-                        -maxlength => 255,
-                        -size      => 55
+                        label        => 'Description',
+                        -maxlength   => 255,
+                        -size        => 55,
+                        __optional__ => 1,
                     },
                     AdditionalInformation => {
                         label        => 'Additional Info',
