@@ -1,3 +1,4 @@
+"use strict";
 function sortNestedByColumn (tuples, column) {
     tuples.sort(function (a, b) {
         a = a[column];

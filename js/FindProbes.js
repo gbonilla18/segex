@@ -1,3 +1,5 @@
+"use strict";
+
 /*
 * Note: the following NCBI search shows only genes specific to a given species:
 * http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]

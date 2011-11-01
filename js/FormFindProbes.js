@@ -1,3 +1,4 @@
+"use strict";
 // dropdown list
 setupToggles({
     'pattern': {

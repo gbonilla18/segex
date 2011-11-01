@@ -1,3 +1,4 @@
+"use strict";
 /* depends on the following YUI files:
 *
 * build/yahoo-dom-event/yahoo-dom-event.js

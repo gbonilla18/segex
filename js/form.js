@@ -1,3 +1,4 @@
+"use strict"; 
 //==============================================================================
 // export_table
 //==============================================================================
@@ -48,7 +49,7 @@ function export_table(e) {
 function setupToggles(attr, getValue) {
     // inverse inside hash
     var inverse_attr = {};
-    for (id in attr) {
+    for (var id in attr) {
         var hash = attr[id];
         var tmp = {};
         for (var key in hash) {

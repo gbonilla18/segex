@@ -182,7 +182,7 @@ sub cgi_start_html {
             $q->Link(
                 {
                     -type => 'image/x-icon',
-                    -href => IMAGES_DIR . '/favicon2.ico',
+                    -href => IMAGES_DIR . '/favicon_16x16.ico',
                     -rel  => 'icon'
                 }
             ),
@@ -222,8 +222,8 @@ sub content_header {
                 $q->img(
                     {
                         src    => IMAGES_DIR . '/logo.png',
-                        width  => 212,
-                        height => 80,
+                        width  => 206,
+                        height => 72,
                         alt    => 'Segex',
                         title  => 'Segex'
                     }
