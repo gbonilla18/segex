@@ -1598,7 +1598,9 @@ sub _build_select {
 #===============================================================================
 sub _readrow_command {
     my ( $self, $table_alias ) = @_;
-    return unless defined $self->{_id};
+    my $id = $self->{_id};
+    return unless defined $id;
+
     $table_alias = $self->{_default_table} unless $table_alias;
     return unless defined $table_alias;
 
@@ -1637,7 +1639,7 @@ sub _readrow_command {
         return;
     };
 
-    my @params = ( $self->{_id}, ( map { $q->param($_) } cdr @key ) );
+    my @params = ( $id, ( map { $q->param($_) } cdr @key ) );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1668,8 +1670,8 @@ sub _delete_command {
     my $table = car( $q->param('table') ) || $self->{_default_table};
     return unless defined $table;
 
-  # :TODO:10/26/2011 11:22:52:es: check whether $table or $table_alias should be
-  # used here
+    # :TODO:10/26/2011 11:22:52:es: check whether $table or $table_alias should
+    # be used here
     my $table_info = $self->{_table_defs}->{$table};
     return unless $table_info;
 
@@ -1726,9 +1728,14 @@ sub _assign_command {
     my @key = $self->_select_fields(
         table    => $table_info,
         fieldset => 'key',
-        dealias  => '__sql__'
     );
     return if ( !defined($id) || @key != 2 );
+
+    my @dealiased_key = $self->_select_fields(
+        table    => $table_info,
+        fieldset => \@key,
+        dealias  => '__sql__'
+    );
 
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
@@ -1737,9 +1744,12 @@ sub _assign_command {
     # Note: we make exception when inserting a record when resource id is
     # already present: in those cases we create links.
 
-    my $assignment = join( ',', @key );
-    my $query      = "INSERT IGNORE INTO $table ($assignment) VALUES (?,?)";
-    my $sth        = eval { $dbh->prepare($query) } or do {
+    my $query = sprintf(
+        "INSERT IGNORE INTO $table (%s) VALUES (%s)",
+        join( ',', @dealiased_key ),
+        join( ',', map { '?' } @dealiased_key )
+    );
+    my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
         SGX::Exception::Internal->throw( error => $error );
         return;
@@ -1780,21 +1790,27 @@ sub _create_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
-    my $id = $self->{_id};
+    my $id  = $self->{_id};
     my $key = $table_info->{key};
     return if defined $id and @$key < 2;
 
-    my $fields = [
-        $self->_select_fields(
-            table    => $table_info,
-            omitting => '__special__',
-            fieldset => 'base'
-        )
-    ];
+    my @fields = $self->_select_fields(
+        table    => $table_info,
+        omitting => '__special__',
+        fieldset => 'base'
+    );
 
-    my $assignment = join( ',', @$fields );
-    my $placeholders = join( ',', map { '?' } @$fields );
-    my $query = "INSERT INTO $table ($assignment) VALUES ($placeholders)";
+    my @dealiased_fields = $self->_select_fields(
+        table    => $table_info,
+        fieldset => \@fields,
+        dealias  => '__sql__'
+    );
+
+    my $query = sprintf(
+        "INSERT INTO $table (%s) VALUES (%s)",
+        join( ',', @dealiased_fields ),
+        join( ',', map { '?' } @dealiased_fields )
+    );
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
         SGX::Exception::Internal->throw( error => $error );
@@ -1805,8 +1821,8 @@ sub _create_command {
       $self->_get_param_values( $table_info->{meta}, 'create' );
     my @params =
         ( defined $id )
-      ? ( $id, map { $translate_val->($_) } cdr @$fields )
-      : map { $translate_val->($_) } @$fields;
+      ? ( $id, map { $translate_val->($_) } cdr @fields )
+      : map { $translate_val->($_) } @fields;
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1869,8 +1885,8 @@ sub _process_val {
 
     # preventing not only empty strings but also anything which consists
     # entirely of white space.
-    SGX::Exception::User->throw(
-        error => "You did not provide a value for the required field `$label'\n" )
+    SGX::Exception::User->throw( error =>
+          "You did not provide a value for the required field `$label'\n" )
       if ( !$this_meta->{__optional__}
         && ( !defined($val) || $val =~ /^\s*$/ ) );
 
@@ -2279,7 +2295,8 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) ) ),
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
+      ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
