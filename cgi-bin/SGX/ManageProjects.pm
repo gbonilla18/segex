@@ -51,7 +51,7 @@ sub new {
                         label        => 'Created By',
                         parser       => 'number',
                         __type__     => 'popup_menu',
-                        __tie__      => [ users => 'uid' ],
+                        #__tie__      => [ users => 'uid' ],
                         __hidden__   => 1,
                         __optional__ => 1
                     },

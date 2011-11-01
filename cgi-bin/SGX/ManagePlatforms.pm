@@ -40,11 +40,17 @@ sub new {
             'platform' => {
                 key      => [qw/pid/],
                 resource => 'platforms',
-                base     => [qw/pname def_p_cutoff def_f_cutoff species/],
+                base     => [qw/pname def_p_cutoff def_f_cutoff species file/],
                 view     => [qw/pname def_p_cutoff def_f_cutoff species/],
                 selectors => {}, # table key to the left, URI param to the right
                 names => [qw/pname species/],
                 meta  => {
+                    file => {
+                        __type__       => 'filefield',
+                        __special__    => 1,
+                        __optional__   => 1,
+                        label          => 'Upload Probes/Annotations'
+                    },
                     pid   => { label => 'No.', parser => 'number' },
                     pname => {
                         label      => 'Platform Name',

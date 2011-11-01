@@ -132,6 +132,10 @@ function validate_fields(of,reqfields) {
     for (var i=0, reqfields_length = reqfields.length; i < reqfields_length; i++) {
         // get a required field
         var f=document.getElementById(reqfields[i]);
+        if (f === null ) {
+            // cannot find the required field in the DOM body
+            return false;
+        }
         // cleanup: remove old classes from the required fields
         f.parentNode.className="";
         // completely strip whitespace and place field value into value 

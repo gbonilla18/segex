@@ -94,13 +94,21 @@ sub new {
                 ],
                 resource => 'experiments',
                 base     => [
-                    qw/sample1 sample2 ExperimentDescription AdditionalInformation pid/
+                    qw/sample1 sample2 ExperimentDescription
+                      AdditionalInformation pid file/
                 ],
 
                 # table key to the left, URI param to the right
                 selectors => { pid => 'pid' },
                 names     => [qw/sample1 sample2/],
                 meta      => {
+                    file => {
+                        __type__       => 'filefield',
+                        __special__    => 1,
+                        __createonly__ => 1,
+                        __readonly__   => 1,
+                        label          => 'Upload Data File'
+                    },
                     eid => {
                         label        => 'No.',
                         parser       => 'number',
@@ -131,13 +139,14 @@ sub new {
                         label    => 'Platform',
                         parser   => 'number',
                         __type__ => 'popup_menu',
-                        __tie__  => [
-                            (
-                                looks_like_number( $q->param('pid') )
-                                ? ()
-                                : ( platform => 'pid' )
-                            )
-                        ],
+
+                        #__tie__  => [
+                        #    (
+                        #        looks_like_number( $q->param('pid') )
+                        #        ? ()
+                        #        : ( platform => 'pid' )
+                        #    )
+                        #],
                         __readonly__ => 1,
                         __hidden__   => 1
                     }

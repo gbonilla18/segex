@@ -10,7 +10,7 @@ require Lingua::EN::Inflect;
 require Text::Autoformat;
 use Scalar::Util qw/looks_like_number/;
 
-use SGX::Util qw/inherit_hash tuples car cdr list_values equal/;
+use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal/;
 use SGX::Abstract::Exception ();
 use SGX::Debug;
 
@@ -907,7 +907,7 @@ sub _head_column_def {
             ),
             map { $_->[0] } list_values( @{ $table_info->{lookup} } )
         ],
-        omitting => '__readonly__'
+        omitting => [ '__readonly__', '__special__' ]
       );
 
     my $js                   = $args{js_emitter};
@@ -1472,7 +1472,7 @@ sub _build_join {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  _buld_select_fields
+#       METHOD:  _build_select_fields
 #   PARAMETERS:  ????
 #      RETURNS:  hash: sql => alias
 #  DESCRIPTION:  Pull select fields from {view} of joined tables
@@ -1480,7 +1480,7 @@ sub _build_join {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub _buld_select_fields {
+sub _build_select_fields {
     my ( $self, $symbol2name, $table_alias => $cascade ) = @_;
 
     my ( $this_view, $this_meta ) = @$cascade{qw/view meta/};
@@ -1553,7 +1553,7 @@ sub _build_select {
 
     # SELECT
     my $select_hash =
-      $self->_buld_select_fields( $symbol2name, $table_alias => $cascade );
+      $self->_build_select_fields( $symbol2name, $table_alias => $cascade );
     push @query_components, 'SELECT ' . join(
         ',',
         map {
@@ -1625,6 +1625,7 @@ sub _readrow_command {
         $self->_select_fields(
             table    => $table_info,
             fieldset => 'base',
+            omitting => '__special__',
             dealias  => '__sql__'
         )
     );
@@ -1786,8 +1787,17 @@ sub _create_command {
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
-    my ( $key, $fields ) = @$table_info{qw/key base/};
+    my $key = $table_info->{key};
     return if defined $id and @$key < 2;
+    my $fields = [
+        $self->_select_fields(
+            table    => $table_info,
+            omitting => '__special__',
+            fieldset => 'base'
+        )
+    ];
+
+    #my ( $key, $fields ) = @$table_info{qw/key base/};
 
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
@@ -1801,14 +1811,7 @@ sub _create_command {
       ? ( $fields->[0], grep { defined $q->param($_) } cdr @$fields )
       : grep { defined $q->param($_) } @$fields;
 
-    my $assignment = join(
-        ',',
-        $self->_select_fields(
-            table    => $table_info,
-            fieldset => \@assigned_fields,
-            dealias  => '__sql__'
-        )
-    );
+    my $assignment = join( ',', @$fields );
     my $placeholders = join( ',', map { '?' } @assigned_fields );
     my $query = "INSERT INTO $table ($assignment) VALUES ($placeholders)";
     my $sth = eval { $dbh->prepare($query) } or do {
@@ -1917,24 +1920,36 @@ sub _select_fields {
       : ( $table_info->{$list} || [] );
 
     # step 1: omit filter
-    my $filter_on = $args{omitting};
-    my $filter    = ($filter_on)
-      ? sub {
-        grep { !defined( $meta->{$_} ) || !$meta->{$_}->{$filter_on} } @_;
-      }
-      : sub { @_ };
+    my $filter = sub {
+        my $filter_on = $args{omitting};
+        return ($filter_on)
+          ? (
+            ( ref $filter_on eq 'ARRAY' )
+            ? (
+                grep {
+                    my $this_meta = $meta->{$_};
+                    !defined($this_meta)
+                      || notp( @$this_meta{@$filter_on} )
+                  } @_
+              )
+            : grep { !defined( $meta->{$_} ) || !$meta->{$_}->{$filter_on} } @_
+          )
+          : @_;
+    };
 
     # step 2: dealias
-    my $dealias_on = $args{dealias};
-    my $dealias    = ($dealias_on)
-      ? sub {
-        map {
-                ( defined $meta->{$_} )
-              ? ( $meta->{$_}->{$dealias_on} || $_ )
-              : $_
-        } @_;
-      }
-      : sub { @_ };
+    my $dealias = sub {
+        my $dealias_on = $args{dealias};
+        return ($dealias_on)
+          ? (
+            map {
+                    ( defined $meta->{$_} )
+                  ? ( $meta->{$_}->{$dealias_on} || $_ )
+                  : $_
+              } @_
+          )
+          : @_;
+    };
 
     return $dealias->( $filter->(@$fields) );
 }
@@ -1958,16 +1973,19 @@ sub _meta_get_cgi {
     my $method = $meta->{__type__} || 'textfield';
     my $label  = $meta->{label}    || $symbol;
 
+    my %prefixes = (
+        textfield  => 'Enter',
+        textarea   => 'Enter',
+        popup_menu => 'Choose',
+        filefield  => '',
+    );
+
     return (
 
         # defaults
         -title => format_title(
-            (
-                  ( $method =~ m/^text/ ) ? 'Enter'
-                : ( ( $method eq 'popup_menu' ) ? 'Choose' : 'Set' )
-            )
-            . ' '
-              . $label
+            ( ( defined $prefixes{$method} ) ? $prefixes{$method} : 'Set' )
+            . " $label"
         ),
         (
               ( $meta->{__readonly__} && !$args{unlimited} )
@@ -2013,7 +2031,7 @@ sub _update_command {
       grep { defined $q->param($_) } $self->_select_fields(
         table    => $table_info,
         fieldset => 'base',
-        omitting => '__readonly__'
+        omitting => [ '__readonly__', '__special__' ]
       );
 
     my $assignment = join(
@@ -2304,7 +2322,14 @@ sub body_create_update_form {
                 'validate_fields',
                 [
                     sub { 'this' },
-                    [ $self->_select_fields( omitting => '__optional__' ) ]
+                    [
+                        $self->_select_fields(
+                            omitting => [
+                                '__optional__',
+                                ( $mode ne 'create' ) ? '__createonly__' : ()
+                            ]
+                        )
+                    ]
                 ]
             )
         ]

@@ -19,7 +19,7 @@ setupToggles({
 YAHOO.util.Event.addListener('main_form', 'submit', function() {
     // remove white space from the left and from the right, then replace each
     // internal group of spaces with a comma
-    var terms = document.getElementById("terms");
+    var terms = document.getElementById("q");
     terms.value = terms.value.replace(/^\s+/, "").replace(/\s+$/, "").replace(/[,\s]+/g, ",");
     return true;
 });

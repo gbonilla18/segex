@@ -5,7 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use SGX::Util qw/car bounds label_format/;
+use SGX::Util qw/car min max label_format/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  Graph
@@ -154,8 +154,7 @@ sub default_body {
     my ( $ytitle_text, $y_start, $middle_label ) = @{ $self->{_meta} };
     my ( $seqname,     $cutoff,  $cutoff_p )     = @{ $self->{_scc} };
 
-    my $title_text =
-      "$seqname Differential Expression: Probe $reporter_name";
+    my $title_text = "$seqname Differential Expression: Probe $reporter_name";
 
     #Set particulars for graph
     my $xl                   = 55;
@@ -180,7 +179,8 @@ sub default_body {
     my $bar_width =
       $body_width / ( @$y * ( 1 + $golden_ratio ) + $golden_ratio );
 
-    my ( $min_data, $max_data ) = bounds(@$y);
+    my $min_data = min( grep { defined } @$y );
+    my $max_data = max( grep { defined } @$y );
     $max_data = $cutoff  if $max_data < $cutoff;
     $min_data = -$cutoff if $min_data > -$cutoff;
 

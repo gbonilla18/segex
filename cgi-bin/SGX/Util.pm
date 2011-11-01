@@ -9,9 +9,9 @@ use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK =
-  qw/trim max min bounds label_format replace all_match count_gtzero
+  qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
-  equal bind_csv_handle/;
+  equal bind_csv_handle notp/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -55,6 +55,21 @@ sub all_match {
     return ( $args{ignore_undef} )
       ? sub { !defined || m/$regex/ || return for @_; return 1 }
       : sub { ( defined && m/$regex/ ) || return for @_; return 1 };
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  is_false
+#      PURPOSE:  
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  'not' predicate
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub notp {
+    !$_ || return for @_;
+    return 1;
 }
 
 #===  FUNCTION  ================================================================
@@ -150,21 +165,6 @@ sub replace {
     my ( $var, $match, $replacement ) = @_;
     $var =~ s/$match/$replacement/;
     return $var;
-}
-
-#===  FUNCTION  ================================================================
-#         NAME:  bounds
-#      PURPOSE:  returns the bounds of an array, ignoring undefined values
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub bounds {
-    my $defined_only = [ grep { defined } @_ ];
-    return ( min(@$defined_only), max(@$defined_only) );
 }
 
 #===  FUNCTION  ================================================================

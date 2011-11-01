@@ -74,12 +74,12 @@ sub new {
                         __type__     => 'popup_menu',
                         parser       => 'number',
                         __readonly__ => 1,
-                        __tie__      => [
-                            (
-                                looks_like_number( $q->param('pid') ) ? ()
-                                : ( platform => 'pid' )
-                            )
-                        ],
+                        #__tie__      => [
+                        #    (
+                        #        looks_like_number( $q->param('pid') ) ? ()
+                        #        : ( platform => 'pid' )
+                        #    )
+                        #],
                         __hidden__ => 1
                     }
                 },
