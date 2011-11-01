@@ -49,7 +49,7 @@ my @parser = (
 #===============================================================================
 sub new {
     my $class = shift;
-    my $self = $class->SUPER::new(@_);
+    my $self  = $class->SUPER::new(@_);
 
     my $dbh = $self->{_dbh};
 
@@ -369,7 +369,7 @@ END_TEXT2
 #     SEE ALSO:  n/a
 #===============================================================================
 sub uploadData {
-    my ($self, $inputField) = @_;
+    my ( $self, $inputField ) = @_;
 
     # upload data to new experiment
     my $recordsLoaded = 0;
@@ -385,7 +385,8 @@ sub uploadData {
     my $tmp = File::Temp->new( SUFFIX => '.txt', UNLINK => 1 );
     my $outputFileName = $tmp->filename();
 
-    my $recordsValid = eval { $self->sanitizeUploadFile($inputField, $outputFileName) } || 0;
+    my $recordsValid =
+      eval { $self->sanitizeUploadFile( $inputField, $outputFileName ) } || 0;
 
     if ( my $exception = $@ ) {
 
@@ -400,9 +401,8 @@ sub uploadData {
         }
     }
     elsif ( $recordsValid == 0 ) {
-        $self->add_message(
-            { -class => 'error' }, 'No valid records were uploaded.'
-        );
+        $self->add_message( { -class => 'error' },
+            'No valid records were uploaded.' );
     }
     else {
 
@@ -593,18 +593,19 @@ sub sanitizeUploadFile {
             input_header => 1,
             csv_in_opts  => { sep_char => "\t", allow_whitespace => 1 }
         );
-    } or do {
-        # In case of error, close files first and rethrow the exception
-        if ( my $exception = $@ ) {
-            close($OUTPUTTOSERVER);
-            $exception->throw();
-        }
-        elsif ( $recordsValid < 1 ) {
-            close($OUTPUTTOSERVER);
-            SGX::Exception::User->throw(
-                error => "No records found in input file\n" );
-        }
-    };
+    } || 0;
+
+    # In case of error, close files first and rethrow the exception
+    if ( my $exception = $@ ) {
+        close($OUTPUTTOSERVER);
+        $exception->throw();
+    }
+    elsif ( $recordsValid < 1 ) {
+        close($OUTPUTTOSERVER);
+        SGX::Exception::User->throw(
+            error => "No records found in input file\n" );
+    }
+
     $self->{_validRecords} = $recordsValid;
     close($OUTPUTTOSERVER);
 
