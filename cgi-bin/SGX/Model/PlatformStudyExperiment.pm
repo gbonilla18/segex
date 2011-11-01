@@ -3,8 +3,7 @@ package SGX::Model::PlatformStudyExperiment;
 use strict;
 use warnings;
 
-#use SGX::Debug qw/assert/;
-#use Data::Dumper;
+use SGX::Debug;
 use Hash::Merge qw/merge/;
 use SGX::Abstract::Exception ();
 

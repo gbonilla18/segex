@@ -1984,8 +1984,8 @@ sub _meta_get_cgi {
     my $meta   = shift || {};
     my %args   = @_;
 
-    my $method = $meta->{__type__} || 'textfield';
-    my $label  = $meta->{label}    || $symbol;
+    my $method    = $meta->{__type__}      || 'textfield';
+    my $label     = $meta->{label}         || $symbol;
 
     my %prefixes = (
         textfield  => 'Enter',
@@ -2246,6 +2246,7 @@ sub _js_populate_dropdowns {
     #---------------------------------------------------------------------------
     #  JS code
     #---------------------------------------------------------------------------
+
     push @$code, ''
       . $js->apply(
         'YAHOO.util.Event.addListener',
@@ -2423,7 +2424,9 @@ sub body_edit_fields {
         if ( $method eq 'checkbox' ) {
             push @tmp,
               (
-                $q->dt('&nbsp;') => $q->dd(
+                $q->dt( { -id => "${symbol}_dt" }, '&nbsp;' ),
+                $q->dd(
+                    { -id => "${symbol}_dd" },
                     $q->hidden( -name => $symbol, -value => '0' ),
                     $q->$method(
                         -label => $label,
@@ -2450,50 +2453,59 @@ sub body_edit_fields {
             }
             push @tmp,
               (
-                $q->dt( { -class => $label_class },
-                    $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
+                $q->dt(
+                    { -id => "${symbol}_dt", -class => $label_class },
+                    $q->label( { -for => $symbol }, "$label:" )
+                ),
+                $q->dd(
+                    { -id => "${symbol}_dd" },
                     $q->$method(
                         -values  => \@values,
                         -labels  => \%labels,
                         -default => $id_data->{$symbol},
                         %cgi_meta
                     )
-                    )
+                )
               );
         }
         else {
             push @tmp,
               (
-                $q->dt( { -class => $label_class },
-                    $q->label( { -for => $symbol }, "$label:" ) ) => $q->dd(
+                $q->dt(
+                    { -id => "${symbol}_dt", -class => $label_class },
+                    $q->label( { -for => $symbol }, "$label:" )
+                ),
+                $q->dd(
+                    { -id => "${symbol}_dd" },
                     $q->$method(
                         -value => $id_data->{$symbol},
                         %cgi_meta
                     )
-                    )
+                )
               );
             if ( $unlimited_mode && $meta->{__confirm__} ) {
                 my $suffix = '_confirm';
                 push @tmp,
                   (
                     $q->dt(
-                        { -class => $label_class },
+                        { -id => "${symbol}_dt", -class => $label_class },
                         $q->label(
                             { -for => $symbol . $suffix },
                             "Confirm $label:"
                         )
-                      ) => $q->dd(
+                    ),
+                    $q->dd(
+                        { -id => "${symbol}_dd" },
                         $q->$method(
                             %cgi_meta,
                             -id    => $cgi_meta{-id} . $suffix,
                             -title => $cgi_meta{-title}
                               . ' Again to Prevent Typos'
                         )
-                      )
+                    )
                   );
             }
         }
-
     }
     return @tmp;
 }

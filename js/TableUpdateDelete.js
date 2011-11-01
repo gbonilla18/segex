@@ -425,7 +425,6 @@ function populateDropdowns(lookupTables, lookup, data) {
                 var selected = val.selected;
                 var tuples = val.options;
                 var tuples_length = tuples.length;
-
                 // default width
                 if (tuples_length === 0) {
                     obj.style.width = '200px';

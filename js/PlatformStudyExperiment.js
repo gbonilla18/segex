@@ -122,19 +122,21 @@ function populatePlatformStudy()
 
     // now add new ones
     var pid = getSelectedValue(platforms);
-    if (typeof pid !== 'undefined') {
-        var study_data = PlatfStudyExp[pid].studies;
+    var study_data = 
+          (typeof pid !== 'undefined' 
+        && typeof PlatfStudyExp[pid] !== 'undefined') 
+        ? PlatfStudyExp[pid].studies 
+        : {};
 
-        // sort by study id
-        var tuples = [];
-        for (var i in study_data) {
-            var content = study_data[i].name;
-            tuples.push([i, content]);
-        }
-        sortNestedByColumn(tuples, 1);
-
-        buildDropDown(studies, tuples, study.selected, oldWidth);
+    // sort by study id
+    var tuples = [];
+    for (var i in study_data) {
+        var content = study_data[i].name;
+        tuples.push([i, content]);
     }
+    sortNestedByColumn(tuples, 1);
+
+    buildDropDown(studies, tuples, study.selected, oldWidth);
 }
 /******************************************************************/
 function populateStudyExperiment()

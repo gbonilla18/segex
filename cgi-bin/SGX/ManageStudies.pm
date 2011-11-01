@@ -74,6 +74,7 @@ sub new {
                         __type__     => 'popup_menu',
                         parser       => 'number',
                         __readonly__ => 1,
+
                         #__tie__      => [
                         #    (
                         #        looks_like_number( $q->param('pid') ) ? ()
@@ -85,7 +86,8 @@ sub new {
                 },
                 lookup => [
                     (
-                        looks_like_number( $q->param('pid') ) ? ()
+                        looks_like_number( $q->param('pid') )
+                        ? ()
                         : ( platform => [ pid => 'pid' ] )
                     )
                 ],
@@ -163,7 +165,7 @@ sub new {
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -451,7 +453,7 @@ sub get_pse_dropdown_js {
                 'platform' => {
                     elementId => 'pid',
                     element   => undef,
-                    selected  => ( defined $pid ) ? { $pid => undef } : {}
+                    selected  => ( ( defined $pid ) ? { $pid => undef } : {} )
                 },
                 (
                     ( $args{studies} )
@@ -459,9 +461,11 @@ sub get_pse_dropdown_js {
                         'study' => {
                             elementId => 'stid',
                             element   => undef,
-                            selected  => ( defined $stid )
-                            ? { $stid => undef }
-                            : {}
+                            selected  => (
+                                  ( defined $stid )
+                                ? { $stid => undef }
+                                : {}
+                            )
                         }
                       )
                     : ()

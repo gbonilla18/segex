@@ -95,7 +95,7 @@ sub new {
                 resource => 'experiments',
                 base     => [
                     qw/sample1 sample2 ExperimentDescription
-                      AdditionalInformation pid file/
+                      AdditionalInformation pid stid file/
                 ],
 
                 # table key to the left, URI param to the right
@@ -150,6 +150,16 @@ sub new {
                         #],
                         __readonly__ => 1,
                         __hidden__   => 1
+                    },
+                    stid => {
+                        label          => 'Study',
+                        parser         => 'number',
+                        __type__       => 'popup_menu',
+                        -multiple      => 'multiple',
+                        -size          => 7,
+                        __special__    => 1,
+                        __optional__   => 1,
+                        __createonly__ => 1
                     }
                 },
                 lookup => [
@@ -165,7 +175,10 @@ sub new {
 
                         # No need to display platform column if specific
                         # platform is requested.
-                        looks_like_number( $q->param('pid') )
+                        (
+                            looks_like_number( $q->param('pid') )
+                              && !$self->get_dispatch_action() eq 'form_create'
+                        )
                         ? ()
                         : ( 'platform' => [ 'pid' => 'pid' ] )
                     )
@@ -229,6 +242,74 @@ sub init {
         }
     );
     return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  set_id_data
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub set_id_data {
+    my $self = shift;
+    my $pid_from_stid;
+    my $q       = $self->{_cgi};
+    my $id_data = $self->{_id_data} || {};
+    my $stid    = $q->param('stid');
+    my $pse     = $self->{_PlatformStudyExperiment};
+    $pid_from_stid = $pse->getPlatformFromStudy($stid)
+      if defined $stid;
+    my $pid = $id_data->{pid};
+    $pid = (
+        ( defined $stid )
+        ? $pid_from_stid
+        : $q->param('pid')
+    ) if not defined $pid;
+    $stid = undef if defined($pid_from_stid) and $pid_from_stid ne $pid;
+    $self->{_id_data}->{stid} = $stid;
+    $self->{_id_data}->{pid}  = $pid;
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  form_create_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides SGX::CRUD::form_create_head
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub form_create_head {
+    my $self = shift;
+    my ( $js, $js_buffer ) = @$self{qw/_js_emitter _js_buffer/};
+
+    my $code = $self->get_pse_dropdown_js(
+
+        # default: show all studies or studies for a specific platform
+        platforms         => undef,
+        platform_by_study => 1,
+        studies           => 1
+    );
+    $self->SUPER::form_create_head();
+
+    # add platform dropdown
+    push @{ $self->{_js_src_code} }, { -src => 'PlatformStudyExperiment.js' };
+
+    push @$js_buffer, <<"END_SETUPTOGGLES";
+setupToggles(
+    { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
+    function(el) { return ((getSelectedValue(el) !== '') ? 'defined' : ''); }
+);
+$code
+END_SETUPTOGGLES
+
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -494,13 +575,14 @@ sub get_pse_dropdown_js {
         platforms => 1,
         %args
     );
+    $self->set_id_data();
 
     my ( $q, $js ) = @$self{qw/_cgi _js_emitter/};
 
     # If a study is set, use the corresponding platform while ignoring the
     # platform parameter.
-    my $pid = $self->{_id_data}->{pid};
-    $pid = $q->param('pid') unless defined $pid;
+    my $pid  = $self->{_id_data}->{pid};
+    my $stid = $self->{_id_data}->{stid};
 
     return $js->let(
         [
@@ -510,7 +592,7 @@ sub get_pse_dropdown_js {
                 'platform' => {
                     elementId => 'pid',
                     element   => undef,
-                    selected  => ( defined $pid ) ? { $pid => undef } : {}
+                    selected  => ( ( defined $pid ) ? { $pid => undef } : {} )
                 },
                 (
                     ( $args{studies} )
@@ -518,7 +600,11 @@ sub get_pse_dropdown_js {
                         'study' => {
                             elementId => 'stid',
                             element   => undef,
-                            selected  => {}
+                            selected  => (
+                                  ( defined $stid )
+                                ? { $stid => undef }
+                                : {}
+                            )
                         }
                       )
                     : ()
@@ -545,8 +631,13 @@ sub get_pse_dropdown_js {
             'load',
             $js->lambda(
                 [],
-                $js->apply(
-                    'populatePlatform.apply', [ sub { 'currentSelection' } ],
+                (
+                    ( $args{platforms} )
+                    ? $js->apply(
+                        'populatePlatform.apply',
+                        [ sub { 'currentSelection' } ],
+                      )
+                    : ()
                 ),
                 (
                     ( $args{studies} )

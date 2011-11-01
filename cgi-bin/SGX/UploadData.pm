@@ -399,117 +399,120 @@ sub uploadData {
         else {
             $exception->throw();
         }
+        return 0;
     }
     elsif ( $recordsValid == 0 ) {
         $self->add_message( { -class => 'error' },
             'No valid records were uploaded.' );
+        return 0;
     }
-    else {
 
-        # some valid records uploaded -- now load to the database
-        my $dbh = $self->{_dbh};
+    # some valid records uploaded -- now load to the database
+    my $dbh = $self->{_dbh};
 
-        # turn off auto-commit to allow rollback; cache old value
-        my $old_AutoCommit = $dbh->{AutoCommit};
-        $dbh->{AutoCommit} = 0;
+    # turn off auto-commit to allow rollback; cache old value
+    my $old_AutoCommit = $dbh->{AutoCommit};
+    $dbh->{AutoCommit} = 0;
 
-        # prepare SQL statements (all prepare errors are fatal)
-        my $sth_hash = $self->loadToDatabase_prepare();
+    # prepare SQL statements (all prepare errors are fatal)
+    my $sth_hash = $self->loadToDatabase_prepare();
 
-        # execute SQL statements (catch some errors)
-        $recordsLoaded =
-          eval { $self->loadToDatabase_execute( $sth_hash, $outputFileName ) }
-          || 0;
+    # execute SQL statements (catch some errors)
+    $recordsLoaded =
+      eval { $self->loadToDatabase_execute( $sth_hash, $outputFileName ) }
+      || 0;
 
-        if ( my $exception = $@ ) {
-            $dbh->rollback;
-            $self->loadToDatabase_finish($sth_hash);
+    if ( my $exception = $@ ) {
+        $dbh->rollback;
+        $self->loadToDatabase_finish($sth_hash);
 
-            if ( $exception->isa('SGX::Exception::User') ) {
+        if ( $exception->isa('SGX::Exception::User') ) {
 
-                # Catch User exceptions
-                $self->add_message(
-                    { -class => 'error' },
-                    sprintf(
-                        <<"END_User_exception",
+            # Catch User exceptions
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    <<"END_User_exception",
 Error loading data into the database:\n\n%s\n
 No changes to the database were stored.
 END_User_exception
-                        $exception->error
-                    )
-                );
-            }
-            elsif ( $exception->isa('Exception::Class::DBI::STH') ) {
+                    $exception->error
+                )
+            );
+        }
+        elsif ( $exception->isa('Exception::Class::DBI::STH') ) {
 
-                # Catch DBI::STH exceptions. Note: this block catches duplicate
-                # key record exceptions.
-                $self->add_message(
-                    { -class => 'error' },
-                    sprintf(
-                        <<"END_DBI_STH_exception",
+            # Catch DBI::STH exceptions. Note: this block catches duplicate
+            # key record exceptions.
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    <<"END_DBI_STH_exception",
 Error loading data into the database. The database response was:\n\n%s\n
 No changes to the database were stored.
 END_DBI_STH_exception
-                        $exception->error
-                    )
-                );
-            }
-            else {
-
-                # Rethrow Internal and other types of exceptions.
-                $exception->throw();
-            }
-        }
-        elsif ( $recordsLoaded == 0 ) {
-            $dbh->rollback;
-            $self->loadToDatabase_finish($sth_hash);
-            $self->add_message( { -class => 'error' },
-                'Failed to add data to the database.' );
+                    $exception->error
+                )
+            );
         }
         else {
-            $dbh->commit;
-            $self->loadToDatabase_finish($sth_hash);
 
-            my $totalProbes = $self->probesPerPlatform();
-            if ( $recordsLoaded == $totalProbes ) {
-                $self->add_message(
-                    sprintf(
-                        <<"END_FULL_SUCCESS",
+            # Rethrow Internal and other types of exceptions.
+            $exception->throw();
+        }
+    }
+    elsif ( $recordsLoaded == 0 ) {
+        $dbh->rollback;
+        $self->loadToDatabase_finish($sth_hash);
+        $self->add_message( { -class => 'error' },
+            'Failed to add data to the database.' );
+    }
+    else {
+        $dbh->commit;
+        $self->loadToDatabase_finish($sth_hash);
+
+        my $totalProbes = $self->probesPerPlatform();
+        if ( $recordsLoaded == $totalProbes ) {
+            $self->add_message(
+                sprintf(
+                    <<"END_FULL_SUCCESS",
 Success! Data for all %d probes from the selected platform 
 were added to the database.
 END_FULL_SUCCESS
-                        $recordsLoaded
-                    )
-                );
-            }
-            elsif ( $recordsLoaded < $totalProbes ) {
-                $self->add_message(
-                    sprintf(
-                        <<"END_PARTIAL_SUCCESS",
+                    $recordsLoaded
+                )
+            );
+        }
+        elsif ( $recordsLoaded < $totalProbes ) {
+            $self->add_message(
+                sprintf(
+                    <<"END_PARTIAL_SUCCESS",
 You added data for %d probes out of total %d in the selected platform
 (no data were added for %d probes).
 END_PARTIAL_SUCCESS
-                        $recordsLoaded,
-                        $totalProbes,
-                        $totalProbes - $recordsLoaded
-                    )
-                );
-            }
-            else {
-
-                # shouldn't happen
-                SGX::Exception::Internal->throw(
-                    error => sprintf(
-                        "Platform contains %d probes but %d were loaded\n",
-                        $totalProbes, $recordsLoaded
-                    )
-                );
-            }
+                    $recordsLoaded,
+                    $totalProbes,
+                    $totalProbes - $recordsLoaded
+                )
+            );
         }
+        else {
 
-        # restore old value of AutoCommit
-        $dbh->{AutoCommit} = $old_AutoCommit;
+            # restore old value of AutoCommit
+            $dbh->{AutoCommit} = $old_AutoCommit;
+
+            # shouldn't happen
+            SGX::Exception::Internal->throw(
+                error => sprintf(
+                    "Platform contains %d probes but %d were loaded\n",
+                    $totalProbes, $recordsLoaded
+                )
+            );
+        }
     }
+
+    # restore old value of AutoCommit
+    $dbh->{AutoCommit} = $old_AutoCommit;
     return $recordsLoaded;
 }
 
