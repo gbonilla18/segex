@@ -419,7 +419,7 @@ sub getResultsJS {
 
        # if $q->param('upload_file') is not set, all other fields in Upload File
        # subsection don't matter
-       #assert( !$q->param('terms') );
+       #assert( !$q->param('q') );
         my $findProbes = SGX::FindProbes->new(
             _dbh         => $dbh,
             _cgi         => $q,
@@ -452,7 +452,7 @@ sub getResultsJS {
     }
     elsif ( $q->param('q') ) {
 
-        # if $q->param('terms') is not set, all other fields in Filter List
+        # if $q->param('q') is not set, all other fields in Filter List
         # subsection don't matter
         my $findProbes = SGX::FindProbes->new(
             _dbh         => $dbh,

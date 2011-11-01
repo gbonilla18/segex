@@ -883,7 +883,7 @@ sub displayTFSInfo {
                 -title  => 'Find all %1$ss related to %1$s {0}',
                 -target => '_blank',
                 -href   => $self->url( -absolute => 1 )
-                  . '?a=findProbes&b=Search&match=full&graph=on&type=%1$s&terms={0}',
+                  . '?a=findProbes&b=Search&match=full&graph=on&type=%1$s&q={0}',
             },
             '{0}'
         );

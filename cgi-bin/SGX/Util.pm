@@ -8,8 +8,7 @@ use SGX::Debug;
 use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 
-our @EXPORT_OK =
-  qw/trim max min label_format replace all_match count_gtzero
+our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
   equal bind_csv_handle notp/;
 
@@ -59,7 +58,7 @@ sub all_match {
 
 #===  FUNCTION  ================================================================
 #         NAME:  is_false
-#      PURPOSE:  
+#      PURPOSE:
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  'not' predicate
@@ -223,10 +222,10 @@ sub label_format {
 #===============================================================================
 sub trim {
     my $string = shift;
-
-    $string =~ s/^\s*//;
-    $string =~ s/\s*$//;
-
+    if ( defined $string ) {
+        $string =~ s/^\s*//;
+        $string =~ s/\s*$//;
+    }
     return $string;
 }
 

@@ -276,9 +276,8 @@ END_TEXT1
       $q->pre(
         'Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'),
       $q->p(<<"END_TEXT2"),
-The first column can be either a number or a string; the remaining five columns
-must be numeric.  Make sure the first row in the file contains a header (actual
-data should start with the second row).
+Probe names can be either numbers or strings; all other fields must be numeric.
+The first row in the file must be a header row and the actual data should start with the second row.
 END_TEXT2
       $q->dl(
         $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
