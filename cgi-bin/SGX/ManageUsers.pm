@@ -51,7 +51,7 @@ sub new {
                             my ($email_handle) = Email::Address->parse($value);
                             SGX::Exception::User->throw( error =>
 "Could not parse email address from string '$value'"
-                            ) if not defined $email_handle;
+                            ) unless defined $email_handle;
                             return $email_handle->address;
                           }
                     },

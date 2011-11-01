@@ -64,7 +64,7 @@ sub static_auth {
 
     # first argument: scalar
     my $current_level = shift;
-    $current_level = 'anonym' if not defined $current_level;
+    $current_level = 'anonym' unless defined $current_level;
 
     # second argument: tuple or scalar
     my $req_user_level = shift;
@@ -953,7 +953,7 @@ sub is_authorized {
     my ( $self, $req_user_level ) = @_;
 
     # do not authorize if request level is undefined
-    return if not defined $req_user_level;
+    return unless defined $req_user_level;
 
     # otherwise we need session information to compare requested permission
     # level with the current one.

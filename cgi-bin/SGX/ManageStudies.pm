@@ -277,7 +277,7 @@ sub default_body {
 #===============================================================================
 sub form_assign_head {
     my $self = shift;
-    return if not defined $self->{_id};    # _id must be present
+    return unless defined $self->{_id};    # _id must be present
     $self->_readrow_command()->();
 
     push @{ $self->{_js_src_code} },

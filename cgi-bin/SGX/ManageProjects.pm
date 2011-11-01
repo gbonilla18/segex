@@ -211,7 +211,7 @@ sub default_body {
 #===============================================================================
 sub form_assign_head {
     my $self = shift;
-    return if not defined $self->{_id};    # _id must be present
+    return unless defined $self->{_id};    # _id must be present
     $self->_readrow_command()->();
 
     push @{ $self->{_js_src_code} },
@@ -363,7 +363,7 @@ sub get_pse_dropdown_js {
 
     my $q    = $self->{_cgi};
     my $prid = $self->{_id};
-    $prid = $q->param('prid') if not defined $prid;
+    $prid = $q->param('prid') unless defined $prid;
 
     return $js->let(
         [

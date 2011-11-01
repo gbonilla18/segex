@@ -163,7 +163,7 @@ sub FindProbes_init {
     $self->{_trans} = $q->param('trans');
 
     my $match = $q->param('match');
-    $match = 'full' if not defined $match;
+    $match = 'full' unless defined $match;
 
     my @textSplit;
 
@@ -1127,8 +1127,8 @@ sub findProbes_js {
     $self->build_InsideTableQuery();
 
     my ( $opts, $trans ) = @$self{qw/_opts _trans/};
-    $opts  = 'full' if not defined $opts;
-    $trans = 'fold' if not defined $trans;
+    $opts  = 'full' unless defined $opts;
+    $trans = 'fold' unless defined $trans;
 
     $self->build_ProbeQuery( extra_fields => $opts );
 

@@ -189,7 +189,7 @@ sub _head_data_table {
     #  Find out which field is key field -- createResourceURIBuilder
     #  (Javascript) needs this.
     #---------------------------------------------------------------------------
-    $table = $self->{_default_table} if not defined($table);
+    $table = $self->{_default_table} unless defined $table;
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{$table};
     my ( $this_keys, $this_join, $this_name_symbols, $this_resource ) =
@@ -197,7 +197,7 @@ sub _head_data_table {
     my ( $this_meta, $this_view ) = @$self{qw/_this_meta _this_view/};
     my %resource_extra = (
         ( map { $_ => $_ } @$this_keys[ 1 .. $#$this_keys ] ),
-        ( (@$this_keys) ? ( id => $this_keys->[0] ) : () )
+        ( @$this_keys ? ( id => $this_keys->[0] ) : () )
     );
 
     #---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ sub _head_data_table {
     my $lookupTables = $self->{_js_env}->{lookupTables};
 
     my $column = $self->_head_column_def(
-        table                => $table,
+        table_info           => $table_info,
         js_emitter           => $js,
         data_table           => $var->{data},
         cell_updater         => $var->{cellUpdater},
@@ -414,11 +414,11 @@ sub _head_data_table {
                 [
                     {
                         caption => 'Showing all Studies',
-                        records => $self->getJSRecords(),
-                        headers => $self->getJSHeaders(),
+                        records => $self->getJSRecords($table_info),
+                        headers => $self->getJSHeaders(), # parametrize by table
                         fields  => [ keys %$s2n ],
-                        meta    => $self->_export_meta($this_meta),
-                        lookup  => $self->{_this_lookup}
+                        meta   => $self->_export_meta($this_meta),
+                        lookup => $self->{_this_lookup}
                     },
                     $self->{_js_env}->{lookupTables}
                 ]
@@ -429,8 +429,10 @@ sub _head_data_table {
       . $js->apply(
         'YAHOO.util.Event.addListener',
         [
-            $self->{dom_export_link_id},  'click',
-            $js->literal('export_table'), $var->{data},
+            $self->{dom_export_link_id},
+            'click',
+            $js->literal('export_table'),
+            $var->{data},
             $js->true
         ]
       )
@@ -532,7 +534,7 @@ sub _js_dump_lookups {
 #===============================================================================
 #sub _get_lookup {
 #    my ($table_info, $field_list) = @_;
-#    $table_info->{lookup} = [] if not defined $table_info->{lookup};
+#    $table_info->{lookup} = [] unless defined $table_info->{lookup};
 #    my ($fields_meta) = @$table_info{qw/meta/};
 #
 #    my $table_lookup = [];
@@ -563,7 +565,7 @@ sub _js_dump_lookups {
 #===============================================================================
 sub _export_meta {
     my ( $self, $meta ) = @_;
-    $meta = {} if not defined $meta;
+    $meta = {} unless defined $meta;
     my %export_meta;
     while ( my ( $key, $value ) = each %$meta ) {
         my %export_value;
@@ -642,7 +644,7 @@ sub generate_datatable {
 
     SGX::Exception::Internal->throw(
         error => "Missing definition for table `$table`" )
-      if not defined $table_info;
+      unless defined $table_info;
 
     $self->_readall_command($table)->();
 
@@ -890,15 +892,10 @@ sub _head_column_def {
     my ( $self, %args ) = @_;
     my $_other = $self->{_other};
 
-    # make a hash of mutable columns
-    my $table =
-      ( defined( $args{table} ) && $args{table} ne '' )
-      ? $args{table}
-      : $self->{_default_table};
-
     my $table_defs = $self->{_table_defs};
-    my $table_info = $table_defs->{$table};
-    my $meta       = $table_info->{meta};
+    my $table_info = $self->{table_info}
+      || $table_defs->{ $self->{_default_table} };
+    my $meta = $table_info->{meta};
 
     my %mutable =
       map { $_ => 1 } $self->_select_fields(
@@ -1064,13 +1061,17 @@ sub _head_column_def {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getJSRecords {
+    my $self = shift;
+    my $table = shift || $self->{_default_table};
 
-    # :TODO:09/18/2011 15:43:56:es: parametrize this by table
-    #
-    my ( $self, $table ) = @_;
-    $table = $self->{_default_table} if not defined $table;
-    my $key = $self->{_table_defs}->{$table}->{key}->[0];
+    my $table_info =
+      ( ref $table eq 'HASH' )
+      ? $table
+      : ( $self->{_table_defs}->{$table} || {} );
 
+    my $key = $table_info->{key}->[0];
+
+    # :TODO:10/26/2011 11:14:13:es: parametrize data by table
     # declare data sources and options
     my $data = $self->{_this_data};    # data source
 
@@ -1096,6 +1097,8 @@ sub getJSRecords {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getJSHeaders {
+
+    # :TODO:10/26/2011 11:13:53:es: parametrize this by table
     my $self = shift;
     return $self->{_this_index2name};
 }
@@ -1163,8 +1166,8 @@ sub _lookup_prepare {
 
         # fields below will be exported to JS
         $_other->{$lookup_table_alias} = {}
-          if not defined( $_other->{$lookup_table_alias} );
-        my $js_store = ( $_other->{$lookup_table_alias} );
+          unless defined $_other->{$lookup_table_alias};
+        my $js_store = $_other->{$lookup_table_alias};
         $js_store->{symbol2name} = $other_select_fields;
         $js_store->{symbol2index} =
           _symbol2index_from_symbol2name($other_select_fields);
@@ -1213,15 +1216,12 @@ sub _lookup_execute {
 #===============================================================================
 sub _readall_command {
     my ( $self, $table_alias ) = @_;
+    $table_alias = $self->{_default_table} unless $table_alias;
+    return unless defined $table_alias;
 
     my ( $dbh, $q, $table_defs ) = @$self{qw{_dbh _cgi _table_defs}};
-
-    my $default_table = $self->{_default_table};
-    $table_alias = $default_table if not $table_alias;
-    return if not defined $table_alias;
-
     my $table_info = $table_defs->{$table_alias};
-    return if not $table_info;
+    return unless $table_info;
 
     my ( $key, $this_meta, $this_view ) = @$table_info{qw/key meta view/};
 
@@ -1603,15 +1603,13 @@ sub _build_select {
 #===============================================================================
 sub _readrow_command {
     my ( $self, $table_alias ) = @_;
-    return if not defined $self->{_id};
+    return unless defined $self->{_id};
+    $table_alias = $self->{_default_table} unless $table_alias;
+    return unless defined $table_alias;
 
     my ( $dbh, $q, $table_defs ) = @$self{qw{_dbh _cgi _table_defs}};
-    my $default_table = $self->{_default_table};
-    $table_alias = $default_table if not $table_alias;
-    return if not defined $table_alias;
-
     my $table_info = $table_defs->{$table_alias};
-    return if not $table_info;
+    return unless $table_info;
 
     my @key = $self->_select_fields(
         table    => $table_info,
@@ -1671,13 +1669,13 @@ sub _readrow_command {
 sub _delete_command {
     my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
-    my $table = $q->param('table');
-    $table = $self->{_default_table}
-      if ( !defined($table) || $table eq '' );
-    return if not defined $table;
+    my $table = car( $q->param('table') ) || $self->{_default_table};
+    return unless defined $table;
 
+  # :TODO:10/26/2011 11:22:52:es: check whether $table or $table_alias should be
+  # used here
     my $table_info = $self->{_table_defs}->{$table};
-    return if not $table_info;
+    return unless $table_info;
 
     my @key = $self->_select_fields(
         table    => $table_info,
@@ -1718,11 +1716,13 @@ sub _delete_command {
 sub _assign_command {
     my ($self) = @_;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
-    my $table = $q->param('table');
-    return if not defined $table;
+    my $table = car $q->param('table');
+    return unless defined $table;
 
+    # :TODO:10/26/2011 11:23:21:es: check whether $table or $table_alias
+    # should be used here
     my $table_info = $self->{_table_defs}->{$table};
-    return if not $table_info;
+    return unless $table_info;
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
@@ -1776,12 +1776,11 @@ sub _assign_command {
 sub _create_command {
     my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
-    my $table = $q->param('table');
-    $table = $self->{_default_table} if not defined $table;
-    return if not defined $table;
+    my $table = car( $q->param('table') ) || $self->{_default_table};
+    return unless defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};
-    return if not $table_info;
+    return unless $table_info;
 
     my $id = $self->{_id};
 
@@ -1996,16 +1995,15 @@ sub _meta_get_cgi {
 sub _update_command {
     my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
-    my $table = $q->param('table');
+    my $table = car( $q->param('table') ) || $self->{_default_table};
 
     # :TODO:09/15/2011 13:22:27:es:  fix this: there should be two default
     # tables, one when {_id} is not set, and one when it is set.
     #
-    $table = $self->{_default_table} if not defined $table;
-    return if not defined $table;
+    return unless defined $table;
 
     my $table_info = $self->{_table_defs}->{$table};
-    return if not $table_info;
+    return unless $table_info;
 
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we

@@ -225,8 +225,8 @@ sub get_dispatch_action {
     # data.
     my $q = $self->{_cgi};
     $action = $q->url_param('b');
-    $action = $q->param('b') if not defined $action;
-    $action = '' if not defined $action;
+    $action = $q->param('b') unless defined $action;
+    $action = '' unless defined $action;
     $self->set_action($action);
     return $action;
 }
