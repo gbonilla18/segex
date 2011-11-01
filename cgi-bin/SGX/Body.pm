@@ -182,7 +182,7 @@ sub cgi_start_html {
             $q->Link(
                 {
                     -type => 'image/x-icon',
-                    -href => IMAGES_DIR . '/favicon.ico',
+                    -href => IMAGES_DIR . '/favicon2.ico',
                     -rel  => 'icon'
                 }
             ),
@@ -222,8 +222,8 @@ sub content_header {
                 $q->img(
                     {
                         src    => IMAGES_DIR . '/logo.png',
-                        width  => 448,
-                        height => 108,
+                        width  => 212,
+                        height => 80,
                         alt    => 'Segex',
                         title  => 'Segex'
                     }
@@ -276,9 +276,13 @@ sub build_sidemenu {
         my $proj_name = $obj->get_volatile('session_cookie')->{proj_name};
         my $curr_proj = $obj->get_volatile('session_cookie')->{curr_proj};
         if ( defined($curr_proj) and $curr_proj ne '' ) {
-            $proj_name =
-              $q->a( { -href => "$url_prefix?a=projects&id=$curr_proj" },
-                $proj_name );
+            $proj_name = $q->a(
+                {
+                    -href  => "$url_prefix?a=projects&id=$curr_proj",
+                    -title => 'View studies assigned to this project'
+                },
+                $proj_name
+            );
         }
         else {
             $proj_name = '@All Projects';
@@ -288,33 +292,38 @@ sub build_sidemenu {
         push @menu,
           $q->span(
             { -style => 'color:#999' },
-            'Logged in as ' . $obj->get_volatile('session_cookie')->{full_name}
+            'Logged in as: '
+              . $q->a(
+                {
+                    -href  => "$url_prefix?a=profile",
+                    -title => 'My Profile'
+                },
+                $obj->get_volatile('session_cookie')->{full_name}
+              )
+              . ' ('
+              . $q->a(
+                {
+                    -href  => "$url_prefix?a=profile&b=logout",
+                    -title => 'You are signed in as '
+                      . $obj->get_volatile('session_stash')->{username}
+                      . '. Click on this link to log out.'
+                },
+                'log out'
+              )
+              . ')'
           );
         push @menu,
           $q->span(
             { -style => 'color:#999' },
             "Current Project: $proj_name ("
-              . $q->a( { -href => "$url_prefix?a=profile&b=chooseProject" },
-                'change' )
+              . $q->a(
+                {
+                    -href  => "$url_prefix?a=profile&b=chooseProject",
+                    -title => 'Change current project'
+                },
+                'change'
+              )
               . ')'
-          );
-        push @menu,
-          $q->a(
-            {
-                -href  => "$url_prefix?a=profile",
-                -title => 'My user profile.'
-            },
-            'My Profile'
-          )
-          . $q->span( { -class => 'separator' }, ' / ' )
-          . $q->a(
-            {
-                -href  => "$url_prefix?a=profile&b=logout",
-                -title => 'You are signed in as '
-                  . $obj->get_volatile('session_stash')->{username}
-                  . '. Click on this link to log out.'
-            },
-            'Log out'
           );
     }
     else {
@@ -338,21 +347,24 @@ sub build_sidemenu {
           );
     }
     push @menu,
-      $q->a(
-        {
-            -href  => "$url_prefix?b=about",
-            -title => 'About this site'
-        },
-        'About'
-      );
-    push @menu,
-      $q->a(
-        {
-            -href   => "$url_prefix?b=help",
-            -title  => 'Help pages',
-            -target => 'new'
-        },
-        'Help'
+      $q->span(
+        { -style => 'color:#999' },
+        $q->a(
+            {
+                -href  => "$url_prefix?b=about",
+                -title => 'About this site'
+            },
+            'About'
+          )
+          . ' / '
+          . $q->a(
+            {
+                -href   => "$url_prefix?b=help",
+                -title  => 'Help pages',
+                -target => 'new'
+            },
+            'Help'
+          )
       );
     return \@menu;
 }
