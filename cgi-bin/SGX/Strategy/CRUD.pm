@@ -1856,12 +1856,18 @@ sub _get_param_values {
         }
         else {
             my $label = $this_meta->{label} || $param;
-            if ( $mode eq 'create' && $this_meta->{__confirm__} ) {
-                SGX::Exception::User->throw(
-                    error => "You need to enter the same $label value twice" )
-                  if @result < 2
-                      or not equal @result;
-            }
+
+            # confirmation-specific check (when the same field has to be typed
+            # in twice by the user).
+            SGX::Exception::User->throw(
+                error => "You need to enter the same $label value twice" )
+              if (
+                   $this_meta->{__confirm__}
+                && $mode eq 'create'
+                && ( @result < 2
+                    || !equal(@result) )
+              );
+
             return _process_val( $label => $this_meta, car(@result) );
         }
     };
@@ -1893,7 +1899,9 @@ sub _process_val {
     if ( my $encoder = $this_meta->{__encode__} ) {
         return $encoder->($val);
     }
-    return $val;
+    else {
+        return $val;
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -2295,8 +2303,7 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
-      ),
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) ) ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]

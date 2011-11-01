@@ -121,7 +121,7 @@ sub new {
                         ],
                         __optional__ => 1
                     },
-                    udate => { label => 'Date Created', }
+                    udate => { label => 'Date Created', __readonly__ => 1 }
                 },
             }
         },
