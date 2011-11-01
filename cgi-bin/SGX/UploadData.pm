@@ -48,9 +48,8 @@ my @parser = (
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, @param ) = @_;
-
-    my $self = $class->SUPER::new(@param);
+    my $class = shift;
+    my $self = $class->SUPER::new(@_);
 
     my $dbh = $self->{_dbh};
 
@@ -116,10 +115,10 @@ sub init {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub Upload_head {
-    my ($self) = @_;
+    my $self = shift;
     my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-    $self->uploadData();
+    $self->uploadData('file');
 
     $self->add_message(
         'The uploaded data were placed in a new experiment under: '
@@ -151,7 +150,7 @@ sub Upload_head {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_head {
-    my ($self) = @_;
+    my $self = shift;
     my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
     my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
 
@@ -370,7 +369,7 @@ END_TEXT2
 #     SEE ALSO:  n/a
 #===============================================================================
 sub uploadData {
-    my $self = shift;
+    my ($self, $inputField) = @_;
 
     # upload data to new experiment
     my $recordsLoaded = 0;
@@ -386,7 +385,7 @@ sub uploadData {
     my $tmp = File::Temp->new( SUFFIX => '.txt', UNLINK => 1 );
     my $outputFileName = $tmp->filename();
 
-    my $recordsValid = eval { $self->sanitizeUploadFile($outputFileName) } || 0;
+    my $recordsValid = eval { $self->sanitizeUploadFile($inputField, $outputFileName) } || 0;
 
     if ( my $exception = $@ ) {
 
@@ -402,8 +401,7 @@ sub uploadData {
     }
     elsif ( $recordsValid == 0 ) {
         $self->add_message(
-            { -class => 'error' }, 'No valid records were
-            uploaded.'
+            { -class => 'error' }, 'No valid records were uploaded.'
         );
     }
     else {
@@ -553,12 +551,12 @@ sub probesPerPlatform {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub sanitizeUploadFile {
-    my ( $self, $outputFileName ) = @_;
+    my ( $self, $inputField, $outputFileName ) = @_;
 
     my $q = $self->{_cgi};
 
     # The is the file handle of the uploaded file.
-    my $uploadedFile = $q->upload('file')
+    my $uploadedFile = $q->upload($inputField)
       or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
 
     #Open file we are writing to server.
@@ -595,20 +593,19 @@ sub sanitizeUploadFile {
             input_header => 1,
             csv_in_opts  => { sep_char => "\t", allow_whitespace => 1 }
         );
-    } || 0;
-
+    } or do {
+        # In case of error, close files first and rethrow the exception
+        if ( my $exception = $@ ) {
+            close($OUTPUTTOSERVER);
+            $exception->throw();
+        }
+        elsif ( $recordsValid < 1 ) {
+            close($OUTPUTTOSERVER);
+            SGX::Exception::User->throw(
+                error => "No records found in input file\n" );
+        }
+    };
     $self->{_validRecords} = $recordsValid;
-
-    # In case of error, close files first and rethrow the exception
-    if ( my $exception = $@ ) {
-        close($OUTPUTTOSERVER);
-        $exception->throw();
-    }
-    elsif ( $recordsValid < 1 ) {
-        close($OUTPUTTOSERVER);
-        SGX::Exception::User->throw(
-            error => "No records found in input file\n" );
-    }
     close($OUTPUTTOSERVER);
 
     return $recordsValid;
@@ -630,7 +627,7 @@ sub sanitizeUploadFile {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub loadToDatabase_prepare {
-    my ($self) = @_;
+    my $self = shift;
 
     my $dbh = $self->{_dbh};
 

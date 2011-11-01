@@ -724,18 +724,12 @@ sub get_id {
 #===============================================================================
 sub default_delete {
     my $self = shift;
-    my $q    = $self->{_cgi};
     eval { $self->_delete_command()->() == 1; } or do {
-
-      # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
-      # fully to spec.
         my $exception = $@;
-        $self->set_action('');    # show body for "readall"
-        $q->delete_all();
         $self->add_message( { -class => 'error' }, "$exception" );
+        $self->set_action('');    # show body for "readall"
         return;
     };
-    $q->delete_all();
     return;
 }
 
@@ -751,18 +745,12 @@ sub default_delete {
 #===============================================================================
 sub default_update {
     my $self = shift;
-    my $q    = $self->{_cgi};
     eval { $self->_update_command()->() == 1; } or do {
-
-      # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
-      # fully to spec.
         my $exception = $@;
-        $self->set_action('');    # show body for "readrow"
-        $q->delete_all();
         $self->add_message( { -class => 'error' }, "$exception" );
+        $self->set_action('');    # show body for "readrow"
         return;
     };
-    $q->delete_all();
     return;
 }
 
@@ -778,9 +766,7 @@ sub default_update {
 #===============================================================================
 sub default_assign {
     my $self = shift;
-    my $q    = $self->{_cgi};
     $self->_assign_command()->();
-    $q->delete_all();
     return;
 }
 
@@ -796,24 +782,40 @@ sub default_assign {
 #===============================================================================
 sub default_create {
     my $self = shift;
-    my $q    = $self->{_cgi};
     return if defined $self->{_id};
 
     eval { $self->_create_command()->() == 1; } or do {
-
-      # :TRICKY:10/24/2011 14:12:09:es: code in this block is new and may not be
-      # fully to spec.
         my $exception = $@;
-        $self->set_action('form_create');    # show body for form_create again
-        $q->delete_all();
         $self->add_message( { -class => 'error' }, "$exception" );
+        $self->set_action('form_create');    # show body for form_create again
         return;
     };
 
     # get inserted row id when inserting a new row, then redirect to the
     # newly created resource.
+    my $insert_id = $self->get_last_insert_id();
+    if ( defined $insert_id ) {
+        $self->redirect( $self->get_resource_uri( id => $insert_id ) );
+        return 1;                            # redirect (do not show body)
+    }
+    return;
+}
 
-    my ( $dbh, $table ) = @$self{qw/_dbh _default_table/};
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  get_last_insert_id
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_last_insert_id {
+    my $self = shift;
+    my $table = shift || $self->{_default_table};
+
+    my $dbh = $self->{_dbh};
 
     # car() selects first column from the list
     my $id_column = car $self->_select_fields(
@@ -821,14 +823,7 @@ sub default_create {
         fieldset => 'key',
         dealias  => '__sql__'
     );
-    my $insert_id = $dbh->last_insert_id( undef, undef, $table, $id_column );
-
-    if ( defined $insert_id ) {
-        $self->{_id} = $insert_id;
-        $self->redirect( $self->get_resource_uri( id => $insert_id ) );
-        return 1;    # redirect (do not show body)
-    }
-    return;
+    return $dbh->last_insert_id( undef, undef, $table, $id_column );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1858,14 +1853,14 @@ sub _get_param_values {
             return ( @result > 1 ) ? 1 : 0;
         }
         else {
+            my $label = $this_meta->{label} || $param;
             if ( $mode eq 'create' && $this_meta->{__confirm__} ) {
-                my $label = $this_meta->{label} || $param;
                 SGX::Exception::User->throw(
                     error => "You need to enter the same $label value twice" )
                   if @result < 2
                       or not equal @result;
             }
-            return _process_val( $this_meta, car(@result) );
+            return _process_val( $label => $this_meta, car(@result) );
         }
     };
 }
@@ -1882,8 +1877,15 @@ sub _get_param_values {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _process_val {
+    my $label     = shift;
     my $this_meta = shift;
     my $val       = shift;
+
+    SGX::Exception::User->throw(
+        error => "You did not provide a value for required field `$label'\n" )
+      if ( !$this_meta->{__optional__}
+        && ( !defined($val) || $val eq '' ) );
+
     if ( my $encoder = $this_meta->{__encode__} ) {
         return $encoder->($val);
     }
@@ -2112,9 +2114,15 @@ sub _ajax_process_request {
         my $exception = $@;
         if ( $exception or $rows_affected != 0 ) {
 
-            $self->add_message( { -class => 'error' }, "$exception" )
-              if $exception
-                  and $exception->isa('SGX::Exception::User');
+            if (    $exception
+                and $exception->isa('SGX::Exception::User') )
+            {
+                $self->add_message( { -class => 'error' }, "$exception" );
+            }
+            else {
+                $self->add_message( { -class => 'error' },
+                    'Database could not execute this command' );
+            }
 
             # Unexpected condition: either error occured or the number of
             # updated rows is unknown ($rows_affected == -1) or the number of
@@ -2283,8 +2291,7 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
-      ),
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) ) ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
