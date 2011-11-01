@@ -188,7 +188,7 @@ sub initOutputData {
     my $eid_count = scalar(@eids);
     if ( $eid_count < 1 ) {
         $self->add_message( { -class => 'error' },
-            'You did not provide any input' );
+            'You did not specify any experiments to output' );
         return;
     }
     return $eid_count;
@@ -215,10 +215,11 @@ END_EXTRA
 
     my $experiments = $self->{_eidList};
 
-    my $experiment_field =
-      ( @$experiments > 1 )
-      ? qq{eid AS 'Exp. ID', CONCAT(experiment.sample1,' / ',experiment.sample2) AS 'Sample 1 / Sample 2',}
-      : '';
+    my $experiment_field = ( @$experiments > 1 ) ? <<"END_experiment_info" : '';
+experiment.eid AS 'Exp. ID',
+CONCAT(experiment.sample2,' / ',experiment.sample1) AS 'Sample 2 / Sample 1',
+experiment.ExperimentDescription AS 'Exp. Description',
+END_experiment_info
 
     my $query_text = sprintf(
         <<"END_ReportQuery",

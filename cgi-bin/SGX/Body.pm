@@ -6,7 +6,7 @@ use warnings;
 use SGX::Debug;
 use SGX::Config;
 
-my $softwareVersion = '0.3.1.1';
+my $softwareVersion = '0.3.1.2';
 
 my $all_resources = {
     compareExperiments => {
@@ -292,7 +292,7 @@ sub build_sidemenu {
         push @menu,
           $q->span(
             { -style => 'color:#999' },
-            'Logged in as: '
+            'Signed in as: '
               . $q->a(
                 {
                     -href  => "$url_prefix?a=profile",
