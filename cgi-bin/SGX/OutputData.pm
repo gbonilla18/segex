@@ -282,14 +282,6 @@ sub default_body {
                 -title => 'Choose a microarray platform'
             )
         ),
-
-      ),
-      $q->start_form(
-        -method  => 'GET',
-        -enctype => 'application/x-www-form-urlencoded',
-        -action  => $q->url( -absolute => 1 ) . '?a=outputData'
-      ),
-      $q->dl(
         $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
         $q->dd(
             $q->popup_menu(
@@ -298,6 +290,15 @@ sub default_body {
                 -title => 'Choose a study'
             )
         ),
+      ),
+
+      # now start the form element
+      $q->start_form(
+        -method  => 'GET',
+        -enctype => 'application/x-www-form-urlencoded',
+        -action  => $q->url( -absolute => 1 ) . '?a=outputData'
+      ),
+      $q->dl(
         $q->dt( $q->label( { -for => 'eid' }, 'Experiment(s):' ) ),
         $q->dd(
             $q->popup_menu(

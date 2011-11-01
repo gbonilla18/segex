@@ -216,16 +216,17 @@ sub content_header {
         $q->h1(
             $q->a(
                 {
+                    -id    => 'logo',
                     -href  => $q->url( -absolute => 1 ),
                     -title => 'Segex home'
                 },
                 $q->img(
                     {
-                        src    => IMAGES_DIR . '/logo.png',
-                        width  => 206,
-                        height => 72,
-                        alt    => 'Segex',
-                        title  => 'Segex'
+                        -src    => IMAGES_DIR . '/logo.png',
+                        -width  => 206,
+                        -height => 47,
+                        -alt    => 'Segex',
+                        -title  => 'Segex'
                     }
                 )
             )
