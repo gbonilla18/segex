@@ -323,7 +323,21 @@ sub form_assign_body {
         'read'   => [ undef,         'Edit Study' ],
         'create' => [ 'form_assign', 'Assign Experiments' ]
       ),
-      $q->h3('Assign Experiments:'),
+      $q->h3('Create New Experiment:'),
+      $q->dl(
+        $q->dt('&nbsp;'),
+        $q->dd(
+            $q->a(
+                {
+                        -href => $self->url( -absolute => 1 )
+                      . '?a=experiments&b=form_create&stid='
+                      . $self->{_id}
+                },
+                'Upload Data'
+            )
+        )
+      ),
+      $q->h3('- or -'), $q->h3('Assign Existing Experiments:'),
       $q->dl(
         $q->dt( $q->label( { -for => 'pid' }, 'From platform:' ) ),
         $q->dd(

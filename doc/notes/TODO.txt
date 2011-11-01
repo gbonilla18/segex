@@ -41,9 +41,6 @@ algorithm (implemented in Javascript) for 3-cirlcle diagrams, and something to
 show text labels (i.e. how many probes are significant). If done, place
 resulting code on Github.
 
-*) Links in Manage Studies should direct user directly from an upload data form
-(to a new experiment) with the given study preselected.
-
 *) Make upload file headers optional in Upload Data to a new experiment
 
 *) CSV format should be supported in addition to tab-delimited. The idea is that
@@ -57,10 +54,6 @@ prefix from File::Temp or some other way.
 *) Eventually, we need at least two types of database users: segex_basic and
 segex_user. segex_user is granted UPDATE, INSERT, DELETE, and CREATE TEMPOARY
 privileges, while segex_basic is only granted SELECT.
-
-*) use better names for CSV output (replace "results.csv" with some kind of
-coding, e.g. results-61-37.csv where 61 and 37 are experiment ids being
-compared).
 
 *) Use GO database as an example of how data could be set up:
 http://archive.geneontology.org/latest-full/README
