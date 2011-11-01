@@ -1778,12 +1778,12 @@ sub _create_command {
     my $table_info = $self->{_table_defs}->{$table};
     return unless $table_info;
 
-    my $id = $self->{_id};
-
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
+    my $id = $self->{_id};
     my $key = $table_info->{key};
     return if defined $id and @$key < 2;
+
     my $fields = [
         $self->_select_fields(
             table    => $table_info,
@@ -1792,22 +1792,8 @@ sub _create_command {
         )
     ];
 
-    #my ( $key, $fields ) = @$table_info{qw/key base/};
-
-    # If param($field) evaluates to undefined, then we do not set the field.
-    # This means that we cannot directly set a field to NULL -- unless we
-    # specifically map a special character (for example, an empty string), to
-    # NULL.
-    # Note: we make exception when inserting a record when resource id is
-    # already present: in those cases we create links.
-
-    my @assigned_fields =
-        ( defined $id )
-      ? ( $fields->[0], grep { defined $q->param($_) } cdr @$fields )
-      : grep { defined $q->param($_) } @$fields;
-
     my $assignment = join( ',', @$fields );
-    my $placeholders = join( ',', map { '?' } @assigned_fields );
+    my $placeholders = join( ',', map { '?' } @$fields );
     my $query = "INSERT INTO $table ($assignment) VALUES ($placeholders)";
     my $sth = eval { $dbh->prepare($query) } or do {
         my $error = $@;
@@ -1819,8 +1805,8 @@ sub _create_command {
       $self->_get_param_values( $table_info->{meta}, 'create' );
     my @params =
         ( defined $id )
-      ? ( $id, map { $translate_val->($_) } cdr @assigned_fields )
-      : map { $translate_val->($_) } @assigned_fields;
+      ? ( $id, map { $translate_val->($_) } cdr @$fields )
+      : map { $translate_val->($_) } @$fields;
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1881,10 +1867,12 @@ sub _process_val {
     my $this_meta = shift;
     my $val       = shift;
 
+    # preventing not only empty strings but also anything which consists
+    # entirely of white space.
     SGX::Exception::User->throw(
-        error => "You did not provide a value for required field `$label'\n" )
+        error => "You did not provide a value for the required field `$label'\n" )
       if ( !$this_meta->{__optional__}
-        && ( !defined($val) || $val eq '' ) );
+        && ( !defined($val) || $val =~ /^\s*$/ ) );
 
     if ( my $encoder = $this_meta->{__encode__} ) {
         return $encoder->($val);
