@@ -94,8 +94,9 @@ function populatePlatform()
     var tuples = [];
     for (var i in PlatfStudyExp) {
         var platformNode = PlatfStudyExp[i];
-        var content = (platformNode.species !== null)
-        ? platformNode.name + ' \\ ' + platformNode.species
+        var species = platformNode.species;
+        var content = (typeof species !== 'undefined' && species !== null)
+        ? platformNode.name + ' \\ ' + species
         : platformNode.name;
         tuples.push([i, content]);
     }
