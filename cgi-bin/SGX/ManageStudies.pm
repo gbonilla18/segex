@@ -23,7 +23,9 @@ sub new {
     my ( $class, @param ) = @_;
 
     my $self = $class->SUPER::new(@param);
-    my $q    = $self->{_cgi};
+    my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
+
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
 
     $self->set_attributes(
 
@@ -82,7 +84,7 @@ sub new {
                         #    )
                         #],
                         __hidden__ => 1
-                    }
+                    },
                 },
                 lookup => [
                     (
@@ -91,6 +93,21 @@ sub new {
                         : ( platform => [ pid => 'pid' ] )
                     )
                 ],
+                join => [
+                    (
+                        ( defined $curr_proj && $curr_proj ne '' ) ? (
+                            ProjectStudy => [
+                                stid => 'stid',
+                                {
+                                    join_type  => 'INNER',
+                                    constraint => [ prid => $curr_proj ]
+                                }
+                              ]
+
+                          )
+                        : ()
+                    )
+                ]
             },
             'platform' => {
                 key   => [qw/pid/],
