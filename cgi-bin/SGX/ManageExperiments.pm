@@ -163,8 +163,7 @@ sub new {
                         (
                             looks_like_number($pid)
                               && !$self->get_dispatch_action() eq 'form_create'
-                        )
-                        ? ()
+                        ) ? ()
                         : ( 'platform' => [ 'pid' => 'pid' ] )
                     )
                 ],
@@ -179,11 +178,7 @@ sub new {
                     ],
                     (
                         (
-
- # :TRICKY:11/01/2011 23:03:04:es: need to check whether `stid' CGI parameter is
- # set to empty string since in that case we are looking for unassigned
- # experiments whose StudyExperiment.stid is NULL.
-                            defined $curr_proj
+                                 defined($curr_proj)
                               && $curr_proj ne ''
                               && ( !defined($stid)
                                 || $stid ne '' )
@@ -278,7 +273,7 @@ sub get_id_data {
 
     if ( defined $stid ) {
         my $pse = $self->{_PlatformStudyExperiment};
-        if ( !$pse ) {
+        if ( not defined $pse ) {
             $pse =
               SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
             $pse->init( platform_by_study => 1 );
@@ -349,6 +344,10 @@ sub default_head {
     # view all rows
     $self->SUPER::default_head();
 
+    my $s = $self->{_UserSession};
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
+    my $stid      = $self->{_id_data}->{stid};
+
     # add platform dropdown
     push @{ $self->{_js_src_code} }, (
         { -src => 'PlatformStudyExperiment.js' },
@@ -361,8 +360,17 @@ sub default_head {
                 platform_by_study => 1,
                 extra_platforms   => { 'all' => { name => '@All Platforms' } },
                 extra_studies     => {
-                    'all' => { name => '@Assigned Experiments' },
-                    ''    => { name => '@Unassigned Experiments' }
+                    (
+                        (
+                                 defined($curr_proj)
+                              && $curr_proj ne ''
+                              && ( !defined($stid)
+                                || $stid ne '' )
+                        )
+                        ? ( 'all' => { name => '@Assigned Experiments' } )
+                        : ( 'all' => { name => '@All Experiments' } )
+                    ),
+                    '' => { name => '@Unassigned Experiments' }
                 }
             )
         }
