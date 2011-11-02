@@ -101,7 +101,6 @@ sub new {
                                     constraint => [ prid => $curr_proj ]
                                 }
                               ]
-
                           )
                         : ()
                     )

@@ -25,6 +25,8 @@ sub new {
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
     my $curr_proj = $s->{session_cookie}->{curr_proj};
 
+    my ( $pid, $stid ) = $self->get_id_data();
+
     $self->set_attributes(
 
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
@@ -64,20 +66,6 @@ sub new {
                     ]
                 ]
             },
-            study_brief => {
-                table     => 'StudyExperiment',
-                key       => [qw/eid stid/],
-                view      => [qw/description/],
-                selectors => { stid => 'stid' },
-                meta      => {
-                    description => {
-                        __sql__ => 'study.description',
-                        label   => 'Study(-ies)'
-                    }
-                },
-                join =>
-                  [ 'study' => [ stid => 'stid', { join_type => 'INNER' } ] ]
-            },
             'platform' => {
                 key   => [qw/pid/],
                 view  => [qw/pname species/],
@@ -90,7 +78,7 @@ sub new {
             'experiment' => {
                 key  => [qw/eid/],
                 view => [
-                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation study_desc/
                 ],
                 resource => 'experiments',
                 base     => [
@@ -143,7 +131,7 @@ sub new {
 
                         #__tie__  => [
                         #    (
-                        #        looks_like_number( $q->param('pid') )
+                        #        looks_like_number( $pid )
                         #        ? ()
                         #        : ( platform => 'pid' )
                         #    )
@@ -160,23 +148,20 @@ sub new {
                         __special__    => 1,
                         __optional__   => 1,
                         __createonly__ => 1
+                    },
+                    study_desc => {
+                        __sql__      => 'study.description',
+                        __readonly__ => 1,
+                        label        => 'Study(-ies)'
                     }
                 },
                 lookup => [
                     (
 
-                        # No need to display study column if specific study is
-                        # requested.
-                        looks_like_number( $q->param('stid') )
-                        ? ()
-                        : ( 'study_brief' => [ 'eid' => 'eid' ] )
-                    ),
-                    (
-
                         # No need to display platform column if specific
                         # platform is requested.
                         (
-                            looks_like_number( $q->param('pid') )
+                            looks_like_number($pid)
                               && !$self->get_dispatch_action() eq 'form_create'
                         )
                         ? ()
@@ -188,27 +173,33 @@ sub new {
                         eid => 'eid',
                         { selectors => { stid => 'stid' } }
                     ],
-                    data_count => [ eid => 'eid' ],
+                    'study' => [
+                        'StudyExperiment.stid' => 'stid',
+                        { join_type => 'LEFT' }
+                    ],
                     (
-                        ( defined $curr_proj && $curr_proj ne '' ) ? (
-                            D1 => [
-                                eid => 'eid',
-                                {
+                        (
 
-                                    # :TRICKY:11/01/2011 20:12:27:es: it may be
-                                    # better to replace this subquery with a
-                                    # normally composed query for performance
-                                    # reasons.
-                                    table =>
-                                      sprintf(
-'(SELECT eid FROM StudyExperiment INNER JOIN ProjectStudy ON StudyExperiment.stid=ProjectStudy.stid AND ProjectStudy.prid=%d)',
-                                        $curr_proj ),
-                                    join_type => 'INNER'
+ # :TRICKY:11/01/2011 23:03:04:es: need to check whether `stid' CGI parameter is
+ # set to empty string since in that case we are looking for unassigned
+ # experiments whose StudyExperiment.stid is NULL.
+                            defined $curr_proj
+                              && $curr_proj ne ''
+                              && ( !defined($stid)
+                                || $stid ne '' )
+                        )
+                        ? (
+                            ProjectStudy => [
+                                'StudyExperiment.stid' => 'stid',
+                                {
+                                    join_type  => 'INNER',
+                                    constraint => [ prid => $curr_proj ]
                                 }
                             ]
                           )
                         : ()
-                    )
+                    ),
+                    data_count => [ eid => 'eid', { join_type => 'LEFT' } ],
                 ],
             },
             data_count => {
@@ -222,8 +213,7 @@ sub new {
                         parser  => 'number'
                     },
                 },
-                join_type => 'LEFT',
-                group_by  => [qw/eid/]
+                group_by => [qw/eid/]
             }
         },
         _default_table  => 'experiment',
@@ -236,6 +226,9 @@ sub new {
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
     );
+
+    $self->{_id_data}->{pid}  = $pid;
+    $self->{_id_data}->{stid} = $stid;
 
     bless $self, $class;
     return $self;
@@ -266,7 +259,7 @@ sub init {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
-#       METHOD:  set_id_data
+#       METHOD:  get_id_data
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -274,25 +267,33 @@ sub init {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub set_id_data {
-    my $self = shift;
-    my $pid_from_stid;
+sub get_id_data {
+    my $self    = shift;
     my $q       = $self->{_cgi};
     my $id_data = $self->{_id_data} || {};
-    my $stid    = $q->param('stid');
-    my $pse     = $self->{_PlatformStudyExperiment};
-    $pid_from_stid = $pse->getPlatformFromStudy($stid)
-      if defined $stid;
-    my $pid = $id_data->{pid};
-    $pid = (
-        ( defined $stid )
-        ? $pid_from_stid
-        : $q->param('pid')
-    ) if not defined $pid;
-    $stid = undef if defined($pid_from_stid) and $pid_from_stid ne $pid;
-    $self->{_id_data}->{stid} = $stid;
-    $self->{_id_data}->{pid}  = $pid;
-    return 1;
+
+    my ( $pid, $stid ) = @$id_data{qw/pid stid/};
+    $pid  = $q->param('pid')  if not defined $pid;
+    $stid = $q->param('stid') if not defined $stid;
+
+    if ( defined $stid ) {
+        my $pse = $self->{_PlatformStudyExperiment};
+        if ( !$pse ) {
+            $pse =
+              SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
+            $pse->init( platform_by_study => 1 );
+        }
+        my $pid_from_stid = $pse->getPlatformFromStudy($stid);
+        $pid = $pid_from_stid if not defined $pid;
+        if (    looks_like_number($pid_from_stid)
+            and looks_like_number($pid)
+            and $pid_from_stid != $pid )
+        {
+            $stid = undef;
+        }
+    }
+
+    return ( $pid, $stid );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -360,7 +361,7 @@ sub default_head {
                 platform_by_study => 1,
                 extra_platforms   => { 'all' => { name => '@All Platforms' } },
                 extra_studies     => {
-                    'all' => { name => '@All Studies' },
+                    'all' => { name => '@Assigned Experiments' },
                     ''    => { name => '@Unassigned Experiments' }
                 }
             )
@@ -595,14 +596,14 @@ sub get_pse_dropdown_js {
         platforms => 1,
         %args
     );
-    $self->set_id_data();
-
-    my ( $q, $js ) = @$self{qw/_cgi _js_emitter/};
 
     # If a study is set, use the corresponding platform while ignoring the
     # platform parameter.
-    my $pid  = $self->{_id_data}->{pid};
-    my $stid = $self->{_id_data}->{stid};
+    my ( $pid, $stid ) = $self->get_id_data();
+    $self->{_id_data}->{pid}  = $pid;
+    $self->{_id_data}->{stid} = $stid;
+
+    my ( $q, $js ) = @$self{qw/_cgi _js_emitter/};
 
     return $js->let(
         [

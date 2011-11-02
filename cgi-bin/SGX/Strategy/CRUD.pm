@@ -1343,9 +1343,9 @@ sub _build_predicate {
     my @pred_and;
     my @exec_params;
     my @constr;
-
     my $mod_join_type;
 
+    my $clear_constr = 0;
     my $dbh = $self->{_dbh};
 
     foreach ( tuples( $obj->{constraint} ) ) {
@@ -1386,8 +1386,9 @@ sub _build_predicate {
             }
             elsif ( !defined($val) || !looks_like_number($val) ) {
 
-                # find all records -- do not join
-                $mod_join_type = '';
+                # find all records
+                $mod_join_type = 'LEFT';
+                $clear_constr = 1;
             }
         }
     }
@@ -1408,7 +1409,7 @@ sub _build_predicate {
     my $pred =
       ( ( @pred_and > 0 ) ? "$prefix " : '' ) . join( ' AND ', @pred_and );
 
-    return ( $pred, \@exec_params, \@constr, $mod_join_type );
+    return ( $pred, \@exec_params, \@constr, $mod_join_type, $clear_constr );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1446,12 +1447,18 @@ sub _build_join {
           ? $other_table_alias
           : "$other_table AS $other_table_alias";
 
-        my ( $join_pred, $join_params, $constr, $mod_join_type ) =
+        my ( $join_pred, $join_params, $constr, $mod_join_type, $clear_constr ) =
           $self->_build_predicate(
             $other_table_alias => $new_opts,
             'AND'
           );
-        push @{ $cascade->{constraint} }, @$constr;
+
+        if ($clear_constr) {
+            $cascade->{constraint} = [];
+        } else {
+            push @{ $cascade->{constraint} }, @$constr;
+        }
+
         my $join_type = $new_opts->{join_type} || 'LEFT';
         $join_type = $mod_join_type if defined $mod_join_type;
 
