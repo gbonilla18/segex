@@ -20,10 +20,10 @@ require SGX::Model::PlatformStudyExperiment;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, @param ) = @_;
-
-    my $self = $class->SUPER::new(@param);
-    my $q    = $self->{_cgi};
+    my $class = shift;
+    my $self  = $class->SUPER::new(@_);
+    my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
 
     $self->set_attributes(
 
@@ -188,7 +188,27 @@ sub new {
                         eid => 'eid',
                         { selectors => { stid => 'stid' } }
                     ],
-                    data_count => [ eid => 'eid' ]
+                    data_count => [ eid => 'eid' ],
+                    (
+                        ( defined $curr_proj && $curr_proj ne '' ) ? (
+                            D1 => [
+                                eid => 'eid',
+                                {
+
+                                    # :TRICKY:11/01/2011 20:12:27:es: it may be
+                                    # better to replace this subquery with a
+                                    # normally composed query for performance
+                                    # reasons.
+                                    table =>
+                                      sprintf(
+'(SELECT eid FROM StudyExperiment INNER JOIN ProjectStudy ON StudyExperiment.stid=ProjectStudy.stid AND ProjectStudy.prid=%d)',
+                                        $curr_proj ),
+                                    join_type => 'INNER'
+                                }
+                            ]
+                          )
+                        : ()
+                    )
                 ],
             },
             data_count => {

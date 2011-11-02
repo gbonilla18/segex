@@ -20,11 +20,9 @@ require SGX::Model::PlatformStudyExperiment;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, @param ) = @_;
-
-    my $self = $class->SUPER::new(@param);
+    my $class = shift;
+    my $self = $class->SUPER::new(@_);
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
-
     my $curr_proj = $s->{session_cookie}->{curr_proj};
 
     $self->set_attributes(
