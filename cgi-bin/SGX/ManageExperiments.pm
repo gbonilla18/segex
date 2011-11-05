@@ -364,11 +364,9 @@ sub default_head {
                         (
                                  defined($curr_proj)
                               && $curr_proj ne ''
-                              && ( !defined($stid)
-                                || $stid ne '' )
                         )
-                        ? ( 'all' => { name => '@Assigned Experiments' } )
-                        : ( 'all' => { name => '@All Experiments' } )
+                        ? ( 'all' => { name => '@Assigned Experiments (All Studies)' } )
+                        : ( 'all' => { name => '@All Experiments (All Studies)' } )
                     ),
                     '' => { name => '@Unassigned Experiments' }
                 }
