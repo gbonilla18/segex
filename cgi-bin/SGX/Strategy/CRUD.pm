@@ -1252,11 +1252,7 @@ sub _readall_command {
     #warn $query;
     #warn Dumper($params);
 
-    my $sth = eval { $dbh->prepare($query) } or do {
-        my $error = $@;
-        SGX::Exception::Internal->throw( error => $error );
-        return;
-    };
+    my $sth = $dbh->prepare($query);
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1640,11 +1636,7 @@ sub _readrow_command {
     my $lookup_join_sth =
       $self->_lookup_prepare( $table_info, fields => 'base' );
 
-    my $sth = eval { $dbh->prepare($query) } or do {
-        my $error = $@;
-        SGX::Exception::Internal->throw( error => $error );
-        return;
-    };
+    my $sth = $dbh->prepare($query);
 
     my @params = ( $id, ( map { $q->param($_) } cdr @key ) );
 
@@ -1693,11 +1685,7 @@ sub _delete_command {
 
     #SGX::Exception::User->throw( error => "$query\n" . Dumper( \@params ) );
 
-    my $sth = eval { $dbh->prepare($query) } or do {
-        my $error = $@;
-        SGX::Exception::Internal->throw( error => $error );
-        return;
-    };
+    my $sth = $dbh->prepare($query);
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1756,11 +1744,7 @@ sub _assign_command {
         join( ',', @dealiased_key ),
         join( ',', map { '?' } @dealiased_key )
     );
-    my $sth = eval { $dbh->prepare($query) } or do {
-        my $error = $@;
-        SGX::Exception::Internal->throw( error => $error );
-        return;
-    };
+    my $sth = $dbh->prepare($query);
 
     my @param_set = ( $q->param( $key[1] ) );
 
@@ -1818,11 +1802,7 @@ sub _create_command {
         join( ',', @dealiased_fields ),
         join( ',', map { '?' } @dealiased_fields )
     );
-    my $sth = eval { $dbh->prepare($query) } or do {
-        my $error = $@;
-        SGX::Exception::Internal->throw( error => $error );
-        return;
-    };
+    my $sth = $dbh->prepare($query);
 
     my $translate_val =
       $self->_get_param_values( $table_info->{meta}, 'create' );
@@ -2080,11 +2060,7 @@ sub _update_command {
         ( map { $translate_val->($_) } @fields_to_update ),
         $self->{_id}, ( map { $translate_val->($_) } cdr @key )
     );
-    my $sth = eval { $dbh->prepare($query) } or do {
-        my $error = $@;
-        SGX::Exception::Internal->throw( error => $error );
-        return;
-    };
+    my $sth = $dbh->prepare($query);
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
