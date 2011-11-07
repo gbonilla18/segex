@@ -1,3 +1,8 @@
+Segex is a content-management system (CMS) for easy storage, management, and
+basic manipulation of gene expression data. At the moment, Segex only supports
+microarray data. Segex was originally developed to provide access to previously
+unreleased data sets from Waxman laboratory at Boston University.
+
 ============ DATABASE SETUP ===============
 
 1. Create empty database and add a dedicated user account. Note: in the default
