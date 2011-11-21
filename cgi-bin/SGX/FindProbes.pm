@@ -710,8 +710,8 @@ END_whereTitlesSQL
     }
     my $query_titles = <<"END_query_titles_element";
 SELECT experiment.eid, 
-    CONCAT(study.description, ': ', experiment.sample1, ' / ', experiment.sample2) AS title, 
-    CONCAT(experiment.sample1, ' / ', experiment.sample2) AS experimentHeading,
+    CONCAT(study.description, ': ', experiment.sample2, ' / ', experiment.sample1) AS title, 
+    CONCAT(experiment.sample2, ' / ', experiment.sample1) AS experimentHeading,
     study.description,
     experiment.ExperimentDescription 
 FROM experiment 

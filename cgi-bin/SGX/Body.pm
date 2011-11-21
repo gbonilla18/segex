@@ -251,7 +251,7 @@ sub content_footer {
                     'Boston University'
                 )
             ),
-            $q->li( 'SEGEX version : ' . $softwareVersion )
+            $q->li( 'SEGEX version ' . $softwareVersion )
         )
     );
 }
