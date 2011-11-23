@@ -1342,7 +1342,7 @@ sub _build_predicate {
     my $mod_join_type;
 
     my $clear_constr = 0;
-    my $dbh = $self->{_dbh};
+    my $dbh          = $self->{_dbh};
 
     foreach ( tuples( $obj->{constraint} ) ) {
         my ( $field, $value ) = @$_;
@@ -1384,7 +1384,7 @@ sub _build_predicate {
 
                 # find all records
                 $mod_join_type = 'LEFT';
-                $clear_constr = 1;
+                $clear_constr  = 1;
             }
         }
     }
@@ -1443,15 +1443,16 @@ sub _build_join {
           ? $other_table_alias
           : "$other_table AS $other_table_alias";
 
-        my ( $join_pred, $join_params, $constr, $mod_join_type, $clear_constr ) =
-          $self->_build_predicate(
+        my ( $join_pred, $join_params, $constr, $mod_join_type, $clear_constr )
+          = $self->_build_predicate(
             $other_table_alias => $new_opts,
             'AND'
           );
 
         if ($clear_constr) {
             $cascade->{constraint} = [];
-        } else {
+        }
+        else {
             push @{ $cascade->{constraint} }, @$constr;
         }
 
@@ -1886,6 +1887,11 @@ sub _process_val {
     if ( my $encoder = $this_meta->{__encode__} ) {
         return $encoder->($val);
     }
+    elsif ( $this_meta->{parser} eq 'number' and $val eq '' ) {
+
+        # for numeric types, interpret empty strings as NULL
+        return undef;
+    }
     else {
         return $val;
     }
@@ -1971,8 +1977,8 @@ sub _meta_get_cgi {
     my $meta   = shift || {};
     my %args   = @_;
 
-    my $method    = $meta->{__type__}      || 'textfield';
-    my $label     = $meta->{label}         || $symbol;
+    my $method = $meta->{__type__} || 'textfield';
+    my $label  = $meta->{label}    || $symbol;
 
     my %prefixes = (
         textfield  => 'Enter',
@@ -2287,7 +2293,8 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) ) ),
+        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
+      ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
