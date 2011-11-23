@@ -3,11 +3,7 @@ basic manipulation of gene expression data. At the moment, Segex only supports
 microarray data. Segex was originally developed to provide access to previously
 unreleased data sets from Waxman laboratory at Boston University.
 
-<<<<<<< HEAD
 ============ DATABASE SETUP (MySQL) ===============
-=======
-============ DATABASE SETUP ===============
->>>>>>> reorganized directory structure renaming INSTALL.txt to README
 
 1. Create empty database and add a dedicated user account. Note: in the default
 MySQL installation, the root password is empty (simply press enter to proceed).
