@@ -118,6 +118,7 @@ sub get_content {
     my $self          = shift;
     my $friend_object = $self->{_strategy_base};
     my $q             = $friend_object->{_cgi};
+    #my $s             = $friend_object->{_UserSession};
     return (
         cgi_start_html($friend_object),
         content_header($friend_object),
