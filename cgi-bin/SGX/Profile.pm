@@ -826,9 +826,8 @@ sub form_changePassword_body {
       $q->start_form(
         -method   => 'POST',
         -action   => $q->url( -absolute => 1 ) . '?a=profile&b=changePassword',
-        -onsubmit => sprintf(
-'return validate_fields(this, [\'old_password\',\'new_password1\',\'new_password2\']);'
-        )
+        -onsubmit => (($require_old) ? "return validate_fields(this, ['old_password','new_password1','new_password2']);"
+: "return validate_fields(this, ['new_password1','new_password2']);")
       ),
       $q->dl(
         ($require_old)
