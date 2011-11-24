@@ -147,13 +147,13 @@ sub cgi_start_html {
         push @js,
           {
             -type => 'text/javascript',
-            -src  => YUI_BUILD_ROOT . '/' . $_
+            -src  => "$YUI_BUILD_ROOT/$_"
           };
     }
     foreach ( +{ -src => 'form.js' }, @$js_src_code ) {
         $_->{-type} = 'text/javascript';
         if ( defined( $_->{-src} ) ) {
-            $_->{-src} = JS_DIR . '/' . $_->{-src};
+            $_->{-src} = "$JS_DIR/" . $_->{-src};
         }
         push @js, $_;
     }
@@ -163,13 +163,13 @@ sub cgi_start_html {
         push @css,
           {
             -type => 'text/css',
-            -src  => YUI_BUILD_ROOT . '/' . $_
+            -src  => "$YUI_BUILD_ROOT/$_"
           };
     }
     foreach ( { -src => 'style.css' }, @$css_src_code ) {
         $_->{-type} = 'text/css';
         if ( defined( $_->{-src} ) ) {
-            $_->{-src} = CSS_DIR . '/' . $_->{-src};
+            $_->{-src} = "$CSS_DIR/" . $_->{-src};
         }
         push @css, $_;
     }
@@ -183,7 +183,7 @@ sub cgi_start_html {
             $q->Link(
                 {
                     -type => 'image/x-icon',
-                    -href => IMAGES_DIR . '/favicon_16x16.ico',
+                    -href => "$IMAGES_DIR/favicon_16x16.ico",
                     -rel  => 'icon'
                 }
             ),
@@ -223,7 +223,7 @@ sub content_header {
                 },
                 $q->img(
                     {
-                        -src    => IMAGES_DIR . '/logo.png',
+                        -src    => "$IMAGES_DIR/logo.png",
                         -width  => 206,
                         -height => 47,
                         -alt    => 'Segex',

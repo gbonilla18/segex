@@ -67,7 +67,7 @@ sub schema_body {
 
     return $q->img(
         {
-            src    => IMAGES_DIR . '/schema.png',
+            src    => "$IMAGES_DIR/schema.png",
             width  => 720,
             height => 720,
             usemap => '#schema_Map',
