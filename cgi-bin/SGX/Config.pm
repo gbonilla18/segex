@@ -7,11 +7,12 @@ use base qw/Exporter/;
 use Readonly ();
 use File::Basename qw/dirname/;
 use SGX::Util qw/replace/;
+require Config::General;
 
 # :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are
 # exported by default with @EXPORT) with one where symbols need to be
 # explicitely specified (@EXPORT_OK).
-our @EXPORT    = qw/YUI_BUILD_ROOT IMAGES_DIR JS_DIR CSS_DIR/;
+our @EXPORT    = qw/$YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR/;
 our @EXPORT_OK = qw/init_context get_module_from_action require_path/;
 
 #---------------------------------------------------------------------------
@@ -53,22 +54,19 @@ sub get_module_from_action {
     return $dispatch_table{$action};
 }
 
-#---------------------------------------------------------------------------
-#  Path to default mailer executable (sendmail, postfix, etc). On both Mac OS X
-#  and CentOS Linux, this is /usr/sbin.
-#---------------------------------------------------------------------------
-Readonly::Scalar my $MAILER_PATH => '/usr/sbin';
+Readonly::Scalar my $config_file => Config::General->new( dirname($0) . '/segex.conf' );
+my %config = $config_file->getall();
 
 #---------------------------------------------------------------------------
 #  Directories
 #---------------------------------------------------------------------------
 # converting CGI_ROOT to documents root by dropping /cgi-bin prefix
-use constant DOCUMENTS_ROOT =>
+Readonly::Scalar my $DOCUMENTS_ROOT =>
   replace( dirname( $ENV{SCRIPT_NAME} ), '^\/cgi-bin', '' );
-use constant IMAGES_DIR     => DOCUMENTS_ROOT . '/images';
-use constant JS_DIR         => DOCUMENTS_ROOT . '/js';
-use constant CSS_DIR        => DOCUMENTS_ROOT . '/css';
-use constant YUI_BUILD_ROOT => '/yui/build';
+Readonly::Scalar our $IMAGES_DIR     => "$DOCUMENTS_ROOT/images";
+Readonly::Scalar our $JS_DIR         => "$DOCUMENTS_ROOT/js";
+Readonly::Scalar our $CSS_DIR        => "$DOCUMENTS_ROOT/css";
+Readonly::Scalar our $YUI_BUILD_ROOT => $config{yui_build_root};
 
 #---------------------------------------------------------------------------
 #  Set $ENV{PATH} by transforming an input list of symbols in qw//. This also
@@ -81,7 +79,7 @@ $ENV{PATH} = join(
             map {
                 ( my $key = $_ ) =~ s/\/*$//;
                 $key => undef
-              } ($MAILER_PATH)
+              } ($config{mailer_path})
         }
       }
 );
@@ -144,9 +142,9 @@ sub init_context {
 
  # :TODO:07/13/2011 15:20:26:es: Consider allowing "mysql_local_infile" only for
  # special kinds of users (ones who have permission to upload data/annotation)
-            'dbi:mysql:segex_dev;mysql_local_infile=1',
-            'segex_dev_user',
-            'b00g3yk1d',
+            "dbi:mysql:$config{dbname};mysql_local_infile=1",
+            $config{dbuser},
+            $config{dbpassword},
             {
                 PrintError  => 0,
                 RaiseError  => 0,
@@ -164,7 +162,7 @@ sub init_context {
         require SGX::Session::User;
         $s = SGX::Session::User->new(
             dbh          => $dbh,
-            expire_in    => 3600,    # expire in 3600 seconds (1 hour)
+            expire_in    => $config{timeout},
             check_ip     => 1,
             perm2session => {
                 curr_proj => sub {
