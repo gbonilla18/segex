@@ -347,6 +347,47 @@ END_SETUPTOGGLES
 }
 
 #===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  form_create_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION: 
+#       THROWS:  no exceptions
+#     COMMENTS:  Overrides Strategy::CRUD::form_create_body
+#     SEE ALSO:  n/a
+#===============================================================================
+sub form_create_body {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    return
+
+      # container stuff
+      $q->h2(
+        $self->format_title(
+            'manage ' . $self->pluralize_noun( $self->get_item_name() )
+        )
+      ),
+      $self->body_create_read_menu(
+        'read'   => [ undef,         'View Existing' ],
+        'create' => [ 'form_create', 'Create New' ]
+      ),
+      $q->h3( $self->format_title( 'create new ' . $self->get_item_name() ) ),
+$q->p(<<"END_TEXT1"),
+The data file must be in plain-text tab-delimited format with six columns shown
+below. Probe names can be either numbers or strings; all other fields must be numeric.
+The first row in the file must be a header row and the actual data should start
+with the second row.
+END_TEXT1
+$q->pre('Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'),
+
+      # form
+      $self->body_create_update_form( mode => 'create' );
+}
+
+
+
+#===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
 #       METHOD:  default_head
 #   PARAMETERS:  ????

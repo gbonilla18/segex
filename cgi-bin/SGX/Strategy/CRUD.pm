@@ -15,7 +15,7 @@ use SGX::Abstract::Exception ();
 use SGX::Debug;
 
 #===  FUNCTION  ================================================================
-#         NAME:  clean_autoformat
+#         NAME:  format_title
 #      PURPOSE:  Text::Autoformat::autoformat leaves blank space at the end of
 #                output which needs to be trimmed.
 #   PARAMETERS:  ????
@@ -26,6 +26,7 @@ use SGX::Debug;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub format_title {
+    my $self = shift;
     my $out = Text::Autoformat::autoformat( shift, { case => 'title' } );
     $out =~ s/\s+$//;
     return $out;
@@ -42,6 +43,7 @@ sub format_title {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub pluralize_noun {
+    my $self = shift;
     return Lingua::EN::Inflect::PL_N( shift, 2 );
 }
 
@@ -456,8 +458,8 @@ sub dispatch_js {
     my $self = shift;
 
     $self->_head_init();
-    $self->{_title} =
-      format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) );
+    $self->{_title} = $self->format_title(
+        'manage ' . $self->pluralize_noun( $self->get_item_name() ) );
 
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
@@ -671,7 +673,8 @@ sub dispatch {
 
     $q->delete_all();
 
-    my (@body) = $self->_dispatch_by( $self->get_dispatch_action() => 'body' );    # show body
+    my (@body) =
+      $self->_dispatch_by( $self->get_dispatch_action() => 'body' ); # show body
     return @body if ( @body > 0 );
 
     # default actions
@@ -1911,15 +1914,14 @@ sub _process_val {
 #===============================================================================
 sub prepare_head {
     my $self = shift;
-    my $dbh = $self->{_dbh};
-    my $ret = $self->SUPER::prepare_head();
+    my $dbh  = $self->{_dbh};
+    my $ret  = $self->SUPER::prepare_head();
 
     # do not disconnect before session data are committed
     $dbh->disconnect() if defined $dbh;
 
     return $ret;
 }
-
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
@@ -1997,6 +1999,7 @@ sub _select_fields {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub _meta_get_cgi {
+    my $self   = shift;
     my $symbol = shift;
     my $meta   = shift || {};
     my %args   = @_;
@@ -2014,7 +2017,7 @@ sub _meta_get_cgi {
     return (
 
         # defaults
-        -title => format_title(
+        -title => $self->format_title(
             ( ( defined $prefixes{$method} ) ? $prefixes{$method} : 'Set' )
             . " $label"
         ),
@@ -2317,13 +2320,15 @@ sub form_create_body {
 
       # container stuff
       $q->h2(
-        format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) )
+        $self->format_title(
+            'manage ' . $self->pluralize_noun( $self->get_item_name() )
+        )
       ),
       $self->body_create_read_menu(
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
-      $q->h3( format_title( 'create new ' . $self->get_item_name() ) ),
+      $q->h3( $self->format_title( 'create new ' . $self->get_item_name() ) ),
 
       # form
       $self->body_create_update_form( mode => 'create' );
@@ -2383,7 +2388,8 @@ sub body_create_update_form {
             $q->submit(
                 -class => 'button black bigrounded',
                 -value => $mode,
-                -title => format_title( $mode . ' ' . $self->get_item_name() )
+                -title =>
+                  $self->format_title( $mode . ' ' . $self->get_item_name() )
             )
         )
       ),
@@ -2423,7 +2429,7 @@ sub body_edit_fields {
 
     foreach my $symbol (@$fields) {
         my $meta = $fields_meta->{$symbol} || {};
-        my %cgi_meta = _meta_get_cgi(
+        my %cgi_meta = $self->_meta_get_cgi(
             $symbol   => $meta,
             unlimited => $unlimited_mode
         );
@@ -2552,7 +2558,7 @@ sub body_create_read_menu {
                     {
                         -href =>
                           $self->get_resource_uri( b => $args{'read'}->[0] ),
-                        -title => format_title( $args{'read'}->[1] )
+                        -title => $self->format_title( $args{'read'}->[1] )
                     },
                     $args{'read'}->[1]
                 )
@@ -2566,7 +2572,7 @@ sub body_create_read_menu {
                     {
                         -href =>
                           $self->get_resource_uri( b => $args{'create'}->[0] ),
-                        -title => format_title(
+                        -title => $self->format_title(
                             $args{'create'}->[1] . ' ' . $self->get_item_name()
                         )
                     },
