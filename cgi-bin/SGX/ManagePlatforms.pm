@@ -102,19 +102,19 @@ sub new {
                 join => [ probe_location => [ pid => 'pid', { join_type => 'LEFT' } ] ]
             },
             probe_location => {
-                table => '(SELECT pid, COUNT(probe.rid) AS ids, COUNT(probe_sequence) AS sequences, COUNT(location.rid) AS locations FROM probe LEFT JOIN location USING(rid) GROUP BY pid)',
+                table => '(SELECT pid, COUNT(probe.rid) AS id_count, COUNT(probe_sequence) AS sequence_count, COUNT(location.rid) AS locus_count FROM probe LEFT JOIN location USING(rid) GROUP BY pid)',
                 key  => [qw/pid/],
-                view => [qw/ids sequences locations/],
+                view => [qw/id_count sequence_count locus_count/],
                 meta => {
-                    ids => {
+                    id_count => {
                         label   => 'Probe Count',
                         parser  => 'number'
                     },
-                    sequences => {
+                    sequence_count => {
                         label   => 'Probe Sequences',
                         parser  => 'number'
                     },
-                    locations => {
+                    locus_count => {
                         label   => 'Chr. Locations',
                         parser  => 'number'
                     }
