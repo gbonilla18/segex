@@ -99,25 +99,23 @@ sub new {
                         },
                     },
                 },
-                join => [ probe => [ pid => 'pid', { join_type => 'LEFT' } ] ]
+                join => [ probe_location => [ pid => 'pid', { join_type => 'LEFT' } ] ]
             },
-            probe => {
+            probe_location => {
+                table => '(SELECT pid, COUNT(probe.rid) AS ids, COUNT(probe_sequence) AS sequences, COUNT(location.rid) AS locations FROM probe LEFT JOIN location USING(rid) GROUP BY pid)',
                 key  => [qw/pid/],
-                view => [qw/probes_total probe_sequences probe_locations/],
+                view => [qw/ids sequences locations/],
                 meta => {
-                    probes_total => {
-                        __sql__ => 'COUNT(probe.rid)',
+                    ids => {
                         label   => 'Probe Count',
                         parser  => 'number'
                     },
-                    probe_sequences => {
-                        __sql__ => 'COUNT(probe.probe_sequence)',
+                    sequences => {
                         label   => 'Probe Sequences',
                         parser  => 'number'
                     },
-                    probe_locations => {
-                        __sql__ => 'COUNT(probe.location)',
-                        label   => 'Locations',
+                    locations => {
+                        label   => 'Chr. Locations',
                         parser  => 'number'
                     }
                 },

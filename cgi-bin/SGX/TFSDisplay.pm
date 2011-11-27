@@ -479,7 +479,6 @@ SELECT
     IF(isAnnotated, 'Y', 'N')   AS 'Is Annotated',
     COUNT(probe.rid)            AS 'ProbeCount',
     COUNT(probe.probe_sequence) AS 'Sequences Loaded',
-    COUNT(probe.location)       AS 'Probe Locations',
     COUNT(annotates.gid)        AS 'Accession Numbers',
     COUNT(gene.seqname)         AS 'Gene Names'
 FROM platform

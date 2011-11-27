@@ -46,8 +46,8 @@ CREATE TABLE `StudyExperiment` (
   PRIMARY KEY (`stid`,`eid`),
   KEY `eid` (`eid`),
   KEY `stid` (`stid`),
-  CONSTRAINT `studyexperiment_ibfk_2` FOREIGN KEY (`stid`) REFERENCES `study` (`stid`) ON DELETE CASCADE,
-  CONSTRAINT `studyexperiment_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE
+  CONSTRAINT `studyexperiment_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE,
+  CONSTRAINT `studyexperiment_ibfk_2` FOREIGN KEY (`stid`) REFERENCES `study` (`stid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -84,7 +84,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=115 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=137 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -106,6 +106,24 @@ CREATE TABLE `gene` (
   KEY `seqname` (`seqname`),
   KEY `accnum` (`accnum`)
 ) ENGINE=InnoDB AUTO_INCREMENT=360282 DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `location`
+--
+
+DROP TABLE IF EXISTS `location`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `location` (
+  `rid` int(10) unsigned NOT NULL,
+  `chromosome` varchar(127) NOT NULL,
+  `start` int(10) unsigned NOT NULL,
+  `end` int(10) unsigned NOT NULL,
+  KEY `rid` (`rid`),
+  KEY `common` (`chromosome`(5),`start`,`end`),
+  CONSTRAINT `location_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -161,7 +179,6 @@ CREATE TABLE `probe` (
   `reporter` char(18) NOT NULL,
   `probe_sequence` varchar(100) DEFAULT NULL,
   `pid` int(10) unsigned NOT NULL,
-  `location` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`rid`),
   UNIQUE KEY `reporter_pid` (`reporter`,`pid`),
   KEY `pid` (`pid`),
@@ -218,7 +235,7 @@ CREATE TABLE `study` (
   UNIQUE KEY `pid_description` (`pid`,`description`),
   KEY `pid` (`pid`),
   CONSTRAINT `study_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -241,7 +258,7 @@ CREATE TABLE `users` (
   `udate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`),
   UNIQUE KEY `uname` (`uname`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -253,4 +270,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2011-10-09 19:30:06
+-- Dump completed on 2011-11-27 15:45:07
