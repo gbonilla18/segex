@@ -455,8 +455,6 @@ sub _head_data_table {
 sub dispatch_js {
     my $self = shift;
 
-    my $action = $self->get_dispatch_action();
-
     $self->_head_init();
     $self->{_title} =
       format_title( 'manage ' . pluralize_noun( $self->get_item_name() ) );
@@ -464,10 +462,9 @@ sub dispatch_js {
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
     # preliminary processing routine (e.g. create request handler) tells us so.
-    #
-    return if $self->_dispatch_by( $action => 'redirect' );
+    return if $self->_dispatch_by( $self->get_dispatch_action() => 'redirect' );
 
-    if ( $self->_dispatch_by( $action => 'head' ) ) {
+    if ( $self->_dispatch_by( $self->get_dispatch_action() => 'head' ) ) {
         $self->_js_dump();
         return 1;
     }
@@ -666,8 +663,6 @@ sub generate_datatable {
 sub dispatch {
     my ($self) = @_;
 
-    my $action = $self->get_dispatch_action();
-
     # :TRICKY:08/17/2011 13:00:12:es: CGI.pm -nosticky option seems to not be
     # working as intended. See: http://www.perlmonks.org/?node_id=689507. Using
     # delete_all() ensures that param array is cleared and no form field
@@ -676,7 +671,7 @@ sub dispatch {
 
     $q->delete_all();
 
-    my (@body) = $self->_dispatch_by( $action => 'body' );    # show body
+    my (@body) = $self->_dispatch_by( $self->get_dispatch_action() => 'body' );    # show body
     return @body if ( @body > 0 );
 
     # default actions
@@ -1812,6 +1807,8 @@ sub _create_command {
       ? ( $id, map { $translate_val->($_) } cdr @fields )
       : map { $translate_val->($_) } @fields;
 
+    #warn $query . "\n" . Dumper(\@params);
+
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
     return sub {
@@ -1876,6 +1873,7 @@ sub _process_val {
     my $label     = shift;
     my $this_meta = shift;
     my $val       = shift;
+    my $parser    = $this_meta->{parser};
 
     # preventing not only empty strings but also anything which consists
     # entirely of white space.
@@ -1887,7 +1885,11 @@ sub _process_val {
     if ( my $encoder = $this_meta->{__encode__} ) {
         return $encoder->($val);
     }
-    elsif ( $this_meta->{parser} eq 'number' and $val eq '' ) {
+    elsif (defined($parser)
+        && defined($val)
+        && $parser eq 'number'
+        && $val eq '' )
+    {
 
         # for numeric types, interpret empty strings as NULL
         return undef;
@@ -1896,6 +1898,28 @@ sub _process_val {
         return $val;
     }
 }
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::CRUD
+#       METHOD:  prepare_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub prepare_head {
+    my $self = shift;
+    my $dbh = $self->{_dbh};
+    my $ret = $self->SUPER::prepare_head();
+
+    # do not disconnect before session data are committed
+    $dbh->disconnect() if defined $dbh;
+
+    return $ret;
+}
+
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD

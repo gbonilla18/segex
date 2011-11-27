@@ -353,7 +353,7 @@ sub _dispatch_by {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
+#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  prepare_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -364,18 +364,14 @@ sub _dispatch_by {
 #===============================================================================
 sub prepare_head {
     my $self = shift;
-    my ( $dbh, $s ) = @$self{qw/_dbh _UserSession/};
+    my $s = $self->{_UserSession};
     my $show_html = $self->dispatch_js();
 
     # flush the session data and prepare cookies
     $s->commit() if defined $s;
 
-    # do not disconnect before session data are committed
-    $dbh->disconnect() if defined $dbh;
-
     return $show_html;
 }
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
 #       METHOD:  dispatch_js
@@ -388,14 +384,13 @@ sub prepare_head {
 #===============================================================================
 sub dispatch_js {
     my $self = shift;
-    my $action = $self->get_dispatch_action();
 
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
     # preliminary processing routine (e.g. create request handler) tells us so.
     #
-    return if $self->_dispatch_by( $action => 'redirect' );   # do not show body
-    return $self->_dispatch_by( $action => 'head' );
+    return if $self->_dispatch_by( $self->get_dispatch_action() => 'redirect' );   # do not show body
+    return $self->_dispatch_by( $self->get_dispatch_action() => 'head' );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -426,7 +421,6 @@ sub set_action {
 #===============================================================================
 sub dispatch {
     my $self = shift;
-    my $action = $self->get_dispatch_action();
 
     # :TRICKY:08/17/2011 13:00:12:es: CGI.pm -nosticky option seems to not be
     # working as intended. See: http://www.perlmonks.org/?node_id=689507. Using
@@ -435,7 +429,7 @@ sub dispatch {
     #
     my $q = $self->{_cgi};
     $q->delete_all();
-    return $self->_dispatch_by( $action => 'body' );    # show body
+    return $self->_dispatch_by( $self->get_dispatch_action() => 'body' );    # show body
 }
 
 #===  CLASS METHOD  ============================================================

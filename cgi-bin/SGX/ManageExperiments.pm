@@ -5,6 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
+use SGX::Debug;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
@@ -325,6 +326,23 @@ setupToggles(
 $code
 END_SETUPTOGGLES
 
+    my ($q, $id_data) = @$self{qw/_cgi _id_data/};
+    if ( $self->{_upload_completed} ) {
+        $self->add_message(
+            'The uploaded data were placed in a new experiment under: '
+              . $q->a(
+                {
+                    -href => $q->url( -absolute => 1 )
+                      . sprintf(
+                        '?a=experiments&b=Load&pid=%s&stid=%s',
+                        $id_data->{pid}, $id_data->{stid}
+                      )
+                },
+                $self->{_PlatformStudyExperiment}
+                  ->getPlatformStudyName( $id_data->{pid}, $id_data->{stid} )
+              )
+        );
+    }
     return 1;
 }
 
@@ -344,7 +362,7 @@ sub default_head {
     # view all rows
     $self->SUPER::default_head();
 
-    my $s = $self->{_UserSession};
+    my $s         = $self->{_UserSession};
     my $curr_proj = $s->{session_cookie}->{curr_proj};
     my $stid      = $self->{_id_data}->{stid};
 
@@ -361,12 +379,12 @@ sub default_head {
                 extra_platforms   => { 'all' => { name => '@All Platforms' } },
                 extra_studies     => {
                     (
-                        (
-                                 defined($curr_proj)
-                              && $curr_proj ne ''
-                        )
-                        ? ( 'all' => { name => '@Assigned Experiments (All Studies)' } )
-                        : ( 'all' => { name => '@All Experiments (All Studies)' } )
+                        ( defined($curr_proj) && $curr_proj ne '' )
+                        ? ( 'all' =>
+                              { name => '@Assigned Experiments (All Studies)' }
+                          )
+                        : ( 'all' =>
+                              { name => '@All Experiments (All Studies)' } )
                     ),
                     '' => { name => '@Unassigned Experiments' }
                 }
@@ -471,6 +489,32 @@ sub form_assign_head {
       );
 
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  default_create
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  override CRUD::default_create
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_create {
+    my $self    = shift;
+
+    require SGX::UploadData;
+    my $data = SGX::UploadData->new( delegate => $self );
+    my $recordsLoaded = eval { $data->uploadData('file') } || 0;
+    my $exception = $@;
+    if ($recordsLoaded) {
+        $self->{_upload_completed} = 1;
+    } else {
+        $self->add_message('No records loaded. ' . $exception);
+    }
+    $self->set_action('form_create');
+    return;
 }
 
 #===  CLASS METHOD  ============================================================

@@ -99,6 +99,7 @@ sub getPlatformNameFromPID {
 #===============================================================================
 sub getPlatformStudyName {
     my ( $self, $pid, $stid ) = @_;
+
     return $self->{_ByPlatform}->{$pid}->{studies}->{$stid}->{name} . ' \ '
       . $self->{_ByPlatform}->{$pid}->{name};
 }

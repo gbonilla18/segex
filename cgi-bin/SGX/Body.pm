@@ -24,7 +24,7 @@ my $all_resources = {
     studies     => { label => 'Manage Studies' },
     projects    => { label => 'Manage Projects' },
     users       => { label => 'Manage Users', perm => 'admin' },
-    uploadData =>
+    'experiments&b=form_create' =>
       { label => 'Upload Data', title => 'Upload data to a new experiment' },
     uploadAnnot =>
       { label => 'Upload Annotation', title => 'Upload probe annotations' },
@@ -36,6 +36,7 @@ sub make_link_creator {
     return sub {
         my @result;
         foreach my $action (@_) {
+            warn $action;
             if ( my $properties = $resource_table->{$action} ) {
                 my $perm = $properties->{perm};
                 next if defined($perm) and 1 != $obj->is_authorized($perm);
@@ -396,7 +397,7 @@ sub build_menu {
           $link_creator->(qw/compareExperiments findProbes outputData/),
         'Manage' =>
           $link_creator->(qw/experiments studies projects platforms users/),
-        'Upload' => $link_creator->(qw/uploadData uploadAnnot/)
+        'Upload' => $link_creator->(qw/experiments&b=form_create uploadAnnot/)
     );
 
     my @result;

@@ -3,12 +3,9 @@ package SGX::UploadData;
 use strict;
 use warnings;
 
-use base qw/SGX::Strategy::Base/;
-
-use JSON qw/encode_json/;
 use SGX::Debug;
+use JSON qw/encode_json/;
 use SGX::Abstract::Exception ();
-require SGX::Model::PlatformStudyExperiment;
 use Scalar::Util qw/looks_like_number/;
 
 my @parser = (
@@ -49,311 +46,21 @@ my @parser = (
 #===============================================================================
 sub new {
     my $class = shift;
-    my $self  = $class->SUPER::new(@_);
 
-    my $dbh = $self->{_dbh};
+    my %args = @_;
+    my $delegate_data = $args{delegate}->{_id_data};
 
-    $self->set_attributes(
-        _title => 'Upload Data',
-
-        _PlatformStudyExperiment =>
-          SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
-
-        # URL params
-        _stid           => '',
-        _pid            => '',
-        _sample1        => '',
-        _sample2        => '',
-        _ExperimentDesc => '',
-        _AdditionalInfo => '',
+    my $self = {
+        _stid => $delegate_data->{stid},
+        _pid => $delegate_data->{pid},
 
         _recordsInserted => undef,
-    );
 
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-    push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
-    push @$js_src_code, { -src => 'PlatformStudyExperiment.js' };
-    $self->{_PlatformStudyExperiment}->init(
-        platforms         => 1,
-        studies           => 1,
-        platform_by_study => 1,
-        extra_studies     => { '' => { name => '@Unassigned Experiments' } }
-    );
+        @_
+    };
 
     bless $self, $class;
     return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my $self = shift;
-    $self->SUPER::init();
-
-    $self->register_actions( Upload => { head => 'Upload_head' } );
-    $self->initUploadData();
-
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  dispatch_js
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub Upload_head {
-    my $self = shift;
-    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-    $self->uploadData('file');
-
-    $self->add_message(
-        'The uploaded data were placed in a new experiment under: '
-          . $q->a(
-            {
-                -href => $q->url( -absolute => 1 )
-                  . sprintf(
-                    '?a=experiments&b=Load&pid=%s&stid=%s',
-                    $self->{_pid}, $self->{_stid}
-                  )
-            },
-            $self->{_PlatformStudyExperiment}
-              ->getPlatformStudyName( $self->{_pid}, $self->{_stid} )
-          )
-    );
-
-    # show form
-    push @$js_src_code, { -code => $self->getDropDownJS() };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  default_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub default_head {
-    my $self = shift;
-    my ( $q,          $s )           = @$self{qw{_cgi _UserSession}};
-    my ( $js_src_yui, $js_src_code ) = @$self{qw{_js_src_yui _js_src_code}};
-
-    # default: show form
-    push @$js_src_code, { -code => $self->getDropDownJS() };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  initUploadData
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Get state (mostly from CGI parameters)
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub initUploadData {
-    my $self = shift;
-
-    my $q = $self->{_cgi};
-
-    $self->{_sample1} = $q->param('sample1');
-    $self->{_sample2} = $q->param('sample2');
-    my $stid = $q->param('stid');
-    if ( defined $stid ) {
-        $self->{_stid} = $stid;
-
-        # If a study is set, use the corresponding platform while ignoring the
-        # platform parameter. Also update the _pid field with the platform id
-        # obtained from the lookup by study id.
-        my $pid =
-          $self->{_PlatformStudyExperiment}->getPlatformFromStudy($stid);
-        $self->{_pid} = ( defined $pid ) ? $pid : $q->param('pid');
-    }
-    $self->{_ExperimentDesc} = $q->param('ExperimentDesc');
-    $self->{_AdditionalInfo} = $q->param('AdditionalInfo');
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  getDropDownJS
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Returns JSON data plus JavaScript code required to build
-#                platform and study dropdowns
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getDropDownJS {
-    my $self = shift;
-
-    my $PlatfStudyExp =
-      encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
-
-    my $selectedPlatform =
-        ( defined $self->{_pid} )
-      ? { $self->{_pid} => undef }
-      : {};
-
-    my $selectedStudy =
-        ( defined $self->{_stid} )
-      ? { $self->{_stid} => undef }
-      : {};
-
-    my $currentSelection = encode_json(
-        {
-            'platform' => {
-                element   => undef,
-                selected  => $selectedPlatform,
-                elementId => 'pid'
-            },
-            'study' => {
-                element   => undef,
-                selected  => $selectedStudy,
-                elementId => 'stid'
-            }
-        }
-    );
-
-    return <<"END_ret";
-var PlatfStudyExp = $PlatfStudyExp;
-var currentSelection = $currentSelection;
-YAHOO.util.Event.addListener(window, 'load', function() {
-    populatePlatform.apply(currentSelection);
-    populatePlatformStudy.apply(currentSelection);
-});
-YAHOO.util.Event.addListener(currentSelection.platform.elementId, 'change', function() {
-    populatePlatformStudy.apply(currentSelection);
-});
-END_ret
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  default_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  returns array of HTML element strings
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub default_body {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    return
-      $q->h2('Upload Data to a New Experiment'),
-      $q->start_form(
-        -method  => 'POST',
-        -action  => $q->url( -absolute => 1 ) . '?a=uploadData',
-        -enctype => 'multipart/form-data',
-        -onsubmit =>
-          'return validate_fields(this, [\'sample1\',\'sample2\',\'file\']);'
-      ),
-      $q->p(<<"END_TEXT1"),
-The data file must be in plain-text tab-delimited format with the following six
-columns:
-END_TEXT1
-      $q->pre(
-        'Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'),
-      $q->p(<<"END_TEXT2"),
-Probe names can be either numbers or strings; all other fields must be numeric.
-The first row in the file must be a header row and the actual data should start with the second row.
-END_TEXT2
-      $q->dl(
-        $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -name => 'pid',
-                -id   => 'pid'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -name => 'stid',
-                -id   => 'stid'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'sample1' }, 'Sample 1:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'sample1',
-                -id        => 'sample1',
-                -maxlength => 255,
-                -size      => 35
-            )
-        ),
-        $q->dt( $q->label( { -for => 'sample2' }, 'Sample 2:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'sample2',
-                -id        => 'sample2',
-                -maxlength => 255,
-                -size      => 35
-            )
-        ),
-        $q->dt(
-            $q->label( { -for => 'ExperimentDesc' }, 'Experiment Description' )
-        ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'ExperimentDesc',
-                -id        => 'ExperimentDesc',
-                -maxlength => 255,
-                -size      => 55
-            )
-        ),
-        $q->dt(
-            $q->label(
-                { -for => 'AdditionalInfo' }, 'Additional Information:'
-            )
-        ),
-        $q->dd(
-            $q->textfield(
-                -name      => 'AdditionalInfo',
-                -id        => 'AdditionalInfo',
-                -maxlength => 255,
-                -size      => 55
-            )
-        ),
-        $q->dt( $q->label( { -for => 'file' }, 'Data File to Upload:' ) ),
-        $q->dd(
-            $q->filefield(
-                -name => 'file',
-                -id   => 'file'
-            )
-        ),
-        $q->dt('&nbsp;'),
-        $q->dd(
-            $q->submit(
-                -name  => 'b',
-                -id    => 'b',
-                -class => 'button black bigrounded',
-                -value => 'Upload'
-            )
-        )
-      ),
-      $q->end_form;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -392,7 +99,7 @@ sub uploadData {
         # Notify user of User exception; rethrow Internal and other types of
         # exceptions.
         if ( $exception->isa('SGX::Exception::User') ) {
-            $self->add_message( { -class => 'error' },
+            $self->{delegate}->add_message( { -class => 'error' },
                 'There was a problem with your input: ' . $exception->error );
         }
         else {
@@ -401,13 +108,13 @@ sub uploadData {
         return 0;
     }
     elsif ( $recordsValid == 0 ) {
-        $self->add_message( { -class => 'error' },
+        $self->{delegate}->add_message( { -class => 'error' },
             'No valid records were uploaded.' );
         return 0;
     }
 
     # some valid records uploaded -- now load to the database
-    my $dbh = $self->{_dbh};
+    my $dbh = $self->{delegate}->{_dbh};
 
     # turn off auto-commit to allow rollback; cache old value
     my $old_AutoCommit = $dbh->{AutoCommit};
@@ -428,7 +135,7 @@ sub uploadData {
         if ( $exception->isa('SGX::Exception::User') ) {
 
             # Catch User exceptions
-            $self->add_message(
+            $self->{delegate}->add_message(
                 { -class => 'error' },
                 sprintf(
                     <<"END_User_exception",
@@ -443,7 +150,7 @@ END_User_exception
 
             # Catch DBI::STH exceptions. Note: this block catches duplicate
             # key record exceptions.
-            $self->add_message(
+            $self->{delegate}->add_message(
                 { -class => 'error' },
                 sprintf(
                     <<"END_DBI_STH_exception",
@@ -463,7 +170,7 @@ END_DBI_STH_exception
     elsif ( $recordsLoaded == 0 ) {
         $dbh->rollback;
         $self->loadToDatabase_finish($sth_hash);
-        $self->add_message( { -class => 'error' },
+        $self->{delegate}->add_message( { -class => 'error' },
             'Failed to add data to the database.' );
     }
     else {
@@ -472,7 +179,7 @@ END_DBI_STH_exception
 
         my $totalProbes = $self->probesPerPlatform();
         if ( $recordsLoaded == $totalProbes ) {
-            $self->add_message(
+            $self->{delegate}->add_message(
                 sprintf(
                     <<"END_FULL_SUCCESS",
 Success! Data for all %d probes from the selected platform 
@@ -483,7 +190,7 @@ END_FULL_SUCCESS
             );
         }
         elsif ( $recordsLoaded < $totalProbes ) {
-            $self->add_message(
+            $self->{delegate}->add_message(
                 sprintf(
                     <<"END_PARTIAL_SUCCESS",
 You added data for %d probes out of total %d in the selected platform
@@ -530,7 +237,7 @@ sub probesPerPlatform {
     my ( $self, $pid ) = @_;
     $pid = $self->{_pid} unless defined($pid);
 
-    my $dbh = $self->{_dbh};
+    my $dbh = $self->{delegate}->{_dbh};
 
     my $sth = $dbh->prepare('SELECT COUNT(*) FROM probe WHERE pid=?');
     my $rc  = $sth->execute($pid);
@@ -555,7 +262,7 @@ sub probesPerPlatform {
 sub sanitizeUploadFile {
     my ( $self, $inputField, $outputFileName ) = @_;
 
-    my $q = $self->{_cgi};
+    my $q = $self->{delegate}->{_cgi};
 
     # The is the file handle of the uploaded file.
     my $uploadedFile = $q->upload($inputField)
@@ -632,7 +339,7 @@ sub sanitizeUploadFile {
 sub loadToDatabase_prepare {
     my $self = shift;
 
-    my $dbh = $self->{_dbh};
+    my $dbh = $self->{delegate}->{_dbh};
 
     # Give temporary table a unique ID using time and running process ID
     my $temp_table = time() . '_' . getppid();
@@ -679,15 +386,7 @@ INNER JOIN $temp_table AS temptable USING(reporter)
 WHERE probe.pid=?
 END_insert
 
-    $sth_hash->{insertExperiment} ||= $dbh->prepare(<<"END_insertExperiment");
-INSERT INTO experiment (
-    pid,
-    sample1,
-    sample2,
-    ExperimentDescription,
-    AdditionalInformation
-) VALUES (?, ?, ?, ?, ?)
-END_insertExperiment
+    $sth_hash->{insertExperiment} = $self->{delegate}->_create_command();
 
     $sth_hash->{insertStudyExperiment} ||=
       ( defined $self->{_stid} )
@@ -717,27 +416,23 @@ END_insertExperiment
 sub loadToDatabase_execute {
     my ( $self, $sth_hash, $outputFileName ) = @_;
 
-    my ( $sth_createTable, $sth_loadData, $sth_insertExperiment,
-        $sth_insertStudyExperiment, $sth_insertResponse )
+    my ( $sth_createTable, $sth_loadData, $insertExperiment,
+        $sth_insertStudyExperiment, $sth_insertResponse)
       = @$sth_hash{
         qw(createTable loadData insertExperiment insertStudyExperiment insertResponse)
       };
 
-    SGX::Exception::User->throw(
-        error => "Sample 1 name is the same as that of sample 2\n" )
-      if ( $self->{_sample1} eq $self->{_sample2} );
+    #SGX::Exception::User->throw(
+    #    error => "Sample 1 name is the same as that of sample 2.\n" )
+    #  if ( $self->{_sample1} eq $self->{_sample2} );
 
-    my $dbh = $self->{_dbh};
+    my $dbh = $self->{delegate}->{_dbh};
 
     # Create temporary table
     $sth_createTable->execute();
 
-    # Insert a new experiment
-    my $experimentsAdded = $sth_insertExperiment->execute(
-        $self->{_pid}, $self->{_sample1}, $self->{_sample2},
-        $self->{_ExperimentDesc},
-        $self->{_AdditionalInfo}
-    );
+    # insert a new experiment
+    my $experimentsAdded = $insertExperiment->();
 
     # Check that experiment was actually added
     if ( $experimentsAdded < 1 ) {
@@ -805,7 +500,7 @@ sub loadToDatabase_finish {
     my ( $self, $sth_hash ) = @_;
 
     for my $sth ( values %$sth_hash ) {
-        $sth->finish();
+        $sth->finish() if ref $sth ne 'CODE';
     }
 
     return 1;
