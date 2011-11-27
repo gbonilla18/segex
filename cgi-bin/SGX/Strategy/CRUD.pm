@@ -670,11 +670,10 @@ sub dispatch {
     # delete_all() ensures that param array is cleared and no form field
     # inherits old values.
     my $q = $self->{_cgi};
-
     $q->delete_all();
 
-    my (@body) =
-      $self->_dispatch_by( $self->get_dispatch_action() => 'body' ); # show body
+    # show body
+    my (@body) = $self->_dispatch_by( $self->get_dispatch_action() => 'body' );
     return @body if ( @body > 0 );
 
     # default actions

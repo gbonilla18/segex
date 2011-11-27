@@ -36,7 +36,6 @@ sub make_link_creator {
     return sub {
         my @result;
         foreach my $action (@_) {
-            warn $action;
             if ( my $properties = $resource_table->{$action} ) {
                 my $perm = $properties->{perm};
                 next if defined($perm) and 1 != $obj->is_authorized($perm);

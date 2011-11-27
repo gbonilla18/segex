@@ -372,7 +372,7 @@ sub form_create_body {
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
-      $q->h3( $self->format_title( 'create new ' . $self->get_item_name() ) ),
+      $q->h3( $self->format_title( 'Upload data to a new ' . $self->get_item_name() ) ),
 $q->p(<<"END_TEXT1"),
 The data file must be in plain-text tab-delimited format with six columns shown
 below. Probe names can be either numbers or strings; all other fields must be numeric.
