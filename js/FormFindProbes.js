@@ -24,3 +24,36 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
     terms.value = terms.value.replace(/^\s+/, "").replace(/\s+$/, "").replace(/[,\s]+/g, ",");
     return true;
 });
+///////////////////////////////////////////////////////////
+var oButtonGroupFilter = new YAHOO.widget.ButtonGroup({
+    id: 'buttongroupFilter', 
+    name: 'radiofieldFilter', 
+    container:  'locusFilter', 
+    usearia: true
+});
+oButtonGroupFilter.addButtons([
+    { id: 'none', value: 'none', label: 'No Filter', checked: true },
+    { id: 'range', value: 'range', label: 'Chr. Range' }
+]);
+oButtonGroupFilter.on('checkedButtonChange', function (p_oEvent) {
+    // drop "-button" suffix from button id
+    var btnValue = p_oEvent.newValue._button.id.replace(/-button$/i, '');
+    toggleFilterOptions(btnValue);
+});
+function toggleFilterOptions(selectedRadio)
+{
+    var filterLoci = document.getElementById("filterLoci");
+    if(selectedRadio === 'none')
+    {
+        filterLoci.style.display = 'none';
+    }
+    else if(selectedRadio === 'range')
+    {
+        filterLoci.style.display = 'block';
+    }    
+    else
+    {
+        throw "Invalid button selected: " + selectedRadio;
+    }
+}
+

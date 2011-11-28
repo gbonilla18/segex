@@ -94,7 +94,13 @@ sub default_head {
     my $self = shift;
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
-    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
+
+    push @{ $self->{_css_src_yui} }, 'button/assets/skins/sam/button.css';
+    push @$js_src_yui,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js',
+        'element/element-min.js', 'button/button-min.js'
+      );
     $self->getSessionOverrideCGI();
     push @$js_src_code, ( { -src => 'FormFindProbes.js' } );
     return 1;
@@ -861,6 +867,35 @@ all genes starting with cyp.b where the period represents any one character (2,
 3, 4, "a", etc.).  See <a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> 
 for more examples.
 END_EXAMPLE_TEXT
+        ),
+        $q->dt('Filter on:'),
+        $q->dd(
+            $q->div(
+                { -id => 'locusFilter', -style => 'margin-bottom:1em;' }, ''
+            ),
+            $q->div(
+                { -id => 'filterLoci', -style => 'display:none;' },
+                $q->textfield(
+                    -name  => 'chr',
+                    -id    => 'chr',
+                    -title => 'Enter chromosome name',
+                    -size  => 7
+                ),
+                ':',
+                $q->textfield(
+                    -name  => 'start',
+                    -id    => 'start',
+                    -title => 'Enter start position',
+                    -size  => 14
+                ),
+                '-',
+                $q->textfield(
+                    -name  => 'end',
+                    -id    => 'end',
+                    -title => 'Enter end position',
+                    -size  => 14
+                ),
+            )
         ),
         $q->dt( $q->label( { -for => 'opts' }, 'Output options:' ) ),
         $q->dd(

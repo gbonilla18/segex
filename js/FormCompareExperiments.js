@@ -285,13 +285,11 @@ oButtonGroupFilter.addButtons([
     { id: 'list', value: 'list', label: 'List of Terms' }, 
     { id: 'file', value: 'file', label: 'Upload File' }
 ]);
-var onCheckedButtonChange = function (p_oEvent) {
+oButtonGroupFilter.on('checkedButtonChange', function (p_oEvent) {
     // drop "-button" suffix from button id
     var btnValue = p_oEvent.newValue._button.id.replace(/-button$/i, '');
     toggleFilterOptions(btnValue);
-};
-oButtonGroupFilter.on('checkedButtonChange', onCheckedButtonChange);
-
+});
 YAHOO.util.Event.addListener(window, 'load', function() {
     populatePlatforms("platform");
     addExperiment();
