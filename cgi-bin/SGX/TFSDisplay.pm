@@ -474,18 +474,24 @@ sub getPlatformData {
   # fat for what we need.
     my $singleItemQuery = <<"END_LoadQuery";
 SELECT
-    platform.pname              AS 'Platform',
-    platform.species            AS 'Species',
-    IF(isAnnotated, 'Y', 'N')   AS 'Is Annotated',
-    COUNT(probe.rid)            AS 'ProbeCount',
-    COUNT(probe.probe_sequence) AS 'Sequences Loaded',
-    COUNT(annotates.gid)        AS 'Accession Numbers',
-    COUNT(gene.seqname)         AS 'Gene Names'
+    platform.pname                AS 'Platform',
+    platform.species              AS 'Species',
+    IF(isAnnotated, 'Y', 'N')     AS 'Is Annotated',
+    probe_location.id_count       AS 'Probe Count',
+    probe_location.sequence_count AS 'Sequences Loaded',
+    probe_location.locus_count    AS 'Chromosomal Locations'
 FROM platform
-LEFT JOIN probe      ON probe.pid = platform.pid
-LEFT JOIN annotates  ON annotates.rid = probe.rid
-LEFT JOIN gene       ON gene.gid = annotates.gid
-WHERE platform.pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
+LEFT JOIN (
+    SELECT 
+        pid, 
+        COUNT(probe.rid) AS id_count, 
+        COUNT(probe_sequence) AS sequence_count, 
+        COUNT(location.rid) AS locus_count 
+    FROM probe 
+    LEFT JOIN location USING(rid) 
+    GROUP BY pid
+) AS probe_location USING(pid)
+WHERE pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
 GROUP BY platform.pid
 END_LoadQuery
 
