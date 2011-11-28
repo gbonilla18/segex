@@ -205,11 +205,7 @@ sub FindProbes_init {
         my $text = car $q->param('q');
         @textSplit = split( /[,\s]+/, trim($text) );
     }
-    if ( @textSplit < 1 ) {
-        $self->add_message( { -class => 'error' },
-            'You did not provide any input' );
-        return;
-    }
+
     $self->{_xMatchType}   = $match;
     $self->{_xSearchTerms} = \@textSplit;
 
@@ -300,34 +296,51 @@ sub build_SearchPredicate {
     my $self  = shift;
     my $match = $self->{_xMatchType};
     my $items = $self->{_xSearchTerms};
+    my $type = $self->{_type};
 
     my $qtext;
     my $predicate;
+    my %translate_fields = (
+        'probe'  => 'reporter',
+        'gene'   => 'seqname',
+        'accnum' => 'accnum'
+    );
+    my $type = $translate_fields{$type};
 
     if ( $match eq 'full' ) {
         ( $predicate => $qtext ) =
           @$items
-          ? ( 'IN (' . join( ',', map { '?' } @$items ) . ')' => $items )
-          : ( 'IN (NULL)' => [] );
+          ? ( [ "$type IN (" . join( ',', map { '?' } @$items ) . ')' ] => $items )
+          : ( [] => [] );
     }
     elsif ( $match eq 'prefix' ) {
         ( $predicate => $qtext ) =
           @$items
-          ? ( 'REGEXP ?' => [ join( '|', map { "^$_" } @$items ) ] )
-          : ( 'IN (NULL)' => [] );
+          ? ( ["$type REGEXP ?"] => [ join( '|', map { "^$_" } @$items ) ] )
+          : ( [] => [] );
     }
     elsif ( $match eq 'part' ) {
         ( $predicate => $qtext ) =
           @$items
-          ? ( 'REGEXP ?' => [ join( '|', @$items ) ] )
-          : ( 'IN (NULL)' => [] );
+          ? ( ["$type REGEXP ?"] => [ join( '|', @$items ) ] )
+          : ( [] => [] );
     }
     else {
         SGX::Exception::Internal->throw(
             error => "Invalid match value $match\n" );
     }
 
-    $self->{_Predicate}   = $predicate;
+    my $q = $self->{_cgi};
+    if ( $q->param('chr') ) {
+        push @$predicate,
+'probe.rid IN (SELECT rid FROM location WHERE chromosome=? AND end>=? AND start<=?)';
+        push @$qtext, car( $q->param('chr') ), car( $q->param('start') ),
+          car( $q->param('end') );
+    }
+    if ( !@$predicate ) {
+        push @$predicate, "$type IN (NULL)";
+    }
+    $self->{_Predicate} = 'WHERE ' . join( ' AND ', @$predicate );
     $self->{_SearchItems} = $qtext;
     return 1;
 }
@@ -868,7 +881,7 @@ all genes starting with cyp.b where the period represents any one character (2,
 for more examples.
 END_EXAMPLE_TEXT
         ),
-        $q->dt('Filter on:'),
+        $q->dt('Limit results to:'),
         $q->dd(
             $q->div(
                 { -id => 'locusFilter', -style => 'margin-bottom:1em;' }, ''
@@ -964,23 +977,14 @@ END_BROWSER_NOTICE
 #===============================================================================
 sub build_InsideTableQuery {
     my $self = shift;
-    my $type = $self->{_type};
-
-    my $predicate = 'WHERE %s ' . $self->{_Predicate};
+    my $predicate = $self->{_Predicate};
 
     my $probe_spec_fields =
-      ( $type eq 'probe' )
+      ( $self->{_type} eq 'probe' )
       ? 'rid, reporter, probe_sequence, pid'
       : 'NULL AS rid, NULL AS reporter, NULL AS probe_sequence, NULL AS pid';
 
-    my %translate_fields = (
-        'probe'  => 'reporter',
-        'gene'   => 'seqname',
-        'accnum' => 'accnum'
-    );
-
-    $self->{_InsideTableQuery} = sprintf(
-        <<"END_InsideTableQuery_probe",
+    $self->{_InsideTableQuery} = <<"END_InsideTableQuery_probe";
 select $probe_spec_fields,
 g2.gid, 
 g2.accnum,
@@ -1010,9 +1014,6 @@ from gene g4 right join
 on g4.seqname=g3.seqname where rid is not NULL
 
 END_InsideTableQuery_probe
-        $translate_fields{$type},
-        $translate_fields{$type}
-    );
 
     return 1;
 }
