@@ -296,7 +296,6 @@ sub build_SearchPredicate {
     my $self  = shift;
     my $match = $self->{_xMatchType};
     my $items = $self->{_xSearchTerms};
-    my $type = $self->{_type};
 
     my $qtext;
     my $predicate;
@@ -305,7 +304,7 @@ sub build_SearchPredicate {
         'gene'   => 'seqname',
         'accnum' => 'accnum'
     );
-    my $type = $translate_fields{$type};
+    my $type = $translate_fields{$self->{_type}};
 
     if ( $match eq 'full' ) {
         ( $predicate => $qtext ) =
@@ -888,11 +887,12 @@ END_EXAMPLE_TEXT
             ),
             $q->div(
                 { -id => 'filterLoci', -style => 'display:none;' },
+                'chr',
                 $q->textfield(
                     -name  => 'chr',
                     -id    => 'chr',
                     -title => 'Enter chromosome name',
-                    -size  => 7
+                    -size  => 3
                 ),
                 ':',
                 $q->textfield(

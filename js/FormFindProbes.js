@@ -45,6 +45,9 @@ function toggleFilterOptions(selectedRadio)
     var filterLoci = document.getElementById("filterLoci");
     if(selectedRadio === 'none')
     {
+        document.getElementById("chr").value = '';
+        document.getElementById("start").value = '';
+        document.getElementById("end").value = '';
         filterLoci.style.display = 'none';
     }
     else if(selectedRadio === 'range')

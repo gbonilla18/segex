@@ -121,7 +121,7 @@ CREATE TABLE `location` (
   `start` int(10) unsigned NOT NULL,
   `end` int(10) unsigned NOT NULL,
   KEY `rid` (`rid`),
-  KEY `common` (`chromosome`(5),`start`,`end`),
+  KEY `common` (`chromosome`(2),`start`,`end`),
   CONSTRAINT `location_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -270,4 +270,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2011-11-27 15:45:07
+-- Dump completed on 2011-11-28 12:28:23
