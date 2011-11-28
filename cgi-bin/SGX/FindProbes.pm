@@ -887,6 +887,7 @@ END_EXAMPLE_TEXT
             ),
             $q->div(
                 { -id => 'filterLoci', -style => 'display:none;' },
+                $q->div(
                 'chr',
                 $q->textfield(
                     -name  => 'chr',
@@ -907,7 +908,10 @@ END_EXAMPLE_TEXT
                     -id    => 'end',
                     -title => 'Enter end position',
                     -size  => 14
-                ),
+                )),
+                $q->p(
+                    'Enter a numeric range preceded by chromosome name (e.g.  16, 7, M, X).'
+                )
             )
         ),
         $q->dt( $q->label( { -for => 'opts' }, 'Output options:' ) ),
