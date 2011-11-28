@@ -461,10 +461,6 @@ qq{update gene set $update_gene where accnum $eq_accnum and seqname $eq_seqname 
     $self->{_count_lines} = $count_lines;
 
     #carp sprintf( "%d lines processed.", $count_lines );
-
-    #Flag the platform as being annotated.
-    return $dbh->do( 'UPDATE platform SET isAnnotated=1 WHERE pid=?',
-        undef, $pid_value );
 }
 
 #===  CLASS METHOD  ============================================================

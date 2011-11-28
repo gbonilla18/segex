@@ -46,10 +46,10 @@ sub new {
                 names => [qw/pname species/],
                 meta  => {
                     file => {
-                        __type__       => 'filefield',
-                        __special__    => 1,
-                        __optional__   => 1,
-                        label          => 'Upload Probes/Annotations'
+                        __type__     => 'filefield',
+                        __special__  => 1,
+                        __optional__ => 1,
+                        label        => 'Upload Probes/Annotations'
                     },
                     pid   => { label => 'No.', parser => 'number' },
                     pname => {
@@ -99,25 +99,39 @@ sub new {
                         },
                     },
                 },
-                join => [ probe_location => [ pid => 'pid', { join_type => 'LEFT' } ] ]
+                lookup => [
+                    probe_counts => [ pid => 'pid', { join_type => 'LEFT' } ],
+                    locus_counts => [ pid => 'pid', { join_type => 'LEFT' } ]
+                ]
             },
-            probe_location => {
-                table => '(SELECT pid, COUNT(probe.rid) AS id_count, COUNT(probe_sequence) AS sequence_count, COUNT(location.rid) AS locus_count FROM probe LEFT JOIN location USING(rid) GROUP BY pid)',
+            probe_counts => {
+                table => 'probe',
                 key  => [qw/pid/],
-                view => [qw/id_count sequence_count locus_count/],
+                view => [qw/id_count sequence_count/],
                 meta => {
                     id_count => {
-                        label   => 'Probe Count',
-                        parser  => 'number'
+                        __sql__ => 'COUNT(rid)',
+                        label  => 'Probe Count',
+                        parser => 'number'
                     },
                     sequence_count => {
-                        label   => 'Probe Sequences',
-                        parser  => 'number'
+                        __sql__ => 'COUNT(probe_sequence)',
+                        label  => 'Probe Sequences',
+                        parser => 'number'
                     },
+                },
+                group_by => [qw/pid/]
+            },
+            locus_counts => {
+                table => 'location NATURAL JOIN probe',
+                key  => [qw/pid/],
+                view => [qw/locus_count/],
+                meta => {
                     locus_count => {
-                        label   => 'Chr. Locations',
-                        parser  => 'number'
-                    }
+                        __sql__ => 'COUNT(rid)',
+                        label  => 'Chr. Locations',
+                        parser => 'number'
+                    },
                 },
                 group_by => [qw/pid/]
             },

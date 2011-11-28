@@ -162,7 +162,6 @@ CREATE TABLE `platform` (
   `def_p_cutoff` double DEFAULT NULL,
   `def_f_cutoff` double DEFAULT NULL,
   `species` varchar(255) DEFAULT NULL,
-  `isAnnotated` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`pid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -270,4 +269,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2011-11-28 12:28:23
+-- Dump completed on 2011-11-28 17:40:47

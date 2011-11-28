@@ -474,29 +474,36 @@ sub getPlatformData {
   # fat for what we need.
     my $singleItemQuery = <<"END_LoadQuery";
 SELECT
-    platform.pname                AS 'Platform',
-    platform.species              AS 'Species',
-    IF(isAnnotated, 'Y', 'N')     AS 'Is Annotated',
-    probe_location.id_count       AS 'Probe Count',
-    probe_location.sequence_count AS 'Sequences Loaded',
-    probe_location.locus_count    AS 'Chromosomal Locations'
+    platform.pname            AS 'Platform',
+    platform.species          AS 'Species',
+    probes.id_count           AS 'Probe Count',
+    probes.sequence_count     AS 'Sequences Loaded',
+    locations.locus_count     AS 'Locations Loaded'
 FROM platform
 LEFT JOIN (
-    SELECT 
-        pid, 
-        COUNT(probe.rid) AS id_count, 
-        COUNT(probe_sequence) AS sequence_count, 
-        COUNT(location.rid) AS locus_count 
-    FROM probe 
-    LEFT JOIN location USING(rid) 
+    SELECT
+        pid,
+        COUNT(probe.rid) AS id_count,
+        COUNT(probe_sequence) AS sequence_count
+    FROM probe
+    WHERE probe.pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
     GROUP BY pid
-) AS probe_location USING(pid)
+) AS probes USING(pid)
+LEFT JOIN (
+    SELECT
+        probe.pid,
+        COUNT(location.rid) AS locus_count
+    FROM probe
+    LEFT JOIN location USING(rid)
+    WHERE probe.pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
+    GROUP BY pid
+) AS locations USING(pid)
 WHERE pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
 GROUP BY platform.pid
 END_LoadQuery
 
     my $sth = $dbh->prepare($singleItemQuery);
-    my $rc  = $sth->execute(@eidList);
+    my $rc  = $sth->execute(@eidList, @eidList, @eidList);
     $self->{_FieldNames}   = $sth->{NAME};
     $self->{_DataPlatform} = $sth->fetchall_arrayref;
     $sth->finish;
