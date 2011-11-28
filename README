@@ -18,12 +18,8 @@ MySQL installation, the root password is empty (simply press enter to proceed).
 
   gunzip -c segex.sql.gz | mysql segex_dev -u root -p
 
-3. Update SGX/Config.pm module with correct database, user, and password
+3. Update cgi-bin/segex.conf file with correct database, user, and password
 information.
-
-TODO: create an interactive-prompt type interface for automating database
-creation and updating the Config.pm file.
-
 
 ============ SOFTWARE INSTALL ===============
 
@@ -108,10 +104,10 @@ RewriteRule ^$ /cgi-bin/segex_dev/index.cgi
 
 
 5. Check that path to default mailer program (sendmail, postfix, etc) is set
-correctly in SGX/Config.pm. On both Mac OS X and Linux Cent OS, this path is
-/usr/sbin.
+correctly in cgi-bin/segex.conf. On both Mac OS X and Linux Cent OS, this path
+is /usr/sbin.
 
-use constant MAILER_PATH => '/usr/sbin';
+mailer_path = "/usr/sbin"
 
 ==== B. Mac OS X ====
 
@@ -269,9 +265,8 @@ under):
 
 RewriteRule ^$ /cgi-bin/segex_dev/index.cgi
 
-
 6. Check that path to default mailer program (sendmail, postfix, etc) is set
-correctly in SGX/Config.pm. On both Mac OS X and Linux Cent OS, this path is
-/usr/sbin.
+correctly in cgi-bin/segex.conf. On both Mac OS X and Linux Cent OS, this path
+is /usr/sbin.
 
-use constant MAILER_PATH => '/usr/sbin';
+mailer_path = "/usr/sbin"
