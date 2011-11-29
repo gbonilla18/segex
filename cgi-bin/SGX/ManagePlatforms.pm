@@ -106,34 +106,36 @@ sub new {
             },
             probe_counts => {
                 table => 'probe',
-                key  => [qw/pid/],
-                view => [qw/id_count sequence_count/],
-                meta => {
+                key   => [qw/pid/],
+                view  => [qw/id_count sequence_count/],
+                meta  => {
                     id_count => {
                         __sql__ => 'COUNT(rid)',
-                        label  => 'Probe Count',
-                        parser => 'number'
+                        label   => 'Probe Count',
+                        parser  => 'number'
                     },
                     sequence_count => {
                         __sql__ => 'COUNT(probe_sequence)',
-                        label  => 'Probe Sequences',
-                        parser => 'number'
+                        label   => 'Probe Sequences',
+                        parser  => 'number'
                     },
                 },
                 group_by => [qw/pid/]
             },
             locus_counts => {
-                table => 'location NATURAL JOIN probe',
-                key  => [qw/pid/],
-                view => [qw/locus_count/],
-                meta => {
+                table => 'probe',
+                key   => [qw/pid/],
+                view  => [qw/locus_count/],
+                meta  => {
                     locus_count => {
-                        __sql__ => 'COUNT(rid)',
-                        label  => 'Chr. Locations',
-                        parser => 'number'
+                        __sql__ => 'COUNT(location.rid)',
+                        label   => 'Chr. Locations',
+                        parser  => 'number'
                     },
                 },
-                group_by => [qw/pid/]
+                group_by => [qw/pid/],
+                join =>
+                  [ location => [ rid => 'rid', { join_type => 'LEFT' } ] ]
             },
             'study' => {
                 key      => [qw/stid/],
