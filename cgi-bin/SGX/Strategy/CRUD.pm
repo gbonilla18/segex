@@ -1221,10 +1221,6 @@ sub _readall_command {
     my $composite_labels =
       _get_view_labels( [ @$key, @$this_view ], $this_meta );
 
-    # :TRICKY:09/06/2011 19:22:20:es: For left joins, we do not perform joins
-    # in-SQL but instead run a separate query. For inner joins, we add predicate
-    # to the main SQL query.
-
     my $new_opts = inherit_hash( { group_by => $key }, $table_info );
 
     # :TRICKY:09/28/2011 12:25:52:es: _lookup_prepare modifies $composite_labels
