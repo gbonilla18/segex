@@ -1119,11 +1119,13 @@ sub _lookup_prepare {
     my $_other = $self->{_other};
 
     # limit lookups to fields present in base if base is requested
-    my %lookup_fields = map {$_ => 1} @{ $table_info->{$fields}};
-    my @lookup_tuples = ($fields eq 'base') ? (grep { exists
-        $lookup_fields{$_->[1]->[0]} } tuples($lookup)) : ( tuples($lookup));
+    my %lookup_fields = map { $_ => 1 } @{ $table_info->{$fields} };
+    my @lookup_tuples =
+        ( $fields eq 'base' )
+      ? ( grep { exists $lookup_fields{ $_->[1]->[0] } } tuples($lookup) )
+      : ( tuples($lookup) );
 
-    foreach ( @lookup_tuples ) {
+    foreach (@lookup_tuples) {
         my ( $lookup_table_alias, $val )         = @$_;
         my ( $this_field,         $other_field ) = @$val;
 
@@ -2577,7 +2579,8 @@ sub body_edit_fields {
                 }
             }
             my $tied_to    = $meta->{__tie__};
-            my $tied_table = ($tied_to) ? $table_defs->{ $tied_to->[0] } : undef;
+            my $tied_table = ($tied_to) ? $table_defs->{ $tied_to->[0] } : {};
+            my $item_name  = $tied_table->{item_name} || '';
             push @tmp,
               (
                 $q->dt(
@@ -2598,10 +2601,11 @@ sub body_edit_fields {
                             {
                                 -href => $self->get_resource_uri(
                                     a => $tied_table->{resource},
-                                    b => 'form_create'
-                                )
+                                    b => 'form_create',
+                                ),
+                                -title => "Click to add a new $item_name first",
                             },
-                            "(add new $tied_table->{item_name})"
+                            "(add new $item_name)"
                           )
                         : ()
                     )
