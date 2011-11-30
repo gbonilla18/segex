@@ -53,7 +53,7 @@ sub new {
                         parser   => 'number',
                         __type__ => 'popup_menu',
 
-                        #__tie__      => [ users => 'uid' ],
+                        __tie__      => [ users => 'uid' ],
                         __hidden__   => 1,
                         __optional__ => 1
                     },
@@ -94,6 +94,7 @@ sub new {
                 join   => [ ProjectStudy => [ stid => 'stid' ] ]
             },
             'users' => {
+                resource  => 'users',
                 item_name => 'user',
                 key       => [qw/uid/],
                 view      => [qw/full_name/],

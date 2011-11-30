@@ -1115,13 +1115,15 @@ sub _lookup_prepare {
     my $composite_labels = $args{labels};
     my $fields = $args{fields} || 'base';
 
-    #warn Dumper( _get_lookup($table_info, [keys %$composite_labels]) );
-    #warn Dumper( [ keys %$composite_labels ] );
-
     my %lookup_join_sth;    # hash of statement handles for looked-up tables
     my $_other = $self->{_other};
 
-    foreach ( tuples($lookup) ) {
+    # limit lookups to fields present in base if base is requested
+    my %lookup_fields = map {$_ => 1} @{ $table_info->{$fields}};
+    my @lookup_tuples = ($fields eq 'base') ? (grep { exists
+        $lookup_fields{$_->[1]->[0]} } tuples($lookup)) : ( tuples($lookup));
+
+    foreach ( @lookup_tuples ) {
         my ( $lookup_table_alias, $val )         = @$_;
         my ( $this_field,         $other_field ) = @$val;
 
@@ -1626,13 +1628,15 @@ sub _readrow_command {
     my $query =
       "SELECT $read_fields FROM $table AS $table_alias WHERE $predicate";
 
-    #warn "getting lookups for $table_alias";
     my $lookup_join_sth =
       $self->_lookup_prepare( $table_info, fields => 'base' );
 
     my $sth = $dbh->prepare($query);
 
     my @params = ( $id, ( map { $q->param($_) } cdr @key ) );
+
+    #warn $query;
+    #warn Dumper(\@params);
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -1800,12 +1804,14 @@ sub _create_command {
 
     my $translate_val =
       $self->_get_param_values( $table_info->{meta}, 'create' );
+
     my @params =
         ( defined $id )
       ? ( $id, map { $translate_val->($_) } cdr @fields )
       : map { $translate_val->($_) } @fields;
 
-    #warn $query . "\n" . Dumper(\@params);
+    #warn $query;
+    #warn Dumper(\@params);
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
@@ -2341,9 +2347,6 @@ sub readrow_body {
     my $table_info = $self->{_table_defs}->{ $self->{_default_table} };
     my $item_name  = $table_info->{item_name};
 
-    #---------------------------------------------------------------------------
-    #  Form: Set User Attributes
-    #---------------------------------------------------------------------------
     # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
     return $q->h2( $self->format_title("editing $item_name:") . ' '
           . $self->get_row_name() ),
@@ -2354,7 +2357,6 @@ sub readrow_body {
       ),
       $q->h3( $self->format_title("set $item_name attributes") ),
 
-      # Resource URI: /projects/id
       $self->body_create_update_form( mode => 'update' ),
 
       (
@@ -2389,9 +2391,6 @@ sub default_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    #---------------------------------------------------------------------------
-    #  Project dropdown
-    #---------------------------------------------------------------------------
     my $resource_uri = $self->get_resource_uri();
     return $q->h2( $self->{_title} ),
       $self->body_create_read_menu(
@@ -2400,7 +2399,7 @@ sub default_body {
       ),
 
     #---------------------------------------------------------------------------
-    #  Table showing all projects in all projects
+    #  Table
     #---------------------------------------------------------------------------
       $q->h3( { -id => 'caption' }, '' ),
       $q->div(
@@ -2577,6 +2576,8 @@ sub body_edit_fields {
                     $labels{$p_val} = $p_lab;
                 }
             }
+            my $tied_to    = $meta->{__tie__};
+            my $tied_table = ($tied_to) ? $table_defs->{ $tied_to->[0] } : undef;
             push @tmp,
               (
                 $q->dt(
@@ -2590,6 +2591,19 @@ sub body_edit_fields {
                         -labels  => \%labels,
                         -default => $id_data->{$symbol},
                         %cgi_meta
+                    ),
+                    (
+                        ($tied_to)
+                        ? $q->a(
+                            {
+                                -href => $self->get_resource_uri(
+                                    a => $tied_table->{resource},
+                                    b => 'form_create'
+                                )
+                            },
+                            "(add new $tied_table->{item_name})"
+                          )
+                        : ()
                     )
                 )
               );

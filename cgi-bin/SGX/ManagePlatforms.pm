@@ -51,7 +51,8 @@ sub new {
                     sid => {
                         label        => 'Species',
                         __type__     => 'popup_menu',
-                        __readonly__ => 1
+                        __readonly__ => 1,
+                        __tie__      => [ species => 'sid' ]
                     },
                     file => {
                         __type__     => 'filefield',
@@ -108,10 +109,12 @@ sub new {
                 ]
             },
             species => {
-                key   => [qw/sid/],
-                view  => [qw/sname/],
-                names => [qw/sname/],
-                meta  => {
+                key       => [qw/sid/],
+                view      => [qw/sname/],
+                names     => [qw/sname/],
+                resource  => 'species',
+                item_name => 'species',
+                meta      => {
                     sname => {
                         __createonly__ => 1,
                         label          => 'Species',

@@ -390,32 +390,34 @@ function populateDropdowns(lookupTables, lookup, data) {
         // only use first lookup
         if (!(this_field in inverseLookup)) {
             var table_info = lookupTables[table];
-            var other_field = fieldmap[1];
-            var symbol2index = table_info.symbol2index;
-            var other_index = symbol2index[other_field];
-            var names = table_info.names;
-            if (names === null) {
-                // default to key field 
-                names = [other_field];
-            }
-            var name_indexes = [];
-            for (var i = 0, name_count = names.length; i < name_count; i++) {
-                name_indexes.push(symbol2index[names[i]]);
-            }
-            name_indexes.sort();
+            if (typeof table_info !== 'undefined') {
+                var other_field = fieldmap[1];
+                var symbol2index = table_info.symbol2index;
+                var other_index = symbol2index[other_field];
+                var names = table_info.names;
+                if (names === null) {
+                    // default to key field 
+                    names = [other_field];
+                }
+                var name_indexes = [];
+                for (var i = 0, name_count = names.length; i < name_count; i++) {
+                    name_indexes.push(symbol2index[names[i]]);
+                }
+                name_indexes.sort();
 
-            // now create a key-value structure mapping lookud up values of
-            // this_field to names in lookup table
-            var records = table_info.records;
-            var records_length = records.length;
-            var id_name = [['', '@Choose ' + table_info.symbol2name[names[0]] + ':']];
-            for (var i = 0; i < records_length; i++) {
-                var record = records[i];
-                id_name.push([record[other_index], selectFromArray(record, name_indexes).join(' / ')]);
+                // now create a key-value structure mapping lookud up values of
+                // this_field to names in lookup table
+                var records = table_info.records;
+                var records_length = records.length;
+                var id_name = [['', '@Choose ' + table_info.symbol2name[names[0]] + ':']];
+                for (var i = 0; i < records_length; i++) {
+                    var record = records[i];
+                    id_name.push([record[other_index], selectFromArray(record, name_indexes).join(' / ')]);
+                }
+                // generic tuple sort (sort hash by value)
+                sortNestedByColumn(id_name, 1);
+                inverseLookup[this_field] = {options: id_name, selected:data[this_field]};
             }
-            // generic tuple sort (sort hash by value)
-            sortNestedByColumn(id_name, 1);
-            inverseLookup[this_field] = {options: id_name, selected:data[this_field]};
         }
     });
     return function() {

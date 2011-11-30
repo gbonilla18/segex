@@ -68,12 +68,12 @@ sub new {
                 ]
             },
             'platform' => {
-                key   => [qw/pid/],
-                view  => [qw/pname/],
-                names => [qw/pname/],
-                meta  => {
-                    pname   => { label => 'Platform' },
-                },
+                resource  => 'platforms',
+                item_name => 'platform',
+                key       => [qw/pid/],
+                view      => [qw/pname/],
+                names     => [qw/pname/],
+                meta      => { pname => { label => 'Platform' }, },
                 join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
             },
             species => {
@@ -84,8 +84,8 @@ sub new {
             },
             'experiment' => {
                 item_name => 'experiment',
-                key  => [qw/eid/],
-                view => [
+                key       => [qw/eid/],
+                view      => [
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation study_desc/
                 ],
                 resource => 'experiments',
@@ -136,6 +136,11 @@ sub new {
                         label    => 'Platform',
                         parser   => 'number',
                         __type__ => 'popup_menu',
+                        (
+                            looks_like_number($pid)
+                            ? ()
+                            : ( __tie__ => [ ( platform => 'pid' ) ] )
+                        ),
 
                         #__tie__  => [
                         #    (
@@ -333,7 +338,7 @@ setupToggles(
 $code
 END_SETUPTOGGLES
 
-    my ($q, $id_data) = @$self{qw/_cgi _id_data/};
+    my ( $q, $id_data ) = @$self{qw/_cgi _id_data/};
     if ( $self->{_upload_completed} ) {
         $self->add_message(
             'The uploaded data were placed in a new experiment under: '
@@ -358,7 +363,7 @@ END_SETUPTOGGLES
 #       METHOD:  form_create_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION: 
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  Overrides Strategy::CRUD::form_create_body
 #     SEE ALSO:  n/a
@@ -379,20 +384,21 @@ sub form_create_body {
         'read'   => [ undef,         'View Existing' ],
         'create' => [ 'form_create', 'Create New' ]
       ),
-      $q->h3( $self->format_title( 'Upload data to a new ' . $self->get_item_name() ) ),
-$q->p(<<"END_TEXT1"),
+      $q->h3(
+        $self->format_title( 'Upload data to a new ' . $self->get_item_name() )
+      ),
+      $q->p(<<"END_TEXT1"),
 The data file must be in plain-text tab-delimited format with six columns shown
 below. Probe names can be either numbers or strings; all other fields must be numeric.
 The first row in the file must be a header row and the actual data should start
 with the second row.
 END_TEXT1
-$q->pre('Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'),
+      $q->pre(
+        'Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'),
 
       # form
       $self->body_create_update_form( mode => 'create' );
 }
-
-
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
@@ -550,7 +556,7 @@ sub form_assign_head {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_create {
-    my $self    = shift;
+    my $self = shift;
 
     require SGX::UploadData;
     my $data = SGX::UploadData->new( delegate => $self );
@@ -558,8 +564,9 @@ sub default_create {
     my $exception = $@;
     if ($recordsLoaded) {
         $self->{_upload_completed} = 1;
-    } else {
-        $self->add_message('No records loaded. ' . $exception);
+    }
+    else {
+        $self->add_message( 'No records loaded. ' . $exception );
     }
     $self->set_action('form_create');
     return;
@@ -647,7 +654,8 @@ qq/You can select multiple studies here by holding down Control or Command key b
 #===============================================================================
 sub readrow_body {
     my $self = shift;
-    return $self->SUPER::readrow_body(['Assign to Study', 'Studies this Experiment is Assigned to']);
+    return $self->SUPER::readrow_body(
+        [ 'Assign to Study', 'Studies this Experiment is Assigned to' ] );
 }
 
 #===  CLASS METHOD  ============================================================

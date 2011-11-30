@@ -21,7 +21,7 @@ require SGX::Model::PlatformStudyExperiment;
 #===============================================================================
 sub new {
     my $class = shift;
-    my $self = $class->SUPER::new(@_);
+    my $self  = $class->SUPER::new(@_);
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
     my $curr_proj = $s->{session_cookie}->{curr_proj};
 
@@ -46,10 +46,10 @@ sub new {
             },
             'study' => {
                 item_name => 'study',
-                key      => [qw/stid/],
-                base     => [qw/description pubmed pid/],
-                view     => [qw/description pubmed/],
-                resource => 'studies',
+                key       => [qw/stid/],
+                base      => [qw/description pubmed pid/],
+                view      => [qw/description pubmed/],
+                resource  => 'studies',
 
                 # table key to the left, URI param to the right
                 selectors => { pid => 'pid' },
@@ -75,6 +75,11 @@ sub new {
                         __type__     => 'popup_menu',
                         parser       => 'number',
                         __readonly__ => 1,
+                        (
+                            looks_like_number( $q->param('pid') )
+                            ? ()
+                            : __tie__ => [ ( platform => 'pid' ) ]
+                        ),
 
                         #__tie__      => [
                         #    (
@@ -87,33 +92,35 @@ sub new {
                 },
                 lookup => [
                     (
-                        looks_like_number( $q->param('pid') )
-                        ? ()
+                        looks_like_number( $q->param('pid') ) ? ()
                         : ( platform => [ pid => 'pid' ] )
                     )
                 ],
                 join => [
                     (
-                        ( defined $curr_proj && $curr_proj ne '' ) ? (
+                        ( defined $curr_proj && $curr_proj ne '' )
+                        ? (
                             ProjectStudy => [
                                 stid => 'stid',
                                 {
                                     join_type  => 'INNER',
                                     constraint => [ prid => $curr_proj ]
                                 }
-                              ]
+                            ]
                           )
                         : ()
                     )
                 ]
             },
             'platform' => {
-                key   => [qw/pid/],
-                view  => [qw/pname/],
-                names => [qw/pname/],
-                meta  => {
-                    pid     => { label => 'Platform', parser => 'number' },
-                    pname   => { label => 'Platform' },
+                resource  => 'platforms',
+                item_name => 'platform',
+                key       => [qw/pid/],
+                view      => [qw/pname/],
+                names     => [qw/pname/],
+                meta      => {
+                    pid   => { label => 'Platform', parser => 'number' },
+                    pname => { label => 'Platform' },
                 },
                 join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
             },
@@ -424,7 +431,8 @@ qq/You can select multiple experiments here by holding down Control or Command k
 #===============================================================================
 sub readrow_body {
     my $self = shift;
-    return $self->SUPER::readrow_body(['Assign Experiments', 'All Experiments in the Study']);
+    return $self->SUPER::readrow_body(
+        [ 'Assign Experiments', 'All Experiments in the Study' ] );
 }
 
 #===  CLASS METHOD  ============================================================
