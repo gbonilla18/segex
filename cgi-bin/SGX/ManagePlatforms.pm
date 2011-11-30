@@ -49,8 +49,9 @@ sub new {
                 names     => [qw/pname/],
                 meta      => {
                     sid => {
-                        label    => 'Species',
-                        __type__ => 'popup_menu',
+                        label        => 'Species',
+                        __type__     => 'popup_menu',
+                        __readonly__ => 1
                     },
                     file => {
                         __type__     => 'filefield',
@@ -107,10 +108,10 @@ sub new {
                 ]
             },
             species => {
-                key  => [qw/sid/],
-                view => [qw/sname/],
+                key   => [qw/sid/],
+                view  => [qw/sname/],
                 names => [qw/sname/],
-                meta => {
+                meta  => {
                     sname => {
                         __createonly__ => 1,
                         label          => 'Species',
