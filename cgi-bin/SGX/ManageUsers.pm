@@ -151,71 +151,6 @@ sub init {
     return $self;
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageUsers
-#       METHOD:  default_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Overrides CRUD default_body
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub default_body {
-
-    # Form HTML for the project table.
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    #---------------------------------------------------------------------------
-    #  Project dropdown
-    #---------------------------------------------------------------------------
-    my $resource_uri = $self->get_resource_uri();
-    return $q->h2( $self->{_title} ),
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'View Existing' ],
-        'create' => [ 'form_create', 'Create New' ]
-      ),
-
-    #---------------------------------------------------------------------------
-    #  Table showing all projects in all projects
-    #---------------------------------------------------------------------------
-      $q->h3( { -id => 'caption' }, '' ),
-      $q->div(
-        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} }, '' );
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageUsers
-#       METHOD:  readrow_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Overrides CRUD readrow_body
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readrow_body {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    #---------------------------------------------------------------------------
-    #  Form: Set User Attributes
-    #---------------------------------------------------------------------------
-    # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2( 'Editing User: ' . $self->{_id_data}->{full_name} ),
-
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'Edit User' ],
-        'create' => [ 'form_assign', '' ]
-      ),
-      $q->h3('Set User Attributes'),
-
-      # Resource URI: /projects/id
-      $self->body_create_update_form( mode => 'update' );
-}
-
 1;
 
 __END__
@@ -228,7 +163,7 @@ SGX::ManageUsers
 =head1 SYNOPSIS
 
 =head1 DESCRIPTION
-Grouping of functions for managing projects.
+Module for managing user table.
 
 =head1 AUTHORS
 Eugene Scherba

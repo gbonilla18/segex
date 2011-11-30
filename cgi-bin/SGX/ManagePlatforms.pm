@@ -38,13 +38,20 @@ sub new {
 # meta:       Additional field info.
         _table_defs => {
             'platform' => {
-                key      => [qw/pid/],
-                resource => 'platforms',
-                base     => [qw/pname def_p_cutoff def_f_cutoff species file/],
-                view     => [qw/pname def_p_cutoff def_f_cutoff species/],
-                selectors => {}, # table key to the left, URI param to the right
-                names => [qw/pname species/],
-                meta  => {
+                item_name => 'platform',
+                key       => [qw/pid/],
+                resource  => 'platforms',
+                base      => [qw/pname def_p_cutoff def_f_cutoff sid file/],
+                view      => [qw/pname def_p_cutoff def_f_cutoff/],
+
+                # table key to the left, URI param to the right
+                selectors => { sid => 'sid' },
+                names     => [qw/pname/],
+                meta      => {
+                    sid => {
+                        label    => 'Species',
+                        __type__ => 'popup_menu',
+                    },
                     file => {
                         __type__     => 'filefield',
                         __special__  => 1,
@@ -56,12 +63,6 @@ sub new {
                         label      => 'Platform Name',
                         -maxlength => 255,
                         -size      => 55
-                    },
-                    species => {
-                        label        => 'Species',
-                        -maxlength   => 255,
-                        __optional__ => 1,
-                        -size        => 35
                     },
 
                     # def_p_cutoff
@@ -100,9 +101,23 @@ sub new {
                     },
                 },
                 lookup => [
+                    species      => [ sid => 'sid', { join_type => 'LEFT' } ],
                     probe_counts => [ pid => 'pid', { join_type => 'LEFT' } ],
                     locus_counts => [ pid => 'pid', { join_type => 'LEFT' } ]
                 ]
+            },
+            species => {
+                key  => [qw/sid/],
+                view => [qw/sname/],
+                names => [qw/sname/],
+                meta => {
+                    sname => {
+                        __createonly__ => 1,
+                        label          => 'Species',
+                        -size          => 35,
+                        -maxlength     => 255,
+                    }
+                }
             },
             probe_counts => {
                 table => 'probe',
@@ -211,41 +226,6 @@ sub init {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
-#       METHOD:  default_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Overrides CRUD default_body
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub default_body {
-
-    # Form HTML for the project table.
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    #---------------------------------------------------------------------------
-    #  Project dropdown
-    #---------------------------------------------------------------------------
-    my $resource_uri = $self->get_resource_uri();
-    return $q->h2( $self->{_title} ),
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'View Existing' ],
-        'create' => [ 'form_create', 'Create New' ]
-      ),
-
-    #---------------------------------------------------------------------------
-    #  Table showing all projects in all projects
-    #---------------------------------------------------------------------------
-      $q->h3( { -id => 'caption' }, '' ),
-      $q->div(
-        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} }, '' );
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManagePlatforms
 #       METHOD:  readrow_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -256,30 +236,8 @@ sub default_body {
 #===============================================================================
 sub readrow_body {
     my $self = shift;
-    my $q    = $self->{_cgi};
-
-    #---------------------------------------------------------------------------
-    #  Form: Set Project Attributes
-    #---------------------------------------------------------------------------
-    # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2( 'Editing Platform: ' . $self->{_id_data}->{pname} ),
-
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'Edit Platform' ],
-        'create' => [ 'form_assign', '' ]
-      ),
-      $q->h3('Set Platform Attributes'),
-
-      # Resource URI: /platforms/id
-      $self->body_create_update_form( mode => 'update' ),
-
-    #---------------------------------------------------------------------------
-    #  Studies table
-    #---------------------------------------------------------------------------
-      $q->h3('All Studies Assigned to this Platform'),
-      $q->div(
-        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} } );
+    return $self->SUPER::readrow_body(
+        [ '', 'All Studies Assigned to this Platform' ] );
 }
 
 1;
@@ -293,7 +251,7 @@ SGX::ManageProjects
 =head1 SYNOPSIS
 
 =head1 DESCRIPTION
-Grouping of functions for managing projects.
+Module for managing platform table.
 
 =head1 AUTHORS
 Eugene Scherba

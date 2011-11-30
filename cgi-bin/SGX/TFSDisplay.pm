@@ -406,7 +406,7 @@ END_query_titles
           (
             qq{probe.probe_sequence AS 'Probe Sequence'},
 qq{GROUP_CONCAT(DISTINCT IF(gene.description='', NULL, gene.description) SEPARATOR '; ') AS 'Gene Description'},
-            qq{platform.species AS 'Species'}
+            qq{platform_species.sname AS 'Species'}
           );
     }
 
@@ -436,7 +436,7 @@ $predicateSQL
 LEFT JOIN probe     ON d2.rid        = probe.rid
 LEFT JOIN annotates ON d2.rid        = annotates.rid
 LEFT JOIN gene      ON annotates.gid = gene.gid
-LEFT JOIN platform  ON platform.pid  = probe.pid
+LEFT JOIN (select platform.pid, species.sname FROM platform LEFT JOIN species USING(sid)) AS platform_species USING(pid)
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
 END_query
@@ -475,11 +475,12 @@ sub getPlatformData {
     my $singleItemQuery = <<"END_LoadQuery";
 SELECT
     platform.pname            AS 'Platform',
-    platform.species          AS 'Species',
+    species.sname          AS 'Species',
     probes.id_count           AS 'Probe Count',
     probes.sequence_count     AS 'Sequences Loaded',
     locations.locus_count     AS 'Locations Loaded'
 FROM platform
+LEFT JOIN species USING(sid)
 LEFT JOIN (
     SELECT
         pid,
@@ -620,7 +621,7 @@ END_query_titlesCSV
         qq{probe.probe_sequence AS 'Probe Sequence'},
 qq{GROUP_CONCAT(DISTINCT IF(gene.description='', NULL, gene.description) SEPARATOR '; ') AS 'Gene Description'},
 qq{GROUP_CONCAT(DISTINCT gene_note ORDER BY seqname ASC SEPARATOR '; ') AS 'Gene Ontology'},
-        qq{platform.species AS 'Species'}
+        qq{platform_species.sname AS 'Species'}
       );
 
     my $d1SubQuery   = join( ' UNION ALL ', @query_body );
@@ -649,7 +650,7 @@ $predicateSQL
 LEFT JOIN probe     ON d2.rid        = probe.rid
 LEFT JOIN annotates ON d2.rid        = annotates.rid
 LEFT JOIN gene      ON annotates.gid = gene.gid
-LEFT JOIN platform  ON platform.pid  = probe.pid
+LEFT JOIN (select platform.pid, species.sname FROM platform LEFT JOIN species USING(sid)) AS platform_species USING(pid)
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
 END_queryCSV

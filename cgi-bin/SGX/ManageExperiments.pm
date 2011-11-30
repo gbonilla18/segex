@@ -69,14 +69,21 @@ sub new {
             },
             'platform' => {
                 key   => [qw/pid/],
-                view  => [qw/pname species/],
+                view  => [qw/pname/],
                 names => [qw/pname/],
                 meta  => {
                     pname   => { label => 'Platform' },
-                    species => { label => 'Species' }
-                }
+                },
+                join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
+            },
+            species => {
+                key   => [qw/sid/],
+                view  => [qw/sname/],
+                names => [qw/sname/],
+                meta  => { sname => { label => 'Species' } }
             },
             'experiment' => {
+                item_name => 'experiment',
                 key  => [qw/eid/],
                 view => [
                     qw/eid sample1 sample2 ExperimentDescription AdditionalInformation study_desc/
@@ -640,32 +647,7 @@ qq/You can select multiple studies here by holding down Control or Command key b
 #===============================================================================
 sub readrow_body {
     my $self = shift;
-    my $q    = $self->{_cgi};
-
-    #---------------------------------------------------------------------------
-    #  Form: Set Experiment Attributes
-    #---------------------------------------------------------------------------
-    # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-
-    return $q->h2( 'Editing Experiment: '
-          . $self->{_id_data}->{sample2} . ' / '
-          . $self->{_id_data}->{sample1} ),
-
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'Edit Experiment' ],
-        'create' => [ 'form_assign', 'Assign to Study' ]
-      ),
-      $q->h3('Set Experiment Attributes'),
-
-      $self->body_create_update_form( mode => 'update' ),
-
-    #---------------------------------------------------------------------------
-    #  Experiments table
-    #---------------------------------------------------------------------------
-      $q->h3('Studies this Experiment is Assigned to'),
-      $q->div(
-        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} } );
+    return $self->SUPER::readrow_body(['Assign to Study', 'Studies this Experiment is Assigned to']);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -841,7 +823,7 @@ SGX::ManageStudies
 =head1 SYNOPSIS
 
 =head1 DESCRIPTION
-Grouping of functions for managing studies.
+Module for managing experiment table.
 
 =head1 AUTHORS
 Michael McDuffie

@@ -47,6 +47,7 @@ sub get_module_from_action {
         studies     => 'SGX::ManageStudies',
         experiments => 'SGX::ManageExperiments',
         users       => 'SGX::ManageUsers',
+        species     => 'SGX::ManageSpecies',
 
         profile => 'SGX::Profile',
     );

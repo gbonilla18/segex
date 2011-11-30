@@ -333,8 +333,9 @@ sub getPlatforms {
 SELECT
     pid,
     pname,
-    species
+    sname AS species
 FROM platform
+LEFT JOIN species USING(sid)
 END_PLATFORMQUERY
     my $rc_platform = $sth_platform->execute;
 

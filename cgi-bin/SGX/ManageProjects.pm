@@ -34,10 +34,11 @@ sub new {
                 constraint => [ prid => sub { shift->{_id} } ]
             },
             'project' => {
-                resource => 'projects',
-                key      => [qw/prid/],
-                view     => [qw/prname prdesc/],
-                base     => [qw/prname prdesc manager/],
+                item_name => 'project',
+                resource  => 'projects',
+                key       => [qw/prid/],
+                view      => [qw/prname prdesc/],
+                base      => [qw/prname prdesc manager/],
 
                 # table key to the left, URI param to the right
                 selectors => { manager => 'manager' },
@@ -48,9 +49,10 @@ sub new {
                         parser => 'number'
                     },
                     manager => {
-                        label        => 'Created By',
-                        parser       => 'number',
-                        __type__     => 'popup_menu',
+                        label    => 'Created By',
+                        parser   => 'number',
+                        __type__ => 'popup_menu',
+
                         #__tie__      => [ users => 'uid' ],
                         __hidden__   => 1,
                         __optional__ => 1
@@ -104,14 +106,20 @@ sub new {
             },
             'platform' => {
                 key   => [qw/pid/],
-                view  => [qw/pname species/],
+                view  => [qw/pname/],
                 names => [qw/pname/],
                 meta  => {
                     pid     => { label => 'Platform', parser => 'number' },
                     pname   => { label => 'Platform' },
-                    species => { label => 'Species' }
                 },
+                join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
             },
+            species => {
+                key   => [qw/sid/],
+                view  => [qw/sname/],
+                names => [qw/sname/],
+                meta  => { sname => { label => 'Species' } }
+            }
         },
         _default_table  => 'project',
         _readrow_tables => [
@@ -132,7 +140,7 @@ sub new {
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -162,41 +170,6 @@ sub form_create_head {
     my $s    = $self->{_UserSession};
     $self->{_id_data}->{manager} = $s->get_user_id();
     return $self->SUPER::form_create_head();
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  default_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Overrides CRUD default_body
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub default_body {
-
-    # Form HTML for the project table.
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    #---------------------------------------------------------------------------
-    #  Project dropdown
-    #---------------------------------------------------------------------------
-    my $resource_uri = $self->get_resource_uri();
-    return $q->h2( $self->{_title} ),
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'View Existing' ],
-        'create' => [ 'form_create', 'Create New' ]
-      ),
-
-    #---------------------------------------------------------------------------
-    #  Table showing all projects in all projects
-    #---------------------------------------------------------------------------
-      $q->h3( { -id => 'caption' }, '' ),
-      $q->div(
-        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} }, '' );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -313,30 +286,8 @@ qq/You can select multiple studies here by holding down Control or Command key b
 #===============================================================================
 sub readrow_body {
     my $self = shift;
-    my $q    = $self->{_cgi};
-
-    #---------------------------------------------------------------------------
-    #  Form: Set Project Attributes
-    #---------------------------------------------------------------------------
-    # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
-    return $q->h2( 'Editing Project: ' . $self->{_id_data}->{prname} ),
-
-      $self->body_create_read_menu(
-        'read'   => [ undef,         'Edit Project' ],
-        'create' => [ 'form_assign', 'Assign Studies' ]
-      ),
-      $q->h3('Set Project Attributes'),
-
-      # Resource URI: /projects/id
-      $self->body_create_update_form( mode => 'update' ),
-
-    #---------------------------------------------------------------------------
-    #  Studies table
-    #---------------------------------------------------------------------------
-      $q->h3('All Studies in the Project'),
-      $q->div(
-        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} } );
+    return $self->SUPER::readrow_body(
+        [ 'Assign Studies', 'All Studies in the Project' ] );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -482,7 +433,7 @@ SGX::ManageProjects
 =head1 SYNOPSIS
 
 =head1 DESCRIPTION
-Grouping of functions for managing projects.
+Module for managing project table.
 
 =head1 AUTHORS
 Eugene Scherba

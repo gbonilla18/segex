@@ -2298,6 +2298,117 @@ sub get_item_name {
 }
 
 #===  CLASS METHOD  ============================================================
+#        CLASS:  CRUD
+#       METHOD:  get_row_name
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_row_name {
+    my $self = shift;
+    my $table = shift || $self->{_default_table};
+
+    my $table_info =
+      ( ref $table eq 'HASH' )
+      ? $table
+      : ( $self->{_table_defs}->{$table} || {} );
+
+    my $name_fields = $table_info->{names};
+    my $id_data     = $self->{_id_data};
+    return join( ' / ', @$id_data{@$name_fields} );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CRUD
+#       METHOD:  readrow_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  reads one row from the default table
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub readrow_body {
+    my $self         = shift;
+    my $extra_titles = shift;
+    my $assign_title = ( defined $extra_titles ) ? $extra_titles->[0] : '';
+
+    my $q = $self->{_cgi};
+
+    my $table_info = $self->{_table_defs}->{ $self->{_default_table} };
+    my $item_name  = $table_info->{item_name};
+
+    #---------------------------------------------------------------------------
+    #  Form: Set User Attributes
+    #---------------------------------------------------------------------------
+    # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
+    return $q->h2( $self->format_title("editing $item_name:") . ' '
+          . $self->get_row_name() ),
+
+      $self->body_create_read_menu(
+        'read'   => [ undef,         $self->format_title("edit $item_name") ],
+        'create' => [ 'form_assign', $assign_title ]
+      ),
+      $q->h3( $self->format_title("set $item_name attributes") ),
+
+      # Resource URI: /projects/id
+      $self->body_create_update_form( mode => 'update' ),
+
+      (
+        ( defined $extra_titles )
+        ? (
+            $q->h3( $extra_titles->[1] ),
+            $q->div(
+                $q->a(
+                    { -id => $self->{dom_export_link_id} },
+                    'View as plain text'
+                )
+            ),
+            $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} } )
+          )
+        : ()
+      );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CRUD
+#       METHOD:  default_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  reads default table
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_body {
+
+    # Form HTML for the project table.
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    #---------------------------------------------------------------------------
+    #  Project dropdown
+    #---------------------------------------------------------------------------
+    my $resource_uri = $self->get_resource_uri();
+    return $q->h2( $self->{_title} ),
+      $self->body_create_read_menu(
+        'read'   => [ undef,         'View Existing' ],
+        'create' => [ 'form_create', 'Create New' ]
+      ),
+
+    #---------------------------------------------------------------------------
+    #  Table showing all projects in all projects
+    #---------------------------------------------------------------------------
+      $q->h3( { -id => 'caption' }, '' ),
+      $q->div(
+        $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
+      $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} }, '' );
+}
+
+#===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  form_create_body
 #   PARAMETERS:  ????

@@ -1081,9 +1081,9 @@ sub build_ProbeQuery {
         # basic output
         $sql_select_fields = <<"END_select_fields_basic";
 probe.rid,
-platform.pid,
+platform_species.pid,
 probe.reporter                          AS 'Probe ID',
-platform.pname                          AS 'Platform',
+platform_species.pname                          AS 'Platform',
 GROUP_CONCAT(
     DISTINCT COALESCE(g0.accnum, '')
     ORDER BY g0.seqname ASC SEPARATOR ' '
@@ -1092,7 +1092,7 @@ GROUP_CONCAT(
     DISTINCT COALESCE(g0.seqname, '')
     ORDER BY g0.seqname ASC SEPARATOR ' '
 )                                       AS 'Gene Symb.',
-platform.species                        AS 'Species' 
+platform_species.sname                        AS 'Species' 
 END_select_fields_basic
     }
     else {
@@ -1100,9 +1100,9 @@ END_select_fields_basic
         # extra fields in output
         $sql_select_fields = <<"END_select_fields_extras";
 probe.rid,
-platform.pid,
+platform_species.pid,
 probe.reporter                          AS 'Probe ID', 
-platform.pname                          AS 'Platform',
+platform_species.pname                          AS 'Platform',
 GROUP_CONCAT(
     DISTINCT COALESCE(g0.accnum, '')
     ORDER BY g0.seqname ASC SEPARATOR ' '
@@ -1111,7 +1111,7 @@ GROUP_CONCAT(
     DISTINCT COALESCE(g0.seqname, '')
     ORDER BY g0.seqname ASC SEPARATOR ' '
 )                                       AS 'Gene Symb.', 
-platform.species                        AS 'Species', 
+platform_species.sname                        AS 'Species', 
 probe.probe_sequence                    AS 'Probe Sequence',
 GROUP_CONCAT(
     DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; '
@@ -1130,7 +1130,7 @@ END_select_fields_extras
     if ( defined($curr_proj) && $curr_proj ne '' ) {
         $curr_proj             = $self->{_dbh}->quote($curr_proj);
         $sql_subset_by_project = <<"END_sql_subset_by_project"
-INNER JOIN study ON study.pid=platform.pid
+INNER JOIN study ON study.pid=platform_species.pid
 INNER JOIN ProjectStudy USING(stid) 
 WHERE prid=$curr_proj 
 END_sql_subset_by_project
@@ -1142,7 +1142,7 @@ $sql_select_fields
 FROM ( $InsideTableQuery ) AS g0
 LEFT JOIN annotates USING(gid)
 INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
-INNER JOIN platform ON platform.pid=probe.pid
+INNER JOIN (SELECT pid, pname, sname FROM platform LEFT JOIN species USING(sid)) AS platform_species ON platform_species.pid=probe.pid
 $sql_subset_by_project
 GROUP BY probe.rid
 END_ProbeQuery

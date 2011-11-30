@@ -23,6 +23,7 @@ my $all_resources = {
     experiments => { label => 'Manage Experiments' },
     studies     => { label => 'Manage Studies' },
     projects    => { label => 'Manage Projects' },
+    species     => { label => 'Manage Species' },
     users       => { label => 'Manage Users', perm => 'admin' },
     'experiments&b=form_create' =>
       { label => 'Upload Data', title => 'Upload data to a new experiment' },
@@ -395,7 +396,7 @@ sub build_menu {
         'Query' =>
           $link_creator->(qw/compareExperiments findProbes outputData/),
         'Manage' =>
-          $link_creator->(qw/experiments studies projects platforms users/),
+          $link_creator->(qw/experiments studies projects platforms species users/),
         'Upload' => $link_creator->(qw/experiments&b=form_create uploadAnnot/)
     );
 
