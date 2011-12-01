@@ -43,7 +43,7 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
 function clearLocation()
 {
     var filterLoci = document.getElementById("filterLoci");
-    document.getElementById("sid").value = '';
+    document.getElementById("spid").value = '';
     document.getElementById("chr").value = '';
     document.getElementById("start").value = '';
     document.getElementById("end").value = '';

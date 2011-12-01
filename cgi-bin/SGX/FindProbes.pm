@@ -51,6 +51,8 @@ sub new {
         _Names               => undef,
         _ProbeCount          => undef,
         _ExperimentDataQuery => undef,
+        _SearchItems         => [],
+        _FilterItems         => [],
 
         _type  => undef,
         _graph => undef,
@@ -95,10 +97,7 @@ sub default_head {
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
-    push @$js_src_yui,
-      (
-        'yahoo-dom-event/yahoo-dom-event.js'
-      );
+    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
     $self->getSessionOverrideCGI();
     push @$js_src_code, ( { -src => 'FormFindProbes.js' } );
 
@@ -357,19 +356,59 @@ sub build_SearchPredicate {
             error => "Invalid match value $match\n" );
     }
 
-    my $q = $self->{_cgi};
-    if ( $q->param('chr') ) {
-        push @$predicate,
-'probe.rid IN (SELECT rid FROM location WHERE chromosome=? AND end>=? AND start<=?)';
-        push @$qtext, car( $q->param('chr') ), car( $q->param('start') ),
-          car( $q->param('end') );
-    }
-    if ( !@$predicate ) {
+    if ( @$predicate == 0 ) {
         push @$predicate, "$type IN (NULL)";
     }
     $self->{_Predicate} = 'WHERE ' . join( ' AND ', @$predicate );
     $self->{_SearchItems} = $qtext;
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  build_location_predparam
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub build_location_predparam {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    my $query;
+    my @param;
+
+    #---------------------------------------------------------------------------
+    # Filter by chromosomal location
+    #---------------------------------------------------------------------------
+    my $loc_sid = car $q->param('spid');
+    if ( defined $loc_sid and $loc_sid ne '' ) {
+        $query = 'location.sid=?';
+        push @param, $loc_sid;
+
+        # chromosome is meaningless unless species was specified.
+        my $loc_chr = car $q->param('chr');
+        if ( defined $loc_chr and $loc_chr ne '' ) {
+            $query .= ' AND location.chromosome=?';
+            push @param, $loc_chr;
+
+            # starting and ending interval positions are meaningless if no
+            # chromosome was specified.
+            my $loc_start = car $q->param('start');
+            if ( defined $loc_start and $loc_start ne '' ) {
+                $query .= ' AND location.start<=?';
+                push @param, $loc_start;
+            }
+            my $loc_end = car $q->param('end');
+            if ( defined $loc_end and $loc_end ne '' ) {
+                $query .= ' AND location.end>=?';
+                push @param, $loc_end;
+            }
+        }
+    }
+    return ( $query, \@param );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -441,8 +480,9 @@ sub loadProbeData {
 
     my $dbh         = $self->{_dbh};
     my $searchItems = $self->{_SearchItems};
+    my $filterItems = $self->{_FilterItems};
     my $sth         = $dbh->prepare( $self->{_ProbeQuery} );
-    my $rc          = $sth->execute( @$searchItems, @$searchItems );
+    my $rc          = $sth->execute( @$searchItems, @$searchItems, @$filterItems );
     $self->{_ProbeCount} = $rc;
 
     # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
@@ -910,7 +950,10 @@ END_EXAMPLE_TEXT
         ),
         $q->dt(
             $q->p(
-                $q->a( { -id => 'locusFilter' }, '+ Filter by chromosome' )
+                $q->a(
+                    { -id => 'locusFilter' },
+                    '+ Filter by species / chromosomal location'
+                )
             ),
             $q->p(
                 {
@@ -923,17 +966,17 @@ END_EXAMPLE_TEXT
         $q->dd(
             { -id => 'filterLoci', -style => 'display:none;' },
             $q->dl(
-                $q->dt( 'Species:' ),
+                $q->dt('Species:'),
                 $q->dd(
                     $q->popup_menu(
-                        -name   => 'species',
-                        -id     => 'species',
+                        -name   => 'spid',
+                        -id     => 'spid',
                         -title  => 'Enter species',
                         -values => [ keys %{ $self->{_species_data} } ],
                         -labels => $self->{_species_data}
                     )
                 ),
-                $q->dt( 'Location:' ),
+                $q->dt('Location:'),
                 $q->dd(
                     'chr',
                     $q->textfield(
@@ -1180,6 +1223,18 @@ INNER JOIN ProjectStudy USING(stid)
 WHERE prid=$curr_proj 
 END_sql_subset_by_project
     }
+
+    #---------------------------------------------------------------------------
+    # Filter by chromosomal location
+    #---------------------------------------------------------------------------
+    my ( $subquery, $subparam ) = $self->build_location_predparam();
+    my $location_predicate = '';
+    if ( defined $subquery ) {
+        $location_predicate =
+          'INNER JOIN location ON probe.rid=location.rid AND ' . $subquery;
+        push @{ $self->{_FilterItems} }, @$subparam;
+    }
+
     my $InsideTableQuery = $self->{_InsideTableQuery};
     $self->{_ProbeQuery} = <<"END_ProbeQuery";
 SELECT
@@ -1187,6 +1242,7 @@ $sql_select_fields
 FROM ( $InsideTableQuery ) AS g0
 LEFT JOIN annotates USING(gid)
 INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
+$location_predicate
 INNER JOIN (SELECT pid, pname, sname FROM platform LEFT JOIN species USING(sid)) AS platform_species ON platform_species.pid=probe.pid
 $sql_subset_by_project
 GROUP BY probe.rid

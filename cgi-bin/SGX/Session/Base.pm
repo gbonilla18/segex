@@ -123,6 +123,10 @@ sub tie_session {
     };
     my $generated_id = $self->{session_obj}->{_session_id};
     if ( defined($id) and $id ne $generated_id ) {
+
+        # :TRICKY:12/01/2011 11:13:44:es: this is triggered whenever a page
+        # sends POST parameter named 'sid', so we should avoid naming form
+        # elements with 'sid' until this is fixed.
         SGX::Exception::Internal::Session->throw(
             error => 'Generated session id does not match requested' );
     }
@@ -434,8 +438,7 @@ sub init_session {
     my $ok = $self->checkin();
 
     if ( !$ok ) {
-        SGX::Exception::Internal::Session->throw(
-            error => 'Cannot checkin' );
+        SGX::Exception::Internal::Session->throw( error => 'Cannot checkin' );
     }
 
     return $ok;
