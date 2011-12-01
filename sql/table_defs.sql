@@ -117,15 +117,15 @@ DROP TABLE IF EXISTS `location`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `location` (
   `rid` int(10) unsigned NOT NULL,
-  `chromosome` varchar(127) NOT NULL,
-  `start` int(10) unsigned NOT NULL,
-  `end` int(10) unsigned NOT NULL,
-  `sid` int(10) unsigned DEFAULT NULL,
+  `chromosome` varchar(127) DEFAULT NULL,
+  `start` int(10) unsigned DEFAULT NULL,
+  `end` int(10) unsigned DEFAULT NULL,
+  `sid` int(10) unsigned NOT NULL,
   KEY `rid` (`rid`),
-  KEY `common` (`chromosome`(2),`start`,`end`),
   KEY `sid` (`sid`),
-  CONSTRAINT `location_ibfk_2` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`),
-  CONSTRAINT `location_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
+  KEY `common` (`sid`,`chromosome`(2),`start`,`end`),
+  CONSTRAINT `location_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE,
+  CONSTRAINT `location_ibfk_2` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -288,4 +288,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2011-11-29 22:35:57
+-- Dump completed on 2011-12-01 11:34:55

@@ -1169,9 +1169,9 @@ sub build_ProbeQuery {
         # basic output
         $sql_select_fields = <<"END_select_fields_basic";
 probe.rid,
-platform_species.pid,
+platform.pid,
 probe.reporter                          AS 'Probe ID',
-platform_species.pname                          AS 'Platform',
+platform.pname                          AS 'Platform',
 GROUP_CONCAT(
     DISTINCT COALESCE(g0.accnum, '')
     ORDER BY g0.seqname ASC SEPARATOR ' '
@@ -1180,7 +1180,7 @@ GROUP_CONCAT(
     DISTINCT COALESCE(g0.seqname, '')
     ORDER BY g0.seqname ASC SEPARATOR ' '
 )                                       AS 'Gene Symb.',
-platform_species.sname                        AS 'Species' 
+species.sname                        AS 'Species' 
 END_select_fields_basic
     }
     else {
@@ -1188,9 +1188,9 @@ END_select_fields_basic
         # extra fields in output
         $sql_select_fields = <<"END_select_fields_extras";
 probe.rid,
-platform_species.pid,
+platform.pid,
 probe.reporter                          AS 'Probe ID', 
-platform_species.pname                          AS 'Platform',
+platform.pname                          AS 'Platform',
 GROUP_CONCAT(
     DISTINCT COALESCE(g0.accnum, '')
     ORDER BY g0.seqname ASC SEPARATOR ' '
@@ -1199,7 +1199,7 @@ GROUP_CONCAT(
     DISTINCT COALESCE(g0.seqname, '')
     ORDER BY g0.seqname ASC SEPARATOR ' '
 )                                       AS 'Gene Symb.', 
-platform_species.sname                        AS 'Species', 
+species.sname                        AS 'Species', 
 probe.probe_sequence                    AS 'Probe Sequence',
 GROUP_CONCAT(
     DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; '
@@ -1218,21 +1218,29 @@ END_select_fields_extras
     if ( defined($curr_proj) && $curr_proj ne '' ) {
         $curr_proj             = $self->{_dbh}->quote($curr_proj);
         $sql_subset_by_project = <<"END_sql_subset_by_project"
-INNER JOIN study ON study.pid=platform_species.pid
+INNER JOIN study ON study.pid=platform.pid
 INNER JOIN ProjectStudy USING(stid) 
 WHERE prid=$curr_proj 
 END_sql_subset_by_project
     }
 
     #---------------------------------------------------------------------------
-    # Filter by chromosomal location
+    # Filter by chromosomal location (use platform table to look up species when
+    # only species is specified and not an actual chromosomal location).
     #---------------------------------------------------------------------------
     my ( $subquery, $subparam ) = $self->build_location_predparam();
     my $location_predicate = '';
-    if ( defined $subquery ) {
+    my $species_predicate = '';
+    my $join_species_on = 'platform.sid';
+    if (@$subparam == 1) {
+        #species only
+        $species_predicate = 'AND platform.sid=?';
+        push @{ $self->{_FilterItems} }, @$subparam;
+    } elsif ( @$subparam > 1) {
         $location_predicate =
           'INNER JOIN location ON probe.rid=location.rid AND ' . $subquery;
         push @{ $self->{_FilterItems} }, @$subparam;
+        $join_species_on = 'location.sid';
     }
 
     my $InsideTableQuery = $self->{_InsideTableQuery};
@@ -1243,6 +1251,8 @@ FROM ( $InsideTableQuery ) AS g0
 LEFT JOIN annotates USING(gid)
 INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
 $location_predicate
+INNER JOIN platform ON probe.pid=platform.pid $species_predicate
+LEFT JOIN species ON species.sid=$join_species_on
 INNER JOIN (SELECT pid, pname, sname FROM platform LEFT JOIN species USING(sid)) AS platform_species ON platform_species.pid=probe.pid
 $sql_subset_by_project
 GROUP BY probe.rid
