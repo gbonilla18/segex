@@ -28,7 +28,7 @@ function(el) {
         el.text = '-' + el.text.substr(1);
     } else {
         el.text = '+' + el.text.substr(1);
-        clearLoci();
+        clearLocation();
     }
 });
 
@@ -40,10 +40,10 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
     return true;
 });
 
-function clearLoci()
+function clearLocation()
 {
     var filterLoci = document.getElementById("filterLoci");
-    document.getElementById("species").value = '';
+    document.getElementById("sid").value = '';
     document.getElementById("chr").value = '';
     document.getElementById("start").value = '';
     document.getElementById("end").value = '';
