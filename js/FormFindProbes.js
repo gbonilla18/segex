@@ -1,6 +1,6 @@
 "use strict";
 // dropdown list
-setupToggles({
+setupToggles('change', {
     'pattern': {
         'part' : ['pattern_part_hint']
     }, 
@@ -11,11 +11,26 @@ setupToggles({
 }, function(el) { return getSelectedValue(el); });
 
 // checkbox
-setupToggles({
+setupToggles('change', {
     'graph'  : {
         'checked': ['graph_option_values']
     }
 }, function(el) { return (el.checked) ? 'checked' : null; });
+
+setupToggles('click', {
+    'locusFilter' : {
+        '-': ['filterLoci', 'extraText']
+    }
+}, 
+function(el) { return el.text.substr(0, 1); },
+function(el) { 
+    if (el.text.substr(0, 1) == '+') {
+        el.text = '-' + el.text.substr(1);
+    } else {
+        el.text = '+' + el.text.substr(1);
+        clearLoci();
+    }
+});
 
 YAHOO.util.Event.addListener('main_form', 'submit', function() {
     // remove white space from the left and from the right, then replace each
@@ -24,39 +39,13 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
     terms.value = terms.value.replace(/^\s+/, "").replace(/\s+$/, "").replace(/[,\s]+/g, ",");
     return true;
 });
-///////////////////////////////////////////////////////////
-var oButtonGroupFilter = new YAHOO.widget.ButtonGroup({
-    id: 'buttongroupFilter', 
-    name: 'radiofieldFilter', 
-    container:  'locusFilter', 
-    usearia: true
-});
-oButtonGroupFilter.addButtons([
-    { id: 'none', value: 'none', label: 'No Filter', checked: true },
-    { id: 'range', value: 'range', label: 'Chr. Range' }
-]);
-oButtonGroupFilter.on('checkedButtonChange', function (p_oEvent) {
-    // drop "-button" suffix from button id
-    var btnValue = p_oEvent.newValue._button.id.replace(/-button$/i, '');
-    toggleFilterOptions(btnValue);
-});
-function toggleFilterOptions(selectedRadio)
+
+function clearLoci()
 {
     var filterLoci = document.getElementById("filterLoci");
-    if(selectedRadio === 'none')
-    {
-        document.getElementById("chr").value = '';
-        document.getElementById("start").value = '';
-        document.getElementById("end").value = '';
-        filterLoci.style.display = 'none';
-    }
-    else if(selectedRadio === 'range')
-    {
-        filterLoci.style.display = 'block';
-    }    
-    else
-    {
-        throw "Invalid button selected: " + selectedRadio;
-    }
+    document.getElementById("species").value = '';
+    document.getElementById("chr").value = '';
+    document.getElementById("start").value = '';
+    document.getElementById("end").value = '';
 }
 

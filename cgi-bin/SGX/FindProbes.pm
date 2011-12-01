@@ -95,15 +95,42 @@ sub default_head {
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
-    push @{ $self->{_css_src_yui} }, 'button/assets/skins/sam/button.css';
     push @$js_src_yui,
       (
-        'yahoo-dom-event/yahoo-dom-event.js',
-        'element/element-min.js', 'button/button-min.js'
+        'yahoo-dom-event/yahoo-dom-event.js'
       );
     $self->getSessionOverrideCGI();
     push @$js_src_code, ( { -src => 'FormFindProbes.js' } );
+
+    $self->{_species_data} = $self->get_species();
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  get_species
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_species {
+    my $self = shift;
+    my $dbh  = $self->{_dbh};
+    my $sth  = $dbh->prepare('SELECT sid, sname FROM species ORDER BY sname');
+    my $rc   = $sth->execute;
+    my $data = $sth->fetchall_arrayref();
+    $sth->finish;
+
+    my %data;
+    my $data_t = tie(
+        %data, 'Tie::IxHash',
+        '' => '@Choose Species:',
+        map { shift @$_ => shift @$_ } @$data
+    );
+    return \%data;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -304,12 +331,13 @@ sub build_SearchPredicate {
         'gene'   => 'seqname',
         'accnum' => 'accnum'
     );
-    my $type = $translate_fields{$self->{_type}};
+    my $type = $translate_fields{ $self->{_type} };
 
     if ( $match eq 'full' ) {
         ( $predicate => $qtext ) =
           @$items
-          ? ( [ "$type IN (" . join( ',', map { '?' } @$items ) . ')' ] => $items )
+          ? ( [ "$type IN (" . join( ',', map { '?' } @$items ) . ')' ] =>
+              $items )
           : ( [] => [] );
     }
     elsif ( $match eq 'prefix' ) {
@@ -880,39 +908,56 @@ all genes starting with cyp.b where the period represents any one character (2,
 for more examples.
 END_EXAMPLE_TEXT
         ),
-        $q->dt('Limit results to:'),
-        $q->dd(
-            $q->div(
-                { -id => 'locusFilter', -style => 'margin-bottom:1em;' }, ''
+        $q->dt(
+            $q->p(
+                $q->a( { -id => 'locusFilter' }, '+ Filter by chromosome' )
             ),
-            $q->div(
-                { -id => 'filterLoci', -style => 'display:none;' },
-                $q->div(
-                'chr',
-                $q->textfield(
-                    -name  => 'chr',
-                    -id    => 'chr',
-                    -title => 'Enter chromosome name',
-                    -size  => 3
-                ),
-                ':',
-                $q->textfield(
-                    -name  => 'start',
-                    -id    => 'start',
-                    -title => 'Enter start position',
-                    -size  => 14
-                ),
-                '-',
-                $q->textfield(
-                    -name  => 'end',
-                    -id    => 'end',
-                    -title => 'Enter end position',
-                    -size  => 14
-                )),
-                $q->p(
-                    'Enter a numeric range preceded by chromosome name (e.g.  16, 7, M, X).'
-                )
+            $q->p(
+                {
+                    -id    => 'extraText',
+                    -style => 'font-weight:normal; color:#777;'
+                },
+'Enter a numeric range preceded by chromosome name (e.g.  16, 7, M, X).'
             )
+        ),
+        $q->dd(
+            { -id => 'filterLoci', -style => 'display:none;' },
+            $q->dl(
+                $q->dt( 'Species:' ),
+                $q->dd(
+                    $q->popup_menu(
+                        -name   => 'species',
+                        -id     => 'species',
+                        -title  => 'Enter species',
+                        -values => [ keys %{ $self->{_species_data} } ],
+                        -labels => $self->{_species_data}
+                    )
+                ),
+                $q->dt( 'Location:' ),
+                $q->dd(
+                    'chr',
+                    $q->textfield(
+                        -name  => 'chr',
+                        -id    => 'chr',
+                        -title => 'Enter chromosome name',
+                        -size  => 3
+                    ),
+                    ':',
+                    $q->textfield(
+                        -name  => 'start',
+                        -id    => 'start',
+                        -title => 'Enter start position',
+                        -size  => 14
+                    ),
+                    '-',
+                    $q->textfield(
+                        -name  => 'end',
+                        -id    => 'end',
+                        -title => 'Enter end position',
+                        -size  => 14
+                    )
+                ),
+            ),
         ),
         $q->dt( $q->label( { -for => 'opts' }, 'Output options:' ) ),
         $q->dd(
@@ -980,7 +1025,7 @@ END_BROWSER_NOTICE
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_InsideTableQuery {
-    my $self = shift;
+    my $self      = shift;
     my $predicate = $self->{_Predicate};
 
     my $probe_spec_fields =

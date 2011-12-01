@@ -331,7 +331,7 @@ sub form_create_head {
     push @{ $self->{_js_src_code} }, { -src => 'PlatformStudyExperiment.js' };
 
     push @$js_buffer, <<"END_SETUPTOGGLES";
-setupToggles(
+setupToggles('change',
     { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
     function(el) { return ((getSelectedValue(el) !== '') ? 'defined' : ''); }
 );

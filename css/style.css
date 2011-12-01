@@ -151,23 +151,16 @@ dl dt {
 	float:left;
 	line-height:1em;
 	font-weight:bold;
+	clear:left;
+	margin-bottom:0.815em;
 }
 dl dt.optional {
 	color:#666;
 	font-weight:normal;
 }
-/* Hide from IE Mac \*/
-dl dt { clear:left; }
-/* End hide from IE Mac */
 dl dd {
 	width:531px;
 	float:left;
-}
-
-dl dt {
-	margin-bottom:0.815em;
-}
-dl dd {
 	padding-bottom:0.815em;	/* checkbox fields in IE 7.0 do not obey line-height property */
 	min-height:1.665em;
 	/*color:#777;*/

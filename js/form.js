@@ -46,7 +46,7 @@ function export_table(e) {
 // setupToggles
 // See FormFindProbes.js for example usage of this function
 //==============================================================================
-function setupToggles(attr, getValue) {
+function setupToggles(event, attr, getValue, callBack) {
     // inverse inside hash
     var inverse_attr = {};
     for (var id in attr) {
@@ -92,7 +92,14 @@ function setupToggles(attr, getValue) {
         for (var id in attr) {
             var toggle = createToggle(id);
             toggle();
-            YAHOO.util.Event.addListener(id, 'change', toggle);
+            var el = document.getElementById(id);
+            YAHOO.util.Event.addListener(
+                id, 
+                event, 
+                (typeof callBack !== 'undefined') 
+                ? function() { callBack(el); toggle(); } 
+                : function() { toggle(); }
+            );
         }
     });
 }
