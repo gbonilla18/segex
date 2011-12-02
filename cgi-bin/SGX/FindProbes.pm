@@ -1077,7 +1077,7 @@ X. Leave these fields blank to search all chromosomes.'
                     ),
                     $q->p(
                         { -id => 'graph_hint', -class => 'hint' },
-'For graphs to display, your browser needs to support Scalable Vector Graphics (SVG). Internet Explorer (IE)
+'For graphs to display, your browser should support Scalable Vector Graphics (SVG). Internet Explorer (IE)
 versions earlier than version nine can only display SVG images via <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.'
                     )
                 )
@@ -1116,7 +1116,7 @@ sub build_InsideTableQuery {
     my $predicate = $self->{_Predicate};
 
     my $probe_spec_fields =
-      ( $self->{_scope} eq 'probe' )
+      ( $self->{_scope} eq 'Probe IDs' )
       ? 'rid, reporter, probe_sequence, pid'
       : 'NULL AS rid, NULL AS reporter, NULL AS probe_sequence, NULL AS pid';
 
