@@ -52,7 +52,16 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
     return true;
 });
 YAHOO.util.Event.addListener(window, 'load', function() {
-    new YAHOO.widget.ButtonGroup("scope_container");
+    var pattern_div = document.getElementById('pattern_div');
+    var scope = new YAHOO.widget.ButtonGroup("scope_container");
+    scope.addListener("checkedButtonChange", function(ev) {
+        var newIndex = ev.newValue.index;
+        if (newIndex === 1 || newIndex === 2) {
+            pattern_div.style.display = 'none';
+        } else {
+            pattern_div.style.display = 'block';
+        }
+    });
     var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
     var pattern_part_hint = document.getElementById('pattern_part_hint');
     patterns.addListener("checkedButtonChange", function(ev) {

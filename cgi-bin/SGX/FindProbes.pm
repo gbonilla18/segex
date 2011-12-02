@@ -896,7 +896,23 @@ END_terms_title
                         -name    => 'scope',
                         -value   => 'Gene Symbols',
                         -checked => 'checked',
-                        -title   => 'Search gene names'
+                        -title   => 'Search gene symbols'
+                    }
+                ),
+                $q->input(
+                    {
+                        -type  => 'radio',
+                        -name  => 'scope',
+                        -value => 'Gene Names',
+                        -title => 'Search official gene names'
+                    }
+                ),
+                $q->input(
+                    {
+                        -type  => 'radio',
+                        -name  => 'scope',
+                        -value => 'GO Terms',
+                        -title => 'Search gene ontology terms'
                     }
                 ),
                 $q->input(
@@ -919,41 +935,51 @@ END_terms_title
         ),
         $q->dt('More Search Options:'),
         $q->dd(
-            $q->p( $q->a( { -id => 'patternMatcher' }, '+ Pattern to match' ) ),
             $q->div(
-                { -id => 'pattern_hint_container', -class => 'dd_collapsible' },
-                $q->div(
-                    { -id => 'pattern_container', -class => 'input_container' },
-                    $q->input(
-                        {
-                            -type    => 'radio',
-                            -name    => 'match',
-                            -value   => 'Full Word',
-                            -checked => 'checked',
-                            -title   => 'Match full words'
-                        }
-                    ),
-                    $q->input(
-                        {
-                            -type  => 'radio',
-                            -name  => 'match',
-                            -value => 'Prefix',
-                            -title => 'Match word prefixes'
-                        }
-                    ),
-                    $q->input(
-                        {
-                            -type  => 'radio',
-                            -name  => 'match',
-                            -value => 'Partial',
-                            -title =>
-                              'Match word fragments or regular expressions'
-                        }
-                    )
-                ),
+                { -id => 'pattern_div' },
                 $q->p(
-                    { -class => 'hint', -id => 'pattern_part_hint' },
-                    <<"END_EXAMPLE_TEXT") ),
+                    $q->a( { -id => 'patternMatcher' }, '+ Pattern to match' )
+                ),
+                $q->div(
+                    {
+                        -id    => 'pattern_hint_container',
+                        -class => 'dd_collapsible'
+                    },
+                    $q->div(
+                        {
+                            -id    => 'pattern_container',
+                            -class => 'input_container'
+                        },
+                        $q->input(
+                            {
+                                -type    => 'radio',
+                                -name    => 'match',
+                                -value   => 'Full Word',
+                                -checked => 'checked',
+                                -title   => 'Match full words'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'radio',
+                                -name  => 'match',
+                                -value => 'Prefix',
+                                -title => 'Match word prefixes'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'radio',
+                                -name  => 'match',
+                                -value => 'Partial',
+                                -title =>
+                                  'Match word fragments or regular expressions'
+                            }
+                        )
+                    ),
+                    $q->p(
+                        { -class => 'hint', -id => 'pattern_part_hint' },
+                        <<"END_EXAMPLE_TEXT") ) ),
 Partial matching allows you to enter parts of a word or regular
 expressions as search terms.  Example of a regular expression:
 <strong>^cyp.b</strong> tells the database to retrieve all genes starting with
@@ -1040,7 +1066,7 @@ X. Leave these fields blank to search all chromosomes.'
                                 -name => 'opts',
                                 -title =>
                                   'Also include probe annotation and GO terms',
-                                -value => 'Complete',
+                                -value => 'With Annotation',
                             }
                         ),
                         $q->input(
