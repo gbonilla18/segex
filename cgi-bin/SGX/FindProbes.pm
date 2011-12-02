@@ -764,8 +764,8 @@ sub getFullExperimentData {
         push @stid_list, $stid;
     }
 
-    my $eid_string  = join( ',', @eid_list );
-    my $stid_string = join( ',', @stid_list );
+    my $eid_string  = ( @eid_list > 0 ) ? join( ',', @eid_list )  : 'NULL';
+    my $stid_string = ( @eid_list > 0 ) ? join( ',', @stid_list ) : 'NULL';
 
     my $whereSQL;
     my $curr_proj = $self->{_WorkingProject};
@@ -780,6 +780,7 @@ END_whereTitlesSQL
         $whereSQL =
           "WHERE eid IN ($eid_string) AND study.stid IN ($stid_string)";
     }
+
     my $query_titles = <<"END_query_titles_element";
 SELECT experiment.eid, 
     CONCAT(study.description, ': ', experiment.sample2, ' / ', experiment.sample1) AS title, 
