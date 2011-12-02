@@ -169,6 +169,10 @@ dl dd {
 dd p, dd div {
 	clear:both;
 }
+.dd_collapsible {
+	padding-left: 2em;
+	margin-bottom:1em;
+}
 /*** buttons that look like links: *****/
 .plaintext {
 	display:inline;

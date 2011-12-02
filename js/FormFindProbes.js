@@ -18,7 +18,7 @@ setupToggles('click', {
 });
 setupToggles('click', {
         'patternMatcher': {
-            '-': ['pattern_container']
+            '-': ['pattern_hint_container']
         }
     }, 
     function(el) { return el.text.substr(0, 1); },
@@ -31,7 +31,7 @@ setupToggles('click', {
 });
 setupToggles('click', {
         'outputOpts': {
-            '-': ['opts_container', 'opts_hint', 'graph_container']
+            '-': ['opts_hint_container']
         }
     }, 
     function(el) { return el.text.substr(0, 1); },

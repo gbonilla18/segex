@@ -218,7 +218,7 @@ sub FindProbes_init {
         @textSplit = split( /[,\s]+/, trim($text) );
     }
 
-    $self->{_match}   = $match;
+    $self->{_match}       = $match;
     $self->{_SearchTerms} = \@textSplit;
 
     return 1;
@@ -824,8 +824,8 @@ sub Search_body {
             { -id => 'subcaption' },
             sprintf(
                 'Searched %s (%s): %s',
-                lc( $self->{_scope}),
-                lc( $self->{_match}),
+                lc( $self->{_scope} ),
+                lc( $self->{_match} ),
                 join( ', ', @{ $self->{_SearchTerms} } )
             )
         ),
@@ -857,7 +857,7 @@ END_LEGEND
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_body {
-    my $self = shift;
+    my $self      = shift;
     my $q         = $self->{_cgi};
     my $curr_proj = $self->{_WorkingProject};
 
@@ -916,41 +916,39 @@ END_terms_title
         ),
         $q->dt('Advanced Options:'),
         $q->dd(
-            $q->p(
-                $q->a(
-                    { -id => 'patternMatcher' }, '+ Pattern to match'
-                )
-            ),
+            $q->p( $q->a( { -id => 'patternMatcher' }, '+ Pattern to match' ) ),
             $q->div(
-                { -id => 'pattern_container', -style => 'margin-bottom:1em;' },
-                $q->input(
-                    {
-                        -type    => 'radio',
-                        -name    => 'match',
-                        -value   => 'Full Word',
-                        -checked => 'checked'
-                    }
+                { -id => 'pattern_hint_container', -class => 'dd_collapsible' },
+                $q->div(
+                    { -id => 'pattern_container' },
+                    $q->input(
+                        {
+                            -type    => 'radio',
+                            -name    => 'match',
+                            -value   => 'Full Word',
+                            -checked => 'checked'
+                        }
+                    ),
+                    $q->input(
+                        {
+                            -type  => 'radio',
+                            -name  => 'match',
+                            -value => 'Prefix',
+                        }
+                    ),
+                    $q->input(
+                        {
+                            -type  => 'radio',
+                            -name  => 'match',
+                            -value => 'Partial',
+                        }
+                    )
                 ),
-                $q->input(
-                    {
-                        -type  => 'radio',
-                        -name  => 'match',
-                        -value => 'Prefix',
-                    }
-                ),
-                $q->input(
-                    {
-                        -type  => 'radio',
-                        -name  => 'match',
-                        -value => 'Partial',
-                    }
-                )
-            ),
-            $q->p(
-                { -class => 'hint', -id => 'pattern_part_hint' },
-                <<"END_EXAMPLE_TEXT"), 
-With <em>Partial</em> matching, you can enter either parts of words or regular
-expressions in the search box.  Example of a regular expression:
+                $q->p(
+                    { -class => 'hint', -id => 'pattern_part_hint' },
+                    <<"END_EXAMPLE_TEXT") ),
+Partial matching allows you to enter parts of a word or regular
+expressions as search terms.  Example of a regular expression:
 <strong>^cyp.b</strong> tells the database to retrieve all genes starting with
 <strong>cyp.b</strong> where the period represents any single letter or digit (2, 3, 4,
 "a", etc.).  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
@@ -963,7 +961,7 @@ END_EXAMPLE_TEXT
                 )
             ),
             $q->div(
-                { -id => 'locus_container', -style => 'margin-bottom:1em;' },
+                { -id => 'locus_container', -class => 'dd_collapsible' },
                 $q->dl(
                     $q->dt('Species:'),
                     $q->dd(
@@ -1012,66 +1010,73 @@ END_EXAMPLE_TEXT
                     ),
                 )
             ),
-            $q->p(
-                $q->a(
-                    { -id => 'outputOpts' }, '+ Output options'
-                )
-            ),
-            $q->div({-id => 'opts_container', -style => 'margin-bottom:1em;'},
-                $q->input(
-                    {
-                        -type    => 'radio',
-                        -name    => 'opts',
-                        -value   => 'Basic',
-                        -checked => 'checked'
-                    }
-                ),
-                $q->input(
-                    {
-                        -type    => 'radio',
-                        -name    => 'opts',
-                        -value   => 'Complete',
-                    }
-                ),
-                $q->input(
-                    {
-                        -type    => 'radio',
-                        -name    => 'opts',
-                        -value   => 'Complete (CSV)',
-                    }
-                ),
-            ),
-            $q->p({-id => 'opts_hint', -class => 'hint'},
+            $q->p( $q->a( { -id => 'outputOpts' }, '+ Output options' ) ),
+            $q->div(
+                { -id => 'opts_hint_container', -class => 'dd_collapsible' },
+                $q->p(
+                    $q->div(
+                        { -id => 'opts_container' },
+                        $q->input(
+                            {
+                                -type    => 'radio',
+                                -name    => 'opts',
+                                -value   => 'Basic',
+                                -checked => 'checked'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'radio',
+                                -name  => 'opts',
+                                -value => 'Complete',
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'radio',
+                                -name  => 'opts',
+                                -value => 'Complete (CSV)',
+                            }
+                        )
+                    ),
+                    $q->p(
+                        { -id => 'opts_hint', -class => 'hint' },
 '<strong>Basic</strong>: Probe names only. <strong>Complete</strong>: probe names with annotation.
 <strong>Complete (CSV)</strong>: probe names, annotation, data in CSV format.'
-            ),
-            $q->div({-id => 'graph_container' , -style => 'margin-bottom:1em;'},
-                $q->input(
-                    {
-                        -type    => 'radio',
-                        -name    => 'graph',
-                        -value   => 'No Graphs',
-                        -checked => 'checked'
-                    }
+                    )
                 ),
-                $q->input(
-                    {
-                        -type    => 'radio',
-                        -name    => 'graph',
-                        -value   => 'Fold Change',
-                    }
-                ),
-                $q->input(
-                    {
-                        -type    => 'radio',
-                        -name    => 'graph',
-                        -value   => 'Log Ratio',
-                    }
-                ),
-            ),
-            $q->p({-id => 'graph_hint', -class => 'hint'},
+                $q->p(
+                    $q->div(
+                        { -id => 'graph_container' },
+                        $q->input(
+                            {
+                                -type    => 'radio',
+                                -name    => 'graph',
+                                -value   => 'No Graphs',
+                                -checked => 'checked'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'radio',
+                                -name  => 'graph',
+                                -value => 'Fold Change',
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'radio',
+                                -name  => 'graph',
+                                -value => 'Log Ratio',
+                            }
+                        ),
+                    ),
+                    $q->p(
+                        { -id => 'graph_hint', -class => 'hint' },
 'Graphs require Scalable Vector Graphics (SVG) support in your browser. Internet Explorer (IE)
 versions earlier than version nine only support SVG through Adobe SVG plugin.'
+                    )
+                )
             )
         ),
 
@@ -1313,7 +1318,7 @@ sub findProbes_js {
 
     $self->build_SearchPredicate();
     $self->build_InsideTableQuery();
-    $self->build_ProbeQuery( extra_fields => ($self->{_opts} ne 'Basic') );
+    $self->build_ProbeQuery( extra_fields => ( $self->{_opts} ne 'Basic' ) );
 
     if ( $self->{_opts} eq 'Complete (CSV)' ) {
 
@@ -1353,9 +1358,9 @@ sub findProbes_js {
         }
 
         my %type_to_column = (
-            'Probe IDs'  => '1',
+            'Probe IDs'         => '1',
             'Accession Numbers' => '3',
-            'Gene Names'   => '4'
+            'Gene Names'        => '4'
         );
 
         my %json_probelist = (
@@ -1364,7 +1369,7 @@ sub findProbes_js {
             headers => $self->{_Names}
         );
 
-        my ( $type, $match) = @$self{qw/_scope _match/};
+        my ( $type, $match ) = @$self{qw/_scope _match/};
         my $out = sprintf(
             <<"END_JSON_DATA",
 var searchColumn = "%s";
