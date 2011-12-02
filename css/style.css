@@ -8,6 +8,7 @@ body {
 }
 strong {
 	font-weight:bold;
+	color:black;
 }
 em {
 	font-style:italic;
@@ -164,6 +165,9 @@ dl dd {
 	padding-bottom:0.815em;	/* checkbox fields in IE 7.0 do not obey line-height property */
 	min-height:1.665em;
 	/*color:#777;*/
+}
+dd p, dd div {
+	clear:both;
 }
 /*** buttons that look like links: *****/
 .plaintext {

@@ -7,9 +7,9 @@ use warnings;
 #  Perl library includes
 #---------------------------------------------------------------------------
 # CGI options: -nosticky option prevents CGI.pm from printing hidden .cgifields
-# inside a form. We do not add qw/:standard/ because we use object-oriented
-# style.
-use CGI 2.47 qw/-nosticky -private_tempfiles/;
+# inside a form. By default, CGI.pm versions 2.69 and higher emit XHTML. The
+# -no_xhtml pragma disables this feature. 
+use CGI 2.47 qw/-nosticky -private_tempfiles -no_xhtml/;
 
 #use CGI::Pretty 2.47 qw/-nosticky/;
 use Carp qw/croak/;

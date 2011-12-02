@@ -1,36 +1,48 @@
 "use strict";
-// dropdown list
-setupToggles('change', {
-    'pattern': {
-        'part' : ['pattern_part_hint']
-    }, 
-    'opts'   : {
-        'basic': ['graph_names', 'graph_values'],
-        'full' : ['graph_names', 'graph_values']
-    }
-}, function(el) { return getSelectedValue(el); });
-
-// checkbox
-setupToggles('change', {
-    'graph'  : {
-        'checked': ['graph_option_values']
-    }
-}, function(el) { return (el.checked) ? 'checked' : null; });
-
+setupToggles('change',
+    { 'spid': { 'defined' : ['chr_dt', 'chr_dd'] } }, 
+    function(el) { return ((getSelectedValue(el) !== '') ? 'defined' : ''); }
+);
 setupToggles('click', {
-    'locusFilter' : {
-        '-': ['filterLoci', 'extraText']
-    }
-}, 
-function(el) { return el.text.substr(0, 1); },
-function(el) { 
-    if (el.text.substr(0, 1) == '+') {
-        el.text = '-' + el.text.substr(1);
-    } else {
-        el.text = '+' + el.text.substr(1);
-        clearLocation();
-    }
+        'locusFilter' : {
+            '-': ['locus_container']
+        },
+    }, 
+    function(el) { return el.text.substr(0, 1); },
+    function(el) { 
+        if (el.text.substr(0, 1) == '+') {
+            el.text = '-' + el.text.substr(1);
+        } else {
+            el.text = '+' + el.text.substr(1);
+        }
 });
+setupToggles('click', {
+        'patternMatcher': {
+            '-': ['pattern_container']
+        }
+    }, 
+    function(el) { return el.text.substr(0, 1); },
+    function(el) { 
+        if (el.text.substr(0, 1) == '+') {
+            el.text = '-' + el.text.substr(1);
+        } else {
+            el.text = '+' + el.text.substr(1);
+        }
+});
+setupToggles('click', {
+        'outputOpts': {
+            '-': ['opts_container', 'opts_hint', 'graph_container']
+        }
+    }, 
+    function(el) { return el.text.substr(0, 1); },
+    function(el) { 
+        if (el.text.substr(0, 1) == '+') {
+            el.text = '-' + el.text.substr(1);
+        } else {
+            el.text = '+' + el.text.substr(1);
+        }
+});
+
 
 YAHOO.util.Event.addListener('main_form', 'submit', function() {
     // remove white space from the left and from the right, then replace each
@@ -39,13 +51,34 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
     terms.value = terms.value.replace(/^\s+/, "").replace(/\s+$/, "").replace(/[,\s]+/g, ",");
     return true;
 });
-
-function clearLocation()
-{
-    var filterLoci = document.getElementById("filterLoci");
-    document.getElementById("spid").value = '';
-    document.getElementById("chr").value = '';
-    document.getElementById("start").value = '';
-    document.getElementById("end").value = '';
-}
-
+YAHOO.util.Event.addListener(window, 'load', function() {
+    new YAHOO.widget.ButtonGroup("scope_container");
+    var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
+    var pattern_part_hint = document.getElementById('pattern_part_hint');
+    patterns.addListener("checkedButtonChange", function(ev) {
+        if (ev.newValue.index === 2) {
+            pattern_part_hint.style.display = 'block';
+        } else {
+            pattern_part_hint.style.display = 'none';
+        }
+    });
+    var graph_container = document.getElementById("graph_container");
+    var graph_hint = document.getElementById('graph_hint');
+    var graphs = new YAHOO.widget.ButtonGroup(graph_container);
+    graphs.addListener("checkedButtonChange", function(ev) {
+        if (ev.newValue.index !== 0) {
+            graph_hint.style.display = 'block';
+        } else {
+            graph_hint.style.display = 'none';
+        }
+    });
+    var opts = new YAHOO.widget.ButtonGroup("opts_container");
+    opts.addListener("checkedButtonChange", function(ev) {
+        if (ev.newValue.index !== 2) {
+            graph_container.style.display = 'block';
+        } else {
+            graph_container.style.display = 'none';
+            graphs.check(0); // turn off graphs
+        }
+    });
+});

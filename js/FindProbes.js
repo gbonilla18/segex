@@ -54,7 +54,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
     }
 
-    if (show_graphs) {
+    if (show_graphs !== 'No Graphs') {
         graph_ul = YAHOO.util.Dom.get("graphs");
     }
 
@@ -65,9 +65,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
             ? 'class="highlight"' 
             : '';
         var i = oRecord.getCount();
-        if (show_graphs) {
+        if (show_graphs !== 'No Graphs') {
             var this_rid = oRecord.getData("0");
-            graph_content += "<li id=\"reporter_" + i + "\">" + buildSVGElement({proj: project_id, rid: this_rid, reporter: oData, trans: response_transform}) + "</li>";
+            graph_content += "<li id=\"reporter_" + i + "\">" + buildSVGElement({proj: project_id, rid: this_rid, reporter: oData, trans: show_graphs}) + "</li>";
             elCell.innerHTML = "<div id=\"container" + i + "\"><a " + hClass + " title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
         } else {
             elCell.innerHTML = "<div id=\"container" + i + "\"><a " + hClass + " title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
@@ -184,7 +184,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     // TODO: why are we adding a new listener every time the table is rendered?
     myDataTable.subscribe("renderEvent", 
-        (show_graphs) 
+        (show_graphs !== 'No Graphs') 
         ? function () { graph_ul.innerHTML = graph_content; }
         : function () {
             // if the line below is moved to window.load closure,
@@ -209,7 +209,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
                         var this_rid = myDataTable.getRecord(this).getData("0");
                         panel.setBody(buildSVGElement({
-                            proj: project_id, rid: this_rid, reporter: this_reporter, trans: response_transform
+                            proj: project_id, rid: this_rid, reporter: this_reporter, trans: show_graphs
                         }));
                         manager.register(panel);
                         panel.render("container" + index);

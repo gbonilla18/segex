@@ -28,35 +28,17 @@ sub new {
 
     my $self = $class->SUPER::new(@param);
 
-    my %type_dropdown;
-    my $type_dropdown_t = tie(
-        %type_dropdown, 'Tie::IxHash',
-        'gene'   => 'Gene Symbols',
-        'accnum' => 'Accession Numbers',
-        'probe'  => 'Probes'
-    );
-    my %match_dropdown;
-    my $match_dropdown_t = tie(
-        %match_dropdown, 'Tie::IxHash',
-        'full'   => 'Full Word',
-        'prefix' => 'Prefix',
-        'part'   => 'Partial / Regular Expression'
-    );
-
     $self->set_attributes(
         _title               => 'Find Probes',
-        _typeDesc            => \%type_dropdown,
-        _matchDesc           => \%match_dropdown,
         _ProbeHash           => undef,
         _Names               => undef,
         _ProbeCount          => undef,
         _ExperimentDataQuery => undef,
-        _SearchItems         => [],
+        _SearchTerms         => [],
         _FilterItems         => [],
 
-        _type  => undef,
+        _scope => undef,
         _graph => undef,
-        _match => undef
     );
 
     bless $self, $class;
@@ -97,7 +79,12 @@ sub default_head {
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
 
-    push @$js_src_yui, ('yahoo-dom-event/yahoo-dom-event.js');
+    push @{ $self->{_css_src_yui} }, 'button/assets/skins/sam/button.css';
+    push @$js_src_yui,
+      (
+        'yahoo-dom-event/yahoo-dom-event.js',
+        'element/element-min.js', 'button/button-min.js'
+      );
     $self->getSessionOverrideCGI();
     push @$js_src_code, ( { -src => 'FormFindProbes.js' } );
 
@@ -126,7 +113,7 @@ sub get_species {
     my %data;
     my $data_t = tie(
         %data, 'Tie::IxHash',
-        '' => '@Choose Species:',
+        '' => '@Any Species',
         map { shift @$_ => shift @$_ } @$data
     );
     return \%data;
@@ -188,14 +175,13 @@ sub FindProbes_init {
     my ( $self, $fh ) = @_;
     my $q = $self->{_cgi};
 
-    $self->{_type}  = $q->param('type');
+    $self->{_scope} = $q->param('scope');
     $self->{_match} = $q->param('match');
     $self->{_graph} = $q->param('graph');
     $self->{_opts}  = $q->param('opts');
-    $self->{_trans} = $q->param('trans');
 
     my $match = $q->param('match');
-    $match = 'full' unless defined $match;
+    $match = 'Full Word' unless defined $match;
 
     my @textSplit;
 
@@ -232,8 +218,8 @@ sub FindProbes_init {
         @textSplit = split( /[,\s]+/, trim($text) );
     }
 
-    $self->{_xMatchType}   = $match;
-    $self->{_xSearchTerms} = \@textSplit;
+    $self->{_match}   = $match;
+    $self->{_SearchTerms} = \@textSplit;
 
     return 1;
 }
@@ -320,32 +306,32 @@ sub getSessionOverrideCGI {
 #===============================================================================
 sub build_SearchPredicate {
     my $self  = shift;
-    my $match = $self->{_xMatchType};
-    my $items = $self->{_xSearchTerms};
+    my $match = $self->{_match};
+    my $items = $self->{_SearchTerms};
 
     my $qtext;
     my $predicate;
     my %translate_fields = (
-        'probe'  => 'reporter',
-        'gene'   => 'seqname',
-        'accnum' => 'accnum'
+        'Probe IDs'         => 'reporter',
+        'Gene Names'        => 'seqname',
+        'Accession Numbers' => 'accnum'
     );
-    my $type = $translate_fields{ $self->{_type} };
+    my $type = $translate_fields{ $self->{_scope} };
 
-    if ( $match eq 'full' ) {
+    if ( $match eq 'Full Word' ) {
         ( $predicate => $qtext ) =
           @$items
           ? ( [ "$type IN (" . join( ',', map { '?' } @$items ) . ')' ] =>
               $items )
           : ( [] => [] );
     }
-    elsif ( $match eq 'prefix' ) {
+    elsif ( $match eq 'Prefix' ) {
         ( $predicate => $qtext ) =
           @$items
           ? ( ["$type REGEXP ?"] => [ join( '|', map { "^$_" } @$items ) ] )
           : ( [] => [] );
     }
-    elsif ( $match eq 'part' ) {
+    elsif ( $match eq 'Partial' ) {
         ( $predicate => $qtext ) =
           @$items
           ? ( ["$type REGEXP ?"] => [ join( '|', @$items ) ] )
@@ -360,7 +346,7 @@ sub build_SearchPredicate {
         push @$predicate, "$type IN (NULL)";
     }
     $self->{_Predicate} = 'WHERE ' . join( ' AND ', @$predicate );
-    $self->{_SearchItems} = $qtext;
+    $self->{_SearchTerms} = $qtext;
     return 1;
 }
 
@@ -479,10 +465,10 @@ sub loadProbeData {
     my ($self) = @_;
 
     my $dbh         = $self->{_dbh};
-    my $searchItems = $self->{_SearchItems};
+    my $searchItems = $self->{_SearchTerms};
     my $filterItems = $self->{_FilterItems};
     my $sth         = $dbh->prepare( $self->{_ProbeQuery} );
-    my $rc          = $sth->execute( @$searchItems, @$searchItems, @$filterItems );
+    my $rc = $sth->execute( @$searchItems, @$searchItems, @$filterItems );
     $self->{_ProbeCount} = $rc;
 
     # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
@@ -829,7 +815,7 @@ sub Search_body {
     my $self = shift;
 
     my $q     = $self->{_cgi};
-    my $type  = $self->{_type} || '';
+    my $type  = $self->{_scope} || '';
     my $match = $self->{_match} || '';
 
     my @ret = (
@@ -838,9 +824,9 @@ sub Search_body {
             { -id => 'subcaption' },
             sprintf(
                 'Searched %s (%s): %s',
-                lc( $self->{_typeDesc}->{$type} ),
-                lc( $self->{_matchDesc}->{$match} ),
-                join( ', ', @{ $self->{_SearchItems} } )
+                lc( $self->{_scope}),
+                lc( $self->{_match}),
+                join( ', ', @{ $self->{_SearchTerms} } )
             )
         ),
         $q->div(
@@ -849,7 +835,7 @@ sub Search_body {
         $q->div( { -id => 'probetable' }, '' )
     );
 
-    if ( $self->{_graph} ) {
+    if ( defined $self->{_graph} and $self->{_graph} ne 'No Graphs' ) {
         push @ret, $q->p(<<"END_LEGEND");
 <strong>Dark bars</strong>: values meething the P threshold. 
 <strong>Light bars</strong>: values above the P threshold. 
@@ -872,25 +858,8 @@ END_LEGEND
 #===============================================================================
 sub default_body {
     my $self = shift;
-
     my $q         = $self->{_cgi};
     my $curr_proj = $self->{_WorkingProject};
-
-    # note: get $curr_proj from session
-
-    my %opts_dropdown;
-    my $opts_dropdown_t = tie(
-        %opts_dropdown, 'Tie::IxHash',
-        'basic' => 'Basic (names and ids only)',
-        'full'  => 'Full annotation',
-        'csv'   => 'Full annotation with experiment data (CSV)'
-    );
-    my %trans_dropdown;
-    my $trans_dropdown_t = tie(
-        %trans_dropdown, 'Tie::IxHash',
-        'fold' => 'Fold Change',
-        'ln'   => 'Log Ratio'
-    );
 
     return $q->start_form(
         -id      => 'main_form',
@@ -904,7 +873,7 @@ You can enter here a list of probes, accession numbers, or gene names.
 The results will contain probes that are related to the search terms.
 END_H2P_TEXT
       $q->dl(
-        $q->dt( $q->label( { -for => 'q' }, 'Search term(s):' ) ),
+        $q->dt( $q->label( { -for => 'q' }, 'Search Term(s):' ) ),
         $q->dd(
             $q->textarea(
                 -name    => 'q',
@@ -917,126 +886,191 @@ or be on separate lines.
 END_terms_title
             )
         ),
-        $q->dt( $q->label( { -for => 'type' }, 'Search these fields:' ) ),
+        $q->dt( $q->label( { -for => 'type' }, 'Scope:' ) ),
         $q->dd(
-            $q->popup_menu(
-                -name    => 'type',
-                -id      => 'type',
-                -default => 'gene',
-                -values  => [ keys %{ $self->{_typeDesc} } ],
-                -labels  => $self->{_typeDesc},
-                -title   => 'Where to look in the database'
+            $q->div(
+                { -id => 'scope_container' },
+                $q->input(
+                    {
+                        -type    => 'radio',
+                        -name    => 'scope',
+                        -value   => 'Gene Names',
+                        -checked => 'checked'
+                    }
+                ),
+                $q->input(
+                    {
+                        -type  => 'radio',
+                        -name  => 'scope',
+                        -value => 'Accession Numbers'
+                    }
+                ),
+                $q->input(
+                    {
+                        -type  => 'radio',
+                        -name  => 'scope',
+                        -value => 'Probe IDs'
+                    }
+                )
             )
         ),
-        $q->dt('Match pattern:'),
+        $q->dt('Advanced Options:'),
         $q->dd(
-            $q->popup_menu(
-                -id        => 'pattern',
-                -name      => 'match',
-                -linebreak => 'true',
-                -default   => 'full',
-                -values    => [ keys %{ $self->{_matchDesc} } ],
-                -labels    => $self->{_matchDesc},
-                -title =>
-                  'What parts of search words to match (full, prefix, partial)'
+            $q->p(
+                $q->a(
+                    { -id => 'patternMatcher' }, '+ Pattern to match'
+                )
             ),
-            $q->p( { -class => 'hint', -id => 'pattern_part_hint' },
-                <<"END_EXAMPLE_TEXT")
-Example of a regular expression: entering "^cyp.b" (no quotation marks) would retrieve
-all genes starting with cyp.b where the period represents any one character (2,
-3, 4, "a", etc.).  See <a href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> 
-for more examples.
+            $q->div(
+                { -id => 'pattern_container', -style => 'margin-bottom:1em;' },
+                $q->input(
+                    {
+                        -type    => 'radio',
+                        -name    => 'match',
+                        -value   => 'Full Word',
+                        -checked => 'checked'
+                    }
+                ),
+                $q->input(
+                    {
+                        -type  => 'radio',
+                        -name  => 'match',
+                        -value => 'Prefix',
+                    }
+                ),
+                $q->input(
+                    {
+                        -type  => 'radio',
+                        -name  => 'match',
+                        -value => 'Partial',
+                    }
+                )
+            ),
+            $q->p(
+                { -class => 'hint', -id => 'pattern_part_hint' },
+                <<"END_EXAMPLE_TEXT"), 
+With <em>Partial</em> matching, you can enter either parts of words or regular
+expressions in the search box.  Example of a regular expression:
+<strong>^cyp.b</strong> tells the database to retrieve all genes starting with
+<strong>cyp.b</strong> where the period represents any single letter or digit (2, 3, 4,
+"a", etc.).  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
+examples.
 END_EXAMPLE_TEXT
-        ),
-        $q->dt(
             $q->p(
                 $q->a(
                     { -id => 'locusFilter' },
                     '+ Filter by species / chromosomal location'
                 )
             ),
-            $q->p(
-                {
-                    -id    => 'extraText',
-                    -style => 'font-weight:normal; color:#777;'
-                },
-'Enter a numeric range preceded by chromosome name (e.g.  16, 7, M, X).'
-            )
-        ),
-        $q->dd(
-            { -id => 'filterLoci', -style => 'display:none;' },
-            $q->dl(
-                $q->dt('Species:'),
-                $q->dd(
-                    $q->popup_menu(
-                        -name   => 'spid',
-                        -id     => 'spid',
-                        -title  => 'Enter species',
-                        -values => [ keys %{ $self->{_species_data} } ],
-                        -labels => $self->{_species_data}
-                    )
-                ),
-                $q->dt('Location:'),
-                $q->dd(
-                    'chr',
-                    $q->textfield(
-                        -name  => 'chr',
-                        -id    => 'chr',
-                        -title => 'Enter chromosome name',
-                        -size  => 3
-                    ),
-                    ':',
-                    $q->textfield(
-                        -name  => 'start',
-                        -id    => 'start',
-                        -title => 'Enter start position',
-                        -size  => 14
-                    ),
-                    '-',
-                    $q->textfield(
-                        -name  => 'end',
-                        -id    => 'end',
-                        -title => 'Enter end position',
-                        -size  => 14
-                    )
-                ),
-            ),
-        ),
-        $q->dt( $q->label( { -for => 'opts' }, 'Output options:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -name    => 'opts',
-                -id      => 'opts',
-                -default => '2',
-                -values  => [ keys %opts_dropdown ],
-                -labels  => \%opts_dropdown,
-                -title   => 'How many fields to add to output'
-            )
-        ),
-
-        # BEGIN GRAPH STUFF
-        $q->dt( { -id => 'graph_names' }, 'Plot Differential Expression:' ),
-        $q->dd(
-            { -id => 'graph_values' },
-            $q->checkbox(
-                -id      => 'graph',
-                -checked => 0,
-                -name    => 'graph',
-                -label   => 'Show graphs',
-                -title   => <<"END_BROWSER_NOTICE"
-Works best with Firefox or Safari. SVG support on Internet Explorer (IE) requires either 
-IE 9 or Adobe SVG plugin.
-END_BROWSER_NOTICE
-            ),
             $q->div(
-                { -id => 'graph_option_values' },
-                $q->radio_group(
-                    -name    => 'trans',
-                    -default => 'fold',
-                    -values  => [ keys %trans_dropdown ],
-                    -labels  => \%trans_dropdown,
-                    -title => 'Which response variable to plot along the Y axis'
+                { -id => 'locus_container', -style => 'margin-bottom:1em;' },
+                $q->dl(
+                    $q->dt('Species:'),
+                    $q->dd(
+                        $q->popup_menu(
+                            -name   => 'spid',
+                            -id     => 'spid',
+                            -title  => 'Enter species',
+                            -values => [ keys %{ $self->{_species_data} } ],
+                            -labels => $self->{_species_data}
+                        )
+                    ),
+                    $q->dt(
+                        { -id => 'chr_dt', -style => 'display:none;' },
+                        'Chromosomal Location:'
+                    ),
+                    $q->dd(
+                        { -id => 'chr_dd', -style => 'display:none;' },
+                        $q->div(
+                            { -style => 'margin-bottom:1em;' },
+                            $q->label( { -for => 'chr' }, 'chr' ),
+                            $q->textfield(
+                                -name  => 'chr',
+                                -id    => 'chr',
+                                -title => 'Enter chromosome name',
+                                -size  => 3
+                            ),
+                            $q->label( { -for => 'start' }, ':' ),
+                            $q->textfield(
+                                -name  => 'start',
+                                -id    => 'start',
+                                -title => 'Enter start position',
+                                -size  => 14
+                            ),
+                            $q->label( { -for => 'end' }, '-' ),
+                            $q->textfield(
+                                -name  => 'end',
+                                -id    => 'end',
+                                -title => 'Enter end position',
+                                -size  => 14
+                            )
+                        ),
+                        $q->p(
+                            { -class => 'hint', -style => 'display:block;' },
+'Optional: Enter a numeric interval preceded by chromosome name, for example 16, 7, M, X.'
+                        ),
+                    ),
                 )
+            ),
+            $q->p(
+                $q->a(
+                    { -id => 'outputOpts' }, '+ Output options'
+                )
+            ),
+            $q->div({-id => 'opts_container', -style => 'margin-bottom:1em;'},
+                $q->input(
+                    {
+                        -type    => 'radio',
+                        -name    => 'opts',
+                        -value   => 'Basic',
+                        -checked => 'checked'
+                    }
+                ),
+                $q->input(
+                    {
+                        -type    => 'radio',
+                        -name    => 'opts',
+                        -value   => 'Complete',
+                    }
+                ),
+                $q->input(
+                    {
+                        -type    => 'radio',
+                        -name    => 'opts',
+                        -value   => 'Complete (CSV)',
+                    }
+                ),
+            ),
+            $q->p({-id => 'opts_hint', -class => 'hint'},
+'Basic: Probe names only. Complete: probe names with annotation. Complete (CSV): probe names, annotation, data.'
+            ),
+            $q->div({-id => 'graph_container' , -style => 'margin-bottom:1em;'},
+                $q->input(
+                    {
+                        -type    => 'radio',
+                        -name    => 'graph',
+                        -value   => 'No Graphs',
+                        -checked => 'checked'
+                    }
+                ),
+                $q->input(
+                    {
+                        -type    => 'radio',
+                        -name    => 'graph',
+                        -value   => 'Fold Change',
+                    }
+                ),
+                $q->input(
+                    {
+                        -type    => 'radio',
+                        -name    => 'graph',
+                        -value   => 'Log Ratio',
+                    }
+                ),
+            ),
+            $q->p({-id => 'graph_hint', -class => 'hint'},
+'Graphs require Scalable Vector Graphics (SVG) support in your browser. Internet Explorer (IE)
+versions earlier than version nine only support SVG through Adobe SVG plugin.'
             )
         ),
 
@@ -1072,7 +1106,7 @@ sub build_InsideTableQuery {
     my $predicate = $self->{_Predicate};
 
     my $probe_spec_fields =
-      ( $self->{_type} eq 'probe' )
+      ( $self->{_scope} eq 'probe' )
       ? 'rid, reporter, probe_sequence, pid'
       : 'NULL AS rid, NULL AS reporter, NULL AS probe_sequence, NULL AS pid';
 
@@ -1161,10 +1195,10 @@ END_ProbeQuery
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_ProbeQuery {
-    my ( $self, %p ) = @_;
+    my ( $self, %args ) = @_;
     my $sql_select_fields = '';
 
-    if ( $p{extra_fields} eq 'basic' ) {
+    if ( !$args{extra_fields} ) {
 
         # basic output
         $sql_select_fields = <<"END_select_fields_basic";
@@ -1230,13 +1264,15 @@ END_sql_subset_by_project
     #---------------------------------------------------------------------------
     my ( $subquery, $subparam ) = $self->build_location_predparam();
     my $location_predicate = '';
-    my $species_predicate = '';
-    my $join_species_on = 'platform.sid';
-    if (@$subparam == 1) {
+    my $species_predicate  = '';
+    my $join_species_on    = 'platform.sid';
+    if ( @$subparam == 1 ) {
+
         #species only
         $species_predicate = 'AND platform.sid=?';
         push @{ $self->{_FilterItems} }, @$subparam;
-    } elsif ( @$subparam > 1) {
+    }
+    elsif ( @$subparam > 1 ) {
         $location_predicate =
           'INNER JOIN location ON probe.rid=location.rid AND ' . $subquery;
         push @{ $self->{_FilterItems} }, @$subparam;
@@ -1276,14 +1312,9 @@ sub findProbes_js {
 
     $self->build_SearchPredicate();
     $self->build_InsideTableQuery();
+    $self->build_ProbeQuery( extra_fields => ($self->{_opts} ne 'Basic') );
 
-    my ( $opts, $trans ) = @$self{qw/_opts _trans/};
-    $opts  = 'full' unless defined $opts;
-    $trans = 'fold' unless defined $trans;
-
-    $self->build_ProbeQuery( extra_fields => $opts );
-
-    if ( $opts eq 'csv' ) {
+    if ( $self->{_opts} eq 'Complete (CSV)' ) {
 
     #---------------------------------------------------------------------------
     #  CSV output
@@ -1321,9 +1352,9 @@ sub findProbes_js {
         }
 
         my %type_to_column = (
-            'probe'  => '1',
-            'accnum' => '3',
-            'gene'   => '4'
+            'Probe IDs'  => '1',
+            'Accession Numbers' => '3',
+            'Gene Names'   => '4'
         );
 
         my %json_probelist = (
@@ -1332,29 +1363,27 @@ sub findProbes_js {
             headers => $self->{_Names}
         );
 
-        my ( $type, $match, $print_graphs ) = @$self{qw/_type _match _graph/};
+        my ( $type, $match) = @$self{qw/_scope _match/};
         my $out = sprintf(
             <<"END_JSON_DATA",
 var searchColumn = "%s";
 var queriedItems = %s;
 var probelist = %s;
 var url_prefix = "%s";
-var response_transform = "%s";
-var show_graphs = %s;
-var extra_fields = %s;
+var show_graphs = "%s";
+var extra_fields = "%s";
 var project_id = "%s";
 END_JSON_DATA
             $type_to_column{$type},
             encode_json(
-                ( $match eq 'full' )
-                ? +{ map { lc($_) => undef } @{ $self->{_SearchItems} } }
-                : $self->{_SearchItems}
+                ( $match eq 'Full Word' )
+                ? +{ map { lc($_) => undef } @{ $self->{_SearchTerms} } }
+                : $self->{_SearchTerms}
             ),
             encode_json( \%json_probelist ),
             $self->{_cgi}->url( -absolute => 1 ),
-            $trans,
-            ($print_graphs) ? 'true' : 'false',
-            ( $opts ne 'basic' ) ? 'true' : 'false',
+            $self->{_graph},
+            $self->{_opts},
             $self->{_WorkingProject}
         );
 
