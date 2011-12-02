@@ -175,13 +175,13 @@ sub FindProbes_init {
     my ( $self, $fh ) = @_;
     my $q = $self->{_cgi};
 
-    $self->{_scope} = $q->param('scope');
-    $self->{_match} = $q->param('match');
-    $self->{_graph} = $q->param('graph');
-    $self->{_opts}  = $q->param('opts');
-
-    my $match = $q->param('match');
-    $match = 'Full Word' unless defined $match;
+    my $scope = car $q->param('scope');
+    my $match = car $q->param('match');
+    $match = 'Full Word' if ( not defined $match ) or $scope ne 'Gene Symbols';
+    $self->{_scope} = $scope;
+    $self->{_match} = $match;
+    $self->{_graph} = car $q->param('graph');
+    $self->{_opts}  = car $q->param('opts');
 
     my @textSplit;
 
@@ -899,6 +899,7 @@ END_terms_title
                         -title   => 'Search gene symbols'
                     }
                 ),
+
                 #$q->input(
                 #    {
                 #        -type  => 'radio',
@@ -933,7 +934,7 @@ END_terms_title
                 )
             )
         ),
-        $q->dt('More Search Options:'),
+        $q->dt('More Options:'),
         $q->dd(
             $q->div(
                 { -id => 'pattern_div' },
@@ -981,7 +982,7 @@ END_terms_title
                         { -class => 'hint', -id => 'pattern_part_hint' },
                         <<"END_EXAMPLE_TEXT") ) ),
 Partial matching allows you to enter parts of a word or regular
-expressions as search terms. For example:
+expressions as search terms. For example,
 <strong>^cyp.b</strong> will retrieve all genes starting with
 <strong>cyp.b</strong> where the fourth character can be any single letter or digit
 ('b', 7, 3, and so on).  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
@@ -1056,7 +1057,7 @@ X. Leave these fields blank to search all chromosomes.'
                                 -name  => 'opts',
                                 -value => 'Basic',
                                 -title =>
-                                  'List gene names and accession numbers only',
+'Only list gene symbols and accession numbers',
                                 -checked => 'checked'
                             }
                         ),
