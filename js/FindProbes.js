@@ -129,7 +129,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"5", sortable:true, resizeable:true, 
             label:probelist.headers[4]}
     ];
-    if (extra_fields) {
+    if (extra_fields !== 'Basic') {
         myColumnList.push("6","7","8");
         myColumnDefs.push(
             {key:"6", sortable:true, resizeable:true, 

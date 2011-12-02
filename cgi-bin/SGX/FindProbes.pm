@@ -1040,7 +1040,7 @@ X. Leave these fields blank to search all chromosomes.'
                             {
                                 -type  => 'radio',
                                 -name  => 'opts',
-                                -title => 'Output results in CSV format for easy spreadsheet import',
+                                -title => 'Get results in CSV format, including experimental data',
                                 -value => 'Complete (CSV)',
                             }
                         )
