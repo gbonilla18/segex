@@ -113,7 +113,7 @@ sub get_species {
     my %data;
     my $data_t = tie(
         %data, 'Tie::IxHash',
-        '' => '@Any Species',
+        '' => '@All Species',
         map { shift @$_ => shift @$_ } @$data
     );
     return \%data;
@@ -1002,7 +1002,8 @@ END_EXAMPLE_TEXT
                     ),
                     $q->p(
                         { -class => 'hint', -style => 'display:block;' },
-'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X.'
+'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or
+X. Leave these fields blank to search all chromosomes.'
                     ),
                 ),
             ),
@@ -1069,8 +1070,8 @@ END_EXAMPLE_TEXT
                     ),
                     $q->p(
                         { -id => 'graph_hint', -class => 'hint' },
-'Graphs require Scalable Vector Graphics (SVG) support in your browser. Internet Explorer (IE)
-versions earlier than version nine only support SVG through Adobe SVG plugin.'
+'For graphs to display, your browser needs to support Scalable Vector Graphics (SVG). Internet Explorer (IE)
+versions earlier than version nine can only display SVG images via <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.'
                     )
                 )
             )
