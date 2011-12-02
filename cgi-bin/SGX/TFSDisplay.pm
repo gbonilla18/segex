@@ -903,7 +903,7 @@ sub displayTFSInfo {
         );
         $format_template{probe}  = sprintf( $find_probes, 'Probe IDs' );
         $format_template{accnum} = sprintf( $find_probes, 'Accession Numbers' );
-        $format_template{gene}   = sprintf( $find_probes, 'Gene Names' );
+        $format_template{gene}   = sprintf( $find_probes, 'Gene Symbols' );
     }
 
     $table_format[0] = 'formatProbe';

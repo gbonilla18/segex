@@ -313,7 +313,7 @@ sub build_SearchPredicate {
     my $predicate;
     my %translate_fields = (
         'Probe IDs'         => 'reporter',
-        'Gene Names'        => 'seqname',
+        'Gene Symbols'      => 'seqname',
         'Accession Numbers' => 'accnum'
     );
     my $type = $translate_fields{ $self->{_scope} };
@@ -894,7 +894,7 @@ END_terms_title
                     {
                         -type    => 'radio',
                         -name    => 'scope',
-                        -value   => 'Gene Names',
+                        -value   => 'Gene Symbols',
                         -checked => 'checked',
                         -title   => 'Search gene names'
                     }
@@ -946,7 +946,8 @@ END_terms_title
                             -type  => 'radio',
                             -name  => 'match',
                             -value => 'Partial',
-                            -title => 'Match word fragments or regular expressions'
+                            -title =>
+                              'Match word fragments or regular expressions'
                         }
                     )
                 ),
@@ -983,7 +984,8 @@ END_EXAMPLE_TEXT
                         -id    => 'chr_div',
                         -style => 'display:none;'
                     },
-                    $q->div({ -class => 'input_container' },
+                    $q->div(
+                        { -class => 'input_container' },
                         $q->label( { -for => 'chr' }, 'chr' ),
                         $q->textfield(
                             -name  => 'chr',
@@ -1018,29 +1020,35 @@ X. Leave these fields blank to search all chromosomes.'
                 { -id => 'opts_hint_container', -class => 'dd_collapsible' },
                 $q->p(
                     $q->div(
-                        { -id => 'opts_container', -class => 'input_container' },
+                        {
+                            -id    => 'opts_container',
+                            -class => 'input_container'
+                        },
                         $q->input(
                             {
-                                -type    => 'radio',
-                                -name    => 'opts',
-                                -value   => 'Basic',
-                                -title   => 'List gene names and accession numbers only',
+                                -type  => 'radio',
+                                -name  => 'opts',
+                                -value => 'Basic',
+                                -title =>
+                                  'List gene names and accession numbers only',
                                 -checked => 'checked'
                             }
                         ),
                         $q->input(
                             {
-                                -type  => 'radio',
-                                -name  => 'opts',
-                                -title => 'Also include probe annotation and GO terms',
+                                -type => 'radio',
+                                -name => 'opts',
+                                -title =>
+                                  'Also include probe annotation and GO terms',
                                 -value => 'Complete',
                             }
                         ),
                         $q->input(
                             {
-                                -type  => 'radio',
-                                -name  => 'opts',
-                                -title => 'Get results in CSV format, including experimental data',
+                                -type => 'radio',
+                                -name => 'opts',
+                                -title =>
+'Get results in CSV format, including experimental data',
                                 -value => 'Complete (CSV)',
                             }
                         )
@@ -1048,7 +1056,10 @@ X. Leave these fields blank to search all chromosomes.'
                 ),
                 $q->p(
                     $q->div(
-                        { -id => 'graph_container', -class => 'input_container' },
+                        {
+                            -id    => 'graph_container',
+                            -class => 'input_container'
+                        },
                         $q->input(
                             {
                                 -type    => 'radio',
@@ -1060,17 +1071,19 @@ X. Leave these fields blank to search all chromosomes.'
                         ),
                         $q->input(
                             {
-                                -type  => 'radio',
-                                -name  => 'graph',
-                                -title => 'Plot intensity ratios as fold change for each experiment',
+                                -type => 'radio',
+                                -name => 'graph',
+                                -title =>
+'Plot intensity ratios as fold change for each experiment',
                                 -value => 'Fold Change',
                             }
                         ),
                         $q->input(
                             {
-                                -type  => 'radio',
-                                -name  => 'graph',
-                                -title => 'Plot intensity ratios as base 2 logarithm for each experiment',
+                                -type => 'radio',
+                                -name => 'graph',
+                                -title =>
+'Plot intensity ratios as base 2 logarithm for each experiment',
                                 -value => 'Log Ratio',
                             }
                         ),
@@ -1364,7 +1377,7 @@ sub findProbes_js {
         my %type_to_column = (
             'Probe IDs'         => '1',
             'Accession Numbers' => '3',
-            'Gene Names'        => '4'
+            'Gene Symbols'      => '4'
         );
 
         my %json_probelist = (

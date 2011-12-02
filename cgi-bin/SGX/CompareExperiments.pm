@@ -252,21 +252,6 @@ sub default_body {
     my ($self) = @_;
     my $q = $self->{_cgi};
 
-    my %gene_dropdown;
-    my $gene_dropdown_t = tie(
-        %gene_dropdown, 'Tie::IxHash',
-        'Gene Names'        => 'Gene Names',
-        'Accession Numbers' => 'Accession Numbers',
-        'Probe IDs'         => 'Probe IDs'
-    );
-    my %match_dropdown;
-    my $match_dropdown_t = tie(
-        %match_dropdown, 'Tie::IxHash',
-        'Full Word' => 'Full Word',
-        'Prefix'    => 'Prefix',
-        'Partial'   => 'Part of the Word / Regular Expression*'
-    );
-
     return
       $q->h2('Compare Experiments'),
       $q->dl(
@@ -337,10 +322,9 @@ sub default_body {
         $q->dt('Terms are:'),
         $q->dd(
             $q->popup_menu(
-                -name    => 'scope',
-                -values  => [ keys %gene_dropdown ],
-                -default => 'Gene Names',
-                -labels  => \%gene_dropdown
+                -name   => 'scope',
+                -values => [ 'Gene Symbols', 'Accession Numbers', 'Probe IDs' ],
+                -default => 'Gene Symbols',
             )
         ),
         $q->dt('Patterns to match:'),
@@ -348,10 +332,9 @@ sub default_body {
             $q->radio_group(
                 -tabindex  => 2,
                 -name      => 'match',
-                -values    => [ keys %match_dropdown ],
+                -values    => [ 'Full Word', 'Prefix', 'Partial' ],
                 -default   => 'Full Word',
                 -linebreak => 'true',
-                -labels    => \%match_dropdown
             )
         )
       ),
