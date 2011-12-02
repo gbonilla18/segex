@@ -56,7 +56,11 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     var scope = new YAHOO.widget.ButtonGroup("scope_container");
     scope.addListener("checkedButtonChange", function(ev) {
         var newIndex = ev.newValue.index;
-        if (newIndex === 1 || newIndex === 2) {
+        if (newIndex === 0 ) {
+            // Only allow the choice between full/prefix/partial
+            // searches for gene symbols. For accession numbers and probe ids,
+            // use full word searches, and for gene names and GO terms, use
+            // partial searches.
             pattern_div.style.display = 'none';
         } else {
             pattern_div.style.display = 'block';

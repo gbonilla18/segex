@@ -899,22 +899,22 @@ END_terms_title
                         -title   => 'Search gene symbols'
                     }
                 ),
-                $q->input(
-                    {
-                        -type  => 'radio',
-                        -name  => 'scope',
-                        -value => 'Gene Names',
-                        -title => 'Search official gene names'
-                    }
-                ),
-                $q->input(
-                    {
-                        -type  => 'radio',
-                        -name  => 'scope',
-                        -value => 'GO Terms',
-                        -title => 'Search gene ontology terms'
-                    }
-                ),
+                #$q->input(
+                #    {
+                #        -type  => 'radio',
+                #        -name  => 'scope',
+                #        -value => 'Gene Names',
+                #        -title => 'Search official gene names'
+                #    }
+                #),
+                #$q->input(
+                #    {
+                #        -type  => 'radio',
+                #        -name  => 'scope',
+                #        -value => 'GO Terms',
+                #        -title => 'Search gene ontology terms'
+                #    }
+                #),
                 $q->input(
                     {
                         -type  => 'radio',
@@ -981,11 +981,11 @@ END_terms_title
                         { -class => 'hint', -id => 'pattern_part_hint' },
                         <<"END_EXAMPLE_TEXT") ) ),
 Partial matching allows you to enter parts of a word or regular
-expressions as search terms.  Example of a regular expression:
-<strong>^cyp.b</strong> tells the database to retrieve all genes starting with
-<strong>cyp.b</strong> where the period represents any single letter or digit (2, 3, 4,
-"a", etc.).  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
-examples.
+expressions as search terms. For example:
+<strong>^cyp.b</strong> will retrieve all genes starting with
+<strong>cyp.b</strong> where the fourth character can be any single letter or digit
+('b', 7, 3, and so on).  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
+information.
 END_EXAMPLE_TEXT
             $q->p(
                 $q->a(
@@ -1117,7 +1117,7 @@ X. Leave these fields blank to search all chromosomes.'
                     $q->p(
                         { -id => 'graph_hint', -class => 'hint' },
 'For graphs to display, your browser should support Scalable Vector Graphics (SVG). Internet Explorer (IE)
-versions earlier than version nine can only display SVG images via <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.'
+versions earlier than v9.0 can only display SVG images via <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.'
                     )
                 )
             )
