@@ -1,6 +1,6 @@
 "use strict";
 setupToggles('change',
-    { 'spid': { 'defined' : ['chr_dt', 'chr_dd'] } }, 
+    { 'spid': { 'defined' : ['chr_div' ] } }, 
     function(el) { return ((getSelectedValue(el) !== '') ? 'defined' : ''); }
 );
 setupToggles('click', {

@@ -962,53 +962,49 @@ END_EXAMPLE_TEXT
             ),
             $q->div(
                 { -id => 'locus_container', -class => 'dd_collapsible' },
-                $q->dl(
-                    $q->dt('Species:'),
-                    $q->dd(
-                        $q->popup_menu(
-                            -name   => 'spid',
-                            -id     => 'spid',
-                            -title  => 'Enter species',
-                            -values => [ keys %{ $self->{_species_data} } ],
-                            -labels => $self->{_species_data}
+                $q->div(
+                    { -style => 'margin-bottom:1em;' },
+                    $q->popup_menu(
+                        -name   => 'spid',
+                        -id     => 'spid',
+                        -title  => 'Enter species',
+                        -values => [ keys %{ $self->{_species_data} } ],
+                        -labels => $self->{_species_data}
+                    )
+                ),
+                $q->div(
+                    {
+                        -id    => 'chr_div',
+                        -style => 'margin-bottom:1em; display:none;'
+                    },
+                    $q->div(
+                        $q->label( { -for => 'chr' }, 'chr' ),
+                        $q->textfield(
+                            -name  => 'chr',
+                            -id    => 'chr',
+                            -title => 'Enter chromosome name',
+                            -size  => 3
+                        ),
+                        $q->label( { -for => 'start' }, ':' ),
+                        $q->textfield(
+                            -name  => 'start',
+                            -id    => 'start',
+                            -title => 'Enter start position',
+                            -size  => 14
+                        ),
+                        $q->label( { -for => 'end' }, '-' ),
+                        $q->textfield(
+                            -name  => 'end',
+                            -id    => 'end',
+                            -title => 'Enter end position',
+                            -size  => 14
                         )
                     ),
-                    $q->dt(
-                        { -id => 'chr_dt', -style => 'display:none;' },
-                        'Chromosomal Location:'
+                    $q->p(
+                        { -class => 'hint', -style => 'display:block;' },
+'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X.'
                     ),
-                    $q->dd(
-                        { -id => 'chr_dd', -style => 'display:none;' },
-                        $q->div(
-                            { -style => 'margin-bottom:1em;' },
-                            $q->label( { -for => 'chr' }, 'chr' ),
-                            $q->textfield(
-                                -name  => 'chr',
-                                -id    => 'chr',
-                                -title => 'Enter chromosome name',
-                                -size  => 3
-                            ),
-                            $q->label( { -for => 'start' }, ':' ),
-                            $q->textfield(
-                                -name  => 'start',
-                                -id    => 'start',
-                                -title => 'Enter start position',
-                                -size  => 14
-                            ),
-                            $q->label( { -for => 'end' }, '-' ),
-                            $q->textfield(
-                                -name  => 'end',
-                                -id    => 'end',
-                                -title => 'Enter end position',
-                                -size  => 14
-                            )
-                        ),
-                        $q->p(
-                            { -class => 'hint', -style => 'display:block;' },
-'Optional: Enter a numeric interval preceded by chromosome name, for example 16, 7, M, X.'
-                        ),
-                    ),
-                )
+                ),
             ),
             $q->p( $q->a( { -id => 'outputOpts' }, '+ Output options' ) ),
             $q->div(
