@@ -6,7 +6,7 @@ use warnings;
 use SGX::Debug;
 use SGX::Config;
 
-my $softwareVersion = '0.3.1.7';
+my $softwareVersion = '0.3.1.8';
 
 my $all_resources = {
     compareExperiments => {
