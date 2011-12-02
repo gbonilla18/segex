@@ -397,7 +397,10 @@ END_TEXT1
         'Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'),
 
       # form
-      $self->body_create_update_form( mode => 'create' );
+      $self->body_create_update_form(
+        mode       => 'create',
+        cgi_extras => { -enctype => 'multipart/form-data' }
+      );
 }
 
 #===  CLASS METHOD  ============================================================

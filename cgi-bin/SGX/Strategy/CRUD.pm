@@ -2455,6 +2455,7 @@ sub body_create_update_form {
     my $self = shift;
     my %args = @_;
     my $mode = $args{mode} || 'create';
+    my $cgi_extras = $args{cgi_extras};
 
     my ( $q, $js ) = @$self{qw/_cgi _js_emitter/};
 
@@ -2485,7 +2486,8 @@ sub body_create_update_form {
     return $q->start_form(
         -method   => 'POST',
         -action   => $self->get_resource_uri(),
-        -onsubmit => $onsubmit
+        -onsubmit => $onsubmit,
+        %$cgi_extras
       ),
       $q->dl(
         $self->body_edit_fields( mode => $mode ),

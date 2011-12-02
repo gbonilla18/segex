@@ -210,6 +210,41 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
+#       METHOD:  form_create_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  overrides CRUD::form_create_body
+#     SEE ALSO:  n/a
+#===============================================================================
+sub form_create_body {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    return
+
+      # container stuff
+      $q->h2(
+        $self->format_title(
+            'manage ' . $self->pluralize_noun( $self->get_item_name() )
+        )
+      ),
+      $self->body_create_read_menu(
+        'read'   => [ undef,         'View Existing' ],
+        'create' => [ 'form_create', 'Create New' ]
+      ),
+      $q->h3( $self->format_title( 'create new ' . $self->get_item_name() ) ),
+
+      # form
+      $self->body_create_update_form(
+        mode       => 'create',
+        cgi_extras => { -enctype => 'multipart/form-data' }
+      );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
