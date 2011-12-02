@@ -933,14 +933,11 @@ END_terms_title
                         -title => 'Search probe IDs'
                     }
                 )
-            )
-        ),
-        $q->dt('More Options:'),
-        $q->dd(
+            ),
             $q->div(
                 { -id => 'pattern_div' },
                 $q->p(
-                    $q->a( { -id => 'patternMatcher' }, '+ Pattern to match' )
+                    $q->a( { -id => 'patternMatcher' }, '+ Patterns (for gene symbols)' )
                 ),
                 $q->div(
                     {
@@ -982,13 +979,16 @@ END_terms_title
                     $q->p(
                         { -class => 'hint', -id => 'pattern_part_hint' },
                         <<"END_EXAMPLE_TEXT") ) ),
-Partial matching allows you to enter parts of a word or regular
-expressions as search terms. For example,
-<strong>^cyp.b</strong> will retrieve all genes starting with
-<strong>cyp.b</strong> where the fourth character can be any single letter or digit
-('b', 7, 3, and so on).  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
+Partial matching lets you search for word parts and regular expressions.
+For example, <strong>^cyp.b</strong> means "all genes starting with
+<strong>cyp.b</strong> where the fourth character (the dot) is any single letter or
+digit."  See <a target="_blank"
+href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
 information.
 END_EXAMPLE_TEXT
+        ),
+        $q->dt('More Options:'),
+        $q->dd(
             $q->p(
                 $q->a(
                     { -id => 'locusFilter' },
