@@ -61,9 +61,9 @@ YAHOO.util.Event.addListener(window, 'load', function() {
             // searches for gene symbols. For accession numbers and probe ids,
             // use full word searches, and for gene names and GO terms, use
             // partial searches.
-            pattern_div.style.display = 'none';
-        } else {
             pattern_div.style.display = 'block';
+        } else {
+            pattern_div.style.display = 'none';
         }
     });
     var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
