@@ -1042,7 +1042,8 @@ END_EXAMPLE_TEXT
                 ),
             ),
             $q->p({-id => 'opts_hint', -class => 'hint'},
-'Basic: Probe names only. Complete: probe names with annotation. Complete (CSV): probe names, annotation, data.'
+'<strong>Basic</strong>: Probe names only. <strong>Complete</strong>: probe names with annotation.
+<strong>Complete (CSV)</strong>: probe names, annotation, data in CSV format.'
             ),
             $q->div({-id => 'graph_container' , -style => 'margin-bottom:1em;'},
                 $q->input(

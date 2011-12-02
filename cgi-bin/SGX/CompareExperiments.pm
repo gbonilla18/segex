@@ -255,16 +255,16 @@ sub default_body {
     my %gene_dropdown;
     my $gene_dropdown_t = tie(
         %gene_dropdown, 'Tie::IxHash',
-        'gene'   => 'Gene Symbols',
-        'accnum' => 'Accession Numbers',
-        'probe'  => 'Probes'
+        'Gene Names'        => 'Gene Names',
+        'Accession Numbers' => 'Accession Numbers',
+        'Probe IDs'         => 'Probe IDs'
     );
     my %match_dropdown;
     my $match_dropdown_t = tie(
         %match_dropdown, 'Tie::IxHash',
-        'full'   => 'Full Word',
-        'prefix' => 'Prefix',
-        'part'   => 'Part of the Word / Regular Expression*'
+        'Full Word' => 'Full Word',
+        'Prefix'    => 'Prefix',
+        'Partial'   => 'Part of the Word / Regular Expression*'
     );
 
     return
@@ -282,9 +282,10 @@ sub default_body {
         )
       ),
       $q->start_form(
-        -method => 'POST',
-        -id     => 'form_compareExperiments',
-        -action => $q->url( absolute => 1 ) . '?a=compareExperiments'
+        -method  => 'POST',
+        -enctype => 'multipart/form-data',
+        -id      => 'form_compareExperiments',
+        -action  => $q->url( absolute => 1 ) . '?a=compareExperiments'
       ),
       $q->dl(
         $q->dt('Include not significant probes:'),
@@ -336,9 +337,9 @@ sub default_body {
         $q->dt('Terms are:'),
         $q->dd(
             $q->popup_menu(
-                -name    => 'type',
+                -name    => 'scope',
                 -values  => [ keys %gene_dropdown ],
-                -default => 'gene',
+                -default => 'Gene Names',
                 -labels  => \%gene_dropdown
             )
         ),
@@ -348,7 +349,7 @@ sub default_body {
                 -tabindex  => 2,
                 -name      => 'match',
                 -values    => [ keys %match_dropdown ],
-                -default   => 'full',
+                -default   => 'Full Word',
                 -linebreak => 'true',
                 -labels    => \%match_dropdown
             )
@@ -462,7 +463,9 @@ sub getResultsJS {
 
         my $ok = eval { $findProbes->FindProbes_init() } || 0;
         $findProbes->getSessionOverrideCGI();
+
         $findProbes->build_SearchPredicate();
+
         $findProbes->build_InsideTableQuery();
         $findProbes->build_SimpleProbeQuery();
         $findProbes->loadProbeData();
