@@ -889,7 +889,7 @@ END_terms_title
         $q->dt( $q->label( { -for => 'type' }, 'Scope:' ) ),
         $q->dd(
             $q->div(
-                { -id => 'scope_container' },
+                { -id => 'scope_container', -class => 'input_container' },
                 $q->input(
                     {
                         -type    => 'radio',
@@ -923,7 +923,7 @@ END_terms_title
             $q->div(
                 { -id => 'pattern_hint_container', -class => 'dd_collapsible' },
                 $q->div(
-                    { -id => 'pattern_container' },
+                    { -id => 'pattern_container', -class => 'input_container' },
                     $q->input(
                         {
                             -type    => 'radio',
@@ -969,7 +969,7 @@ END_EXAMPLE_TEXT
             $q->div(
                 { -id => 'locus_container', -class => 'dd_collapsible' },
                 $q->div(
-                    { -style => 'margin-bottom:1em;' },
+                    { -class => 'input_container' },
                     $q->popup_menu(
                         -name   => 'spid',
                         -id     => 'spid',
@@ -981,9 +981,9 @@ END_EXAMPLE_TEXT
                 $q->div(
                     {
                         -id    => 'chr_div',
-                        -style => 'margin-bottom:1em; display:none;'
+                        -style => 'display:none;'
                     },
-                    $q->div(
+                    $q->div({ -class => 'input_container' },
                         $q->label( { -for => 'chr' }, 'chr' ),
                         $q->textfield(
                             -name  => 'chr',
@@ -1018,7 +1018,7 @@ X. Leave these fields blank to search all chromosomes.'
                 { -id => 'opts_hint_container', -class => 'dd_collapsible' },
                 $q->p(
                     $q->div(
-                        { -id => 'opts_container' },
+                        { -id => 'opts_container', -class => 'input_container' },
                         $q->input(
                             {
                                 -type    => 'radio',
@@ -1048,7 +1048,7 @@ X. Leave these fields blank to search all chromosomes.'
                 ),
                 $q->p(
                     $q->div(
-                        { -id => 'graph_container' },
+                        { -id => 'graph_container', -class => 'input_container' },
                         $q->input(
                             {
                                 -type    => 'radio',

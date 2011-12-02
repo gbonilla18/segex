@@ -173,6 +173,9 @@ dd p, dd div {
 	padding-left: 2em;
 	margin-bottom:1em;
 }
+.input_container {
+	margin-bottom:1em;
+}
 /*** buttons that look like links: *****/
 .plaintext {
 	display:inline;
@@ -401,3 +404,4 @@ td.yui-dt-col-5 .yui-dt-liner {
 	display:block;
 	float:left;
 }
+
