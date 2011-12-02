@@ -895,21 +895,24 @@ END_terms_title
                         -type    => 'radio',
                         -name    => 'scope',
                         -value   => 'Gene Names',
-                        -checked => 'checked'
+                        -checked => 'checked',
+                        -title   => 'Search gene names'
                     }
                 ),
                 $q->input(
                     {
                         -type  => 'radio',
                         -name  => 'scope',
-                        -value => 'Accession Numbers'
+                        -value => 'Accession Numbers',
+                        -title => 'Search accession numbers'
                     }
                 ),
                 $q->input(
                     {
                         -type  => 'radio',
                         -name  => 'scope',
-                        -value => 'Probe IDs'
+                        -value => 'Probe IDs',
+                        -title => 'Search probe IDs'
                     }
                 )
             )
@@ -926,7 +929,8 @@ END_terms_title
                             -type    => 'radio',
                             -name    => 'match',
                             -value   => 'Full Word',
-                            -checked => 'checked'
+                            -checked => 'checked',
+                            -title   => 'Match full words'
                         }
                     ),
                     $q->input(
@@ -934,6 +938,7 @@ END_terms_title
                             -type  => 'radio',
                             -name  => 'match',
                             -value => 'Prefix',
+                            -title => 'Match word prefixes'
                         }
                     ),
                     $q->input(
@@ -941,6 +946,7 @@ END_terms_title
                             -type  => 'radio',
                             -name  => 'match',
                             -value => 'Partial',
+                            -title => 'Match word fragments or regular expressions'
                         }
                     )
                 ),
@@ -967,7 +973,7 @@ END_EXAMPLE_TEXT
                     $q->popup_menu(
                         -name   => 'spid',
                         -id     => 'spid',
-                        -title  => 'Enter species',
+                        -title  => 'Choose species to search',
                         -values => [ keys %{ $self->{_species_data} } ],
                         -labels => $self->{_species_data}
                     )
@@ -982,21 +988,21 @@ END_EXAMPLE_TEXT
                         $q->textfield(
                             -name  => 'chr',
                             -id    => 'chr',
-                            -title => 'Enter chromosome name',
+                            -title => 'Type chromosome name',
                             -size  => 3
                         ),
                         $q->label( { -for => 'start' }, ':' ),
                         $q->textfield(
                             -name  => 'start',
                             -id    => 'start',
-                            -title => 'Enter start position',
+                            -title => 'Enter start position on the chromosome',
                             -size  => 14
                         ),
                         $q->label( { -for => 'end' }, '-' ),
                         $q->textfield(
                             -name  => 'end',
                             -id    => 'end',
-                            -title => 'Enter end position',
+                            -title => 'Enter end position on the chromosome',
                             -size  => 14
                         )
                     ),
@@ -1018,6 +1024,7 @@ X. Leave these fields blank to search all chromosomes.'
                                 -type    => 'radio',
                                 -name    => 'opts',
                                 -value   => 'Basic',
+                                -title   => 'List gene names and accession numbers only',
                                 -checked => 'checked'
                             }
                         ),
@@ -1025,6 +1032,7 @@ X. Leave these fields blank to search all chromosomes.'
                             {
                                 -type  => 'radio',
                                 -name  => 'opts',
+                                -title => 'Also include probe annotation and GO terms',
                                 -value => 'Complete',
                             }
                         ),
@@ -1032,14 +1040,10 @@ X. Leave these fields blank to search all chromosomes.'
                             {
                                 -type  => 'radio',
                                 -name  => 'opts',
+                                -title => 'Output results in CSV format for easy spreadsheet import',
                                 -value => 'Complete (CSV)',
                             }
                         )
-                    ),
-                    $q->p(
-                        { -id => 'opts_hint', -class => 'hint' },
-'<strong>Basic</strong>: Probe names only. <strong>Complete</strong>: probe names with annotation.
-<strong>Complete (CSV)</strong>: probe names, annotation, data in CSV format.'
                     )
                 ),
                 $q->p(
@@ -1050,6 +1054,7 @@ X. Leave these fields blank to search all chromosomes.'
                                 -type    => 'radio',
                                 -name    => 'graph',
                                 -value   => 'No Graphs',
+                                -title   => 'Do not display graphs',
                                 -checked => 'checked'
                             }
                         ),
@@ -1057,6 +1062,7 @@ X. Leave these fields blank to search all chromosomes.'
                             {
                                 -type  => 'radio',
                                 -name  => 'graph',
+                                -title => 'Plot intensity ratios as fold change for each experiment',
                                 -value => 'Fold Change',
                             }
                         ),
@@ -1064,6 +1070,7 @@ X. Leave these fields blank to search all chromosomes.'
                             {
                                 -type  => 'radio',
                                 -name  => 'graph',
+                                -title => 'Plot intensity ratios as base 2 logarithm for each experiment',
                                 -value => 'Log Ratio',
                             }
                         ),
