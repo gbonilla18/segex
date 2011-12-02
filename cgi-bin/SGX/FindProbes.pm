@@ -917,7 +917,7 @@ END_terms_title
                 )
             )
         ),
-        $q->dt('Advanced Options:'),
+        $q->dt('More Search Options:'),
         $q->dd(
             $q->p( $q->a( { -id => 'patternMatcher' }, '+ Pattern to match' ) ),
             $q->div(
