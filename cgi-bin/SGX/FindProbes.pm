@@ -937,7 +937,10 @@ END_terms_title
             $q->div(
                 { -id => 'pattern_div' },
                 $q->p(
-                    $q->a( { -id => 'patternMatcher' }, '+ Patterns (for gene symbols)' )
+                    $q->a(
+                        { -id => 'patternMatcher' },
+                        '+ Patterns in input terms'
+                    )
                 ),
                 $q->div(
                     {
@@ -986,103 +989,113 @@ digit."  See <a target="_blank"
 href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
 information.
 END_EXAMPLE_TEXT
+            $q->div(
+                $q->p(
+                    $q->a(
+                        { -id => 'locusFilter' },
+                        '+ Species / chromosomal location'
+                    )
+                ),
+                $q->div(
+                    { -id => 'locus_container', -class => 'dd_collapsible' },
+                    $q->div(
+                        { -class => 'input_container' },
+                        $q->popup_menu(
+                            -name   => 'spid',
+                            -id     => 'spid',
+                            -title  => 'Choose species to search',
+                            -values => [ keys %{ $self->{_species_data} } ],
+                            -labels => $self->{_species_data}
+                        )
+                    ),
+                    $q->div(
+                        {
+                            -id    => 'chr_div',
+                            -style => 'display:none;'
+                        },
+                        $q->div(
+                            { -class => 'input_container' },
+                            $q->label( { -for => 'chr' }, 'chr' ),
+                            $q->textfield(
+                                -name  => 'chr',
+                                -id    => 'chr',
+                                -title => 'Type chromosome name',
+                                -size  => 3
+                            ),
+                            $q->label( { -for => 'start' }, ':' ),
+                            $q->textfield(
+                                -name => 'start',
+                                -id   => 'start',
+                                -title =>
+                                  'Enter start position on the chromosome',
+                                -size => 14
+                            ),
+                            $q->label( { -for => 'end' }, '-' ),
+                            $q->textfield(
+                                -name => 'end',
+                                -id   => 'end',
+                                -title =>
+                                  'Enter end position on the chromosome',
+                                -size => 14
+                            )
+                        ),
+                        $q->p(
+                            { -class => 'hint', -style => 'display:block;' },
+'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or
+X. Leave these fields blank to search all chromosomes.'
+                        ),
+                    ),
+                )
+            ),
         ),
-        $q->dt('More Options:'),
+        $q->dt('Output Options:'),
         $q->dd(
-            $q->p(
-                $q->a(
-                    { -id => 'locusFilter' },
-                    '+ Filter by species / chromosomal location'
+            $q->p( $q->a( { -id => 'outputOpts' }, '+ Output format' ) ),
+            $q->div(
+                { -id => 'opts_hint_container', -class => 'dd_collapsible' },
+                $q->div(
+                    {
+                        -id    => 'opts_container',
+                        -class => 'input_container'
+                    },
+                    $q->input(
+                        {
+                            -type  => 'radio',
+                            -name  => 'opts',
+                            -value => 'Basic',
+                            -title =>
+                              'Only list gene symbols and accession numbers',
+                            -checked => 'checked'
+                        }
+                    ),
+                    $q->input(
+                        {
+                            -type => 'radio',
+                            -name => 'opts',
+                            -title =>
+                              'Also include probe annotation and GO terms',
+                            -value => 'With Annotation',
+                        }
+                    ),
+                    $q->input(
+                        {
+                            -type => 'radio',
+                            -name => 'opts',
+                            -title =>
+'Get results in CSV format, including experimental data',
+                            -value => 'Complete (CSV)',
+                        }
+                    )
                 )
             ),
             $q->div(
-                { -id => 'locus_container', -class => 'dd_collapsible' },
+                {
+                    -id    => 'graph_hint_container',
+                    -class => 'input_container'
+                },
+                $q->p( $q->a( { -id => 'graphOpts' }, '+ Graphs' ) ),
                 $q->div(
-                    { -class => 'input_container' },
-                    $q->popup_menu(
-                        -name   => 'spid',
-                        -id     => 'spid',
-                        -title  => 'Choose species to search',
-                        -values => [ keys %{ $self->{_species_data} } ],
-                        -labels => $self->{_species_data}
-                    )
-                ),
-                $q->div(
-                    {
-                        -id    => 'chr_div',
-                        -style => 'display:none;'
-                    },
-                    $q->div(
-                        { -class => 'input_container' },
-                        $q->label( { -for => 'chr' }, 'chr' ),
-                        $q->textfield(
-                            -name  => 'chr',
-                            -id    => 'chr',
-                            -title => 'Type chromosome name',
-                            -size  => 3
-                        ),
-                        $q->label( { -for => 'start' }, ':' ),
-                        $q->textfield(
-                            -name  => 'start',
-                            -id    => 'start',
-                            -title => 'Enter start position on the chromosome',
-                            -size  => 14
-                        ),
-                        $q->label( { -for => 'end' }, '-' ),
-                        $q->textfield(
-                            -name  => 'end',
-                            -id    => 'end',
-                            -title => 'Enter end position on the chromosome',
-                            -size  => 14
-                        )
-                    ),
-                    $q->p(
-                        { -class => 'hint', -style => 'display:block;' },
-'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or
-X. Leave these fields blank to search all chromosomes.'
-                    ),
-                ),
-            ),
-            $q->p( $q->a( { -id => 'outputOpts' }, '+ Output options' ) ),
-            $q->div(
-                { -id => 'opts_hint_container', -class => 'dd_collapsible' },
-                $q->p(
-                    $q->div(
-                        {
-                            -id    => 'opts_container',
-                            -class => 'input_container'
-                        },
-                        $q->input(
-                            {
-                                -type  => 'radio',
-                                -name  => 'opts',
-                                -value => 'Basic',
-                                -title =>
-'Only list gene symbols and accession numbers',
-                                -checked => 'checked'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type => 'radio',
-                                -name => 'opts',
-                                -title =>
-                                  'Also include probe annotation and GO terms',
-                                -value => 'With Annotation',
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type => 'radio',
-                                -name => 'opts',
-                                -title =>
-'Get results in CSV format, including experimental data',
-                                -value => 'Complete (CSV)',
-                            }
-                        )
-                    )
-                ),
-                $q->p(
+                    { -class => 'dd_collapsible' },
                     $q->div(
                         {
                             -id    => 'graph_container',
@@ -1114,7 +1127,7 @@ X. Leave these fields blank to search all chromosomes.'
 'Plot intensity ratios as base 2 logarithm for each experiment',
                                 -value => 'Log Ratio',
                             }
-                        ),
+                        )
                     ),
                     $q->p(
                         { -id => 'graph_hint', -class => 'hint' },

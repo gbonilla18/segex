@@ -42,6 +42,20 @@ setupToggles('click', {
             el.text = '+' + el.text.substr(1);
         }
 });
+setupToggles('click', {
+        'graphOpts': {
+            '-': ['graph_container']
+        }
+    }, 
+    function(el) { return el.text.substr(0, 1); },
+    function(el) { 
+        if (el.text.substr(0, 1) == '+') {
+            el.text = '-' + el.text.substr(1);
+        } else {
+            el.text = '+' + el.text.substr(1);
+        }
+});
+
 
 
 YAHOO.util.Event.addListener('main_form', 'submit', function() {
@@ -75,9 +89,9 @@ YAHOO.util.Event.addListener(window, 'load', function() {
             pattern_part_hint.style.display = 'none';
         }
     });
-    var graph_container = document.getElementById("graph_container");
+    var graph_container = document.getElementById("graph_hint_container");
     var graph_hint = document.getElementById('graph_hint');
-    var graphs = new YAHOO.widget.ButtonGroup(graph_container);
+    var graphs = new YAHOO.widget.ButtonGroup('graph_container');
     graphs.addListener("checkedButtonChange", function(ev) {
         if (ev.newValue.index !== 0) {
             graph_hint.style.display = 'block';
