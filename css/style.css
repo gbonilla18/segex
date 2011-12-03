@@ -404,4 +404,6 @@ td.yui-dt-col-5 .yui-dt-liner {
 	display:block;
 	float:left;
 }
-
+p.radio_heading {
+	margin-bottom:0.5em;
+}

@@ -42,20 +42,6 @@ setupToggles('click', {
             el.text = '+' + el.text.substr(1);
         }
 });
-setupToggles('click', {
-        'graphOpts': {
-            '-': ['graph_hint_container']
-        }
-    }, 
-    function(el) { return el.text.substr(0, 1); },
-    function(el) { 
-        if (el.text.substr(0, 1) == '+') {
-            el.text = '-' + el.text.substr(1);
-        } else {
-            el.text = '+' + el.text.substr(1);
-        }
-});
-
 
 
 YAHOO.util.Event.addListener('main_form', 'submit', function() {

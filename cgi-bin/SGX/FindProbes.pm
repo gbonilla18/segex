@@ -887,7 +887,7 @@ or be on separate lines.
 END_terms_title
             )
         ),
-        $q->dt( $q->label( { -for => 'type' }, 'Scope:' ) ),
+        $q->dt( $q->label( { -for => 'type' }, 'Scope and Options:' ) ),
         $q->dd(
             $q->div(
                 { -id => 'scope_container', -class => 'input_container' },
@@ -933,7 +933,6 @@ END_terms_title
                         -title => 'Search probe IDs'
                     }
                 ),
-
 
                 # preserve state of radio buttons
                 $q->input(
@@ -1063,12 +1062,10 @@ END_EXAMPLE_TEXT
                     ),
                 )
             ),
-        ),
-        $q->dt('Output Options:'),
-        $q->dd(
-            $q->p( $q->a( { -id => 'outputOpts' }, '+ Output format' ) ),
+            $q->p( $q->a( { -id => 'outputOpts' }, '+ Output options' ) ),
             $q->div(
                 { -id => 'opts_hint_container', -class => 'dd_collapsible' },
+                $q->p( { -class => 'radio_heading' }, 'Format:' ),
                 $q->div(
                     {
                         -id    => 'opts_container',
@@ -1110,63 +1107,63 @@ END_EXAMPLE_TEXT
                             -id   => 'opts_state'
                         }
                     )
-                )
-            ),
-            $q->div(
-                {
-                    -id    => 'graph_everything_container',
-                    -class => 'input_container'
-                },
-                $q->p( $q->a( { -id => 'graphOpts' }, '+ Graphs' ) ),
+                ),
                 $q->div(
-                    { -id => 'graph_hint_container', -class => 'dd_collapsible' },
+                    {
+                        -id    => 'graph_everything_container',
+                        -class => 'input_container'
+                    },
+                    $q->p( { -class => 'radio_heading' }, 'Graphs:' ),
                     $q->div(
-                        {
-                            -id    => 'graph_container',
-                            -class => 'input_container'
-                        },
-                        $q->input(
+                        { -id => 'graph_hint_container' },
+                        $q->div(
                             {
-                                -type    => 'radio',
-                                -name    => 'graph',
-                                -value   => 'No Graphs',
-                                -title   => 'Do not display graphs',
-                                -checked => 'checked'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type => 'radio',
-                                -name => 'graph',
-                                -title =>
+                                -id    => 'graph_container',
+                                -class => 'input_container'
+                            },
+                            $q->input(
+                                {
+                                    -type    => 'radio',
+                                    -name    => 'graph',
+                                    -value   => 'No Graphs',
+                                    -title   => 'Do not display graphs',
+                                    -checked => 'checked'
+                                }
+                            ),
+                            $q->input(
+                                {
+                                    -type => 'radio',
+                                    -name => 'graph',
+                                    -title =>
 'Plot intensity ratios as fold change for each experiment',
-                                -value => 'Fold Change',
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type => 'radio',
-                                -name => 'graph',
-                                -title =>
+                                    -value => 'Fold Change',
+                                }
+                            ),
+                            $q->input(
+                                {
+                                    -type => 'radio',
+                                    -name => 'graph',
+                                    -title =>
 'Plot intensity ratios as base 2 logarithm for each experiment',
-                                -value => 'Log Ratio',
-                            }
-                        ),
+                                    -value => 'Log Ratio',
+                                }
+                            ),
 
-                        # preserve state of radio buttons
-                        $q->input(
-                            {
-                                -type => 'hidden',
-                                -id   => 'graph_state'
-                            }
-                        )
-                    ),
-                    $q->p(
-                        { -id => 'graph_hint', -class => 'hint' },
+                            # preserve state of radio buttons
+                            $q->input(
+                                {
+                                    -type => 'hidden',
+                                    -id   => 'graph_state'
+                                }
+                            )
+                        ),
+                        $q->p(
+                            { -id => 'graph_hint', -class => 'hint' },
 'For graphs to display, your browser should support Scalable Vector Graphics (SVG). Internet Explorer (IE) versions earlier than v9.0 can only display SVG images via <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.'
+                        )
                     )
                 )
-            )
+            ),
         ),
 
         # END GRAPH STUFF
