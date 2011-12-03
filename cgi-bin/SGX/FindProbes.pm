@@ -1058,8 +1058,7 @@ END_EXAMPLE_TEXT
                         ),
                         $q->p(
                             { -class => 'hint', -style => 'display:block;' },
-'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or
-X. Leave these fields blank to search all chromosomes.'
+'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X. Leave these fields blank to search all chromosomes.'
                         ),
                     ),
                 )
@@ -1164,8 +1163,7 @@ X. Leave these fields blank to search all chromosomes.'
                     ),
                     $q->p(
                         { -id => 'graph_hint', -class => 'hint' },
-'For graphs to display, your browser should support Scalable Vector Graphics (SVG). Internet Explorer (IE)
-versions earlier than v9.0 can only display SVG images via <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.'
+'For graphs to display, your browser should support Scalable Vector Graphics (SVG). Internet Explorer (IE) versions earlier than v9.0 can only display SVG images via <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.'
                     )
                 )
             )
