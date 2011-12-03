@@ -66,6 +66,8 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
     return true;
 });
 YAHOO.util.Event.addListener(window, 'load', function() {
+
+    // scope
     var scope_state = document.getElementById("scope_state");
     var pattern_div = document.getElementById('pattern_div');
     var scope = new YAHOO.widget.ButtonGroup("scope_container");
@@ -73,10 +75,6 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         var selectedIndex = ev.newValue.index;
         scope_state.value = selectedIndex;
         if (selectedIndex === 0 ) {
-            // Only allow the choice between full/prefix/partial
-            // searches for gene symbols. For accession numbers and probe ids,
-            // use full word searches, and for gene names and GO terms, use
-            // partial searches.
             pattern_div.style.display = 'block';
         } else {
             pattern_div.style.display = 'none';
@@ -86,6 +84,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         scope.check(scope_state.value);
     }
 
+    // pattern/match
     var pattern_state = document.getElementById("pattern_state");
     var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
     var pattern_part_hint = document.getElementById('pattern_part_hint');
@@ -130,7 +129,6 @@ YAHOO.util.Event.addListener(window, 'load', function() {
             graph_container.style.display = 'block';
         } else {
             graph_container.style.display = 'none';
-            graphs.check(0); // turn off graphs
         }
     });
     if (opts_state.value !== '') {
