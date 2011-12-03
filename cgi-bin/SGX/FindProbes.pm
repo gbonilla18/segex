@@ -932,6 +932,15 @@ END_terms_title
                         -value => 'Probe IDs',
                         -title => 'Search probe IDs'
                     }
+                ),
+
+
+                # preserve state of radio buttons
+                $q->input(
+                    {
+                        -type => 'hidden',
+                        -id   => 'scope_state'
+                    }
                 )
             ),
             $q->div(
@@ -976,6 +985,14 @@ END_terms_title
                                 -value => 'Partial',
                                 -title =>
                                   'Match word fragments or regular expressions'
+                            }
+                        ),
+
+                        # preserve state of radio buttons
+                        $q->input(
+                            {
+                                -type => 'hidden',
+                                -id   => 'pattern_state'
                             }
                         )
                     ),
@@ -1085,17 +1102,25 @@ X. Leave these fields blank to search all chromosomes.'
 'Get results in CSV format, including experimental data',
                             -value => 'Complete (CSV)',
                         }
+                    ),
+
+                    # preserve state of radio buttons
+                    $q->input(
+                        {
+                            -type => 'hidden',
+                            -id   => 'opts_state'
+                        }
                     )
                 )
             ),
             $q->div(
                 {
-                    -id    => 'graph_hint_container',
+                    -id    => 'graph_everything_container',
                     -class => 'input_container'
                 },
                 $q->p( $q->a( { -id => 'graphOpts' }, '+ Graphs' ) ),
                 $q->div(
-                    { -class => 'dd_collapsible' },
+                    { -id => 'graph_hint_container', -class => 'dd_collapsible' },
                     $q->div(
                         {
                             -id    => 'graph_container',
@@ -1126,6 +1151,14 @@ X. Leave these fields blank to search all chromosomes.'
                                 -title =>
 'Plot intensity ratios as base 2 logarithm for each experiment',
                                 -value => 'Log Ratio',
+                            }
+                        ),
+
+                        # preserve state of radio buttons
+                        $q->input(
+                            {
+                                -type => 'hidden',
+                                -id   => 'graph_state'
                             }
                         )
                     ),
