@@ -98,7 +98,7 @@ function setupToggles(event, attr, getValue, callBack) {
                 event, 
                 (typeof callBack !== 'undefined') 
                 ? function() { callBack(el); toggle(); } 
-                : function() { toggle(); }
+                : function() { toggle();  }
             );
         }
     });

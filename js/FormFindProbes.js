@@ -11,9 +11,9 @@ setupToggles('click', {
     function(el) { return el.text.substr(0, 1); },
     function(el) { 
         if (el.text.substr(0, 1) == '+') {
-            el.text = '-' + el.text.substr(1);
+            el.innerHTML = '-' + el.text.substr(1);
         } else {
-            el.text = '+' + el.text.substr(1);
+            el.innerHTML = '+' + el.text.substr(1);
         }
 });
 setupToggles('click', {
@@ -24,9 +24,9 @@ setupToggles('click', {
     function(el) { return el.text.substr(0, 1); },
     function(el) { 
         if (el.text.substr(0, 1) == '+') {
-            el.text = '-' + el.text.substr(1);
+            el.innerHTML = '-' + el.text.substr(1);
         } else {
-            el.text = '+' + el.text.substr(1);
+            el.innerHTML = '+' + el.text.substr(1);
         }
 });
 setupToggles('click', {
@@ -37,9 +37,9 @@ setupToggles('click', {
     function(el) { return el.text.substr(0, 1); },
     function(el) { 
         if (el.text.substr(0, 1) == '+') {
-            el.text = '-' + el.text.substr(1);
+            el.innerHTML = '-' + el.text.substr(1);
         } else {
-            el.text = '+' + el.text.substr(1);
+            el.innerHTML = '+' + el.text.substr(1);
         }
 });
 
