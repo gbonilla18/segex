@@ -382,15 +382,15 @@ sub build_location_predparam {
 
             # starting and ending interval positions are meaningless if no
             # chromosome was specified.
-            my $loc_start = car $q->param('start');
-            if ( defined $loc_start and $loc_start ne '' ) {
-                $query .= ' AND location.start<=?';
-                push @param, $loc_start;
-            }
             my $loc_end = car $q->param('end');
             if ( defined $loc_end and $loc_end ne '' ) {
-                $query .= ' AND location.end>=?';
+                $query .= ' AND location.start<=?';
                 push @param, $loc_end;
+            }
+            my $loc_start = car $q->param('start');
+            if ( defined $loc_start and $loc_start ne '' ) {
+                $query .= ' AND location.end>=?';
+                push @param, $loc_start;
             }
         }
     }

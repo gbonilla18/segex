@@ -35,7 +35,7 @@ sub default_head {
     my $ytitle_text;
     my $middle_label;
 
-    if ( $transform eq 'ln' ) {
+    if ( $transform eq 'Log Ratio' ) {
         $sql_trans  = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
         $sql_cutoff = 'log2(def_f_cutoff)';
 
