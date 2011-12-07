@@ -12,8 +12,9 @@ require Config::General;
 # :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are
 # exported by default with @EXPORT) with one where symbols need to be
 # explicitely specified (@EXPORT_OK).
-our @EXPORT    = qw/$YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR/;
-our @EXPORT_OK = qw/init_context get_module_from_action require_path/;
+our @EXPORT = qw/$YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR/;
+our @EXPORT_OK =
+  qw/init_context get_module_from_action require_path %SEGEX_CONFIG/;
 
 #---------------------------------------------------------------------------
 #  Dispatch table that associates action symbols ('?a=' URL parameter) with
@@ -32,9 +33,9 @@ sub get_module_from_action {
         # better RESTfulness
         #
         # verbs
-        uploadAnnot        => 'SGX::UploadAnnot',
-        uploadData         => 'SGX::UploadData',
-        uploadGO         => 'SGX::UploadGO',
+        uploadAnnot => 'SGX::UploadAnnot',
+        uploadData  => 'SGX::UploadData',
+        uploadGO    => 'SGX::UploadGO',
 
         outputData         => 'SGX::OutputData',
         compareExperiments => 'SGX::CompareExperiments',
@@ -57,8 +58,8 @@ sub get_module_from_action {
     return $dispatch_table{$action};
 }
 
-Readonly::Scalar my $config_file => Config::General->new( dirname($0) . '/segex.conf' );
-my %config = $config_file->getall();
+Readonly::Hash our %SEGEX_CONFIG =>
+  Config::General->new( dirname($0) . '/segex.conf' )->getall();
 
 #---------------------------------------------------------------------------
 #  Directories
@@ -69,7 +70,7 @@ Readonly::Scalar my $DOCUMENTS_ROOT =>
 Readonly::Scalar our $IMAGES_DIR     => "$DOCUMENTS_ROOT/images";
 Readonly::Scalar our $JS_DIR         => "$DOCUMENTS_ROOT/js";
 Readonly::Scalar our $CSS_DIR        => "$DOCUMENTS_ROOT/css";
-Readonly::Scalar our $YUI_BUILD_ROOT => $config{yui_build_root};
+Readonly::Scalar our $YUI_BUILD_ROOT => $SEGEX_CONFIG{yui_build_root};
 
 #---------------------------------------------------------------------------
 #  Set $ENV{PATH} by transforming an input list of symbols in qw//. This also
@@ -82,7 +83,7 @@ $ENV{PATH} = join(
             map {
                 ( my $key = $_ ) =~ s/\/*$//;
                 $key => undef
-              } ($config{mailer_path})
+              } ( $SEGEX_CONFIG{mailer_path} )
         }
       }
 );
@@ -145,9 +146,9 @@ sub init_context {
 
  # :TODO:07/13/2011 15:20:26:es: Consider allowing "mysql_local_infile" only for
  # special kinds of users (ones who have permission to upload data/annotation)
-            "dbi:mysql:$config{dbname};mysql_local_infile=1",
-            $config{dbuser},
-            $config{dbpassword},
+            "dbi:mysql:$SEGEX_CONFIG{dbname};mysql_local_infile=1",
+            $SEGEX_CONFIG{dbuser},
+            $SEGEX_CONFIG{dbpassword},
             {
                 PrintError  => 0,
                 RaiseError  => 0,
@@ -165,7 +166,7 @@ sub init_context {
         require SGX::Session::User;
         $s = SGX::Session::User->new(
             dbh          => $dbh,
-            expire_in    => $config{timeout},
+            expire_in    => $SEGEX_CONFIG{timeout},
             check_ip     => 1,
             perm2session => {
                 curr_proj => sub {

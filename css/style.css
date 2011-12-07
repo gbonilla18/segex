@@ -13,6 +13,8 @@ strong {
 em {
 	font-style:italic;
 }
+ol li { list-style: decimal; margin-left:20px; }
+
 .hidden {
 	visibility:hidden;
 }
