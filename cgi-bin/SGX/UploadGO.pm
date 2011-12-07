@@ -240,7 +240,13 @@ sub UploadTerms_body {
     my $q    = $self->{_cgi};
 
     # show form to upload term definitions
-    return $q->h2('Upload / Update GO Terms'),
+    return $q->h2('Gene Ontology: Upload Term Definitions (File 2)'),
+      $q->p(<<"END_info"),
+Now upload the file called <strong>term_definition.txt</strong> from the
+archive you downloaded and extracted from the GO webpage. If you skip this step,
+you can still use GO annotation, but your text searches will be limited to GO
+names.
+END_info
       $q->start_form(
         -method  => 'POST',
         -enctype => 'multipart/form-data',
@@ -281,7 +287,7 @@ sub UploadTermDefs_body {
     my $self = shift;
     my $q    = $self->{_cgi};
     return $q->p(
-        'You have successfully completed updating GO terms and definitions.');
+        'You have successfully updated GO terms and definitions.');
 }
 
 #===  CLASS METHOD  ============================================================
@@ -328,7 +334,7 @@ sub default_body {
     my $q    = $self->{_cgi};
 
     # here we will show form for updating GO term names and definitions
-    return $q->h2('Upload / Update GO Terms'),
+    return $q->h2('Gene Ontology: Upload Terms (File 1)'),
       $q->p(
         'To update the gene ontology (GO) terms, follow these simple steps:',
         $q->ol(
