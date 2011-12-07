@@ -137,14 +137,27 @@ sub UploadTerms_head {
     my $self = shift;
 
     require SGX::CSV;
-
     my $outputFileName =
       SGX::CSV::sanitizeUploadWithMessages( $self, 'file', \@term_parser,
         { quote_char => undef } );
 
-    # perform actual upload of GO terms
-    $self->add_message( 'Congratulations, the GO terms have been uploaded to '
-          . $outputFileName );
+    my $dbh = $self->{_dbh};
+    my $sth = $dbh->prepare(<<"END_loadTerms");
+LOAD DATA LOCAL INFILE ?
+REPLACE
+INTO TABLE go_term
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
+    go_term_id,
+    go_name,
+    go_term_type,
+    go_acc
+)
+END_loadTerms
+    my $recordsUpdated = $sth->execute($outputFileName);
+    unlink $outputFileName;
+
+    $self->add_message("Success! Updated $recordsUpdated GO terms");
     return 1;
 }
 
@@ -162,12 +175,46 @@ sub UploadTermDefs_head {
     my $self = shift;
 
     require SGX::CSV;
-    my $outputFileName = SGX::CSV::sanitizeUploadWithMessages( $self, 'file',
+    my $outputFileName =
+      SGX::CSV::sanitizeUploadWithMessages( $self, 'file',
         \@term_definition_parser, { quote_char => undef } );
 
-    $self->add_message(
-        'Congratulations, the GO term definitions have been uploaded to '
-          . $outputFileName );
+    my $dbh = $self->{_dbh};
+
+    my $temp_table      = time() . '_' . getppid();
+    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
+CREATE TEMPORARY TABLE $temp_table (
+    go_term_id int(10) unsigned NOT NULL,
+    go_term_definition text
+) ENGINE=MyISAM
+END_loadTermDefs_createTemp
+
+    my $sth = $dbh->prepare(<<"END_loadTermDefs");
+LOAD DATA LOCAL INFILE ?
+INTO TABLE $temp_table
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
+    go_term_id,
+    go_term_definition
+)
+END_loadTermDefs
+
+    my $sth_update = $dbh->prepare(<<"END_update");
+UPDATE go_term INNER JOIN $temp_table USING(go_term_id) 
+SET go_term.go_term_definition=$temp_table.go_term_definition
+END_update
+
+    $sth_create_temp->execute();
+    my $recordsLoaded  = $sth->execute($outputFileName);
+    my $recordsUpdated = $sth_update->execute();
+    unlink $outputFileName;
+
+    if ( $recordsLoaded != $recordsUpdated ) {
+        $self->add_message(
+"Warning: Loaded $recordsLoaded records into temporary table but only $recordsUpdated records were updated"
+        );
+    }
+    $self->add_message("Success! Updated $recordsUpdated GO term definitions");
     return 1;
 }
 
@@ -233,7 +280,10 @@ sub default_head {
     my $rc = $sth->execute( $SEGEX_CONFIG{dbname}, 'go_terms' );
     my ($time) = $sth->fetchrow_array;
     $sth->finish;
-    $self->add_message("Last updated on: $time $SEGEX_CONFIG{timezone}");
+
+    if ( defined $time ) {
+        $self->add_message("Last updated on: $time $SEGEX_CONFIG{timezone}");
+    }
     return 1;
 }
 
