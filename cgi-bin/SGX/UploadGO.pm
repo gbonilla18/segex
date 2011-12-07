@@ -277,7 +277,7 @@ sub default_head {
     my $sth = $dbh->prepare(
 'select UPDATE_TIME from information_schema.tables where TABLE_SCHEMA=? and TABLE_NAME=?'
     );
-    my $rc = $sth->execute( $SEGEX_CONFIG{dbname}, 'go_terms' );
+    my $rc = $sth->execute( $SEGEX_CONFIG{dbname}, 'go_term' );
     my ($time) = $sth->fetchrow_array;
     $sth->finish;
 
