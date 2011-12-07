@@ -29,6 +29,8 @@ my $all_resources = {
       { label => 'Upload Data', title => 'Upload data to a new experiment' },
     uploadAnnot =>
       { label => 'Upload Annotation', title => 'Upload probe annotations' },
+    uploadGO =>
+      { label => 'Upload GO Terms', title => 'Upload Gene Ontology term names and definitions' },
 };
 
 sub make_link_creator {
@@ -397,7 +399,7 @@ sub build_menu {
           $link_creator->(qw/compareExperiments findProbes outputData/),
         'Manage' =>
           $link_creator->(qw/experiments studies projects platforms species users/),
-        'Upload' => $link_creator->(qw/experiments&b=form_create uploadAnnot/)
+        'Upload' => $link_creator->(qw/experiments&b=form_create uploadAnnot uploadGO/)
     );
 
     my @result;

@@ -34,6 +34,8 @@ sub get_module_from_action {
         # verbs
         uploadAnnot        => 'SGX::UploadAnnot',
         uploadData         => 'SGX::UploadData',
+        uploadGO         => 'SGX::UploadGO',
+
         outputData         => 'SGX::OutputData',
         compareExperiments => 'SGX::CompareExperiments',
         findProbes         => 'SGX::FindProbes',
