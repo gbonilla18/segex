@@ -48,7 +48,7 @@ sub sanitizeUploadWithMessages {
             'No valid records were uploaded.' );
         return 0;
     }
-    return $outputFileName;
+    return ( $outputFileName, $recordsValid );
 }
 
 #===  CLASS METHOD  ============================================================

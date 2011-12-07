@@ -97,7 +97,7 @@ my @term_definition_parser = (
 );
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Static
+#        CLASS:  SGX::UploadGO
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -117,7 +117,10 @@ sub init {
             head => 'UploadTerms_head',
             body => 'UploadTerms_body'
         },
-        'Upload Term Definitions' => { head => 'UploadTermDefs_head' }
+        'Upload Term Definitions' => {
+            head => 'UploadTermDefs_head',
+            body => 'UploadTermDefs_body'
+        }
     );
 
     return $self;
@@ -137,7 +140,7 @@ sub UploadTerms_head {
     my $self = shift;
 
     require SGX::CSV;
-    my $outputFileName =
+    my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages( $self, 'file', \@term_parser,
         { quote_char => undef } );
 
@@ -157,7 +160,9 @@ END_loadTerms
     my $recordsUpdated = $sth->execute($outputFileName);
     unlink $outputFileName;
 
-    $self->add_message("Success! Updated $recordsUpdated GO terms");
+    $self->add_message(
+"Success! Found $recordsValid valid entries; affected $recordsUpdated rows in the GO terms table."
+    );
     return 1;
 }
 
@@ -175,7 +180,7 @@ sub UploadTermDefs_head {
     my $self = shift;
 
     require SGX::CSV;
-    my $outputFileName =
+    my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages( $self, 'file',
         \@term_definition_parser, { quote_char => undef } );
 
@@ -214,7 +219,9 @@ END_update
 "Warning: Loaded $recordsLoaded records into temporary table but only $recordsUpdated records were updated"
         );
     }
-    $self->add_message("Success! Updated $recordsUpdated GO term definitions");
+    $self->add_message(
+"Success! Found $recordsValid valid entries, updated $recordsUpdated GO term definitions."
+    );
     return 1;
 }
 
@@ -262,6 +269,23 @@ sub UploadTerms_body {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::UploadGO
+#       METHOD:  UploadTermDefs_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub UploadTermDefs_body {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    return $q->p(
+        'You have successfully completed updating GO terms and definitions.');
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::UploadGO
 #       METHOD:  default_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -282,13 +306,15 @@ sub default_head {
     $sth->finish;
 
     if ( defined $time ) {
-        $self->add_message("Segex GO term table was last updated on: $time $SEGEX_CONFIG{timezone}");
+        $self->add_message(
+"Segex GO term table was last updated on: $time $SEGEX_CONFIG{timezone}"
+        );
     }
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Static
+#        CLASS:  SGX::UploadGO
 #       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
