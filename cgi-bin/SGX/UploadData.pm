@@ -4,33 +4,86 @@ use strict;
 use warnings;
 
 use SGX::Debug;
-use JSON qw/encode_json/;
 use SGX::Abstract::Exception ();
 use Scalar::Util qw/looks_like_number/;
 
+# Note: expression 'my ($x) = shift =~ /(.*)/' untaints input value and
+# assigns it to $x (untainting is important when perl -T option is used).
 my @parser = (
     sub {
-        ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) ? $1 : undef;
+
+        # Regular expression for the first column (probe/reporter id) reads as
+        # follows: from beginning to end, match any character other than [space,
+        # forward/back slash, comma, equal or pound sign, opening or closing
+        # parentheses, double quotation mark] from 1 to 18 times.
+        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+            return $1;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Cannot parse probe ID at line ' . shift );
+        }
     },
     sub {
+
+        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
         my ($x) = shift =~ /(.*)/;
-        looks_like_number($x) ? $x : undef;
+        if ( looks_like_number($x) ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Second column not numeric at line ' . shift );
+        }
     },
     sub {
+
+        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
         my ($x) = shift =~ /(.*)/;
-        looks_like_number($x) ? $x : undef;
+        if ( looks_like_number($x) ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Third column not numeric at line ' . shift );
+        }
     },
     sub {
+
+        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
         my ($x) = shift =~ /(.*)/;
-        looks_like_number($x) ? $x : undef;
+        if ( looks_like_number($x) ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Fourth column not numeric at line ' . shift );
+        }
     },
     sub {
+
+        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
         my ($x) = shift =~ /(.*)/;
-        looks_like_number($x) ? $x : undef;
+        if ( looks_like_number($x) ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Fifth column not numeric at line ' . shift );
+        }
     },
     sub {
+
+        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
+
         my ($x) = shift =~ /(.*)/;
-        looks_like_number($x) ? $x : undef;
+        if ( looks_like_number($x) ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Sixth column not numeric at line ' . shift );
+        }
     }
 );
 
@@ -47,12 +100,12 @@ my @parser = (
 sub new {
     my $class = shift;
 
-    my %args = @_;
+    my %args          = @_;
     my $delegate_data = $args{delegate}->{_id_data};
 
     my $self = {
         _stid => $delegate_data->{stid},
-        _pid => $delegate_data->{pid},
+        _pid  => $delegate_data->{pid},
 
         _recordsInserted => undef,
 
@@ -68,8 +121,8 @@ sub new {
 #       METHOD:  uploadData
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Main upload function: high-level control over
-#                sanitizeUploadFile() and loadToDatabase() methods
+#  DESCRIPTION:  Upload data to new experiment. Main upload function: high-level
+#                control over sanitizeUploadFile() and loadToDatabase() methods
 #       THROWS:  SGX::Exception::Internal, Exception::Class::DBI
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -77,44 +130,13 @@ sub new {
 sub uploadData {
     my ( $self, $inputField ) = @_;
 
-    # upload data to new experiment
-    my $recordsLoaded = 0;
-
-    # This is where we put the temp file we will import. UNLINK option to
-    # File::Temp constructor means that the File::Temp destructor will try to
-    # unlink the temporary file on its own (we don't need to worry about
-    # unlinking). Because we are initializing an instance of File::Temp in the
-    # namespace of this function, the temporary file will be deleted when the
-    # function exists (when the reference to File::Temp will go out of context).
-    #
-    require File::Temp;
-    my $tmp = File::Temp->new( SUFFIX => '.txt', UNLINK => 1 );
-    my $outputFileName = $tmp->filename();
-
-    my $recordsValid =
-      eval { $self->sanitizeUploadFile( $inputField, $outputFileName ) } || 0;
-
-    if ( my $exception = $@ ) {
-
-        # Notify user of User exception; rethrow Internal and other types of
-        # exceptions.
-        if ( $exception->isa('SGX::Exception::User') ) {
-            $self->{delegate}->add_message( { -class => 'error' },
-                'There was a problem with your input: ' . $exception->error );
-        }
-        else {
-            $exception->throw();
-        }
-        return 0;
-    }
-    elsif ( $recordsValid == 0 ) {
-        $self->{delegate}->add_message( { -class => 'error' },
-            'No valid records were uploaded.' );
-        return 0;
-    }
+    my $delegate = $self->{delegate};
+    require SGX::CSV;
+    my $outputFileName =
+      SGX::CSV::sanitizeUploadWithMessages( $delegate, $inputField, \@parser );
 
     # some valid records uploaded -- now load to the database
-    my $dbh = $self->{delegate}->{_dbh};
+    my $dbh = $delegate->{_dbh};
 
     # turn off auto-commit to allow rollback; cache old value
     my $old_AutoCommit = $dbh->{AutoCommit};
@@ -124,7 +146,7 @@ sub uploadData {
     my $sth_hash = $self->loadToDatabase_prepare();
 
     # execute SQL statements (catch some errors)
-    $recordsLoaded =
+    my $recordsLoaded =
       eval { $self->loadToDatabase_execute( $sth_hash, $outputFileName ) }
       || 0;
 
@@ -135,7 +157,7 @@ sub uploadData {
         if ( $exception->isa('SGX::Exception::User') ) {
 
             # Catch User exceptions
-            $self->{delegate}->add_message(
+            $delegate->add_message(
                 { -class => 'error' },
                 sprintf(
                     <<"END_User_exception",
@@ -150,7 +172,7 @@ END_User_exception
 
             # Catch DBI::STH exceptions. Note: this block catches duplicate
             # key record exceptions.
-            $self->{delegate}->add_message(
+            $delegate->add_message(
                 { -class => 'error' },
                 sprintf(
                     <<"END_DBI_STH_exception",
@@ -170,7 +192,7 @@ END_DBI_STH_exception
     elsif ( $recordsLoaded == 0 ) {
         $dbh->rollback;
         $self->loadToDatabase_finish($sth_hash);
-        $self->{delegate}->add_message( { -class => 'error' },
+        $delegate->add_message( { -class => 'error' },
             'Failed to add data to the database.' );
     }
     else {
@@ -179,7 +201,7 @@ END_DBI_STH_exception
 
         my $totalProbes = $self->probesPerPlatform();
         if ( $recordsLoaded == $totalProbes ) {
-            $self->{delegate}->add_message(
+            $delegate->add_message(
                 sprintf(
                     <<"END_FULL_SUCCESS",
 Success! Data for all %d probes from the selected platform 
@@ -190,7 +212,7 @@ END_FULL_SUCCESS
             );
         }
         elsif ( $recordsLoaded < $totalProbes ) {
-            $self->{delegate}->add_message(
+            $delegate->add_message(
                 sprintf(
                     <<"END_PARTIAL_SUCCESS",
 You added data for %d probes out of total %d in the selected platform
@@ -246,79 +268,6 @@ sub probesPerPlatform {
     $sth->finish;
 
     return $count;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  sanitizeUploadFile
-#   PARAMETERS:  $outputFileName - Name of the temporary file to write to
-#      RETURNS:  Number of valid records found (also duplicated to _validRecords
-#                field)
-#  DESCRIPTION:  validate and rewrite the uploaded file
-#       THROWS:  SGX::Exception::Internal, SGX::Exception::User
-#     COMMENTS:   # :TODO:07/08/2011 12:55:45:es: Make headers optional
-#     SEE ALSO:  n/a
-#===============================================================================
-sub sanitizeUploadFile {
-    my ( $self, $inputField, $outputFileName ) = @_;
-
-    my $q = $self->{delegate}->{_cgi};
-
-    # The is the file handle of the uploaded file.
-    my $uploadedFile = $q->upload($inputField)
-      or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
-
-    #Open file we are writing to server.
-    open my $OUTPUTTOSERVER, '>', $outputFileName
-      or SGX::Exception::Internal->throw(
-        error => "Could not open $outputFileName for writing: $!\n" );
-
-    # Read uploaded file in "slurp" mode (at once), and break it on the
-    # following combinations of line separators in respective order: (1) CRLF
-    # (Windows), (2) LF (Unix), and (3) CR (Mac).
-    my @lines = split(
-        /\r\n|\n|\r/,
-        do { local $/ = <$uploadedFile> }
-    );
-
-    # upload file should get deleted automatically on close
-    close $uploadedFile;
-
-    # Regular expression for the first column (probe/reporter id) reads as
-    # follows: from beginning to end, match any character other than [space,
-    # forward/back slash, comma, equal or pound sign, opening or closing
-    # parentheses, double quotation mark] from 1 to 18 times.
-
-    # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
-
-    # Note: expression 'my ($x) = shift =~ /(.*)/' untaints input value and
-    # assigns it to $x (untainting is important when perl -T option is used).
-    require SGX::CSV;
-    my $recordsValid = eval {
-        SGX::CSV::csv_rewrite(
-            \@lines,
-            $OUTPUTTOSERVER,
-            \@parser,
-            input_header => 1,
-            csv_in_opts  => { sep_char => "\t", allow_whitespace => 1 }
-        );
-    } || 0;
-
-    # In case of error, close files first and rethrow the exception
-    if ( my $exception = $@ ) {
-        close($OUTPUTTOSERVER);
-        $exception->throw();
-    }
-    elsif ( $recordsValid < 1 ) {
-        close($OUTPUTTOSERVER);
-        SGX::Exception::User->throw(
-            error => "No records found in input file\n" );
-    }
-
-    $self->{_validRecords} = $recordsValid;
-    close($OUTPUTTOSERVER);
-
-    return $recordsValid;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -417,7 +366,7 @@ sub loadToDatabase_execute {
     my ( $self, $sth_hash, $outputFileName ) = @_;
 
     my ( $sth_createTable, $sth_loadData, $insertExperiment,
-        $sth_insertStudyExperiment, $sth_insertResponse)
+        $sth_insertStudyExperiment, $sth_insertResponse )
       = @$sth_hash{
         qw(createTable loadData insertExperiment insertStudyExperiment insertResponse)
       };

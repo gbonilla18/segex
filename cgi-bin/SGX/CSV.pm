@@ -3,9 +3,115 @@ package SGX::CSV;
 use strict;
 use warnings;
 
+require File::Temp;
 require Text::CSV;
 use SGX::Util qw/all_match/;
 use SGX::Abstract::Exception ();
+use SGX::Debug;
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CSV
+#       METHOD:  sanitizeUploadWithMessages
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub sanitizeUploadWithMessages {
+    my ( $delegate, $inputField, $parser, $csv_in_opts ) = @_;
+
+    my $q = $delegate->{_cgi};
+
+    my $recordsValid   = 0;
+    my $outputFileName = eval {
+        sanitizeUploadFile( $q, $inputField, $parser, \$recordsValid,
+            $csv_in_opts );
+    } || '';
+
+    if ( my $exception = $@ ) {
+
+        # Notify user of User exception; rethrow Internal and other types of
+        # exceptions.
+        if ( $exception->isa('SGX::Exception::User') ) {
+            $delegate->add_message( { -class => 'error' },
+                'There was a problem with your input: ' . $exception->error );
+        }
+        else {
+            $exception->throw();
+        }
+        return 0;
+    }
+    elsif ( $recordsValid == 0 ) {
+        $delegate->add_message( { -class => 'error' },
+            'No valid records were uploaded.' );
+        return 0;
+    }
+    return $outputFileName;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CSV
+#       METHOD:  sanitizeUploadFile
+#   PARAMETERS:  $outputFileName - Name of the temporary file to write to
+#      RETURNS:  Number of valid records found
+#  DESCRIPTION:  validate and rewrite the uploaded file
+#       THROWS:  SGX::Exception::Internal, SGX::Exception::User
+#     COMMENTS:   # :TODO:07/08/2011 12:55:45:es: Make headers optional
+#     SEE ALSO:  n/a
+#===============================================================================
+sub sanitizeUploadFile {
+    my ( $q, $inputField, $parser, $recordsValid, $csv_in_opts ) = @_;
+
+    # This is where we put the temp file we will import. UNLINK option to
+    # File::Temp constructor means that the File::Temp destructor will try to
+    # unlink the temporary file on its own (we don't need to worry about
+    # unlinking). Because we are initializing an instance of File::Temp in the
+    # namespace of this function, the temporary file will be deleted when the
+    # function exists (when the reference to File::Temp will go out of context).
+
+    my $outputFileName =
+      File::Temp->new( SUFFIX => '.txt', UNLINK => 1 )->filename();
+
+    # The is the file handle of the uploaded file.
+    my $uploadedFile = $q->upload($inputField)
+      or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
+
+    #Open file we are writing to server.
+    open my $OUTPUTTOSERVER, '>', $outputFileName
+      or SGX::Exception::Internal->throw(
+        error => "Could not open $outputFileName for writing: $!\n" );
+
+    $$recordsValid = eval {
+        csv_rewrite(
+            $uploadedFile,
+            $OUTPUTTOSERVER,
+            $parser,
+            input_header => 1,
+            csv_in_opts  => {
+                sep_char         => "\t",
+                allow_whitespace => 1,
+                %{ $csv_in_opts || {} }
+            }
+        );
+    } || 0;
+
+    # In case of error, close files first and rethrow the exception
+    if ( my $exception = $@ ) {
+
+        close($OUTPUTTOSERVER);
+        $exception->throw();
+    }
+    elsif ( $$recordsValid < 1 ) {
+        close($OUTPUTTOSERVER);
+        SGX::Exception::User->throw(
+            error => "No records found in input file\n" );
+    }
+    close($OUTPUTTOSERVER);
+
+    return $outputFileName;
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  csv_rewrite
@@ -44,7 +150,18 @@ use SGX::Abstract::Exception ();
 #                http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm
 #===============================================================================
 sub csv_rewrite {
-    my ( $in, $out, $parse, %param ) = @_;
+    my ( $uploadedFile, $out, $parse, %param ) = @_;
+
+    # Read uploaded file in "slurp" mode (at once), and break it on the
+    # following combinations of line separators in respective order: (1) CRLF
+    # (Windows), (2) LF (Unix), and (3) CR (Mac).
+    my @lines = split(
+        /\r\n|\n|\r/,
+        do { local $/ = <$uploadedFile> }
+    );
+
+    # upload file should get deleted automatically on close
+    close $uploadedFile;
 
     # whether input file contains a header
     my $input_header =
@@ -82,7 +199,7 @@ sub csv_rewrite {
       ? all_match( qr/^$/,    ignore_undef => 1 )
       : all_match( qr/^\s*$/, ignore_undef => 1 );
 
-    for ( my $line_num = 1 ; $csv_in->parse( shift @$in ) ; $line_num++ ) {
+    for ( my $line_num = 1 ; $csv_in->parse( shift @lines ) ; $line_num++ ) {
         my @fields = $csv_in->fields();
 
         # skip blank lines
@@ -103,24 +220,36 @@ sub csv_rewrite {
 
         # perform validation on each column
         my @out_fields;
-        foreach ( 0 .. $#$parse ) {
-            my $parsed_value = $parse->[$_]->( shift @fields );
-            unless ( defined $parsed_value ) {
-                SGX::Exception::User->throw( error =>
-                        "Cannot parse input value at line $line_num column "
-                      . ( $_ + 1 )
-                      . "\n" );
+        eval {
+            @out_fields =
+              map {
+                my $val = shift @fields;
+                ( defined $_ ) ? $_->( $val, $line_num ) : ()
+              } @$parse;
+        };
+        if ( my $exception = $@ ) {
+            if ( $exception->isa('SGX::Exception::Skip') ) {
+
+                # skip line
+                @out_fields = ();
             }
-            push @out_fields, $parsed_value;
+            else {
+
+                # rethrow otherwise
+                $exception->throw();
+            }
         }
 
         # write to output
-        $csv_out->print( $out, \@out_fields );
+        $csv_out->print( $out, \@out_fields ) if (@out_fields);
     }
 
     # check for errors
-    if ( my $error = $csv_in->error_diag() ) {
-        SGX::Exception::User->throw( error => $error );
+    my ( $err_code, $err_string, $err_pos ) = $csv_in->error_diag();
+    if ($err_code) {
+        SGX::Exception::User->throw( error =>
+"Text::CSV error code $err_code ($err_string), position $err_pos. Records written: $record_num"
+        );
     }
 
     # return number of records written

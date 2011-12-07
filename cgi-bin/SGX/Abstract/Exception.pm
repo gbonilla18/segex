@@ -29,6 +29,10 @@ use Exception::Class (
     'SGX::Exception::Internal::Duplicate' => {
         isa         => 'SGX::Exception::Internal',
         description => 'Two or more records encountered where one was expected'
+    },
+    'SGX::Exception::Skip' => {
+        isa         => 'SGX::Exception::Internal',
+        description => 'Skip current step, resuming normal operation'
     }
 );
 

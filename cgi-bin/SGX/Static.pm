@@ -115,7 +115,7 @@ __END__
 
 =head1 NAME
 
-SGX::Profile
+SGX::Static
 
 =head1 SYNOPSIS
 
