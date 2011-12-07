@@ -52,6 +52,22 @@ CREATE TABLE `StudyExperiment` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `accnum`
+--
+
+DROP TABLE IF EXISTS `accnum`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `accnum` (
+  `rid` int(10) unsigned NOT NULL,
+  `accnum` char(20) NOT NULL DEFAULT '',
+  PRIMARY KEY (`rid`,`accnum`),
+  KEY `rid` (`rid`),
+  CONSTRAINT `accnum_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `annotates`
 --
 
@@ -106,6 +122,25 @@ CREATE TABLE `gene` (
   KEY `seqname` (`seqname`),
   KEY `accnum` (`accnum`)
 ) ENGINE=InnoDB AUTO_INCREMENT=360282 DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `go_term`
+--
+
+DROP TABLE IF EXISTS `go_term`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `go_term` (
+  `go_term_id` int(10) unsigned NOT NULL,
+  `go_acc` int(10) unsigned NOT NULL,
+  `go_term_type` varchar(55) NOT NULL,
+  `go_name` varchar(255) NOT NULL DEFAULT '',
+  `go_term_definition` text,
+  PRIMARY KEY (`go_term_id`),
+  UNIQUE KEY `go_acc` (`go_acc`),
+  FULLTEXT KEY `full` (`go_name`,`go_term_definition`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -234,7 +269,7 @@ CREATE TABLE `species` (
   `sid` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `sname` varchar(120) NOT NULL,
   PRIMARY KEY (`sid`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -253,7 +288,7 @@ CREATE TABLE `study` (
   UNIQUE KEY `pid_description` (`pid`,`description`),
   KEY `pid` (`pid`),
   CONSTRAINT `study_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -276,7 +311,7 @@ CREATE TABLE `users` (
   `udate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`),
   UNIQUE KEY `uname` (`uname`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -288,4 +323,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2011-12-01 11:34:55
+-- Dump completed on 2011-12-07 11:51:07
