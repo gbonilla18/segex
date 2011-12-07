@@ -25,64 +25,54 @@ my @parser = (
         }
     },
     sub {
-
-        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
         my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) ) {
+        if ( looks_like_number($x) && $x >= 0 ) {
             return $x;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Second column not numeric at line ' . shift );
+                error => 'Ratio not a decimal r >= 0.0 at line ' . shift );
         }
     },
     sub {
-
-        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
         my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) ) {
+        if ( looks_like_number($x) && abs($x) >= 1.0 ) {
             return $x;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Third column not numeric at line ' . shift );
+                error => 'Fold change not a decimal |fc| >= 1.0 ' . shift );
         }
     },
     sub {
-
-        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
         my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) ) {
+        if ( looks_like_number($x) && $x >= 0.0 && $x <= 1.0 ) {
             return $x;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Fourth column not numeric at line ' . shift );
+                error => 'P-value not a decimal 0.0 <= p <= 1.0 at line '
+                  . shift );
         }
     },
     sub {
-
-        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
         my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) ) {
+        if ( looks_like_number($x) && $x >= 0.0 ) {
             return $x;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Fifth column not numeric at line ' . shift );
+                error => 'Intensity 1 not a decimal i1 >= 0 at line ' . shift );
         }
     },
     sub {
-
-        # :TODO:07/31/2011 22:45:15:es: add bounds checking for numeric input
-
         my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) ) {
+        if ( looks_like_number($x) && $x >= 0.0 ) {
             return $x;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Sixth column not numeric at line ' . shift );
+                error => 'Intensity 2 not a decimal i2 >= 0 at line ' . shift );
         }
     }
 );
