@@ -282,7 +282,7 @@ sub default_head {
     $sth->finish;
 
     if ( defined $time ) {
-        $self->add_message("Last updated on: $time $SEGEX_CONFIG{timezone}");
+        $self->add_message("Segex GO term table was last updated on: $time $SEGEX_CONFIG{timezone}");
     }
     return 1;
 }
