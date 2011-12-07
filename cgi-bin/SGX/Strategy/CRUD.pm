@@ -2604,6 +2604,7 @@ sub body_edit_fields {
                                 -href => $self->get_resource_uri(
                                     a => $tied_table->{resource},
                                     b => 'form_create',
+                                    id => undef
                                 ),
                                 -title => "Click to add a new $item_name first",
                             },
