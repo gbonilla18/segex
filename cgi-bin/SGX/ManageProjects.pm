@@ -196,7 +196,10 @@ sub form_assign_head {
         { -src => 'ProjectStudyExperiment.js' },
         {
             -code => $self->get_pse_dropdown_js(
-                extra_projects   => { 'all' => { name => '@All Projects' } },
+                extra_projects => {
+                    'all' => { name => '@All Projects' },
+                    ''    => { name => '@Unassigned Studies' }
+                },
                 projects         => 1,
                 project_by_study => 1,
                 studies          => 1
