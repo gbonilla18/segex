@@ -2350,6 +2350,14 @@ sub readrow_body {
 
     my $readrow_table      = $self->{_readrow_tables}->[0];
     my $readrow_table_info = $self->{_readrow_tables}->[1];
+    my $extra_actions      = $readrow_table_info->{actions} || {};
+    my @extra_actions_array =
+      map { $self->action_link( $_, $extra_actions->{$_} ) }
+      keys %$extra_actions;
+    my $extra_actions_html =
+      (@extra_actions_array)
+      ? ' (' . join( ', ', @extra_actions_array ) . ')'
+      : '';
 
     return $q->h2( $self->format_title("editing $item_name:") . ' '
           . $self->get_row_name() ),
@@ -2359,10 +2367,7 @@ sub readrow_body {
       (
         ( defined $readrow_table )
         ? (
-            $q->h3(
-                    $readrow_table_info->{heading} . ' '
-                  . $self->action_link( 'form_assign', '(assign)' )
-            ),
+            $q->h3( $readrow_table_info->{heading} . $extra_actions_html ),
             $q->div(
                 $q->a(
                     { -id => $self->{dom_export_link_id} },

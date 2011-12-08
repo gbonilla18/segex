@@ -196,9 +196,12 @@ sub new {
                 names => [qw/sample1 sample2/]
             },
         },
-        _default_table => 'platform',
-        _readrow_tables =>
-          [ 'study' => { heading => 'All Studies Assigned to this Platform' } ],
+        _default_table  => 'platform',
+        _readrow_tables => [
+            'study' => {
+                heading => 'All Studies Assigned to this Platform'
+            }
+        ],
 
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
