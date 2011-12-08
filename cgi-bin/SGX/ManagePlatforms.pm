@@ -196,8 +196,9 @@ sub new {
                 names => [qw/sample1 sample2/]
             },
         },
-        _default_table  => 'platform',
-        _readrow_tables => [ 'study' => {} ],
+        _default_table => 'platform',
+        _readrow_tables =>
+          [ 'study' => { heading => 'All Studies Assigned to this Platform' } ],
 
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
@@ -261,22 +262,6 @@ sub init {
           { head => 'form_assign_head', body => 'form_assign_body' } );
 
     return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManagePlatforms
-#       METHOD:  readrow_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Overrides CRUD readrow_body
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readrow_body {
-    my $self = shift;
-    return $self->SUPER::readrow_body(
-        [ '', 'All Studies Assigned to this Platform' ] );
 }
 
 1;

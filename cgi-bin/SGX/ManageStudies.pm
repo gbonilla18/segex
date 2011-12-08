@@ -176,6 +176,7 @@ sub new {
         _default_table  => 'study',
         _readrow_tables => [
             'experiment' => {
+                heading    => 'All Experiments in this Study',
                 remove_row => { verb => 'unassign', table => 'StudyExperiment' }
             },
         ],
@@ -417,22 +418,6 @@ qq/You can select multiple experiments here by holding down Control or Command k
         )
       ),
       $q->end_form;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageStudies
-#       METHOD:  readrow_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Overrides CRUD readrow_body
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readrow_body {
-    my $self = shift;
-    return $self->SUPER::readrow_body(
-        [ 'Assign Experiments', 'All Experiments in the Study' ] );
 }
 
 #===  CLASS METHOD  ============================================================

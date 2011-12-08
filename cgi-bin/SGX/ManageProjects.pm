@@ -110,8 +110,8 @@ sub new {
                 view  => [qw/pname/],
                 names => [qw/pname/],
                 meta  => {
-                    pid     => { label => 'Platform', parser => 'number' },
-                    pname   => { label => 'Platform' },
+                    pid   => { label => 'Platform', parser => 'number' },
+                    pname => { label => 'Platform' },
                 },
                 join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
             },
@@ -124,8 +124,10 @@ sub new {
         },
         _default_table  => 'project',
         _readrow_tables => [
-            'study' =>
-              { remove_row => { verb => 'unassign', table => 'ProjectStudy' } }
+            'study' => {
+                heading    => 'All Studies in this Project',
+                remove_row => { verb => 'unassign', table => 'ProjectStudy' }
+            }
         ],
 
         _ProjectStudyExperiment =>
@@ -273,22 +275,6 @@ qq/You can select multiple studies here by holding down Control or Command key b
         )
       ),
       $q->end_form;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  readrow_body
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Overrides CRUD readrow_body
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub readrow_body {
-    my $self = shift;
-    return $self->SUPER::readrow_body(
-        [ 'Assign Studies', 'All Studies in the Project' ] );
 }
 
 #===  CLASS METHOD  ============================================================

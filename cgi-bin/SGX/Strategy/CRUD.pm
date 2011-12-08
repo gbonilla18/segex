@@ -2340,31 +2340,29 @@ sub get_row_name {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub readrow_body {
-    my $self         = shift;
-    my $extra_titles = shift;
-    my $assign_title = ( defined $extra_titles ) ? $extra_titles->[0] : '';
-
-    my $q = $self->{_cgi};
-
-    my $table_info = $self->{_table_defs}->{ $self->{_default_table} };
+    my $self       = shift;
+    my $q          = $self->{_cgi};
+    my $table_defs = $self->{_table_defs};
+    my $table_info = $table_defs->{ $self->{_default_table} };
     my $item_name  = $table_info->{item_name};
 
-    # :TODO:08/11/2011 16:35:27:es:  here breadcrumbs would be useful
+    # :TODO:08/11/2011 16:35:27:es: breadcrumbs would be useful here
+
+    my $readrow_table      = $self->{_readrow_tables}->[0];
+    my $readrow_table_info = $self->{_readrow_tables}->[1];
+
     return $q->h2( $self->format_title("editing $item_name:") . ' '
           . $self->get_row_name() ),
 
-      $self->body_create_read_menu(
-        'read'   => [ undef,         $self->format_title("edit $item_name") ],
-        'create' => [ 'form_assign', $assign_title ]
-      ),
       $q->h3( $self->format_title("set $item_name attributes") ),
-
       $self->body_create_update_form( mode => 'update' ),
-
       (
-        ( defined $extra_titles )
+        ( defined $readrow_table )
         ? (
-            $q->h3( $extra_titles->[1] ),
+            $q->h3(
+                    $readrow_table_info->{heading} . ' '
+                  . $self->action_link( 'form_assign', '(assign)' )
+            ),
             $q->div(
                 $q->a(
                     { -id => $self->{dom_export_link_id} },
@@ -2452,9 +2450,9 @@ sub form_create_body {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub body_create_update_form {
-    my $self = shift;
-    my %args = @_;
-    my $mode = $args{mode} || 'create';
+    my $self       = shift;
+    my %args       = @_;
+    my $mode       = $args{mode} || 'create';
     my $cgi_extras = $args{cgi_extras};
 
     my ( $q, $js ) = @$self{qw/_cgi _js_emitter/};
@@ -2602,8 +2600,8 @@ sub body_edit_fields {
                         ? $q->a(
                             {
                                 -href => $self->get_resource_uri(
-                                    a => $tied_table->{resource},
-                                    b => 'form_create',
+                                    a  => $tied_table->{resource},
+                                    b  => 'form_create',
                                     id => undef
                                 ),
                                 -title => "Click to add a new $item_name first",
@@ -2671,43 +2669,47 @@ sub body_create_read_menu {
     my ( $self, %args ) = @_;
     my $q = $self->{_cgi};
 
-  # :TODO:09/22/2011 01:36:59:es: fix undefined value bug (appears in Manage...)
-  #warn "$self->{_ActionName} eq $args{'create'}->[0]";
-  #warn Dumper(\%args);
-  #warn ((defined $args{'create'}->[0]) ? 'defined' : '?');
-
     return $q->ul(
         { -id => 'cr_menu', -class => 'clearfix' },
-        ( $self->{_ActionName} eq $args{'create'}->[0] )
-        ? (
-            $q->li(
-                $q->a(
-                    {
-                        -href =>
-                          $self->get_resource_uri( b => $args{'read'}->[0] ),
-                        -title => $self->format_title( $args{'read'}->[1] )
-                    },
-                    $args{'read'}->[1]
-                )
-            ),
-            $q->li( $args{'create'}->[1] )
-          )
-        : (
-            $q->li( $args{'read'}->[1] ),
-            $q->li(
-                $q->a(
-                    {
-                        -href =>
-                          $self->get_resource_uri( b => $args{'create'}->[0] ),
-                        -title => $self->format_title(
-                            $args{'create'}->[1] . ' ' . $self->get_item_name()
-                        )
-                    },
-                    $args{'create'}->[1]
-                )
-            )
-        )
+        $q->li( $self->action_link( @{ $args{'read'} } ) ),
+        $q->li( $self->action_link( @{ $args{'create'} } ) )
     );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CRUD
+#       METHOD:  action_link
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub action_link {
+    my $self   = shift;
+    my $action = shift;
+    my $value  = shift;
+    my $title  = shift;
+
+    my $q = $self->{_cgi};
+
+    return
+      (
+        ( !defined($action) and $self->{_ActionName} eq '' )
+          or ( defined($action)
+            and $self->{_ActionName} eq $action )
+      ) ? $value
+      : $q->a(
+        {
+            -href => $self->get_resource_uri( b => $action ),
+            (
+                  ( defined $title ) ? ( -title => $self->format_title($title) )
+                : ()
+            )
+        },
+        $value
+      );
 }
 
 1;
