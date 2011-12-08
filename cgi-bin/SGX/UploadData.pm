@@ -140,6 +140,9 @@ sub uploadData {
       eval { $self->loadToDatabase_execute( $sth_hash, $outputFileName ) }
       || 0;
 
+    # file is not delete automatically so we do it using code here...
+    unlink $outputFileName;
+
     if ( my $exception = $@ ) {
         $dbh->rollback;
         $self->loadToDatabase_finish($sth_hash);
@@ -439,7 +442,7 @@ sub loadToDatabase_finish {
     my ( $self, $sth_hash ) = @_;
 
     for my $sth ( values %$sth_hash ) {
-        $sth->finish() if ref $sth ne 'CODE';
+        $sth->finish() if defined($sth) and ref $sth ne 'CODE';
     }
 
     return 1;
