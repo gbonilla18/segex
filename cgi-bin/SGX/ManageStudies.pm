@@ -67,6 +67,7 @@ sub new {
                     },
                     pubmed => {
                         label        => 'PubMed',
+                        formatter    => sub { 'formatPubMed' },
                         -maxlength   => 255,
                         __optional__ => 1
                     },
