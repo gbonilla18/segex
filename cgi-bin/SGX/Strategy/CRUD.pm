@@ -215,7 +215,8 @@ sub _head_data_table {
         cell_updater         => $var->{cellUpdater},
         cell_dropdown        => $var->{cellDropdown},
         lookup_tables        => $lookupTables,
-        cell_dropdown_direct => $var->{cellDropdownDirect}
+        cell_dropdown_direct => $var->{cellDropdownDirect},
+        readonly             => $args{readonly}
     );
 
     my @column_defs = (
@@ -595,7 +596,7 @@ sub readrow_head {
     # other tables if any are specified
     foreach ( tuples( $self->{_readrow_tables} ) ) {
         my ( $table => $opts ) = @$_;
-        $self->generate_datatable( $table, %$opts );
+        $self->generate_datatable( $table, readonly => 1, %$opts );
     }
 
     $self->_js_dump_lookups();
@@ -885,11 +886,12 @@ sub _head_column_def {
     my $_other = $self->{_other};
 
     my $table_defs = $self->{_table_defs};
-    my $table_info = $self->{table_info}
+    my $table_info = $args{table_info}
       || $table_defs->{ $self->{_default_table} };
     my $meta = $table_info->{meta};
 
-    my %mutable =
+    my %mutable;
+    %mutable =
       map { $_ => 1 } $self->_select_fields(
         table    => $table_info,
         fieldset => [
@@ -900,7 +902,7 @@ sub _head_column_def {
             map { $_->[0] } list_values( @{ $table_info->{lookup} } )
         ],
         omitting => [ '__readonly__', '__special__' ]
-      );
+      ) if not $args{readonly};
 
     my $js                   = $args{js_emitter};
     my $data_table           = $args{data_table};

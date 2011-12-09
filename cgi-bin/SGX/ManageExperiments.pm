@@ -58,7 +58,11 @@ sub new {
                     stid => { label => 'No.', parser => 'number' },
                     description =>
                       { label => 'Description', __readonly__ => 1 },
-                    pubmed => { label => 'PubMed', __readonly__ => 1 }
+                    pubmed => {
+                        label        => 'PubMed',
+                        __readonly__ => 1,
+                        formatter    => sub { 'formatPubMed' }
+                    }
                 },
                 join => [
                     StudyExperiment => [

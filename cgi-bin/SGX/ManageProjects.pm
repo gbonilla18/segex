@@ -83,8 +83,13 @@ sub new {
                 meta      => {
                     stid => { label => 'No.', parser => 'number' },
                     description => { label => 'Description' },
-                    pubmed      => { label => 'PubMed ID' },
-                    pid         => {
+                    pubmed      => {
+                        label     => 'PubMed ID',
+                        formatter => sub {
+                            'formatPubMed';
+                          }
+                    },
+                    pid => {
                         label      => 'Platform',
                         parser     => 'number',
                         __hidden__ => 1
