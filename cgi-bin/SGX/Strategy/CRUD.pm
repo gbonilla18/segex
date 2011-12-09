@@ -611,6 +611,7 @@ END_css
     push @$code, <<END_onload;
 YAHOO.util.Event.addListener(window, 'load', function() {
     var tabView = new YAHOO.widget.TabView('property_editor');
+    selectTabFromHash(tabView);
 });
 END_onload
 
