@@ -361,11 +361,16 @@ function subscribeEnMasse(el, obj) {
 
 // helper functions
 function formatEmail(elLiner, oRecord, oColumn, oData) {
-    elLiner.innerHTML = "<a href=\"mailto:" + oData + "\">" + oData + "</a>";
+    elLiner.innerHTML = (oData !== null) 
+        ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>"
+        : '';
 }
+
 function formatPubMed(elLiner, oRecord, oColumn, oData) {
-    elLiner.innerHTML = oData.replace(/\bPMID *: *([0-9]+)\b/gi, 
-        '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>');
+    elLiner.innerHTML = (oData !== null) 
+        ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, 
+        '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>')
+        : '';
 }
 
 // returns a new array containing a specified subset of the old one
