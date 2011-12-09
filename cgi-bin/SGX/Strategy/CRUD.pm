@@ -9,6 +9,7 @@ require Tie::IxHash;
 require Lingua::EN::Inflect;
 require Text::Autoformat;
 use Scalar::Util qw/looks_like_number/;
+use SGX::Config qw/$IMAGES_DIR/;
 
 use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal/;
 use SGX::Abstract::Exception ();
@@ -598,6 +599,20 @@ sub readrow_head {
         my ( $table => $opts ) = @$_;
         $self->generate_datatable( $table, readonly => 1, %$opts );
     }
+
+    # background image from: http://subtlepatterns.com/?p=703
+    push @{ $self->{_css_src_code} }, +{ -code => <<END_css};
+.yui-skin-sam .yui-navset .yui-content { background-image:url('$IMAGES_DIR/fancy_deboss.png'); border-color:#ccc; }
+END_css
+
+    push @{ $self->{_css_src_yui} }, ('tabview/assets/skins/sam/tabview.css');
+    push @{ $self->{_js_src_yui} },  ('tabview/tabview-min.js');
+    my $code = $self->{_js_buffer};
+    push @$code, <<END_onload;
+YAHOO.util.Event.addListener(window, 'load', function() {
+    var tabView = new YAHOO.widget.TabView('property_editor');
+});
+END_onload
 
     $self->_js_dump_lookups();
     $self->_js_populate_dropdowns();    # will use default table
@@ -2209,7 +2224,7 @@ sub _head_init {
         'paginator/assets/skins/sam/paginator.css',
         'datatable/assets/skins/sam/datatable.css'
       );
-    push @{ $self->{_css_src_code} }, ( +{ -src => 'CRUD.css' } );
+    push @{ $self->{_css_src_code} }, +{ -src => 'CRUD.css' };
     push @{ $self->{_js_src_yui} },
       (
         'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
@@ -2364,21 +2379,44 @@ sub readrow_body {
     return $q->h2( $self->format_title("editing $item_name:") . ' '
           . $self->get_row_name() ),
 
-      $q->h3( $self->format_title("set $item_name attributes") ),
-      $self->body_create_update_form( mode => 'update' ),
-      (
-        ( defined $readrow_table )
-        ? (
-            $q->h3( $readrow_table_info->{heading} . $extra_actions_html ),
-            $q->div(
+      $q->div(
+        { -id => 'property_editor', -class => 'yui-navset' },
+        $q->ul(
+            { -class => 'yui-nav' },
+            $q->li(
+                { -class => 'selected' },
                 $q->a(
-                    { -id => $self->{dom_export_link_id} },
-                    'View as plain text'
+                    { -href => '#tab1' },
+                    $q->em( $self->format_title("$item_name attributes") )
                 )
             ),
-            $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} } )
-          )
-        : ()
+            (
+                ( defined $readrow_table ) ? $q->li(
+                    $q->a(
+                        { -href => '#tab2' },
+                        $q->em( $readrow_table_info->{heading} )
+                    )
+                  ) : ()
+            )
+        ),
+        $q->div(
+            { -class => 'yui-content' },
+            $q->div( $self->body_create_update_form( mode => 'update' ) ),
+            (
+                ( defined $readrow_table ) ? $q->div(
+                    $q->p( $extra_actions_html ),
+                    $q->div(
+                        $q->a(
+                            { -id => $self->{dom_export_link_id} },
+                            'View as plain text'
+                        )
+                    ),
+                    $q->div(
+                        { -class => 'clearfix', -id => $self->{dom_table_id} }
+                    )
+                  ) : ()
+            )
+        )
       );
 }
 
@@ -2478,7 +2516,9 @@ sub body_create_update_form {
                         $self->_select_fields(
                             omitting => [
                                 '__optional__',
-                                ( $mode ne 'create' ) ? '__createonly__' : ()
+                                ( $mode ne 'create' )
+                                ? '__createonly__'
+                                : ()
                             ]
                         )
                     ]
@@ -2640,7 +2680,10 @@ sub body_edit_fields {
                 push @tmp,
                   (
                     $q->dt(
-                        { -id => "${symbol}_dt", -class => $label_class },
+                        {
+                            -id    => "${symbol}_dt",
+                            -class => $label_class
+                        },
                         $q->label(
                             { -for => $symbol . $suffix },
                             "Confirm $label:"
