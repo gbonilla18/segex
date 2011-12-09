@@ -201,7 +201,7 @@ sub new {
         },
         _default_table => 'platform',
         _readrow_tables =>
-          [ 'study' => { heading => 'All Studies Assigned to this Platform' } ],
+          [ 'study' => { heading => 'Studies Assigned to this Platform' } ],
 
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
