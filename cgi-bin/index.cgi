@@ -8,10 +8,9 @@ use warnings;
 #---------------------------------------------------------------------------
 # CGI options: -nosticky option prevents CGI.pm from printing hidden .cgifields
 # inside a form. By default, CGI.pm versions 2.69 and higher emit XHTML. The
-# -no_xhtml pragma disables this feature. 
+# -no_xhtml pragma disables this feature.
+#use CGI::Pretty 2.47 qw/-nosticky -private_tempfiles -no_xhtml/;
 use CGI 2.47 qw/-nosticky -private_tempfiles -no_xhtml/;
-
-#use CGI::Pretty 2.47 qw/-nosticky/;
 use Carp qw/croak/;
 
 #---------------------------------------------------------------------------

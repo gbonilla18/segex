@@ -29,8 +29,10 @@ my $all_resources = {
       { label => 'Upload Data', title => 'Upload data to a new experiment' },
     uploadAnnot =>
       { label => 'Upload Annotation', title => 'Upload probe annotations' },
-    uploadGO =>
-      { label => 'Upload GO Terms', title => 'Upload Gene Ontology term names and definitions' },
+    uploadGO => {
+        label => 'Upload GO Terms',
+        title => 'Upload Gene Ontology term names and definitions'
+    },
 };
 
 sub make_link_creator {
@@ -121,13 +123,14 @@ sub get_content {
     my $self          = shift;
     my $friend_object = $self->{_strategy_base};
     my $q             = $friend_object->{_cgi};
+
     #my $s             = $friend_object->{_UserSession};
     return (
         cgi_start_html($friend_object),
-        content_header($friend_object),
 
         # -- do not delete line below -- useful for debugging cookie sessions
         #SGX::Debug::dump_cookies_sent_to_user($s),
+        content_header($friend_object),
         $q->div(
             { -id => 'content' }, view_show_messages($friend_object),
             $friend_object->dispatch()
@@ -397,9 +400,10 @@ sub build_menu {
     my @menu = (
         'Query' =>
           $link_creator->(qw/compareExperiments findProbes outputData/),
-        'Manage' =>
-          $link_creator->(qw/experiments studies projects platforms species users/),
-        'Upload' => $link_creator->(qw/experiments&b=form_create uploadAnnot uploadGO/)
+        'Manage' => $link_creator->(
+            qw/experiments studies projects platforms species users/),
+        'Upload' =>
+          $link_creator->(qw/experiments&b=form_create uploadAnnot uploadGO/)
     );
 
     my @result;

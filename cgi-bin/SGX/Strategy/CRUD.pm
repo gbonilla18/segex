@@ -2378,7 +2378,6 @@ sub readrow_body {
 
     return $q->h2( $self->format_title("editing $item_name:") . ' '
           . $self->get_row_name() ),
-
       $q->div(
         { -id => 'property_editor', -class => 'yui-navset' },
         $q->ul(
@@ -2404,7 +2403,7 @@ sub readrow_body {
             $q->div( $self->body_create_update_form( mode => 'update' ) ),
             (
                 ( defined $readrow_table ) ? $q->div(
-                    $q->p( $extra_actions_html ),
+                    $q->p($extra_actions_html),
                     $q->div(
                         $q->a(
                             { -id => $self->{dom_export_link_id} },
@@ -2412,7 +2411,8 @@ sub readrow_body {
                         )
                     ),
                     $q->div(
-                        { -class => 'clearfix', -id => $self->{dom_table_id} }
+                        { -class => 'clearfix', -id => $self->{dom_table_id} },
+                        ''
                     )
                   ) : ()
             )
@@ -2547,7 +2547,7 @@ sub body_create_update_form {
             )
         )
       ),
-      $q->end_form;
+      $q->end_form();
 }
 
 #===  CLASS METHOD  ============================================================
