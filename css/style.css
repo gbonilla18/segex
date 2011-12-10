@@ -270,7 +270,15 @@ img#schema {
 	background-color:#f9f9f9;
 }
 .yui-skin-sam tr.yui-dt-odd,.yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-odd td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-odd td.yui-dt-desc {
-	background-color:#ededff;
+	background-color:#e0ebff;
+}
+.yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc
+{
+	background-color:#e0ebff;
+}
+.yui-skin-sam tr.yui-dt-odd td.yui-dt-asc,.yui-skin-sam tr.yui-dt-odd td.yui-dt-desc
+{
+	background-color:#cbdaff;
 }
 /************* tmp drag-drop ******************/
 div.workarea {
