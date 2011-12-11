@@ -2366,10 +2366,13 @@ sub readrow_body {
 
     # :TODO:08/11/2011 16:35:27:es: breadcrumbs would be useful here
 
-    my $readrow_table      = $self->{_readrow_tables}->[0];
-    my $readrow_table_info = $self->{_readrow_tables}->[1];
-    my $extra_actions      = $readrow_table_info->{actions} || {};
-    my $extra_actions_html = join(
+    my $edit_content_id = 'edit';
+
+    my $readrow_table            = $self->{_readrow_tables}->[0];
+    my $readrow_table_info       = $self->{_readrow_tables}->[1];
+    my $readrow_table_content_id = $self->pluralize_noun($readrow_table);
+    my $extra_actions            = $readrow_table_info->{actions} || {};
+    my $extra_actions_html       = join(
         ' <span class="separator">/</span> ',
         (
             map { $self->action_link( $_, $extra_actions->{$_} ) }
@@ -2387,14 +2390,14 @@ sub readrow_body {
             $q->li(
                 { -class => 'selected' },
                 $q->a(
-                    { -href => '#tab1' },
+                    { -href => "#$edit_content_id" },
                     $q->em( $self->format_title("$item_name attributes") )
                 )
             ),
             (
                 ( defined $readrow_table ) ? $q->li(
                     $q->a(
-                        { -href => '#tab2' },
+                        { -href => "#$readrow_table_content_id" },
                         $q->em( $readrow_table_info->{heading} )
                     )
                   ) : ()
@@ -2402,9 +2405,13 @@ sub readrow_body {
         ),
         $q->div(
             { -class => 'yui-content' },
-            $q->div( $self->body_create_update_form( mode => 'update' ) ),
+            $q->div(
+                { -id => $edit_content_id },
+                $self->body_create_update_form( mode => 'update' )
+            ),
             (
                 ( defined $readrow_table ) ? $q->div(
+                    { -id => $readrow_table_content_id },
                     $q->p($extra_actions_html),
                     $q->div(
                         { -class => 'clearfix', -id => $self->{dom_table_id} },
