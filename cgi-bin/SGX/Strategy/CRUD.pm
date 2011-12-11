@@ -2369,13 +2369,14 @@ sub readrow_body {
     my $readrow_table      = $self->{_readrow_tables}->[0];
     my $readrow_table_info = $self->{_readrow_tables}->[1];
     my $extra_actions      = $readrow_table_info->{actions} || {};
-    my @extra_actions_array =
-      map { $self->action_link( $_, $extra_actions->{$_} ) }
-      keys %$extra_actions;
-    my $extra_actions_html =
-      (@extra_actions_array)
-      ? ' (' . join( ', ', @extra_actions_array ) . ')'
-      : '';
+    my $extra_actions_html = join(
+        ' <span class="separator">/</span> ',
+        (
+            map { $self->action_link( $_, $extra_actions->{$_} ) }
+              keys %$extra_actions
+        ),
+        $q->a( { -id => $self->{dom_export_link_id} }, 'view as plain text' ),
+    );
 
     return $q->h2( $self->format_title("editing $item_name:") . ' '
           . $self->get_row_name() ),
@@ -2405,12 +2406,6 @@ sub readrow_body {
             (
                 ( defined $readrow_table ) ? $q->div(
                     $q->p($extra_actions_html),
-                    $q->div(
-                        $q->a(
-                            { -id => $self->{dom_export_link_id} },
-                            'View as plain text'
-                        )
-                    ),
                     $q->div(
                         { -class => 'clearfix', -id => $self->{dom_table_id} },
                         ''
