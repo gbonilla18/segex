@@ -7,6 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use Benchmark qw/timediff timestr/;
 use Scalar::Util qw/looks_like_number/;
+use SGX::Util qw/is_checked/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
 
@@ -305,6 +306,37 @@ sub form_create_body {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
+#       METHOD:  readrow_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::readrow_head
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub readrow_head {
+    my $self      = shift;
+    my $js_buffer = $self->{_js_buffer};
+    push @$js_buffer, <<"END_SETUPTOGGLES";
+setupToggles('click', {
+        'fileOpts': {
+            '-': ['file_opts_container']
+        }
+    },  
+    function(el) { return el.text.substr(0, 1); },
+    function(el) {
+        if (el.text.substr(0, 1) == '+') {
+            el.innerHTML = '-' + el.text.substr(1);
+        } else {
+            el.innerHTML = '+' + el.text.substr(1);
+        }
+});
+END_SETUPTOGGLES
+    return $self->SUPER::readrow_head();
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
 #       METHOD:  UploadGO_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -315,13 +347,15 @@ sub form_create_body {
 #===============================================================================
 sub UploadGO_head {
     my $self = shift;
+    my $q    = $self->{_cgi};
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         csv_in_opts => { quote_char => undef },
-        header      => 0,
-        process     => $process
+        header => ( is_checked( $q, 'go_header' ) ? 1 : 0 ),
+        separator => $q->param('go_separator'),
+        process   => $process
       );
 
     my $dbh        = $self->{_dbh};
@@ -404,7 +438,7 @@ end_dbi_sth_exception
             );
         }
         $dbh->{AutoCommit} = $old_AutoCommit;
-        $self->SUPER::readrow_head();
+        $self->readrow_head();
         return 1;
     };
     $dbh->commit;
@@ -412,12 +446,13 @@ end_dbi_sth_exception
     my $t1 = Benchmark->new();
     unlink $outputFileName;
 
-    $self->add_message(sprintf(<<END_success, timestr(timediff($t1, $t0))));
+    $self->add_message(
+        sprintf( <<END_success, timestr( timediff( $t1, $t0 ) ) ) );
 Success! Found $recordsValid valid entries; created $recordsUpdated links
 between probe IDs and GO terms. The operation took %s.
 END_success
 
-    $self->SUPER::readrow_head();
+    $self->readrow_head();
     return 1;
 }
 
@@ -445,9 +480,7 @@ annotation (second column) consisting of one or more GO terms (GO:0028371,
 GO:0043901...). Note: this will remove existing GO annotations from this platform
 before adding new annotations.
 END_info
-            $q->pre(<<END_pre),
-Probe_ID    GO_term(s)
-END_pre
+            $q->pre("Probe_ID\tGO_term(s)"),
             $q->start_form(
                 -method  => 'POST',
                 -enctype => 'multipart/form-data',
@@ -462,6 +495,40 @@ END_pre
                     $q->filefield(
                         -name  => 'file',
                         -title => 'File containing probe-GO term annotation'
+                    ),
+                    $q->p( $q->a( { -id => 'fileOpts' }, '+ File options' ) ),
+                    $q->div(
+                        {
+                            -id    => 'file_opts_container',
+                            -class => 'dd_collapsible'
+                        },
+                        $q->p(
+                            $q->radio_group(
+                                -name   => 'go_separator',
+                                -values => [ "\t", ',' ],
+                                -labels => {
+                                    ','  => 'Comma-separated',
+                                    "\t" => 'Tab-separated'
+                                },
+                                -default => (
+                                    defined $q->param('go_separator')
+                                    ? $q->param('go_separator')
+                                    : "\t"
+                                )
+                            )
+                        ),
+                        $q->p(
+                            $q->checkbox(
+                                -name    => 'go_header',
+                                -checked => (
+                                    is_checked( $q, 'go_header' ) ? 1
+                                    : 0
+                                ),
+                                -value => '1',
+                                -label => 'First line is a header'
+                            ),
+                            $q->hidden( -name => 'go_header', -value => '1' )
+                        )
                     )
                 ),
                 $q->dt('&nbsp;'),

@@ -7,16 +7,10 @@ use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Debug;
 use Scalar::Util qw/looks_like_number/;
+use SGX::Util qw/is_checked/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 
-sub is_checked {
-    my $q     = shift;
-    my $field = shift;
-
-    my @result = $q->param($field);
-    return ( @result > 1 ? 1 : () );
-}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments

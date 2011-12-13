@@ -10,7 +10,7 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
-  equal bind_csv_handle notp/;
+  equal bind_csv_handle notp is_checked/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -54,6 +54,25 @@ sub all_match {
     return ( $args{ignore_undef} )
       ? sub { !defined || m/$regex/ || return for @_; return 1 }
       : sub { ( defined && m/$regex/ ) || return for @_; return 1 };
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  is_checked
+#      PURPOSE:  
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Determines whether checkbox is checked (requires two fields:
+#                checkbox and a hidden field with the same name to work).
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub is_checked {
+    my $q     = shift;
+    my $field = shift;
+
+    my @result = $q->param($field);
+    return ( @result > 1 ? 1 : () );
 }
 
 #===  FUNCTION  ================================================================
