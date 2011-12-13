@@ -100,7 +100,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=137 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=143 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -122,6 +122,23 @@ CREATE TABLE `gene` (
   KEY `seqname` (`seqname`),
   KEY `accnum` (`accnum`)
 ) ENGINE=InnoDB AUTO_INCREMENT=360282 DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `go_link`
+--
+
+DROP TABLE IF EXISTS `go_link`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `go_link` (
+  `rid` int(10) unsigned NOT NULL,
+  `go_acc` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`rid`,`go_acc`),
+  KEY `rid` (`rid`),
+  KEY `go_acc` (`go_acc`),
+  CONSTRAINT `go_link_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -323,4 +340,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2011-12-07 11:51:07
+-- Dump completed on 2011-12-12  4:57:22

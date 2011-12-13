@@ -106,16 +106,21 @@ sub get_resource_uri {
     my ( $self, %args )   = @_;
     my ( $q,    $action ) = @$self{qw/_cgi _ResourceName/};
 
-    my %overridden = ( a => $action, %args );
+    my %overridden = (
+        a => $action,
+        %args
+    );
     my @components;
     while ( my ( $key, $value ) = each %overridden ) {
-        if ( defined $value ) {
+        if ( defined $value and $key ne '#' ) {
             push @components, uri_escape($key) . '=' . uri_escape($value);
         }
     }
+    my $hashtag = $overridden{'#'};
     my $ret =
-      $q->url( -absolute => 1 )
-      . ( (@components) ? '?' . join( '&', @components ) : '' );
+        $q->url( -absolute => 1 )
+      . ( (@components) ? '?' . join( '&', @components ) : '' )
+      . ( defined $hashtag ? "#$hashtag" : '' );
     return $ret;
 }
 
@@ -293,7 +298,9 @@ sub _dispatch_by {
     my $meta = ( $self->{_dispatch_tables} || {} )->{$action} || {};
 
     my $perm =
-      ( defined $meta->{perm} ) ? $meta->{perm} : $self->{_permission_level};
+      ( defined $meta->{perm} )
+      ? $meta->{perm}
+      : $self->{_permission_level};
 
     my $is_auth = $self->is_authorized($perm);
     if ( $is_auth == 1 ) {
@@ -363,8 +370,8 @@ sub _dispatch_by {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub prepare_head {
-    my $self = shift;
-    my $s = $self->{_UserSession};
+    my $self      = shift;
+    my $s         = $self->{_UserSession};
     my $show_html = $self->dispatch_js();
 
     # flush the session data and prepare cookies
@@ -372,6 +379,7 @@ sub prepare_head {
 
     return $show_html;
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
 #       METHOD:  dispatch_js
@@ -389,7 +397,9 @@ sub dispatch_js {
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
     # preliminary processing routine (e.g. create request handler) tells us so.
     #
-    return if $self->_dispatch_by( $self->get_dispatch_action() => 'redirect' );   # do not show body
+    # do not show body
+    return
+      if $self->_dispatch_by( $self->get_dispatch_action() => 'redirect' );
     return $self->_dispatch_by( $self->get_dispatch_action() => 'head' );
 }
 
@@ -429,7 +439,8 @@ sub dispatch {
     #
     my $q = $self->{_cgi};
     $q->delete_all();
-    return $self->_dispatch_by( $self->get_dispatch_action() => 'body' );    # show body
+    return $self->_dispatch_by( $self->get_dispatch_action() => 'body' )
+      ;    # show body
 }
 
 #===  CLASS METHOD  ============================================================

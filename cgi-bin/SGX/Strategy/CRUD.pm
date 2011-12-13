@@ -2359,6 +2359,8 @@ sub get_row_name {
 #===============================================================================
 sub readrow_body {
     my $self       = shift;
+    my $extra_tabs = shift;
+
     my $q          = $self->{_cgi};
     my $table_defs = $self->{_table_defs};
     my $table_info = $table_defs->{ $self->{_default_table} };
@@ -2401,7 +2403,8 @@ sub readrow_body {
                         $q->em( $readrow_table_info->{heading} )
                     )
                   ) : ()
-            )
+            ),
+            map { $q->li($_) } keys %$extra_tabs
         ),
         $q->div(
             { -class => 'yui-content' },
@@ -2418,7 +2421,8 @@ sub readrow_body {
                         ''
                     )
                   ) : ()
-            )
+            ),
+            values %$extra_tabs
         )
       );
 }
@@ -2544,7 +2548,7 @@ sub body_create_update_form {
             $q->hidden( -name => 'b', -value => $mode ),
             $q->submit(
                 -class => 'button black bigrounded',
-                -value => $mode,
+                -value => $self->format_title($mode),
                 -title =>
                   $self->format_title( $mode . ' ' . $self->get_item_name() )
             )

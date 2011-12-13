@@ -123,7 +123,7 @@ sub uploadData {
     my $delegate = $self->{delegate};
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
-      SGX::CSV::sanitizeUploadWithMessages( $delegate, $inputField, \@parser );
+      SGX::CSV::sanitizeUploadWithMessages( $delegate, $inputField, parser => \@parser );
 
     # some valid records uploaded -- now load to the database
     my $dbh = $delegate->{_dbh};

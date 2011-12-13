@@ -20,14 +20,13 @@ use SGX::Debug;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub sanitizeUploadWithMessages {
-    my ( $delegate, $inputField, $parser, $csv_in_opts ) = @_;
+    my ( $delegate, $inputField, %args ) = @_;
 
     my $q = $delegate->{_cgi};
 
     my $recordsValid   = 0;
     my $outputFileName = eval {
-        sanitizeUploadFile( $q, $inputField, $parser, \$recordsValid,
-            $csv_in_opts );
+        sanitizeUploadFile( $q, $inputField, \$recordsValid, %args );
     } || '';
 
     if ( my $exception = $@ ) {
@@ -62,7 +61,7 @@ sub sanitizeUploadWithMessages {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub sanitizeUploadFile {
-    my ( $q, $inputField, $parser, $recordsValid, $csv_in_opts ) = @_;
+    my ( $q, $inputField, $recordsValid, %args ) = @_;
 
     # This is where we put the temp file we will import. UNLINK option to
     # File::Temp constructor means that the File::Temp destructor will try to
@@ -83,19 +82,9 @@ sub sanitizeUploadFile {
       or SGX::Exception::Internal->throw(
         error => "Could not open $outputFileName for writing: $!\n" );
 
-    $$recordsValid = eval {
-        csv_rewrite(
-            $uploadedFile,
-            $OUTPUTTOSERVER,
-            $parser,
-            input_header => 1,
-            csv_in_opts  => {
-                sep_char         => "\t",
-                allow_whitespace => 1,
-                %{ $csv_in_opts || {} }
-            }
-        );
-    } || 0;
+    $$recordsValid =
+      eval { csv_rewrite( $uploadedFile, $OUTPUTTOSERVER, %args ); }
+      || 0;
 
     # In case of error, close files first and rethrow the exception
     if ( my $exception = $@ ) {
@@ -125,7 +114,7 @@ sub sanitizeUploadFile {
 #                    $parse - array of functions to validate input fields
 #
 #                Optional (named) with default values:
-#                    input_header => 0  - whether input contains a header
+#                    header => 0  - whether input contains a header
 #                    csv_in_opts  => {} - Input Text::CSV options, e.g.
 #                                         csv_in_opts => { sep_char => "\t" }
 #                    csv_out_opts => {} - Output Text::CSV options, e.g.
@@ -150,7 +139,7 @@ sub sanitizeUploadFile {
 #                http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm
 #===============================================================================
 sub csv_rewrite {
-    my ( $uploadedFile, $out, $parse, %param ) = @_;
+    my ( $uploadedFile, $out, %args ) = @_;
 
     # Read uploaded file in "slurp" mode (at once), and break it on the
     # following combinations of line separators in respective order: (1) CRLF
@@ -164,23 +153,27 @@ sub csv_rewrite {
     close $uploadedFile;
 
     # whether input file contains a header
-    my $input_header =
-      ( exists $param{input_header} )
-      ? $param{input_header}
+    my $header =
+      ( exists $args{header} )
+      ? $args{header}
       : 0;    # default: no header
 
     # Default value for sep_char is as indicated below unless overridden by
-    # $param{csv_out_opts}. Also, other Text::CSV options can be set through
-    # $param{csv_out_opts}.
-    my %csv_in_opts = ( sep_char => ',', %{ $param{csv_in_opts} || {} } );
+    # $args{csv_out_opts}. Also, other Text::CSV options can be set through
+    # $args{csv_out_opts}.
+    my %csv_in_opts = (
+        sep_char         => "\t",
+        allow_whitespace => 1,
+        %{ $args{csv_in_opts} || {} }
+    );
 
     # Default values for sep_char and eol are as indicated below unless
-    # overridden by $param{csv_out_opts}. Also, other Text::CSV options can be
-    # set through $param{csv_out_opts}.
+    # overridden by $args{csv_out_opts}. Also, other Text::CSV options can be
+    # set through $args{csv_out_opts}.
     my %csv_out_opts = (
         sep_char => ',',
         eol      => "\n",
-        %{ $param{csv_out_opts} || {} }
+        %{ $args{csv_out_opts} || {} }
     );
 
     my $csv_in  = Text::CSV->new( \%csv_in_opts );
@@ -199,22 +192,22 @@ sub csv_rewrite {
       ? all_match( qr/^$/,    ignore_undef => 1 )
       : all_match( qr/^\s*$/, ignore_undef => 1 );
 
-    for ( my $line_num = 1 ; $csv_in->parse( shift @lines ) ; $line_num++ ) {
-        my @fields = $csv_in->fields();
+    #---------------------------------------------------------------------------
+    #  default process routine
+    #---------------------------------------------------------------------------
+    my $parser = $args{parser};
 
-        # skip blank lines
-        next if $is_empty->(@fields);
-
-        # skip header if requested to
-        $record_num++;
-        next if $record_num == 1 and $input_header;
+    my $process = $args{process} || sub {
+        my $line_num = shift;
+        my $fields   = shift;
 
         # check total number of fields present
-        if ( @fields < @$parse ) {
-            my $fc         = @fields;
-            my $req_fields = @$parse;
-            SGX::Exception::User->throw( error =>
-"Only $fc field(s) found ($req_fields required) at line $line_num\n"
+        if ( @$fields < @$parser ) {
+            SGX::Exception::User->throw(
+                error => sprintf(
+                    "Only %d field(s) found (%d required) at line %d\n",
+                    scalar(@$fields), scalar(@$parser), $line_num
+                )
             );
         }
 
@@ -223,25 +216,36 @@ sub csv_rewrite {
         eval {
             @out_fields =
               map {
-                my $val = shift @fields;
+                my $val = shift @$fields;
                 ( defined $_ ) ? $_->( $val, $line_num ) : ()
-              } @$parse;
+              } @$parser;
         };
         if ( my $exception = $@ ) {
             if ( $exception->isa('SGX::Exception::Skip') ) {
-
-                # skip line
-                @out_fields = ();
+                @out_fields = ();    # skip line
             }
             else {
-
-                # rethrow otherwise
-                $exception->throw();
+                $exception->throw();    # rethrow otherwise
             }
         }
+        return \@out_fields;
+    };
 
-        # write to output
-        $csv_out->print( $out, \@out_fields ) if (@out_fields);
+    #---------------------------------------------------------------------------
+    #  main loop
+    #---------------------------------------------------------------------------
+    for ( my $line_num = 1 ; $csv_in->parse( shift @lines ) ; $line_num++ ) {
+        my @fields = $csv_in->fields();
+
+        # skip blank lines
+        next if $is_empty->(@fields);
+
+        # skip header if requested to
+        $record_num++;
+        next if $record_num == 1 and $header;
+
+        my $out_rows = $process->( $line_num, \@fields );
+        @$_ == 0 || $csv_out->print( $out, $_ ) for @$out_rows;
     }
 
     # check for errors

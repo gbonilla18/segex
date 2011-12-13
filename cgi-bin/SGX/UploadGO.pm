@@ -110,7 +110,10 @@ sub init {
     my $self = shift;
     $self->SUPER::init();
 
-    $self->set_attributes( _permission_level => 'admin' );
+    $self->set_attributes(
+        _permission_level => 'admin',
+        _title            => 'Upload GO Terms'
+    );
 
     $self->register_actions(
         'Upload Terms' => {
@@ -141,8 +144,12 @@ sub UploadTerms_head {
 
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
-      SGX::CSV::sanitizeUploadWithMessages( $self, 'file', \@term_parser,
-        { quote_char => undef } );
+      SGX::CSV::sanitizeUploadWithMessages(
+        $self, 'file',
+        parser      => \@term_parser,
+        csv_in_opts => { quote_char => undef },
+        header      => 0
+      );
 
     my $dbh = $self->{_dbh};
     my $sth = $dbh->prepare(<<"END_loadTerms");
@@ -181,8 +188,12 @@ sub UploadTermDefs_head {
 
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
-      SGX::CSV::sanitizeUploadWithMessages( $self, 'file',
-        \@term_definition_parser, { quote_char => undef } );
+      SGX::CSV::sanitizeUploadWithMessages(
+        $self, 'file',
+        parser      => \@term_definition_parser,
+        csv_in_opts => { quote_char => undef },
+        header      => 0
+      );
 
     my $dbh = $self->{_dbh};
 
@@ -286,8 +297,7 @@ END_info
 sub UploadTermDefs_body {
     my $self = shift;
     my $q    = $self->{_cgi};
-    return $q->p(
-        'You have successfully updated GO terms and definitions.');
+    return $q->p('You have successfully updated GO terms and definitions.');
 }
 
 #===  CLASS METHOD  ============================================================

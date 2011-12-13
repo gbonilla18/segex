@@ -130,7 +130,7 @@ sub new {
         _default_table  => 'project',
         _readrow_tables => [
             'study' => {
-                heading    => 'Studies in this Project',
+                heading    => 'Studies in Project',
                 actions    => { form_assign => 'assign' },
                 remove_row => { verb => 'unassign', table => 'ProjectStudy' }
             }

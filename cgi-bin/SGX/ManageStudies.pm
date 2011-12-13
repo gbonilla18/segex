@@ -177,7 +177,7 @@ sub new {
         _default_table  => 'study',
         _readrow_tables => [
             'experiment' => {
-                heading    => 'Experiments in this Study',
+                heading    => 'Experiments in Study',
                 actions    => { form_assign => 'assign' },
                 remove_row => { verb => 'unassign', table => 'StudyExperiment' }
             },

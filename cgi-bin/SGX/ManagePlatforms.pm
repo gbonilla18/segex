@@ -5,9 +5,42 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
+use Benchmark qw/timediff timestr/;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
+
+my $process = sub {
+    my $line_num = shift;
+    my $fields   = shift;
+
+    # check total number of fields present
+    if ( @$fields < 2 ) {
+        SGX::Exception::User->throw(
+            error => sprintf(
+                "Only %d field(s) found (2 required) at line %d\n",
+                scalar(@$fields), $line_num
+            )
+        );
+    }
+
+    # perform validation on each column
+    my $probe_id;
+    if ( $fields->[0] =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+        $probe_id = $1;
+    }
+    else {
+        SGX::Exception::User->throw(
+            error => "Cannot parse probe ID at line $line_num" );
+    }
+    my $go = $fields->[1];
+    my @gos;
+    while ( $go =~ /\bGO:(\d{7})\b/gi ) {
+        push @gos, $1 + 0;
+    }
+
+    return [ map { [ $probe_id, $_ ] } @gos ];
+};
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
@@ -201,7 +234,7 @@ sub new {
         },
         _default_table => 'platform',
         _readrow_tables =>
-          [ 'study' => { heading => 'Studies Assigned to this Platform' } ],
+          [ 'study' => { heading => 'Studies on this Platform' } ],
 
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
@@ -209,6 +242,29 @@ sub new {
     );
 
     bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
+    $self->register_actions(
+        form_assign =>
+          { head => 'form_assign_head', body => 'form_assign_body' },
+        uploadGO => { head => 'UploadGO_head', body => 'form_assign_body' }
+    );
+
     return $self;
 }
 
@@ -249,7 +305,7 @@ sub form_create_body {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
-#       METHOD:  init
+#       METHOD:  UploadGO_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -257,14 +313,171 @@ sub form_create_body {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub init {
+sub UploadGO_head {
     my $self = shift;
-    $self->SUPER::init();
+    require SGX::CSV;
+    my ( $outputFileName, $recordsValid ) =
+      SGX::CSV::sanitizeUploadWithMessages(
+        $self, 'file',
+        csv_in_opts => { quote_char => undef },
+        header      => 0,
+        process     => $process
+      );
 
-    $self->register_actions( form_assign =>
-          { head => 'form_assign_head', body => 'form_assign_body' } );
+    my $dbh        = $self->{_dbh};
+    my $temp_table = time() . '_' . getppid();
 
-    return $self;
+    my $old_AutoCommit = $dbh->{AutoCommit};
+    $dbh->{AutoCommit} = 0;
+
+    my $t0 = Benchmark->new();
+
+    my $sth_delete = $dbh->prepare(<<"END_delete");
+DELETE go_link FROM go_link 
+INNER JOIN probe USING(rid) 
+WHERE probe.pid=?
+END_delete
+
+    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
+CREATE TEMPORARY TABLE $temp_table (
+    reporter char(18) NOT NULL,
+    go_acc int(10) UNSIGNED NOT NULL
+) ENGINE=MEMORY
+END_loadTermDefs_createTemp
+
+    my $sth_load = $dbh->prepare(<<"END_loadTermDefs");
+LOAD DATA LOCAL INFILE ?
+INTO TABLE $temp_table
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
+    reporter,
+    go_acc
+)
+END_loadTermDefs
+
+    my $sth_insert = $dbh->prepare(<<"END_update");
+INSERT INTO go_link (rid, go_acc)
+SELECT
+    probe.rid,
+    temptable.go_acc
+FROM probe
+INNER JOIN $temp_table AS temptable USING(reporter) 
+WHERE probe.pid=?
+ON DUPLICATE KEY UPDATE go_link.rid=probe.rid, go_link.go_acc=temptable.go_acc
+END_update
+
+    my ( $recordsLoaded, $recordsUpdated );
+    my $pid = $self->{_id};
+    eval {
+        $sth_delete->execute($pid);
+        $sth_create_temp->execute();
+        $recordsLoaded  = $sth_load->execute($outputFileName);
+        $recordsUpdated = $sth_insert->execute($pid);
+    } or do {
+        my $exception = $@;
+        $dbh->rollback;
+        unlink $outputFileName;
+
+        $sth_create_temp->finish;
+        $sth_load->finish;
+        $sth_insert->finish;
+
+        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+
+            # catch dbi::sth exceptions. note: this block catches duplicate
+            # key record exceptions.
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    <<"end_dbi_sth_exception",
+Error loading data into the database. The database response was:\n\n%s.\n
+No changes to the database were stored.
+end_dbi_sth_exception
+                    $exception->error
+                )
+            );
+        }
+        else {
+            $self->add_message(
+                { -class => 'error' },
+'Error loading data into the database. No changes to the database were stored.'
+            );
+        }
+        $dbh->{AutoCommit} = $old_AutoCommit;
+        $self->SUPER::readrow_head();
+        return 1;
+    };
+    $dbh->commit;
+    $dbh->{AutoCommit} = $old_AutoCommit;
+    my $t1 = Benchmark->new();
+    unlink $outputFileName;
+
+    $self->add_message(sprintf(<<END_success, timestr(timediff($t1, $t0))));
+Success! Found $recordsValid valid entries; created $recordsUpdated links
+between probe IDs and GO terms. The operation took %s.
+END_success
+
+    $self->SUPER::readrow_head();
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
+#       METHOD:  readrow_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::readrow_body
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub readrow_body {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    my %param = (
+        $q->a( { -href => '#uploadGO' }, $q->em('GO Annotation') ) => $q->div(
+            { -id => '#uploadGO' },
+            $q->h3('Upload/Replace GO Annotation for this Platform'),
+            $q->p(<<"END_info"),
+Upload a tab-delimited file consisting of probe ids (first column) and GO
+annotation (second column) consisting of one or more GO terms (GO:0028371, 
+GO:0043901...). Note: this will remove existing GO annotations from this platform
+before adding new annotations.
+END_info
+            $q->pre(<<END_pre),
+Probe_ID    GO_term(s)
+END_pre
+            $q->start_form(
+                -method  => 'POST',
+                -enctype => 'multipart/form-data',
+                -action  => $self->get_resource_uri(
+                    b   => 'uploadGO',
+                    '#' => 'uploadGO'
+                )
+            ),
+            $q->dl(
+                $q->dt('Path to file:'),
+                $q->dd(
+                    $q->filefield(
+                        -name  => 'file',
+                        -title => 'File containing probe-GO term annotation'
+                    )
+                ),
+                $q->dt('&nbsp;'),
+                $q->dd(
+                    $q->submit(
+                        -name  => 'b',
+                        -value => 'Upload',
+                        -title => 'Upload GO annotation',
+                        -class => 'button black bigrounded'
+                    )
+                )
+            ),
+            $q->end_form
+        )
+    );
+    return $self->SUPER::readrow_body( \%param );
 }
 
 1;
