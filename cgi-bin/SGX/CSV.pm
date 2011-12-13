@@ -24,10 +24,10 @@ sub sanitizeUploadWithMessages {
 
     my $q = $delegate->{_cgi};
 
-    my $recordsValid   = 0;
-    my $outputFileName = eval {
-        sanitizeUploadFile( $q, $inputField, \$recordsValid, %args );
-    } || '';
+    my $recordsValid = 0;
+    my $outputFileName =
+      eval { sanitizeUploadFile( $q, $inputField, \$recordsValid, %args ); }
+      || '';
 
     if ( my $exception = $@ ) {
 
@@ -228,7 +228,7 @@ sub csv_rewrite {
                 $exception->throw();    # rethrow otherwise
             }
         }
-        return \@out_fields;
+        return [ \@out_fields ];
     };
 
     #---------------------------------------------------------------------------

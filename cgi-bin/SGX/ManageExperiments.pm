@@ -10,6 +10,14 @@ use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 
+sub is_checked {
+    my $q     = shift;
+    my $field = shift;
+
+    my @result = $q->param($field);
+    return ( @result > 1 ? 1 : () );
+}
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
 #       METHOD:  new
@@ -103,11 +111,47 @@ sub new {
                 names     => [qw/sample1 sample2/],
                 meta      => {
                     file => {
+                        label          => 'Upload Data File',
                         __type__       => 'filefield',
                         __special__    => 1,
                         __createonly__ => 1,
                         __readonly__   => 1,
-                        label          => 'Upload Data File'
+                        __extra_html__ => $q->p(
+                            $q->a( { -id => 'fileOpts' }, '+ File options' )
+                          )
+                          . $q->div(
+                            {
+                                -id    => 'file_opts_container',
+                                -class => 'dd_collapsible'
+                            },
+                            $q->p(
+                                $q->radio_group(
+                                    -name   => 'separator',
+                                    -values => [ "\t", ',' ],
+                                    -labels => {
+                                        ','  => 'Comma-separated',
+                                        "\t" => 'Tab-separated'
+                                    },
+                                    -default => (
+                                        defined $q->param('separator')
+                                        ? $q->param('separator')
+                                        : "\t"
+                                    )
+                                )
+                            ),
+                            $q->p(
+                                $q->checkbox(
+                                    -name    => 'header',
+                                    -checked => (
+                                        is_checked( $q, 'header' ) ? 1
+                                        : 0
+                                    ),
+                                    -value => '1',
+                                    -label => 'First line is a header'
+                                ),
+                                $q->hidden( -name => 'header', -value => '1' )
+                            )
+                          )
                     },
                     eid => {
                         label        => 'No.',
@@ -141,8 +185,7 @@ sub new {
                         parser   => 'number',
                         __type__ => 'popup_menu',
                         (
-                            looks_like_number($pid)
-                            ? ()
+                            looks_like_number($pid) ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
                         ),
 
@@ -341,6 +384,19 @@ setupToggles('change',
     { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
     function(el) { return ((getSelectedValue(el) !== '') ? 'defined' : ''); }
 );
+setupToggles('click', {
+        'fileOpts': {
+            '-': ['file_opts_container']
+        }
+    },  
+    function(el) { return el.text.substr(0, 1); },
+    function(el) {
+        if (el.text.substr(0, 1) == '+') {
+            el.innerHTML = '-' + el.text.substr(1);
+        } else {
+            el.innerHTML = '+' + el.text.substr(1);
+        }
+});
 $code
 END_SETUPTOGGLES
 
@@ -566,10 +622,18 @@ sub form_assign_head {
 #===============================================================================
 sub default_create {
     my $self = shift;
+    my $q    = $self->{_cgi};
 
     require SGX::UploadData;
     my $data = SGX::UploadData->new( delegate => $self );
-    my $recordsLoaded = eval { $data->uploadData('file') } || 0;
+
+    my $recordsLoaded = eval {
+        $data->uploadData(
+            filefield => 'file',
+            header    => ( is_checked( $q, 'header' ) ? 1 : 0 ),
+            separator => $q->param('separator')
+        );
+    } || 0;
     my $exception = $@;
     if ($recordsLoaded) {
         $self->{_upload_completed} = 1;

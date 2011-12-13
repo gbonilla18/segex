@@ -2594,6 +2594,8 @@ sub body_edit_fields {
             $symbol   => $meta,
             unlimited => $unlimited_mode
         );
+        my $extra_html = $meta->{__extra_html__} || '';
+
         my $method = $meta->{__type__} || 'textfield';
         my $label  = $meta->{label}    || $symbol;
 
@@ -2618,7 +2620,8 @@ sub body_edit_fields {
                             : ()
                         ),
                         %cgi_meta
-                    )
+                    ),
+                    $extra_html
                 )
               );
         }
@@ -2663,7 +2666,8 @@ sub body_edit_fields {
                             "(add new $item_name)"
                           )
                         : ()
-                    )
+                    ),
+                    $extra_html
                 )
               );
         }
@@ -2679,7 +2683,8 @@ sub body_edit_fields {
                     $q->$method(
                         -value => $id_data->{$symbol},
                         %cgi_meta
-                    )
+                    ),
+                    $extra_html
                 )
               );
             if ( $unlimited_mode && $meta->{__confirm__} ) {
@@ -2703,7 +2708,8 @@ sub body_edit_fields {
                             -id    => $cgi_meta{-id} . $suffix,
                             -title => $cgi_meta{-title}
                               . ' Again to Prevent Typos'
-                        )
+                        ),
+                        $extra_html
                     )
                   );
             }

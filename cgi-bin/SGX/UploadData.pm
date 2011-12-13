@@ -118,12 +118,19 @@ sub new {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub uploadData {
-    my ( $self, $inputField ) = @_;
+    my ( $self, %args ) = @_;
+
+    my $inputField = $args{filefield};
 
     my $delegate = $self->{delegate};
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
-      SGX::CSV::sanitizeUploadWithMessages( $delegate, $inputField, parser => \@parser );
+      SGX::CSV::sanitizeUploadWithMessages(
+        $delegate, $inputField,
+        parser      => \@parser,
+        csv_in_opts => { sep_char => $args{separator} },
+        header      => $args{header}
+      );
 
     # some valid records uploaded -- now load to the database
     my $dbh = $delegate->{_dbh};

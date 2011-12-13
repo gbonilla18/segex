@@ -438,7 +438,7 @@ sub readrow_body {
     my %param = (
         $q->a( { -href => '#uploadGO' }, $q->em('GO Annotation') ) => $q->div(
             { -id => '#uploadGO' },
-            $q->h3('Upload/Replace GO Annotation for this Platform'),
+            $q->h3('Upload/Replace GO Annotation (per Probe)'),
             $q->p(<<"END_info"),
 Upload a tab-delimited file consisting of probe ids (first column) and GO
 annotation (second column) consisting of one or more GO terms (GO:0028371, 
