@@ -195,7 +195,7 @@ sub csv_rewrite {
     #---------------------------------------------------------------------------
     #  default process routine
     #---------------------------------------------------------------------------
-    my $parser = $args{parser};
+    my $parser = $args{parser} || [];
 
     my $process = $args{process} || sub {
         my $line_num = shift;
@@ -219,15 +219,16 @@ sub csv_rewrite {
                 my $val = shift @$fields;
                 ( defined $_ ) ? $_->( $val, $line_num ) : ()
               } @$parser;
-        };
-        if ( my $exception = $@ ) {
+            1;
+        } or do {
+            my $exception = $@;
             if ( $exception->isa('SGX::Exception::Skip') ) {
                 @out_fields = ();    # skip line
             }
             else {
                 $exception->throw();    # rethrow otherwise
             }
-        }
+        };
         return [ \@out_fields ];
     };
 

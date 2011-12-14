@@ -7,11 +7,44 @@ use base qw/SGX::Strategy::CRUD/;
 
 use Benchmark qw/timediff timestr/;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/is_checked/;
+use SGX::Util qw/is_checked car/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
 
-my $process = sub {
+#---------------------------------------------------------------------------
+#  process row in accession number input file
+#---------------------------------------------------------------------------
+my $process_accnum = sub {
+    my $line_num = shift;
+    my $fields   = shift;
+
+    # check total number of fields present
+    if ( @$fields < 2 ) {
+        SGX::Exception::User->throw(
+            error => sprintf(
+                "Only %d field(s) found (2 required) at line %d\n",
+                scalar(@$fields), $line_num
+            )
+        );
+    }
+
+    # perform validation on each column
+    my $probe_id;
+    if ( $fields->[0] =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+        $probe_id = $1;
+    }
+    else {
+        SGX::Exception::User->throw(
+            error => "Cannot parse probe ID at line $line_num" );
+    }
+    my @accnums = map { $_ =~ /^(\S+)$/ } split /[,;\s]+/, $fields->[1];
+    return [ map { [ $probe_id, $_ ] } @accnums ];
+};
+
+#---------------------------------------------------------------------------
+#  process row in go link input file
+#---------------------------------------------------------------------------
+my $process_go = sub {
     my $line_num = shift;
     my $fields   = shift;
 
@@ -263,7 +296,9 @@ sub init {
     $self->register_actions(
         form_assign =>
           { head => 'form_assign_head', body => 'form_assign_body' },
-        uploadGO => { head => 'UploadGO_head', body => 'form_assign_body' }
+        uploadGO => { head => 'UploadGO_head', body => 'form_assign_body' },
+        uploadAccNum =>
+          { head => 'UploadAccNum_head', body => 'form_assign_body' }
     );
 
     return $self;
@@ -319,8 +354,21 @@ sub readrow_head {
     my $js_buffer = $self->{_js_buffer};
     push @$js_buffer, <<"END_SETUPTOGGLES";
 setupToggles('click', {
-        'fileOpts': {
-            '-': ['file_opts_container']
+        'goOpts': {
+            '-': ['goOpts_container']
+        }
+    },  
+    function(el) { return el.text.substr(0, 1); },
+    function(el) {
+        if (el.text.substr(0, 1) == '+') {
+            el.innerHTML = '-' + el.text.substr(1);
+        } else {
+            el.innerHTML = '+' + el.text.substr(1);
+        }
+});
+setupToggles('click', {
+        'accnumOpts': {
+            '-': ['accnumOpts_container']
         }
     },  
     function(el) { return el.text.substr(0, 1); },
@@ -337,6 +385,133 @@ END_SETUPTOGGLES
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
+#       METHOD:  UploadAccNum_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub UploadAccNum_head {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    my $separator = ( car $q->param('accnum_separator') ) || "\t";
+    require SGX::CSV;
+    my ( $outputFileName, $recordsValid ) =
+      SGX::CSV::sanitizeUploadWithMessages(
+        $self, 'fileAccNum',
+        csv_in_opts => { quote_char => undef },
+        header => ( is_checked( $q, 'accnum_header' ) ? 1 : 0 ),
+        separator => $separator,
+        process   => $process_accnum
+      );
+
+    my $dbh        = $self->{_dbh};
+    my $temp_table = time() . '_' . getppid();
+
+    my $old_AutoCommit = $dbh->{AutoCommit};
+    $dbh->{AutoCommit} = 0;
+
+    my $t0 = Benchmark->new();
+
+    my $sth_delete = $dbh->prepare(<<"END_delete");
+DELETE accnum FROM accnum 
+INNER JOIN probe USING(rid) 
+WHERE probe.pid=?
+END_delete
+
+    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
+CREATE TEMPORARY TABLE $temp_table (
+    reporter char(18) NOT NULL,
+    accnum char(20) NOT NULL
+) ENGINE=MEMORY
+END_loadTermDefs_createTemp
+
+    my $sth_load = $dbh->prepare(<<"END_loadTermDefs");
+LOAD DATA LOCAL INFILE ?
+INTO TABLE $temp_table
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
+    reporter,
+    accnum
+)
+END_loadTermDefs
+
+    my $sth_insert = $dbh->prepare(<<"END_update");
+INSERT INTO accnum (rid, accnum)
+SELECT
+    probe.rid,
+    temptable.accnum
+FROM probe
+INNER JOIN $temp_table AS temptable USING(reporter) 
+WHERE probe.pid=?
+ON DUPLICATE KEY UPDATE accnum.rid=probe.rid, accnum.accnum=temptable.accnum
+END_update
+
+    my ( $recordsLoaded, $recordsUpdated );
+    my $pid = $self->{_id};
+    eval {
+        $sth_delete->execute($pid);
+        $sth_create_temp->execute();
+        $recordsLoaded  = $sth_load->execute($outputFileName);
+        $recordsUpdated = $sth_insert->execute($pid);
+    } or do {
+        my $exception = $@;
+        $dbh->rollback;
+        unlink $outputFileName;
+
+        $sth_create_temp->finish;
+        $sth_load->finish;
+        $sth_insert->finish;
+
+        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+
+            # catch dbi::sth exceptions. note: this block catches duplicate
+            # key record exceptions.
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    <<"end_dbi_sth_exception",
+Error loading data into the database. The database response was:\n\n%s.\n
+No changes to the database were stored.
+end_dbi_sth_exception
+                    $exception->error
+                )
+            );
+        }
+        else {
+            $self->add_message(
+                { -class => 'error' },
+'Error loading data into the database. No changes to the database were stored.'
+            );
+        }
+        $dbh->{AutoCommit} = $old_AutoCommit;
+        $self->readrow_head();
+        return 1;
+    };
+    $dbh->commit;
+    $dbh->{AutoCommit} = $old_AutoCommit;
+    my $t1 = Benchmark->new();
+    unlink $outputFileName;
+
+    $self->add_message(
+        sprintf(
+            <<END_success,
+Success! Found %d valid entries; created %d links between probe IDs and
+accession numbers. The operation took %s.
+END_success
+            $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
+        )
+    );
+
+    $self->readrow_head();
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
 #       METHOD:  UploadGO_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -346,16 +521,18 @@ END_SETUPTOGGLES
 #     SEE ALSO:  n/a
 #===============================================================================
 sub UploadGO_head {
-    my $self = shift;
-    my $q    = $self->{_cgi};
+    my $self      = shift;
+    my $q         = $self->{_cgi};
+
+    my $separator = ( car $q->param('go_separator') ) || "\t";
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
-        $self, 'file',
+        $self, 'fileGO',
         csv_in_opts => { quote_char => undef },
         header => ( is_checked( $q, 'go_header' ) ? 1 : 0 ),
-        separator => $q->param('go_separator'),
-        process   => $process
+        separator => $separator,
+        process   => $process_go
       );
 
     my $dbh        = $self->{_dbh};
@@ -447,10 +624,14 @@ end_dbi_sth_exception
     unlink $outputFileName;
 
     $self->add_message(
-        sprintf( <<END_success, timestr( timediff( $t1, $t0 ) ) ) );
-Success! Found $recordsValid valid entries; created $recordsUpdated links
+        sprintf(
+            <<END_success,
+Success! Found %d valid entries; created %d links
 between probe IDs and GO terms. The operation took %s.
 END_success
+            $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
+        )
+    );
 
     $self->readrow_head();
     return 1;
@@ -471,9 +652,12 @@ sub readrow_body {
     my $q    = $self->{_cgi};
 
     my %param = (
-        $q->a( { -href => '#uploadGO' }, $q->em('GO Annotation') ) => $q->div(
-            { -id => '#uploadGO' },
-            $q->h3('Upload/Replace GO Annotation (per Probe)'),
+        $q->a( { -href => '#annotation' }, $q->em('Probe Annotation') ) =>
+          $q->div(
+            { -id => '#annotation' },
+
+            # GO annotation
+            $q->h3('Upload/Replace GO Annotation'),
             $q->p(<<"END_info"),
 Upload a tab-delimited file consisting of probe ids (first column) and GO
 annotation (second column) consisting of one or more GO terms (GO:0028371, 
@@ -482,24 +666,26 @@ before adding new annotations.
 END_info
             $q->pre("Probe_ID\tGO_term(s)"),
             $q->start_form(
-                -method  => 'POST',
-                -enctype => 'multipart/form-data',
-                -action  => $self->get_resource_uri(
+                -method   => 'POST',
+                -enctype  => 'multipart/form-data',
+                -onsubmit => 'return validate_fields(this, ["fileGO"]);',
+                -action   => $self->get_resource_uri(
                     b   => 'uploadGO',
-                    '#' => 'uploadGO'
+                    '#' => 'annotation'
                 )
             ),
             $q->dl(
                 $q->dt('Path to file:'),
                 $q->dd(
                     $q->filefield(
-                        -name  => 'file',
+                        -id    => 'fileGO',
+                        -name  => 'fileGO',
                         -title => 'File containing probe-GO term annotation'
                     ),
-                    $q->p( $q->a( { -id => 'fileOpts' }, '+ File options' ) ),
+                    $q->p( $q->a( { -id => 'goOpts' }, '+ File options' ) ),
                     $q->div(
                         {
-                            -id    => 'file_opts_container',
+                            -id    => 'goOpts_container',
                             -class => 'dd_collapsible'
                         },
                         $q->p(
@@ -541,8 +727,86 @@ END_info
                     )
                 )
             ),
+            $q->end_form,
+            $q->hr(),
+
+            # Annotation
+            $q->h3('Upload/Replace Accession Numbers'),
+            $q->p(<<"END_info"),
+Upload a tab-delimited file consisting of probe ids (first column) and
+associated accession numbers (second column) separated by space.  Note: this
+will remove existing accession number annotation from this platform before
+adding new annotations.
+END_info
+            $q->pre("Probe_ID\tAccession_Number(s)"),
+            $q->start_form(
+                -method   => 'POST',
+                -enctype  => 'multipart/form-data',
+                -onsubmit => 'return validate_fields(this, ["fileAccNum"]);',
+                -action   => $self->get_resource_uri(
+                    b   => 'uploadAccNum',
+                    '#' => 'annotation'
+                )
+            ),
+            $q->dl(
+                $q->dt('Path to file:'),
+                $q->dd(
+                    $q->filefield(
+                        -id   => 'fileAccNum',
+                        -name => 'fileAccNum',
+                        -title =>
+                          'File containing probe-accession number annotation'
+                    ),
+                    $q->p( $q->a( { -id => 'accnumOpts' }, '+ File options' ) ),
+                    $q->div(
+                        {
+                            -id    => 'accnumOpts_container',
+                            -class => 'dd_collapsible'
+                        },
+                        $q->p(
+                            $q->radio_group(
+                                -name   => 'accnum_separator',
+                                -values => [ "\t", ',' ],
+                                -labels => {
+                                    ','  => 'Comma-separated',
+                                    "\t" => 'Tab-separated'
+                                },
+                                -default => (
+                                    defined $q->param('accnum_separator')
+                                    ? $q->param('accnum_separator')
+                                    : "\t"
+                                )
+                            )
+                        ),
+                        $q->p(
+                            $q->checkbox(
+                                -name    => 'accnum_header',
+                                -checked => (
+                                    is_checked( $q, 'accnum_header' ) ? 1
+                                    : 0
+                                ),
+                                -value => '1',
+                                -label => 'First line is a header'
+                            ),
+                            $q->hidden(
+                                -name  => 'accnum_header',
+                                -value => '1'
+                            )
+                        )
+                    )
+                ),
+                $q->dt('&nbsp;'),
+                $q->dd(
+                    $q->submit(
+                        -name  => 'b',
+                        -value => 'Upload',
+                        -title => 'Upload accession number annotation',
+                        -class => 'button black bigrounded'
+                    )
+                )
+            ),
             $q->end_form
-        )
+          )
     );
     return $self->SUPER::readrow_body( \%param );
 }

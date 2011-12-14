@@ -204,6 +204,9 @@ input, select {
 input[type=radio],input[type=checkbox] {
 	margin-right:4px;
 }
+input[type=file] {
+	margin-bottom:0.5em;
+}
 /****** end Javascript form validation */
 
 /* Fieldset and legend styling: http://www.sitepoint.com/avantgo/article.php?aid=1569&pid=111 */
