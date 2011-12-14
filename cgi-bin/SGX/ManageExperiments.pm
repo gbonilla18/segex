@@ -109,7 +109,15 @@ sub new {
                         __special__    => 1,
                         __createonly__ => 1,
                         __readonly__   => 1,
-                        __extra_html__ => file_opts_html( $q, 'fileOpts' )
+                        __extra_html__ => $q->div(
+                            { -class => 'hint', -id => 'datafile_hint' },
+                            $q->p(
+                                'The file must contain the following columns:'),
+                            $q->pre(
+"Probe ID, Ratio, Fold Change, P-value, Intensity 1, Intensity 2"
+                            )
+                          )
+                          . file_opts_html( $q, 'fileOpts' )
                     },
                     eid => {
                         label        => 'No.',
@@ -324,18 +332,24 @@ sub get_id_data {
 #===============================================================================
 sub form_create_head {
     my $self = shift;
-    my ( $js, $js_buffer ) = @$self{qw/_js_emitter _js_buffer/};
 
     # add platform dropdown
     push @{ $self->{_js_src_code} },
       ( { -src => 'collapsible.js' },
         { -src => 'PlatformStudyExperiment.js' } );
 
-    push @$js_buffer, <<"END_SETUPTOGGLES" .
+    push @{$self->{_js_buffer}}, <<"END_SETUPTOGGLES" .
 YAHOO.util.Event.addListener(window,'load',function(){
     setupToggles('change',
         { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
         isDefinedSelection
+    );
+    setupToggles('change',
+        { 'file': { 'defined' : ['datafile_hint'] } },
+        function(el) { 
+            var val = el.value; 
+            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
+        }
     );
 });
 END_SETUPTOGGLES
@@ -398,14 +412,6 @@ sub form_create_body {
       $q->h3(
         $self->format_title( 'Upload data to a new ' . $self->get_item_name() )
       ),
-      $q->p(<<"END_TEXT1"),
-The data file must be in plain-text tab-delimited format with six columns shown
-below. Probe names can be either numbers or strings; all other fields must be numeric.
-The first row in the file must be a header row and the actual data should start
-with the second row.
-END_TEXT1
-      $q->pre(
-        'Probe Name, Ratio, Fold Change, P-value, Intensity 1, Intensity 2'),
 
       # form
       $self->body_create_update_form(

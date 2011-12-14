@@ -122,11 +122,18 @@ sub new {
                         __tie__      => [ species => 'sid' ]
                     },
                     file => {
-                        label          => 'Probe Sequences',
+                        label => 'Probes/Sequences',
+                        -title =>
+'Upload a file containing a list of probes (with an optional sequence column to the right)',
                         __type__       => 'filefield',
                         __special__    => 1,
                         __optional__   => 1,
-                        __extra_html__ => file_opts_html( $q, 'probeseqOpts' )
+                        __extra_html__ => $q->div(
+                            { -class => 'hint', -id => 'probefile_hint' },
+                            $q->p('The file should have the following layout:'),
+                            $q->pre("Probe ID, [Probe Sequence]")
+                          )
+                          . file_opts_html( $q, 'probeseqOpts' )
                     },
                     pid   => { label => 'No.', parser => 'number' },
                     pname => {
@@ -317,7 +324,19 @@ sub init {
 #===============================================================================
 sub form_create_head {
     my $self = shift;
-    push @{ $self->{_js_src_code} }, { -src => 'collapsible.js' };
+    push @{ $self->{_js_src_code} }, { -src  => 'collapsible.js' };
+    push @{ $self->{_js_src_code} }, { -code => <<"END_SETUPTOGGLES" };
+YAHOO.util.Event.addListener(window,'load',function(){
+    setupToggles('change',
+        { 'file': { 'defined' : ['probefile_hint'] } },
+        function(el) {
+            var val = el.value; 
+            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
+        }
+    );
+});
+END_SETUPTOGGLES
+
     return $self->SUPER::form_create_head();
 }
 
@@ -368,7 +387,33 @@ sub form_create_body {
 #===============================================================================
 sub readrow_head {
     my $self = shift;
-    push @{ $self->{_js_src_code} }, { -src => 'collapsible.js' };
+    push @{ $self->{_js_src_code} }, { -src  => 'collapsible.js' };
+    push @{ $self->{_js_src_code} }, { -code => <<"END_SETUPTOGGLES" };
+YAHOO.util.Event.addListener(window,'load',function(){
+    setupToggles('change',
+        { 'file': { 'defined' : ['probefile_hint'] } },
+        function(el) {
+            var val = el.value; 
+            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
+        }
+    );
+    setupToggles('change',
+        { 'fileGO': { 'defined' : ['gofile_hint'] } },
+        function(el) {
+            var val = el.value; 
+            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
+        }
+    );
+    setupToggles('change',
+        { 'fileAccNum': { 'defined' : ['accnumfile_hint'] } },
+        function(el) {
+            var val = el.value; 
+            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
+        }
+    );
+});
+END_SETUPTOGGLES
+
     return $self->SUPER::readrow_head();
 }
 
@@ -648,12 +693,9 @@ sub readrow_body {
             # GO annotation
             $q->h3('Upload/Replace GO Annotation'),
             $q->p(<<"END_info"),
-Upload a tab-delimited file consisting of probe ids (first column) and GO
-annotation (second column) consisting of one or more GO terms (GO:0028371, 
-GO:0043901...). Note: this will remove existing GO annotations from this platform
+Note: this will remove existing GO annotations from this platform
 before adding new annotations.
 END_info
-            $q->pre("Probe_ID\tGO_term(s)"),
             $q->start_form(
                 -method   => 'POST',
                 -enctype  => 'multipart/form-data',
@@ -670,6 +712,12 @@ END_info
                         -id    => 'fileGO',
                         -name  => 'file',
                         -title => 'File containing probe-GO term annotation'
+                    ),
+                    $q->div(
+                        { -class => 'hint', -id => 'gofile_hint' },
+                        $q->p(
+                            'The file must contain the following two columns:'),
+                        $q->pre("Probe ID, GO Term(s)")
                     ),
                     file_opts_html( $q, 'goOpts' )
                 ),
@@ -689,12 +737,8 @@ END_info
             # Annotation
             $q->h3('Upload/Replace Accession Numbers'),
             $q->p(<<"END_info"),
-Upload a tab-delimited file consisting of probe ids (first column) and
-associated accession numbers (second column) separated by space.  Note: this
-will remove existing accession number annotation from this platform before
-adding new annotations.
+Note: this will remove existing accession number annotation from this platform before adding new annotations.
 END_info
-            $q->pre("Probe_ID\tAccession_Number(s)"),
             $q->start_form(
                 -method   => 'POST',
                 -enctype  => 'multipart/form-data',
@@ -712,6 +756,12 @@ END_info
                         -name => 'file',
                         -title =>
                           'File containing probe-accession number annotation'
+                    ),
+                    $q->div(
+                        { -class => 'hint', -id => 'accnumfile_hint' },
+                        $q->p(
+                            'The file must contain the following two columns:'),
+                        $q->pre("Probe ID, Accession Number(s)")
                     ),
                     file_opts_html( $q, 'accnumOpts' )
                 ),
