@@ -33,7 +33,6 @@ sub get_module_from_action {
         # better RESTfulness
         #
         # verbs
-        uploadAnnot => 'SGX::UploadAnnot',
         uploadData  => 'SGX::UploadData',
         uploadGO    => 'SGX::UploadGO',
 

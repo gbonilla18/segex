@@ -164,8 +164,7 @@ function isDefinedSelection(el) {
 //==============================================================================
 function validate_fields(of,reqfields) {
 
-    // test if DOM is available
-    if(!document.getElementById || !document.createTextNode || !document.appendChild){return;}
+    var dom = YAHOO.util.Dom;
 
     // clear error messages
     var content_div = document.getElementById('content');
@@ -173,10 +172,10 @@ function validate_fields(of,reqfields) {
     if (error_container !== null ) {
         error_container.parentNode.removeChild(error_container);
     }
-    var errorMsg="There is a problem with your input. Please fill out or correct the highlighted field(s).";
+    var errorMsg = "There is a problem with your input. Please fill out or correct the highlighted field(s).";
 
     // split the required fields and loop throught them
-    for (var i=0, reqfields_length = reqfields.length; i < reqfields_length; i++) {
+    for (var i = 0, len = reqfields.length; i < len; i++) {
         // get a required field
         var f=document.getElementById(reqfields[i]);
         if (f === null ) {
@@ -184,12 +183,12 @@ function validate_fields(of,reqfields) {
             return false;
         }
         // cleanup: remove old classes from the required fields
-        f.parentNode.className="";
+        dom.removeClass(f.parentNode, 'error');
         // completely strip whitespace and place field value into value 
         // test if the required field has an error, according to its type
         switch(f.type.toLowerCase()) {
             case "text":
-                var value =f.value.replace(/ /g,"");
+                var value = f.value.replace(/ /g,"");
                 switch(f.id.toLowerCase()) {
                     case "email":
                     case "email1":
@@ -217,14 +216,14 @@ function validate_fields(of,reqfields) {
     /* tool methods */
     function cf_adderr(o) {
         // colourise the error fields
-        o.parentNode.className = 'error';
+        dom.addClass(o.parentNode, 'error');
         // check if there is no error message
         if(document.getElementById('message') === null) {
             // create errormessage and insert before submit button
             error_container = document.createElement('div');
             error_container.id = 'message';
             var newp=document.createElement("p");
-            newp.className = 'error';
+            dom.addClass(newp, 'error');
             newp.appendChild(document.createTextNode(errorMsg))
             error_container.appendChild(newp);
             content_div.insertBefore(error_container, content_div.firstChild);

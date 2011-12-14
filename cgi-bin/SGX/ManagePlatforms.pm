@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use Benchmark qw/timediff timestr/;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/is_checked car/;
+use SGX::Util qw/is_checked car file_opts_html/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
 
@@ -87,9 +87,9 @@ my $process_go = sub {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, @param ) = @_;
-
-    my $self = $class->SUPER::new(@param);
+    my $class = shift;
+    my $self  = $class->SUPER::new(@_);
+    my $q     = $self->{_cgi};
 
     $self->set_attributes(
 
@@ -122,10 +122,11 @@ sub new {
                         __tie__      => [ species => 'sid' ]
                     },
                     file => {
-                        __type__     => 'filefield',
-                        __special__  => 1,
-                        __optional__ => 1,
-                        label        => 'Probe Sequences'
+                        label          => 'Probe Sequences',
+                        __type__       => 'filefield',
+                        __special__    => 1,
+                        __optional__   => 1,
+                        __extra_html__ => file_opts_html( $q, 'probeseqOpts' )
                     },
                     pid   => { label => 'No.', parser => 'number' },
                     pname => {
@@ -306,6 +307,22 @@ sub init {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
+#       METHOD:  form_create_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::form_create_head
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub form_create_head {
+    my $self = shift;
+    push @{ $self->{_js_src_code} }, { -src => 'collapsible.js' };
+    return $self->SUPER::form_create_head();
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
 #       METHOD:  form_create_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -369,13 +386,13 @@ sub UploadAccNum_head {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    my $separator = ( car $q->param('accnum_separator') ) || "\t";
+    my $separator = ( car $q->param('separator') ) || "\t";
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
-        $self, 'fileAccNum',
+        $self, 'file',
         csv_in_opts => { quote_char => undef },
-        header => ( is_checked( $q, 'accnum_header' ) ? 1 : 0 ),
+        header => ( is_checked( $q, 'header' ) ? 1 : 0 ),
         separator => $separator,
         process   => $process_accnum
       );
@@ -496,13 +513,13 @@ sub UploadGO_head {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    my $separator = ( car $q->param('go_separator') ) || "\t";
+    my $separator = ( car $q->param('separator') ) || "\t";
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
-        $self, 'fileGO',
+        $self, 'file',
         csv_in_opts => { quote_char => undef },
-        header => ( is_checked( $q, 'go_header' ) ? 1 : 0 ),
+        header => ( is_checked( $q, 'header' ) ? 1 : 0 ),
         separator => $separator,
         process   => $process_go
       );
@@ -651,48 +668,10 @@ END_info
                 $q->dd(
                     $q->filefield(
                         -id    => 'fileGO',
-                        -name  => 'fileGO',
+                        -name  => 'file',
                         -title => 'File containing probe-GO term annotation'
                     ),
-                    $q->p(
-                        $q->a(
-                            { -id => 'goOpts', -class => 'pluscol' },
-                            '+ File options'
-                        )
-                    ),
-                    $q->div(
-                        {
-                            -id    => 'goOpts_container',
-                            -class => 'dd_collapsible'
-                        },
-                        $q->p(
-                            $q->radio_group(
-                                -name   => 'go_separator',
-                                -values => [ "\t", ',' ],
-                                -labels => {
-                                    ','  => 'Comma-separated',
-                                    "\t" => 'Tab-separated'
-                                },
-                                -default => (
-                                    defined $q->param('go_separator')
-                                    ? $q->param('go_separator')
-                                    : "\t"
-                                )
-                            )
-                        ),
-                        $q->p(
-                            $q->checkbox(
-                                -name    => 'go_header',
-                                -checked => (
-                                    is_checked( $q, 'go_header' ) ? 1
-                                    : 0
-                                ),
-                                -value => '1',
-                                -label => 'First line is a header'
-                            ),
-                            $q->hidden( -name => 'go_header', -value => '1' )
-                        )
-                    )
+                    file_opts_html( $q, 'goOpts' )
                 ),
                 $q->dt('&nbsp;'),
                 $q->dd(
@@ -730,52 +709,11 @@ END_info
                 $q->dd(
                     $q->filefield(
                         -id   => 'fileAccNum',
-                        -name => 'fileAccNum',
+                        -name => 'file',
                         -title =>
                           'File containing probe-accession number annotation'
                     ),
-                    $q->p(
-                        $q->a(
-                            { -id => 'accnumOpts', -class => 'pluscol' },
-                            '+ File options'
-                        )
-                    ),
-                    $q->div(
-                        {
-                            -id    => 'accnumOpts_container',
-                            -class => 'dd_collapsible'
-                        },
-                        $q->p(
-                            $q->radio_group(
-                                -name   => 'accnum_separator',
-                                -values => [ "\t", ',' ],
-                                -labels => {
-                                    ','  => 'Comma-separated',
-                                    "\t" => 'Tab-separated'
-                                },
-                                -default => (
-                                    defined $q->param('accnum_separator')
-                                    ? $q->param('accnum_separator')
-                                    : "\t"
-                                )
-                            )
-                        ),
-                        $q->p(
-                            $q->checkbox(
-                                -name    => 'accnum_header',
-                                -checked => (
-                                    is_checked( $q, 'accnum_header' ) ? 1
-                                    : 0
-                                ),
-                                -value => '1',
-                                -label => 'First line is a header'
-                            ),
-                            $q->hidden(
-                                -name  => 'accnum_header',
-                                -value => '1'
-                            )
-                        )
-                    )
+                    file_opts_html( $q, 'accnumOpts' )
                 ),
                 $q->dt('&nbsp;'),
                 $q->dd(

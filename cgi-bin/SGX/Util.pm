@@ -10,7 +10,7 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
-  equal bind_csv_handle notp is_checked/;
+  equal bind_csv_handle notp is_checked file_opts_html/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -57,8 +57,60 @@ sub all_match {
 }
 
 #===  FUNCTION  ================================================================
+#         NAME:  cgi_file_opts
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub file_opts_html {
+    my $q  = shift;
+    my $id = shift;
+    return $q->p(
+        $q->a( { -id => $id, -class => 'pluscol' }, '+ File options' ) )
+      . $q->div(
+        {
+            -id    => "${id}_container",
+            -class => 'dd_collapsible'
+        },
+        $q->p(
+            $q->radio_group(
+                -name   => 'separator',
+                -values => [ "\t", ',' ],
+                -labels => {
+                    ','  => 'Comma-separated',
+                    "\t" => 'Tab-separated'
+                },
+                -default => (
+                    defined $q->param('separator') ? $q->param('separator')
+                    : "\t"
+                )
+            )
+        ),
+        $q->p(
+            $q->checkbox(
+                -name    => 'header',
+                -checked => (
+                    is_checked( $q, 'header' ) ? 1
+                    : 0
+                ),
+                -value => '1',
+                -label => 'First line is a header'
+            ),
+            $q->hidden(
+                -name  => 'header',
+                -value => '1'
+            )
+        )
+      );
+}
+
+#===  FUNCTION  ================================================================
 #         NAME:  is_checked
-#      PURPOSE:  
+#      PURPOSE:
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Determines whether checkbox is checked (requires two fields:

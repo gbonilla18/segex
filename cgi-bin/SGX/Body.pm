@@ -27,8 +27,6 @@ my $all_resources = {
     users       => { label => 'Manage Users', perm => 'admin' },
     'experiments&b=form_create' =>
       { label => 'Upload Data', title => 'Upload data to a new experiment' },
-    uploadAnnot =>
-      { label => 'Upload Annotation', title => 'Upload probe annotations' },
     uploadGO => {
         label => 'Upload GO Terms',
         title => 'Upload Gene Ontology term names and definitions'
@@ -403,7 +401,7 @@ sub build_menu {
         'Manage' => $link_creator->(
             qw/experiments studies projects platforms species users/),
         'Upload' =>
-          $link_creator->(qw/experiments&b=form_create uploadAnnot uploadGO/)
+          $link_creator->(qw/experiments&b=form_create uploadGO/)
     );
 
     my @result;

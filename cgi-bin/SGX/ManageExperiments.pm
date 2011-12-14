@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Debug;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/is_checked/;
+use SGX::Util qw/is_checked file_opts_html/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 
@@ -109,45 +109,7 @@ sub new {
                         __special__    => 1,
                         __createonly__ => 1,
                         __readonly__   => 1,
-                        __extra_html__ => $q->p(
-                            $q->a(
-                                { -id => 'fileOpts', -class => 'pluscol' },
-                                '+ File options'
-                            )
-                          )
-                          . $q->div(
-                            {
-                                -id    => 'fileOpts_container',
-                                -class => 'dd_collapsible'
-                            },
-                            $q->p(
-                                $q->radio_group(
-                                    -name   => 'separator',
-                                    -values => [ "\t", ',' ],
-                                    -labels => {
-                                        ','  => 'Comma-separated',
-                                        "\t" => 'Tab-separated'
-                                    },
-                                    -default => (
-                                        defined $q->param('separator')
-                                        ? $q->param('separator')
-                                        : "\t"
-                                    )
-                                )
-                            ),
-                            $q->p(
-                                $q->checkbox(
-                                    -name    => 'header',
-                                    -checked => (
-                                        is_checked( $q, 'header' ) ? 1
-                                        : 0
-                                    ),
-                                    -value => '1',
-                                    -label => 'First line is a header'
-                                ),
-                                $q->hidden( -name => 'header', -value => '1' )
-                            )
-                          )
+                        __extra_html__ => file_opts_html( $q, 'fileOpts' )
                     },
                     eid => {
                         label        => 'No.',
@@ -181,7 +143,8 @@ sub new {
                         parser   => 'number',
                         __type__ => 'popup_menu',
                         (
-                            looks_like_number($pid) ? ()
+                            looks_like_number($pid)
+                            ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
                         ),
 
