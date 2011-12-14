@@ -11,7 +11,6 @@ use SGX::Util qw/is_checked/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
 #       METHOD:  new
@@ -111,11 +110,14 @@ sub new {
                         __createonly__ => 1,
                         __readonly__   => 1,
                         __extra_html__ => $q->p(
-                            $q->a( { -id => 'fileOpts' }, '+ File options' )
+                            $q->a(
+                                { -id => 'fileOpts', -class => 'pluscol' },
+                                '+ File options'
+                            )
                           )
                           . $q->div(
                             {
-                                -id    => 'file_opts_container',
+                                -id    => 'fileOpts_container',
                                 -class => 'dd_collapsible'
                             },
                             $q->p(
@@ -361,38 +363,28 @@ sub form_create_head {
     my $self = shift;
     my ( $js, $js_buffer ) = @$self{qw/_js_emitter _js_buffer/};
 
-    my $code = $self->get_pse_dropdown_js(
+    # add platform dropdown
+    push @{ $self->{_js_src_code} },
+      ( { -src => 'collapsible.js' },
+        { -src => 'PlatformStudyExperiment.js' } );
+
+    push @$js_buffer, <<"END_SETUPTOGGLES" .
+YAHOO.util.Event.addListener(window,'load',function(){
+    setupToggles('change',
+        { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
+        isDefinedSelection
+    );
+});
+END_SETUPTOGGLES
+      $self->get_pse_dropdown_js(
 
         # default: show all studies or studies for a specific platform
         platforms         => undef,
         platform_by_study => 1,
         studies           => 1
-    );
+      );
+
     $self->SUPER::form_create_head();
-
-    # add platform dropdown
-    push @{ $self->{_js_src_code} }, { -src => 'PlatformStudyExperiment.js' };
-
-    push @$js_buffer, <<"END_SETUPTOGGLES";
-setupToggles('change',
-    { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
-    function(el) { return ((getSelectedValue(el) !== '') ? 'defined' : ''); }
-);
-setupToggles('click', {
-        'fileOpts': {
-            '-': ['file_opts_container']
-        }
-    },  
-    function(el) { return el.text.substr(0, 1); },
-    function(el) {
-        if (el.text.substr(0, 1) == '+') {
-            el.innerHTML = '-' + el.text.substr(1);
-        } else {
-            el.innerHTML = '+' + el.text.substr(1);
-        }
-});
-$code
-END_SETUPTOGGLES
 
     my ( $q, $id_data ) = @$self{qw/_cgi _id_data/};
     if ( $self->{_upload_completed} ) {

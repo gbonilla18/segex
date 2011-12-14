@@ -65,26 +65,7 @@ function export_table(e) {
 // See FormFindProbes.js for example usage of this function
 //==============================================================================
 function setupToggles(event, attr, getValue, callBack) {
-    // inverse inside hash
-    var inverse_attr = {};
-    for (var id in attr) {
-        var hash = attr[id];
-        var tmp = {};
-        for (var key in hash) {
-            var idList = hash[key];
-            for (var i = 0, len = idList.length; i < len; i++) {
-                var id2 = idList[i];
-                if (id2 in tmp) {
-                    tmp[id2][key] = null;
-                } else {
-                    var tmp2 = {};
-                    tmp2[key] = null;
-                    tmp[id2] = tmp2;
-                }
-            }
-        }
-        inverse_attr[id] = tmp;
-    }
+
     function createToggle(id) {
         var obj = document.getElementById(id);
         var inv_prop = inverse_attr[id];
@@ -106,20 +87,41 @@ function setupToggles(event, attr, getValue, callBack) {
             return true;
         }
     }
-    YAHOO.util.Event.addListener(window, 'load', function() {
-        for (var id in attr) {
-            var toggle = createToggle(id);
-            toggle();
-            var el = document.getElementById(id);
-            YAHOO.util.Event.addListener(
-                id, 
-                event, 
-                (typeof callBack !== 'undefined') 
-                ? function() { callBack(el); toggle(); } 
-                : function() { toggle();  }
-            );
+
+    // inverse the inside hash
+    var inverse_attr = {};
+    for (var id in attr) {
+        var hash = attr[id];
+        var tmp = {};
+        for (var key in hash) {
+            var idList = hash[key];
+            for (var i = 0, len = idList.length; i < len; i++) {
+                var id2 = idList[i];
+                if (id2 in tmp) {
+                    tmp[id2][key] = null;
+                } else {
+                    var tmp2 = {};
+                    tmp2[key] = null;
+                    tmp[id2] = tmp2;
+                }
+            }
         }
-    });
+        inverse_attr[id] = tmp;
+    }
+
+    // code below must be performed when DOM is loaded
+    for (var id in attr) {
+        var toggle = createToggle(id);
+        toggle();
+        var el = document.getElementById(id);
+        YAHOO.util.Event.addListener(
+            id, 
+            event, 
+            (typeof callBack !== 'undefined') 
+            ? function() { callBack(el); toggle(); } 
+            : function() { toggle();  }
+        );
+    }
 }
 //==============================================================================
 // deleteConfirmation
@@ -148,6 +150,14 @@ function getSelectedValue(obj)
             throw e;
         }
     }
+}
+//==============================================================================
+// isDefinedSelection
+// returns 'defined' if yes, '' otherwise
+//==============================================================================
+function isDefinedSelection(el) { 
+    var val = getSelectedValue(el); 
+    return (typeof val !== 'undefined' && val !== '') ? 'defined' : '';
 }
 //==============================================================================
 // validate_fields

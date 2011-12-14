@@ -125,7 +125,7 @@ sub new {
                         __type__     => 'filefield',
                         __special__  => 1,
                         __optional__ => 1,
-                        label        => 'Upload Probes/Annotations'
+                        label        => 'Probe Sequences'
                     },
                     pid   => { label => 'No.', parser => 'number' },
                     pname => {
@@ -350,36 +350,8 @@ sub form_create_body {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub readrow_head {
-    my $self      = shift;
-    my $js_buffer = $self->{_js_buffer};
-    push @$js_buffer, <<"END_SETUPTOGGLES";
-setupToggles('click', {
-        'goOpts': {
-            '-': ['goOpts_container']
-        }
-    },  
-    function(el) { return el.text.substr(0, 1); },
-    function(el) {
-        if (el.text.substr(0, 1) == '+') {
-            el.innerHTML = '-' + el.text.substr(1);
-        } else {
-            el.innerHTML = '+' + el.text.substr(1);
-        }
-});
-setupToggles('click', {
-        'accnumOpts': {
-            '-': ['accnumOpts_container']
-        }
-    },  
-    function(el) { return el.text.substr(0, 1); },
-    function(el) {
-        if (el.text.substr(0, 1) == '+') {
-            el.innerHTML = '-' + el.text.substr(1);
-        } else {
-            el.innerHTML = '+' + el.text.substr(1);
-        }
-});
-END_SETUPTOGGLES
+    my $self = shift;
+    push @{ $self->{_js_src_code} }, { -src => 'collapsible.js' };
     return $self->SUPER::readrow_head();
 }
 
@@ -521,8 +493,8 @@ END_success
 #     SEE ALSO:  n/a
 #===============================================================================
 sub UploadGO_head {
-    my $self      = shift;
-    my $q         = $self->{_cgi};
+    my $self = shift;
+    my $q    = $self->{_cgi};
 
     my $separator = ( car $q->param('go_separator') ) || "\t";
     require SGX::CSV;
@@ -682,7 +654,12 @@ END_info
                         -name  => 'fileGO',
                         -title => 'File containing probe-GO term annotation'
                     ),
-                    $q->p( $q->a( { -id => 'goOpts' }, '+ File options' ) ),
+                    $q->p(
+                        $q->a(
+                            { -id => 'goOpts', -class => 'pluscol' },
+                            '+ File options'
+                        )
+                    ),
                     $q->div(
                         {
                             -id    => 'goOpts_container',
@@ -757,7 +734,12 @@ END_info
                         -title =>
                           'File containing probe-accession number annotation'
                     ),
-                    $q->p( $q->a( { -id => 'accnumOpts' }, '+ File options' ) ),
+                    $q->p(
+                        $q->a(
+                            { -id => 'accnumOpts', -class => 'pluscol' },
+                            '+ File options'
+                        )
+                    ),
                     $q->div(
                         {
                             -id    => 'accnumOpts_container',

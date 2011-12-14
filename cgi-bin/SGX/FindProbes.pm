@@ -86,7 +86,7 @@ sub default_head {
         'element/element-min.js', 'button/button-min.js'
       );
     $self->getSessionOverrideCGI();
-    push @$js_src_code, ( { -src => 'FormFindProbes.js' } );
+    push @$js_src_code, ( { -src => 'collapsible.js' },{ -src => 'FormFindProbes.js' } );
 
     $self->{_species_data} = $self->get_species();
     return 1;
@@ -946,13 +946,13 @@ END_terms_title
                 { -id => 'pattern_div' },
                 $q->p(
                     $q->a(
-                        { -id => 'patternMatcher' },
+                        { -id => 'patternMatcher', -class => 'pluscol' },
                         '+ Patterns in input terms'
                     )
                 ),
                 $q->div(
                     {
-                        -id    => 'pattern_hint_container',
+                        -id    => 'patternMatcher_container',
                         -class => 'dd_collapsible'
                     },
                     $q->div(
@@ -1008,12 +1008,12 @@ END_EXAMPLE_TEXT
             $q->div(
                 $q->p(
                     $q->a(
-                        { -id => 'locusFilter' },
+                        { -id => 'locusFilter' , -class => 'pluscol'},
                         '+ Species / chromosomal location'
                     )
                 ),
                 $q->div(
-                    { -id => 'locus_container', -class => 'dd_collapsible' },
+                    { -id => 'locusFilter_container', -class => 'dd_collapsible' },
                     $q->div(
                         { -class => 'input_container' },
                         $q->popup_menu(
@@ -1062,9 +1062,9 @@ END_EXAMPLE_TEXT
                     ),
                 )
             ),
-            $q->p( $q->a( { -id => 'outputOpts' }, '+ Output options' ) ),
+            $q->p( $q->a( { -id => 'outputOpts' , -class => 'pluscol'}, '+ Output options' ) ),
             $q->div(
-                { -id => 'opts_hint_container', -class => 'dd_collapsible' },
+                { -id => 'outputOpts_container', -class => 'dd_collapsible' },
                 $q->p( { -class => 'radio_heading' }, 'Format:' ),
                 $q->div(
                     {

@@ -1,48 +1,4 @@
 "use strict";
-setupToggles('change',
-    { 'spid': { 'defined' : ['chr_div' ] } }, 
-    function(el) { return ((getSelectedValue(el) !== '') ? 'defined' : ''); }
-);
-setupToggles('click', {
-        'locusFilter' : {
-            '-': ['locus_container']
-        },
-    }, 
-    function(el) { return el.text.substr(0, 1); },
-    function(el) { 
-        if (el.text.substr(0, 1) == '+') {
-            el.innerHTML = '-' + el.text.substr(1);
-        } else {
-            el.innerHTML = '+' + el.text.substr(1);
-        }
-});
-setupToggles('click', {
-        'patternMatcher': {
-            '-': ['pattern_hint_container']
-        }
-    }, 
-    function(el) { return el.text.substr(0, 1); },
-    function(el) { 
-        if (el.text.substr(0, 1) == '+') {
-            el.innerHTML = '-' + el.text.substr(1);
-        } else {
-            el.innerHTML = '+' + el.text.substr(1);
-        }
-});
-setupToggles('click', {
-        'outputOpts': {
-            '-': ['opts_hint_container']
-        }
-    }, 
-    function(el) { return el.text.substr(0, 1); },
-    function(el) { 
-        if (el.text.substr(0, 1) == '+') {
-            el.innerHTML = '-' + el.text.substr(1);
-        } else {
-            el.innerHTML = '+' + el.text.substr(1);
-        }
-});
-
 
 YAHOO.util.Event.addListener('main_form', 'submit', function() {
     // remove white space from the left and from the right, then replace each
@@ -52,6 +8,10 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
     return true;
 });
 YAHOO.util.Event.addListener(window, 'load', function() {
+    setupToggles('change',
+        { 'spid': { 'defined' : ['chr_div' ] } }, 
+        isDefinedSelection
+    );
 
     // scope
     var scope_state = document.getElementById("scope_state");
