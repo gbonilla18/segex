@@ -21,9 +21,12 @@ ol li { list-style: decimal; margin-left:20px; }
 #message {
 	font-weight:bold;
 	background-color:#ffd; /* pale yellow */
-	padding: 5px;
+	padding: 1em;
 	border: 1px solid #ddd; /* pale grey */
 	margin-bottom:1em;
+	-webkit-border-radius: 13px;
+	-moz-border-radius: 13px;
+	border-radius: 13px;
 }
 #message p.error {
 	color:#f00; /* red; also try #ec1b23 */
@@ -348,6 +351,10 @@ dl, table, div.table_cont {
 	color: #777;
 	background:#ffd;
 	padding: 1em;
+	margin-bottom: 0.5em;
+}
+.hint pre, .hint p {
+	margin-bottom:0.75em;
 }
 /* word-wrap: break-word -- breaks long words such as DNA sequences
 td.yui-dt-col-5 .yui-dt-liner {

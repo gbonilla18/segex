@@ -139,12 +139,15 @@ sub uploadData {
     my $old_AutoCommit = $dbh->{AutoCommit};
     $dbh->{AutoCommit} = 0;
 
+    my $totalProbes = $self->probesPerPlatform();
+
     # prepare SQL statements (all prepare errors are fatal)
-    my $sth_hash = $self->loadToDatabase_prepare();
+    my $sth_hash = $self->loadToDatabase_prepare($totalProbes);
 
     # execute SQL statements (catch some errors)
     my $recordsLoaded =
-      eval { $self->loadToDatabase_execute( $sth_hash, $outputFileName ) }
+      eval { $self->loadToDatabase_execute( $sth_hash, $outputFileName,
+              \$totalProbes ) }
       || 0;
 
     # file is not delete automatically so we do it using code here...
@@ -199,7 +202,6 @@ END_DBI_STH_exception
         $dbh->commit;
         $self->loadToDatabase_finish($sth_hash);
 
-        my $totalProbes = $self->probesPerPlatform();
         if ( $recordsLoaded == $totalProbes ) {
             $delegate->add_message(
                 sprintf(
@@ -261,9 +263,8 @@ sub probesPerPlatform {
 
     my $dbh = $self->{delegate}->{_dbh};
 
-    my $sth = $dbh->prepare('SELECT COUNT(*) FROM probe WHERE pid=?');
-    my $rc  = $sth->execute($pid);
-
+    my $sth     = $dbh->prepare('SELECT COUNT(*) FROM probe WHERE pid=?');
+    my $rc      = $sth->execute($pid);
     my ($count) = $sth->fetchrow_array;
     $sth->finish;
 
@@ -286,7 +287,8 @@ sub probesPerPlatform {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub loadToDatabase_prepare {
-    my $self = shift;
+    my $self        = shift;
+    my $totalProbes = shift;
 
     my $dbh = $self->{delegate}->{_dbh};
 
@@ -320,7 +322,17 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 )
 END_loadData
 
-    $sth_hash->{insertResponse} ||= $dbh->prepare(<<"END_insert");
+    if ( $totalProbes == 0 ) {
+        $sth_hash->{insertProbe} ||= $dbh->prepare(<<"END_insertProbe");
+INSERT INTO probe (reporter, pid)
+SELECT
+    reporter,
+    ? as pid
+FROM $temp_table
+END_insertProbe
+    }
+
+    $sth_hash->{insertResponse} ||= $dbh->prepare(<<"END_insertResponse");
 INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity1,intensity2)
 SELECT
     probe.rid,
@@ -333,7 +345,7 @@ SELECT
 FROM probe
 INNER JOIN $temp_table AS temptable USING(reporter)
 WHERE probe.pid=?
-END_insert
+END_insertResponse
 
     $sth_hash->{insertExperiment} = $self->{delegate}->_create_command();
 
@@ -363,12 +375,15 @@ END_insert
 #     SEE ALSO:  n/a
 #===============================================================================
 sub loadToDatabase_execute {
-    my ( $self, $sth_hash, $outputFileName ) = @_;
+    my ( $self, $sth_hash, $outputFileName, $totalProbes ) = @_;
 
-    my ( $sth_createTable, $sth_loadData, $insertExperiment,
-        $sth_insertStudyExperiment, $sth_insertResponse )
+    my (
+        $sth_createTable,  $sth_loadData,
+        $insertExperiment, $sth_insertStudyExperiment,
+        $sth_insertProbe,  $sth_insertResponse
+      )
       = @$sth_hash{
-        qw(createTable loadData insertExperiment insertStudyExperiment insertResponse)
+        qw(createTable loadData insertExperiment insertStudyExperiment insertProbe insertResponse)
       };
 
     #SGX::Exception::User->throw(
@@ -390,7 +405,8 @@ sub loadToDatabase_execute {
     }
 
     # Grab the id of the experiment inserted
-    my $this_eid = $dbh->{mysql_insertid};
+    my $this_eid = $dbh->last_insert_id( undef, undef, 'experiment', 'eid' );
+
     $self->{_eid} = $this_eid;
 
     # Add experiment to study if study id is defined
@@ -406,9 +422,13 @@ sub loadToDatabase_execute {
             error => "No rows were loaded into temporary table\n" );
     }
 
+    my $pid = $self->{_pid};
+    if ( defined $sth_insertProbe ) {
+        $$totalProbes = $sth_insertProbe->execute($pid);
+    }
+
     # Copy data from temporary table to the microarray/reposnse table
-    my $recordsInserted =
-      $sth_insertResponse->execute( $this_eid, $self->{_pid} );
+    my $recordsInserted = $sth_insertResponse->execute( $this_eid, $pid );
     $self->{_recordsInserted} = $recordsInserted;
 
     # Check row counts; throw error if too few or too many records were

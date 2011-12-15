@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use Benchmark qw/timediff timestr/;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/is_checked car file_opts_html/;
+use SGX::Util qw/car file_opts_html/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
 
@@ -130,8 +130,8 @@ sub new {
                         __optional__   => 1,
                         __extra_html__ => $q->div(
                             { -class => 'hint', -id => 'probefile_hint' },
-                            $q->p('The file should have the following layout:'),
-                            $q->pre("Probe ID, [Probe Sequence]")
+                            $q->p('The file should have the following layout (probe sequences are optional):'),
+                            $q->pre("Probe ID, Probe Sequence")
                           )
                           . file_opts_html( $q, 'probeseqOpts' )
                     },
@@ -328,7 +328,7 @@ sub form_create_head {
     push @{ $self->{_js_src_code} }, { -code => <<"END_SETUPTOGGLES" };
 YAHOO.util.Event.addListener(window,'load',function(){
     setupToggles('change',
-        { 'file': { 'defined' : ['probefile_hint'] } },
+        { 'file': { '' : ['probefile_hint'] } },
         function(el) {
             var val = el.value; 
             return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
@@ -391,21 +391,21 @@ sub readrow_head {
     push @{ $self->{_js_src_code} }, { -code => <<"END_SETUPTOGGLES" };
 YAHOO.util.Event.addListener(window,'load',function(){
     setupToggles('change',
-        { 'file': { 'defined' : ['probefile_hint'] } },
+        { 'file': { '' : ['probefile_hint'] } },
         function(el) {
             var val = el.value; 
             return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
         }
     );
     setupToggles('change',
-        { 'fileGO': { 'defined' : ['gofile_hint'] } },
+        { 'fileGO': { '' : ['gofile_hint'] } },
         function(el) {
             var val = el.value; 
             return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
         }
     );
     setupToggles('change',
-        { 'fileAccNum': { 'defined' : ['accnumfile_hint'] } },
+        { 'fileAccNum': { '' : ['accnumfile_hint'] } },
         function(el) {
             var val = el.value; 
             return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
@@ -437,7 +437,7 @@ sub UploadAccNum_head {
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         csv_in_opts => { quote_char => undef },
-        header => ( is_checked( $q, 'header' ) ? 1 : 0 ),
+        header => (defined($q->param('header')) ? 1 : 0),
         separator => $separator,
         process   => $process_accnum
       );
@@ -564,7 +564,7 @@ sub UploadGO_head {
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         csv_in_opts => { quote_char => undef },
-        header => ( is_checked( $q, 'header' ) ? 1 : 0 ),
+        header => (defined($q->param('header')) ? 1 : 0),
         separator => $separator,
         process   => $process_go
       );

@@ -100,8 +100,10 @@ sub getPlatformNameFromPID {
 sub getPlatformStudyName {
     my ( $self, $pid, $stid ) = @_;
 
-    return $self->{_ByPlatform}->{$pid}->{studies}->{$stid}->{name} . ' \ '
-      . $self->{_ByPlatform}->{$pid}->{name};
+    my $platform = $self->{_ByPlatform}->{$pid};
+    my $platform_name = $platform->{name};
+    my $study_name = (defined $stid and $stid ne '') ? $platform->{$stid}->{name} : '@Unassigned Experiments';
+    return "$study_name \\ $platform_name";
 }
 
 #===  CLASS METHOD  ============================================================

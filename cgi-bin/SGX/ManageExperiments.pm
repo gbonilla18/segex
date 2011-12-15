@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Debug;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/is_checked file_opts_html/;
+use SGX::Util qw/file_opts_html/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 
@@ -338,14 +338,14 @@ sub form_create_head {
       ( { -src => 'collapsible.js' },
         { -src => 'PlatformStudyExperiment.js' } );
 
-    push @{$self->{_js_buffer}}, <<"END_SETUPTOGGLES" .
+    push @{ $self->{_js_buffer} }, <<"END_SETUPTOGGLES" .
 YAHOO.util.Event.addListener(window,'load',function(){
     setupToggles('change',
         { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
         isDefinedSelection
     );
     setupToggles('change',
-        { 'file': { 'defined' : ['datafile_hint'] } },
+        { 'file': { '' : ['datafile_hint'] } },
         function(el) { 
             var val = el.value; 
             return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
@@ -364,6 +364,7 @@ END_SETUPTOGGLES
     $self->SUPER::form_create_head();
 
     my ( $q, $id_data ) = @$self{qw/_cgi _id_data/};
+    my $stid = $id_data->{stid} || '';
     if ( $self->{_upload_completed} ) {
         $self->add_message(
             'The uploaded data were placed in a new experiment under: '
@@ -372,11 +373,11 @@ END_SETUPTOGGLES
                     -href => $q->url( -absolute => 1 )
                       . sprintf(
                         '?a=experiments&b=Load&pid=%s&stid=%s',
-                        $id_data->{pid}, $id_data->{stid}
+                        $id_data->{pid}, $stid
                       )
                 },
                 $self->{_PlatformStudyExperiment}
-                  ->getPlatformStudyName( $id_data->{pid}, $id_data->{stid} )
+                  ->getPlatformStudyName( $id_data->{pid}, $stid )
               )
         );
     }
@@ -585,7 +586,7 @@ sub default_create {
     my $recordsLoaded = eval {
         $data->uploadData(
             filefield => 'file',
-            header    => ( is_checked( $q, 'header' ) ? 1 : 0 ),
+            header    => ( defined( $q->param('header') ) ? 1 : 0 ),
             separator => $q->param('separator')
         );
     } || 0;
