@@ -686,7 +686,7 @@ sub readrow_body {
     my $q    = $self->{_cgi};
 
     my %param = (
-        $q->a( { -href => '#annotation' }, $q->em('Probe Annotation') ) =>
+        $q->a( { -href => '#annotation' }, $q->em('Annotation') ) =>
           $q->div(
             { -id => '#annotation' },
 

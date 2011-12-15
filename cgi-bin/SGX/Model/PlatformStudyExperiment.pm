@@ -100,9 +100,12 @@ sub getPlatformNameFromPID {
 sub getPlatformStudyName {
     my ( $self, $pid, $stid ) = @_;
 
-    my $platform = $self->{_ByPlatform}->{$pid};
+    my $platform      = $self->{_ByPlatform}->{$pid};
     my $platform_name = $platform->{name};
-    my $study_name = (defined $stid and $stid ne '') ? $platform->{$stid}->{name} : '@Unassigned Experiments';
+    my $study_name =
+      ( defined $stid and $stid ne '' )
+      ? $platform->{$stid}->{name}
+      : '@Unassigned Experiments';
     return "$study_name \\ $platform_name";
 }
 
@@ -177,7 +180,10 @@ sub init {
 
     #my $all_studies   = ( exists $extra_studies->{all} )   ? 1 : 0;
 
-    $self->getPlatforms( extra => $extra_platforms ) if $platform_info;
+    $self->getPlatforms(
+        extra         => $extra_platforms,
+        extra_studies => $extra_studies
+    ) if $platform_info;
 
     # we didn't define getStudy() because getPlatformStudy() accomplishes the
     # same goal (there is a one-to-many relationship between platforms and
@@ -348,6 +354,7 @@ END_PLATFORMQUERY
     my %model = (%$extra_platforms);
 
     # first setup the model using platform info
+    my $extra_studies = $args{extra_studies};
     while ( $sth_platform->fetch ) {
 
         # "Unassigned" study should exist only
@@ -355,7 +362,8 @@ END_PLATFORMQUERY
         # (b) if there are actually unassigned studies (determined later)
         $model{$pid} = {
             name    => $pname,
-            species => $species
+            species => $species,
+            studies => $extra_studies
         };
     }
 
