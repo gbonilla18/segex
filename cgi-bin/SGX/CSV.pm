@@ -5,7 +5,7 @@ use warnings;
 
 require File::Temp;
 require Text::CSV;
-use SGX::Util qw/all_match/;
+use SGX::Util qw/all_match car/;
 use SGX::Abstract::Exception ();
 use SGX::Debug;
 
@@ -23,6 +23,15 @@ sub sanitizeUploadWithMessages {
     my ( $delegate, $inputField, %args ) = @_;
 
     my $q = $delegate->{_cgi};
+
+    # field separator character
+    $args{csv_in_opts} ||= {};
+    $args{csv_in_opts}->{sep_char} = ( car( $q->param('separator') ) || "\t" )
+      if not defined $args{csv_in_opts}->{sep_char};
+
+    # whether first line is a header or not
+    $args{header} = ( defined( $q->param('header') ) ? 1 : 0 )
+      if not defined $args{header};
 
     my $recordsValid = 0;
     my $outputFileName =

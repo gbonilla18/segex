@@ -148,7 +148,6 @@ sub UploadTerms_head {
         $self, 'file',
         parser      => \@term_parser,
         csv_in_opts => { quote_char => undef },
-        header      => 0
       );
 
     my $dbh = $self->{_dbh};
@@ -192,7 +191,6 @@ sub UploadTermDefs_head {
         $self, 'file',
         parser      => \@term_definition_parser,
         csv_in_opts => { quote_char => undef },
-        header      => 0
       );
 
     my $dbh = $self->{_dbh};

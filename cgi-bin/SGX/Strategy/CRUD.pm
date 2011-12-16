@@ -808,6 +808,7 @@ sub default_create {
     # get inserted row id when inserting a new row, then redirect to the
     # newly created resource.
     my $insert_id = $self->get_last_insert_id();
+    $self->{_last_insert_id} = $insert_id;
     if ( defined $insert_id ) {
         $self->redirect( $self->get_resource_uri( id => $insert_id ) );
         return 1;                            # redirect (do not show body)

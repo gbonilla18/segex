@@ -119,17 +119,13 @@ sub new {
 #===============================================================================
 sub uploadData {
     my ( $self, %args ) = @_;
-
-    my $inputField = $args{filefield};
-
     my $delegate = $self->{delegate};
+
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
-        $delegate, $inputField,
-        parser      => \@parser,
-        csv_in_opts => { sep_char => $args{separator} },
-        header      => $args{header}
+        $delegate, $args{filefield},
+        parser      => \@parser
       );
 
     # some valid records uploaded -- now load to the database
@@ -139,7 +135,7 @@ sub uploadData {
     my $old_AutoCommit = $dbh->{AutoCommit};
     $dbh->{AutoCommit} = 0;
 
-    my $totalProbes = $self->probesPerPlatform();
+    my $totalProbes = $self->countProbes();
 
     # prepare SQL statements (all prepare errors are fatal)
     my $sth_hash = $self->loadToDatabase_prepare($totalProbes);
@@ -248,7 +244,7 @@ END_PARTIAL_SUCCESS
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
-#       METHOD:  probesPerPlatform
+#       METHOD:  countProbes
 #   PARAMETERS:  $pid - [optional] - platform id; if absent, will use
 #                                    $self->{_pid}
 #      RETURNS:  Count of probes
@@ -257,7 +253,7 @@ END_PARTIAL_SUCCESS
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub probesPerPlatform {
+sub countProbes {
     my ( $self, $pid ) = @_;
     $pid = $self->{_pid} unless defined($pid);
 

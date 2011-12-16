@@ -76,6 +76,38 @@ my $process_go = sub {
     return [ map { [ $probe_id, $_ ] } @gos ];
 };
 
+#---------------------------------------------------------------------------
+#  probe parser
+#---------------------------------------------------------------------------
+my @probe_parser = (
+    sub {
+
+        # Regular expression for the first column (probe/reporter id) reads as
+        # follows: from beginning to end, match any character other than [space,
+        # forward/back slash, comma, equal or pound sign, opening or closing
+        # parentheses, double quotation mark] from 1 to 18 times.
+        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+            return $1;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Cannot parse probe ID at line ' . shift );
+        }
+    },
+
+    # probe sequence -- bring to uppercase
+    sub {
+        if ( shift =~ /^([ACGT]*)$/i ) {
+            return uc $1;
+        }
+        else {
+            SGX::Exception::User->throw( error =>
+'Probe sequence contains letters not in the allowed alphabet {A, C, G, T} at line '
+                  . shift );
+        }
+    }
+);
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
 #       METHOD:  new
@@ -130,7 +162,9 @@ sub new {
                         __optional__   => 1,
                         __extra_html__ => $q->div(
                             { -class => 'hint', -id => 'probefile_hint' },
-                            $q->p('The file should have the following layout (probe sequences are optional):'),
+                            $q->p(
+'The file should have the following layout (probe sequences are optional):'
+                            ),
                             $q->pre("Probe ID, Probe Sequence")
                           )
                           . file_opts_html( $q, 'probeseqOpts' )
@@ -431,20 +465,16 @@ sub UploadAccNum_head {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    my $separator = ( car $q->param('separator') ) || "\t";
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         csv_in_opts => { quote_char => undef },
-        header => (defined($q->param('header')) ? 1 : 0),
-        separator => $separator,
-        process   => $process_accnum
+        process     => $process_accnum
       );
 
-    my $dbh        = $self->{_dbh};
-    my $temp_table = time() . '_' . getppid();
-
+    my $dbh            = $self->{_dbh};
+    my $temp_table     = time() . '_' . getppid();
     my $old_AutoCommit = $dbh->{AutoCommit};
     $dbh->{AutoCommit} = 0;
 
@@ -558,15 +588,12 @@ sub UploadGO_head {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    my $separator = ( car $q->param('separator') ) || "\t";
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         csv_in_opts => { quote_char => undef },
-        header => (defined($q->param('header')) ? 1 : 0),
-        separator => $separator,
-        process   => $process_go
+        process     => $process_go
       );
 
     my $dbh        = $self->{_dbh};
@@ -673,6 +700,162 @@ END_success
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
+#       METHOD:  countProbes
+#   PARAMETERS:  $pid - [optional] - platform id; if absent, will use
+#                                    $self->{_pid}
+#      RETURNS:  Count of probes
+#  DESCRIPTION:  Returns number of probes that the current platform has
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub countProbes {
+    my ( $self, $pid ) = @_;
+
+    my $dbh     = $self->{_dbh};
+    my $sth     = $dbh->prepare('SELECT COUNT(*) FROM probe WHERE pid=?');
+    my $rc      = $sth->execute($pid);
+    my ($count) = $sth->fetchrow_array;
+    $sth->finish;
+
+    return $count;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
+#       METHOD:  default_create
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::default_create
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_create {
+    my $self = shift;
+    return if defined $self->{_id};
+
+    eval { $self->_create_command()->() == 1; } or do {
+        my $exception = $@;
+        $self->add_message( { -class => 'error' }, "$exception" );
+        $self->set_action('form_create');    # show body for form_create again
+        return;
+    };
+
+    # get inserted row id when inserting a new row, then redirect to the
+    # newly created resource.
+    my $pid = $self->get_last_insert_id();
+    $self->{_id} = $pid;
+
+    #my $insert_id = $self->get_last_insert_id();
+    #$self->{_last_insert_id} = $insert_id;
+    #my $pid = $self->{_last_insert_id};
+
+    require SGX::CSV;
+    my ( $outputFileName, $recordsValid ) =
+      SGX::CSV::sanitizeUploadWithMessages(
+        $self, 'file',
+        csv_in_opts => { quote_char => undef },
+        parser      => \@probe_parser
+      );
+
+    my $dbh            = $self->{_dbh};
+    my $temp_table     = time() . '_' . getppid();
+    my $old_AutoCommit = $dbh->{AutoCommit};
+    $dbh->{AutoCommit} = 0;
+
+    my $t0 = Benchmark->new();
+
+    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
+CREATE TEMPORARY TABLE $temp_table (
+    reporter char(18) NOT NULL,
+    probe_sequence varchar(100) DEFAULT NULL
+) ENGINE=MEMORY
+END_loadTermDefs_createTemp
+
+    my $sth_load = $dbh->prepare(<<"END_loadTermDefs");
+LOAD DATA LOCAL INFILE ?
+INTO TABLE $temp_table
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
+    reporter,
+    probe_sequence
+)
+END_loadTermDefs
+
+    my $sth_insert = $dbh->prepare(<<"END_update");
+INSERT INTO probe (reporter, probe_sequence, pid)
+SELECT
+    reporter,
+    probe_sequence,
+    ? AS pid
+FROM $temp_table
+END_update
+
+    my ( $recordsLoaded, $recordsUpdated );
+    eval {
+        $sth_create_temp->execute();
+        $recordsLoaded  = $sth_load->execute($outputFileName);
+        $recordsUpdated = $sth_insert->execute($pid);
+    } or do {
+        my $exception = $@;
+        $dbh->rollback;
+        unlink $outputFileName;
+
+        $sth_create_temp->finish;
+        $sth_load->finish;
+        $sth_insert->finish;
+
+        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+
+            # catch dbi::sth exceptions. note: this block catches duplicate
+            # key record exceptions.
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    <<"end_dbi_sth_exception",
+Error loading probes into the database. The database response was:\n\n%s.\n
+No changes to the database were stored.
+end_dbi_sth_exception
+                    $exception->error
+                )
+            );
+        }
+        else {
+            $self->add_message(
+                { -class => 'error' },
+'Error loading probes into the database. No changes to the database were stored.'
+            );
+        }
+        $dbh->{AutoCommit} = $old_AutoCommit;
+        $self->set_action('form_create');
+        return 1;
+    };
+    $dbh->commit;
+    $dbh->{AutoCommit} = $old_AutoCommit;
+    my $t1 = Benchmark->new();
+    unlink $outputFileName;
+
+    $self->add_message(
+        sprintf(
+            <<END_success,
+Success! Found %d valid entries; inserted %d probes. The operation took %s.
+END_success
+            $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
+        )
+    );
+
+    $self->set_action('');
+
+    # Calling register_actions() here is a hack; should come up with something
+    # more sensible...
+    $self->register_actions( '' => { body => 'readrow_body' } );
+    $self->SUPER::readrow_head();
+    return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
 #       METHOD:  readrow_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -686,8 +869,7 @@ sub readrow_body {
     my $q    = $self->{_cgi};
 
     my %param = (
-        $q->a( { -href => '#annotation' }, $q->em('Annotation') ) =>
-          $q->div(
+        $q->a( { -href => '#annotation' }, $q->em('Annotation') ) => $q->div(
             { -id => '#annotation' },
 
             # GO annotation
@@ -776,7 +958,7 @@ END_info
                 )
             ),
             $q->end_form
-          )
+        )
     );
     return $self->SUPER::readrow_body( \%param );
 }

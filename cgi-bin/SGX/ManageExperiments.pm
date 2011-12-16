@@ -583,13 +583,7 @@ sub default_create {
     require SGX::UploadData;
     my $data = SGX::UploadData->new( delegate => $self );
 
-    my $recordsLoaded = eval {
-        $data->uploadData(
-            filefield => 'file',
-            header    => ( defined( $q->param('header') ) ? 1 : 0 ),
-            separator => $q->param('separator')
-        );
-    } || 0;
+    my $recordsLoaded = eval { $data->uploadData( filefield => 'file' ) } || 0;
     my $exception = $@;
     if ($recordsLoaded) {
         $self->{_upload_completed} = 1;
