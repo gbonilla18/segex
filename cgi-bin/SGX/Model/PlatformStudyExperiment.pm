@@ -437,10 +437,7 @@ END_STUDYQUERY
             $model{$pid}->{studies}->{$stid}->{name} = $study_desc;
         }
         else {
-            $model{$pid} =
-              { studies =>
-                  merge( { $stid => { name => $study_desc } }, $extra_studies )
-              };
+            $model{$pid} = { studies => { $stid => { name => $study_desc } } };
         }
 
         # if there is an 'all' platform, add every study to it
