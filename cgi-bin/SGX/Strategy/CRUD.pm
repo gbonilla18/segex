@@ -2421,7 +2421,6 @@ sub readrow_body {
                 ( defined $readrow_table ) ? $q->div(
                     { -id => $readrow_table_content_id },
                     $q->p($extra_actions_html),
-                    $q->div( { -id => 'wait_indicator' }, '' ),
                     $q->div(
                         { -class => 'clearfix', -id => $self->{dom_table_id} },
                         ''
@@ -2462,7 +2461,6 @@ sub default_body {
       $q->h3( { -id => 'caption' }, '' ),
       $q->div(
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
-      $q->div( { -id => 'wait_indicator' }, '' ),
       $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} }, '' );
 }
 

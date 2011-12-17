@@ -162,12 +162,10 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
         if (!confirm("Are you sure you want to " + verb + " " + name + "?")) { return false; }
 
         // show wait indicator
-        var wait_indicator_container = document.getElementById("wait_indicator");
-        wait_indicator_container.innerHTML = "";
         if (!wait_indicator) {
             // Initialize the temporary Panel to display while waiting for external content to load
             wait_indicator = new YAHOO.widget.Panel("wait", { 
-                width: "240px", 
+                width: "200px", 
                 fixedcenter: true, 
                 close: false, 
                 draggable: false, 
@@ -181,17 +179,11 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
         }
         var callbackObject = {
             success:function(o) { 
-                wait_indicator_container.innerHTML = o.responseText;
-                wait_indicator_container.style.visibility = "visible";
                 wait_indicator.hide();
-
                 handleSuccess(o, this);
             },
             failure:function(o) {
-                wait_indicator_container.innerHTML = o.responseText;
-                wait_indicator_container.style.visibility = "visible";
                 wait_indicator.hide();
-
                 handleFailure(o, this);
             },
             argument:[record],
