@@ -205,17 +205,19 @@ sub csv_rewrite {
     #  default process routine
     #---------------------------------------------------------------------------
     my $parser = $args{parser} || [];
+    my $min_field_count = $args{required_fields};
+    $min_field_count = @$parser if not defined $min_field_count;
 
     my $process = $args{process} || sub {
         my $line_num = shift;
         my $fields   = shift;
 
         # check total number of fields present
-        if ( @$fields < @$parser ) {
+        if ( @$fields < $min_field_count ) {
             SGX::Exception::User->throw(
                 error => sprintf(
                     "Only %d field(s) found (%d required) at line %d\n",
-                    scalar(@$fields), scalar(@$parser), $line_num
+                    scalar(@$fields), $min_field_count, $line_num
                 )
             );
         }

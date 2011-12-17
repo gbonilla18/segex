@@ -97,8 +97,12 @@ my @probe_parser = (
 
     # probe sequence -- bring to uppercase
     sub {
-        if ( shift =~ /^([ACGT]*)$/i ) {
-            my $val = $1;
+        my $val = shift;
+        if ( not defined $val ) {
+            return $val;
+        }
+        elsif ( $val =~ /^([ACGT]*)$/i ) {
+            $val = $1;
             return ( $val ne '' ) ? uc($val) : undef;
         }
         else {
@@ -736,11 +740,12 @@ sub default_update {
     my $self = shift;
     return if not defined $self->{_id};
 
-    eval { $self->{_upload_completed} = $self->uploadProbes(update => 1); } or do {
+    eval { $self->{_upload_completed} = $self->uploadProbes( update => 1 ); }
+      or do {
         my $exception = $@;
         my $msg = ( defined $exception ) ? "$exception" : '';
         $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
-    };
+      };
 
     # show body for "readrow"
     $self->set_action('');
@@ -761,7 +766,8 @@ sub default_create {
     my $self = shift;
     return if defined $self->{_id};
 
-    eval { $self->{_upload_completed} = $self->uploadProbes(update => 0); } or do {
+    eval { $self->{_upload_completed} = $self->uploadProbes( update => 0 ); }
+      or do {
         my $exception = $@;
         my $msg = ( defined $exception ) ? "$exception" : '';
         $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
@@ -769,12 +775,13 @@ sub default_create {
         # show body for form_create again
         $self->set_action('form_create');
         return;
-    };
+      };
 
     # Show body for the created platform
     if ( defined $self->{_last_insert_id} ) {
 
-        $self->redirect( $self->get_resource_uri( id => $self->{_last_insert_id} ) );
+        $self->redirect(
+            $self->get_resource_uri( id => $self->{_last_insert_id} ) );
         return 1;
 
         # Code below results in Platform table to be shown in the Studies
@@ -809,8 +816,9 @@ sub uploadProbes {
     my ( $outputFileName, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
-        csv_in_opts => { quote_char => undef },
-        parser      => \@probe_parser
+        csv_in_opts     => { quote_char => undef },
+        parser          => \@probe_parser,
+        required_fields => 1
       );
 
     my $dbh            = $self->{_dbh};
@@ -842,11 +850,11 @@ END_loadTermDefs
 
     my $sth_insert_update = ($update)
       ? $dbh->prepare(<<"END_update")
-UPDATE probe SET probe.probe_sequence=$temp_table.probe_sequence
-FROM probe INNER JOIN $temp_table 
-           ON probe.reporter=$temp_table.reporter 
-           AND probe.pid=? 
-           AND NOT ISNULL($temp_table.probe_sequence)
+UPDATE probe INNER JOIN $temp_table AS temptable
+    ON probe.reporter=temptable.reporter
+    AND probe.pid=?
+    AND NOT ISNULL(temptable.probe_sequence)
+SET probe.probe_sequence=temptable.probe_sequence
 END_update
       : $dbh->prepare(<<"END_insert");
 INSERT INTO probe (reporter, probe_sequence, pid)
@@ -861,16 +869,17 @@ END_insert
     my @ret;
     @ret = eval {
         $cmd_createPlatform->();
-        my $pid = $self->get_last_insert_id();
+        my $pid = ($update) ? $self->{_id} : $self->get_last_insert_id();
         $sth_create_temp->execute();
         $recordsLoaded  = $sth_load->execute($outputFileName);
         $recordsUpdated = $sth_insert_update->execute($pid);
 
         $dbh->commit;
-        $self->{_last_insert_id} = $pid;
+        $self->{_last_insert_id} = $pid if not $update;
 
         my $t1 = Benchmark->new();
         unlink $outputFileName;
+
         $self->add_message(
             sprintf(
                 <<END_success,
