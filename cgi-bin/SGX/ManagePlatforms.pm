@@ -98,7 +98,8 @@ my @probe_parser = (
     # probe sequence -- bring to uppercase
     sub {
         if ( shift =~ /^([ACGT]*)$/i ) {
-            return uc $1;
+            my $val = $1;
+            return ( $val ne '' ) ? uc($val) : undef;
         }
         else {
             SGX::Exception::User->throw( error =>
@@ -723,6 +724,31 @@ sub countProbes {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
+#       METHOD:  default_update
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::default_update
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_update {
+    my $self = shift;
+    return if not defined $self->{_id};
+
+    eval { $self->{_upload_completed} = $self->uploadProbes(update => 1); } or do {
+        my $exception = $@;
+        my $msg = ( defined $exception ) ? "$exception" : '';
+        $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
+    };
+
+    # show body for "readrow"
+    $self->set_action('');
+    return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
 #       METHOD:  default_create
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -735,21 +761,49 @@ sub default_create {
     my $self = shift;
     return if defined $self->{_id};
 
-    eval { $self->_create_command()->() == 1; } or do {
+    eval { $self->{_upload_completed} = $self->uploadProbes(update => 0); } or do {
         my $exception = $@;
-        $self->add_message( { -class => 'error' }, "$exception" );
-        $self->set_action('form_create');    # show body for form_create again
+        my $msg = ( defined $exception ) ? "$exception" : '';
+        $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
+
+        # show body for form_create again
+        $self->set_action('form_create');
         return;
     };
 
-    # get inserted row id when inserting a new row, then redirect to the
-    # newly created resource.
-    my $pid = $self->get_last_insert_id();
-    $self->{_id} = $pid;
+    # Show body for the created platform
+    if ( defined $self->{_last_insert_id} ) {
 
-    #my $insert_id = $self->get_last_insert_id();
-    #$self->{_last_insert_id} = $insert_id;
-    #my $pid = $self->{_last_insert_id};
+        $self->redirect( $self->get_resource_uri( id => $self->{_last_insert_id} ) );
+        return 1;
+
+        # Code below results in Platform table to be shown in the Studies
+        # section.
+        #$self->{_id} = $self->{_last_insert_id};
+        #$self->set_action('');
+        #$self->register_actions( '' => { body => 'readrow_body' });
+        #$self->readrow_head();
+        #return;
+    }
+
+    return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
+#       METHOD:  uploadProbes
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub uploadProbes {
+    my $self = shift;
+    my %args = @_;
+
+    my $update = $args{update};
 
     require SGX::CSV;
     my ( $outputFileName, $recordsValid ) =
@@ -765,6 +819,9 @@ sub default_create {
     $dbh->{AutoCommit} = 0;
 
     my $t0 = Benchmark->new();
+
+    my $cmd_createPlatform =
+      ($update) ? $self->_update_command() : $self->_create_command();
 
     my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
 CREATE TEMPORARY TABLE $temp_table (
@@ -783,20 +840,46 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 )
 END_loadTermDefs
 
-    my $sth_insert = $dbh->prepare(<<"END_update");
+    my $sth_insert_update = ($update)
+      ? $dbh->prepare(<<"END_update")
+UPDATE probe SET probe.probe_sequence=$temp_table.probe_sequence
+FROM probe INNER JOIN $temp_table 
+           ON probe.reporter=$temp_table.reporter 
+           AND probe.pid=? 
+           AND NOT ISNULL($temp_table.probe_sequence)
+END_update
+      : $dbh->prepare(<<"END_insert");
 INSERT INTO probe (reporter, probe_sequence, pid)
 SELECT
     reporter,
     probe_sequence,
     ? AS pid
 FROM $temp_table
-END_update
+END_insert
 
     my ( $recordsLoaded, $recordsUpdated );
-    eval {
+    my @ret;
+    @ret = eval {
+        $cmd_createPlatform->();
+        my $pid = $self->get_last_insert_id();
         $sth_create_temp->execute();
         $recordsLoaded  = $sth_load->execute($outputFileName);
-        $recordsUpdated = $sth_insert->execute($pid);
+        $recordsUpdated = $sth_insert_update->execute($pid);
+
+        $dbh->commit;
+        $self->{_last_insert_id} = $pid;
+
+        my $t1 = Benchmark->new();
+        unlink $outputFileName;
+        $self->add_message(
+            sprintf(
+                <<END_success,
+Success! Found %d valid entries; inserted %d probes. The operation took %s.
+END_success
+                $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
+            )
+        );
+        1;
     } or do {
         my $exception = $@;
         $dbh->rollback;
@@ -804,7 +887,7 @@ END_update
 
         $sth_create_temp->finish;
         $sth_load->finish;
-        $sth_insert->finish;
+        $sth_insert_update->finish;
 
         if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
 
@@ -827,31 +910,10 @@ end_dbi_sth_exception
 'Error loading probes into the database. No changes to the database were stored.'
             );
         }
-        $dbh->{AutoCommit} = $old_AutoCommit;
-        $self->set_action('form_create');
-        return 1;
+        ();
     };
-    $dbh->commit;
     $dbh->{AutoCommit} = $old_AutoCommit;
-    my $t1 = Benchmark->new();
-    unlink $outputFileName;
-
-    $self->add_message(
-        sprintf(
-            <<END_success,
-Success! Found %d valid entries; inserted %d probes. The operation took %s.
-END_success
-            $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
-        )
-    );
-
-    $self->set_action('');
-
-    # Calling register_actions() here is a hack; should come up with something
-    # more sensible...
-    $self->register_actions( '' => { body => 'readrow_body' } );
-    $self->SUPER::readrow_head();
-    return;
+    return @ret;
 }
 
 #===  CLASS METHOD  ============================================================

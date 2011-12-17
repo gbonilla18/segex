@@ -578,19 +578,20 @@ sub form_assign_head {
 #===============================================================================
 sub default_create {
     my $self = shift;
-    my $q    = $self->{_cgi};
+    return if defined $self->{_id};
 
     require SGX::UploadData;
     my $data = SGX::UploadData->new( delegate => $self );
 
-    my $recordsLoaded = eval { $data->uploadData( filefield => 'file' ) } || 0;
-    my $exception = $@;
-    if ($recordsLoaded) {
-        $self->{_upload_completed} = 1;
-    }
-    else {
-        $self->add_message( 'No records loaded. ' . $exception );
-    }
+    eval {
+        $self->{_upload_completed} = $data->uploadData( filefield => 'file' );
+    } or do {
+        my $exception = $@;
+        my $msg = ( defined $exception ) ? "$exception" : '';
+        $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
+    };
+
+    # show body for form_create again
     $self->set_action('form_create');
     return;
 }

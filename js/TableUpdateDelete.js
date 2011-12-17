@@ -135,16 +135,17 @@ function createEditFormatter(verb, noun, resourceURIBuilder) {
     };
 }
 
-function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder) {
+var wait_indicator;
+function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder, waitIndicatorImageURL) {
     var verb = buttonValue.toLowerCase();
 
-    var handleSuccess = function(o) {
+    var handleSuccess = function(o, scope) {
         // simply delete row, then do nothing
         var record = o.argument[0];
-        this.deleteRow(record);
+        scope.deleteRow(record);
     };
 
-    var handleFailure = function(o) {
+    var handleFailure = function(o, scope) {
         var record = o.argument[0];
         var name = rowNameBuilder(record);
         alert(ajaxError(o, verb, rowNameBuilder(record), resourceURIBuilder(record)));
@@ -160,12 +161,45 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
         var resourceURI = resourceURIBuilder(record);
         if (!confirm("Are you sure you want to " + verb + " " + name + "?")) { return false; }
 
+        // show wait indicator
+        var wait_indicator_container = document.getElementById("wait_indicator");
+        wait_indicator_container.innerHTML = "";
+        if (!wait_indicator) {
+            // Initialize the temporary Panel to display while waiting for external content to load
+            wait_indicator = new YAHOO.widget.Panel("wait", { 
+                width: "240px", 
+                fixedcenter: true, 
+                close: false, 
+                draggable: false, 
+                zindex:4, 
+                modal: true, 
+                visible: false 
+            });
+            wait_indicator.setHeader("Deleting, please wait...");
+            wait_indicator.setBody("<img src=\"" + waitIndicatorImageURL + "\"/>");
+            wait_indicator.render(document.body);
+        }
         var callbackObject = {
-            success:handleSuccess,
-            failure:handleFailure,
+            success:function(o) { 
+                wait_indicator_container.innerHTML = o.responseText;
+                wait_indicator_container.style.visibility = "visible";
+                wait_indicator.hide();
+
+                handleSuccess(o, this);
+            },
+            failure:function(o) {
+                wait_indicator_container.innerHTML = o.responseText;
+                wait_indicator_container.style.visibility = "visible";
+                wait_indicator.hide();
+
+                handleFailure(o, this);
+            },
             argument:[record],
             scope:this
         };
+        // show waiting indicator
+        wait_indicator.show();
+
         YAHOO.util.Connect.asyncRequest(
             'POST', 
             resourceURI, 
@@ -203,13 +237,19 @@ function createJoinFormatter(join_tuple, lookup_table, name_field) {
         return function(elCell, oRecord, oColumn, oData) {};
     }
     var this_field = join_tuple[0], other_field = join_tuple[1];
-    var name_column = lookup_table.symbol2index[name_field] - lookup_table.key.length;
-    var root = lookup_table.lookup_by[other_field];
+    var name_column, root;
+    if (typeof lookup_table !== 'undefined') {
+        name_column = lookup_table.symbol2index[name_field] - lookup_table.key.length;
+        root = lookup_table.lookup_by[other_field];
+    }
 
     return function(elCell, oRecord, oColumn, oData) {
         // this also gets executed after we update a cell via AJAX
-        var sub_record = root[oData];
-        elCell.innerHTML = (typeof sub_record !== "undefined") ? sub_record[name_column] : '';
+        var sub_record;
+        if (typeof oData !== 'undefined') {
+            sub_record = root[oData];
+        }
+        elCell.innerHTML = (typeof sub_record !== 'undefined') ? sub_record[name_column] : '';
     };
 }
 function createRenameFormatter(rename_array) {
@@ -239,14 +279,16 @@ function expandJoinedFields(mainTable, lookupTables) {
     var tmp = {};
     forPairInList(mainTable.lookup, function(other_table, tuple) {
         var obj = lookupTables[other_table];
-        obj.lookup_by = {};
-        var this_field = tuple[0];
-        var other_field = tuple[1];
-        if (this_field in tmp) {
-            tmp[this_field].push([other_table, other_field, obj]);
-        } else {
-            tmp[this_field] = [ [other_table, other_field, obj] ];
-        }       
+        if (typeof obj !== 'undefined' && obj !== null) {
+            obj.lookup_by = {};
+            var this_field = tuple[0];
+            var other_field = tuple[1];
+            if (this_field in tmp) {
+                tmp[this_field].push([other_table, other_field, obj]);
+            } else {
+                tmp[this_field] = [ [other_table, other_field, obj] ];
+            }
+        }
     });
     var mainTable_fields = mainTable.fields,
     mainTable_records = mainTable.records,
@@ -362,15 +404,15 @@ function subscribeEnMasse(el, obj) {
 // helper functions
 function formatEmail(elLiner, oRecord, oColumn, oData) {
     elLiner.innerHTML = (oData !== null) 
-        ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>"
-        : '';
+    ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>"
+    : '';
 }
 
 function formatPubMed(elLiner, oRecord, oColumn, oData) {
-    elLiner.innerHTML = (oData !== null) 
-        ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, 
-        '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>')
-        : '';
+    elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) 
+    ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, 
+    '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>')
+    : '';
 }
 
 // returns a new array containing a specified subset of the old one

@@ -9,7 +9,7 @@ require Tie::IxHash;
 require Lingua::EN::Inflect;
 require Text::Autoformat;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Config qw/$IMAGES_DIR/;
+use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
 use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal/;
 use SGX::Abstract::Exception ();
@@ -180,6 +180,8 @@ sub _head_data_table {
     #  Compiling names to something like _a7, _a0. This way we don't have to
     #  worry about coming up with unique names for the given set.
     #---------------------------------------------------------------------------
+    my $wait_indicator_image_url =
+      "$YUI_BUILD_ROOT/assets/skins/sam/ajax-loader.gif";
     my $var = $js->register_var(
         '_a',
         [
@@ -397,7 +399,8 @@ sub _head_data_table {
                                         : $var->{resourceURIBuilder}
                                     ),
                                     $var->{deleteDataBuilder},
-                                    $var->{rowNameBuilder}
+                                    $var->{rowNameBuilder},
+                                    $wait_indicator_image_url
                                 ]
                             )
                           )
@@ -2224,14 +2227,15 @@ sub _head_init {
     push @{ $self->{_css_src_yui} },
       (
         'paginator/assets/skins/sam/paginator.css',
-        'datatable/assets/skins/sam/datatable.css'
+        'datatable/assets/skins/sam/datatable.css',
+        'container/assets/skins/sam/container.css'
       );
     push @{ $self->{_css_src_code} }, +{ -src => 'CRUD.css' };
     push @{ $self->{_js_src_yui} },
       (
-        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
-        'datasource/datasource-min.js',       'datatable/datatable-min.js',
-        'paginator/paginator-min.js',         'connection/connection-min.js'
+        'element/element-min.js',       'datasource/datasource-min.js',
+        'datatable/datatable-min.js',   'paginator/paginator-min.js',
+        'connection/connection-min.js', 'container/container-min.js'
       );
     push @{ $self->{_js_src_code} }, ( +{ -src => 'TableUpdateDelete.js' } );
     return 1;
@@ -2417,6 +2421,7 @@ sub readrow_body {
                 ( defined $readrow_table ) ? $q->div(
                     { -id => $readrow_table_content_id },
                     $q->p($extra_actions_html),
+                    $q->div( { -id => 'wait_indicator' }, '' ),
                     $q->div(
                         { -class => 'clearfix', -id => $self->{dom_table_id} },
                         ''
@@ -2457,6 +2462,7 @@ sub default_body {
       $q->h3( { -id => 'caption' }, '' ),
       $q->div(
         $q->a( { -id => $self->{dom_export_link_id} }, 'View as plain text' ) ),
+      $q->div( { -id => 'wait_indicator' }, '' ),
       $q->div( { -class => 'clearfix', -id => $self->{dom_table_id} }, '' );
 }
 

@@ -48,6 +48,7 @@ sub new {
 #===============================================================================
 sub init {
     my $self = shift;
+    push @{ $self->{_js_src_yui} }, 'yahoo-dom-event/yahoo-dom-event.js';
     $self->set_attributes(
 
         # :TODO:10/20/2011 11:12:05:es: change 'user' to 'guest' here...
