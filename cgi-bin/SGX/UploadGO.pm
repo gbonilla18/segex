@@ -41,7 +41,7 @@ my @term_parser = (
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Second column not numeric at line ' . shift );
+                error => 'Second column not numeric on line ' . shift );
         }
     },
 
@@ -59,7 +59,7 @@ my @term_parser = (
         }
         else {
             SGX::Exception::Skip->throw(
-                error => 'Cannot parse GO term at line ' . shift );
+                error => 'Cannot parse GO term on line ' . shift );
         }
     }
 );
@@ -88,7 +88,7 @@ my @term_definition_parser = (
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Second column not numeric at line ' . shift );
+                error => 'Second column not numeric on line ' . shift );
         }
     },
 

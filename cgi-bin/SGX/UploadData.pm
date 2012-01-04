@@ -21,7 +21,7 @@ my @parser = (
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Cannot parse probe ID at line ' . shift );
+                error => 'Cannot parse probe ID on line ' . shift );
         }
     },
     sub {
@@ -31,7 +31,7 @@ my @parser = (
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Ratio not a decimal r >= 0.0 at line ' . shift );
+                error => 'Ratio not a decimal r >= 0.0 on line ' . shift );
         }
     },
     sub {
@@ -51,7 +51,7 @@ my @parser = (
         }
         else {
             SGX::Exception::User->throw(
-                error => 'P-value not a decimal 0.0 <= p <= 1.0 at line '
+                error => 'P-value not a decimal 0.0 <= p <= 1.0 on line '
                   . shift );
         }
     },
@@ -62,7 +62,7 @@ my @parser = (
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Intensity 1 not a decimal i1 >= 0 at line ' . shift );
+                error => 'Intensity 1 not a decimal i1 >= 0 on line ' . shift );
         }
     },
     sub {
@@ -72,7 +72,7 @@ my @parser = (
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Intensity 2 not a decimal i2 >= 0 at line ' . shift );
+                error => 'Intensity 2 not a decimal i2 >= 0 on line ' . shift );
         }
     }
 );

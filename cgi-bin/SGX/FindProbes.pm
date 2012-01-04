@@ -76,10 +76,10 @@ sub init {
 #===============================================================================
 sub default_head {
     my $self = shift;
-    my ( $s, $js_src_yui, $js_src_code ) =
-      @$self{qw{_UserSession _js_src_yui _js_src_code}};
+    my ( $js_src_yui, $js_src_code, $css_src_yui ) =
+      @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
 
-    push @{ $self->{_css_src_yui} }, 'button/assets/skins/sam/button.css';
+    push @$css_src_yui, 'button/assets/skins/sam/button.css';
     push @$js_src_yui,
       (
         'yahoo-dom-event/yahoo-dom-event.js',
@@ -887,7 +887,7 @@ or be on separate lines.
 END_terms_title
             )
         ),
-        $q->dt( $q->label( { -for => 'type' }, 'Scope and Options:' ) ),
+        $q->dt( 'Scope and Options:' ),
         $q->dd(
             $q->div(
                 { -id => 'scope_container', -class => 'input_container' },

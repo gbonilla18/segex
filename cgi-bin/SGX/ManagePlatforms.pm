@@ -5,7 +5,10 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
+require Tie::CPHash;
+use Storable qw/freeze thaw/;
 use Benchmark qw/timediff timestr/;
+
 use Scalar::Util qw/looks_like_number/;
 use SGX::Util qw/car file_opts_html/;
 use SGX::Abstract::Exception ();
@@ -15,6 +18,7 @@ require SGX::Model::ProjectStudyExperiment;
 #  process row in accession number input file
 #---------------------------------------------------------------------------
 my $process_accnum = sub {
+    my $printfun = shift;
     my $line_num = shift;
     my $fields   = shift;
 
@@ -22,7 +26,7 @@ my $process_accnum = sub {
     if ( @$fields < 2 ) {
         SGX::Exception::User->throw(
             error => sprintf(
-                "Only %d field(s) found (2 required) at line %d\n",
+                "Only %d field(s) found (2 required) on line %d\n",
                 scalar(@$fields), $line_num
             )
         );
@@ -35,16 +39,25 @@ my $process_accnum = sub {
     }
     else {
         SGX::Exception::User->throw(
-            error => "Cannot parse probe ID at line $line_num" );
+            error => "Cannot parse probe ID on line $line_num" );
     }
     my @accnums = map { $_ =~ /^(\S+)$/ } split /[,;\s]+/, $fields->[1];
-    return [ map { [ $probe_id, $_ ] } @accnums ];
+
+    #return [ map { [ $probe_id, $_ ] } @accnums ];
+    if ( @accnums > 0 ) {
+        $printfun->( $probe_id, $_ ) for @accnums;
+    }
+    else {
+        $printfun->( $probe_id, undef );
+    }
+    return 1;
 };
 
 #---------------------------------------------------------------------------
 #  process row in go link input file
 #---------------------------------------------------------------------------
 my $process_go = sub {
+    my $printfun = shift;
     my $line_num = shift;
     my $fields   = shift;
 
@@ -52,7 +65,7 @@ my $process_go = sub {
     if ( @$fields < 2 ) {
         SGX::Exception::User->throw(
             error => sprintf(
-                "Only %d field(s) found (2 required) at line %d\n",
+                "Only %d field(s) found (2 required) on line %d\n",
                 scalar(@$fields), $line_num
             )
         );
@@ -65,7 +78,7 @@ my $process_go = sub {
     }
     else {
         SGX::Exception::User->throw(
-            error => "Cannot parse probe ID at line $line_num" );
+            error => "Cannot parse probe ID on line $line_num" );
     }
     my $go = $fields->[1];
     my @gos;
@@ -73,13 +86,22 @@ my $process_go = sub {
         push @gos, $1 + 0;
     }
 
-    return [ map { [ $probe_id, $_ ] } @gos ];
+    #return [ map { [ $probe_id, $_ ] } @gos ];
+    if ( @gos > 0 ) {
+        $printfun->( $probe_id, $_ ) for @gos;
+    }
+    else {
+        $printfun->( $probe_id, undef );
+    }
+    return 1;
 };
 
 #---------------------------------------------------------------------------
 #  probe parser
 #---------------------------------------------------------------------------
 my @probe_parser = (
+
+    # Probe ID
     sub {
 
         # Regular expression for the first column (probe/reporter id) reads as
@@ -91,11 +113,11 @@ my @probe_parser = (
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Cannot parse probe ID at line ' . shift );
+                error => 'Cannot parse probe ID on line ' . shift );
         }
     },
 
-    # probe sequence -- bring to uppercase
+    # Probe Sequence -- bring to uppercase
     sub {
         my $val = shift;
         if ( not defined $val ) {
@@ -107,9 +129,50 @@ my @probe_parser = (
         }
         else {
             SGX::Exception::User->throw( error =>
-'Probe sequence contains letters not in the allowed alphabet {A, C, G, T} at line '
+'Probe sequence contains letters not in the allowed alphabet {A, C, G, T} on line '
                   . shift );
         }
+    }
+);
+
+#---------------------------------------------------------------------------
+#  gene parser
+#---------------------------------------------------------------------------
+my @gene_parser = (
+
+    # Probe ID
+    sub {
+
+        # Regular expression for the first column (probe/reporter id) reads as
+        # follows: from beginning to end, match any character other than [space,
+        # forward/back slash, comma, equal or pound sign, opening or closing
+        # parentheses, double quotation mark] from 1 to 18 times.
+        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+            return $1;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Cannot parse probe ID on line ' . shift );
+        }
+    },
+
+    # Gene symbol -- disallow spaces and plus signs
+    sub {
+        my $x = shift;
+        if ( $x =~ /^\s*([^\+\s]*)\s*$/ ) {
+            $x = $1;
+            return ( $x ne '' ) ? $x : undef;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Invalid gene symbol on line ' . shift );
+        }
+    },
+
+    # Gene name -- anything allowed
+    sub {
+        my ($x) = shift =~ /(.*)/;
+        return ( $x ne '' ) ? $x : undef;
     }
 );
 
@@ -166,7 +229,10 @@ sub new {
                         __special__    => 1,
                         __optional__   => 1,
                         __extra_html__ => $q->div(
-                            { -class => 'hint', -id => 'probefile_hint' },
+                            {
+                                -class => 'hint visible',
+                                -id    => 'probefile_hint'
+                            },
                             $q->p(
 'The file should have the following layout (probe sequences are optional):'
                             ),
@@ -343,9 +409,9 @@ sub init {
     $self->register_actions(
         form_assign =>
           { head => 'form_assign_head', body => 'form_assign_body' },
-        uploadGO => { head => 'UploadGO_head', body => 'form_assign_body' },
-        uploadAccNum =>
-          { head => 'UploadAccNum_head', body => 'form_assign_body' }
+        uploadGene   => { head => 'UploadGene_head',   body => 'readrow_body' },
+        uploadGO     => { head => 'UploadGO_head',     body => 'readrow_body' },
+        uploadAccNum => { head => 'UploadAccNum_head', body => 'readrow_body' }
     );
 
     return $self;
@@ -363,19 +429,7 @@ sub init {
 #===============================================================================
 sub form_create_head {
     my $self = shift;
-    push @{ $self->{_js_src_code} }, { -src  => 'collapsible.js' };
-    push @{ $self->{_js_src_code} }, { -code => <<"END_SETUPTOGGLES" };
-YAHOO.util.Event.addListener(window,'load',function(){
-    setupToggles('change',
-        { 'file': { '' : ['probefile_hint'] } },
-        function(el) {
-            var val = el.value; 
-            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
-        }
-    );
-});
-END_SETUPTOGGLES
-
+    push @{ $self->{_js_src_code} }, { -src => 'collapsible.js' };
     return $self->SUPER::form_create_head();
 }
 
@@ -426,30 +480,73 @@ sub form_create_body {
 #===============================================================================
 sub readrow_head {
     my $self = shift;
-    push @{ $self->{_js_src_code} }, { -src  => 'collapsible.js' };
-    push @{ $self->{_js_src_code} }, { -code => <<"END_SETUPTOGGLES" };
+    my ( $js_src_yui, $js_src_code, $css_src_yui ) =
+      @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
+
+    push @$css_src_yui, 'button/assets/skins/sam/button.css';
+    push @$js_src_yui, ( 'element/element-min.js', 'button/button-min.js' );
+    push @$js_src_code,
+      ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
 YAHOO.util.Event.addListener(window,'load',function(){
-    setupToggles('change',
-        { 'file': { '' : ['probefile_hint'] } },
-        function(el) {
-            var val = el.value; 
-            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
+
+    // Gene annotation: first column
+    var geneannot_state = document.getElementById("geneannot_state");
+    var geneannot_div1 = document.getElementById('geneannot_gsymbol_hint');
+    var geneannot_div2 = document.getElementById('geneannot_accnum_hint');
+    var geneannot = new YAHOO.widget.ButtonGroup("geneannot_container");
+    geneannot.addListener("checkedButtonChange", function(ev) {
+        var selectedIndex = ev.newValue.index;
+        geneannot_state.value = selectedIndex;
+        if (selectedIndex === 0 ) {
+            geneannot_div1.style.display = 'block';
+            geneannot_div2.style.display = 'none';
+        } else {
+            geneannot_div1.style.display = 'none';
+            geneannot_div2.style.display = 'block';
         }
-    );
-    setupToggles('change',
-        { 'fileGO': { '' : ['gofile_hint'] } },
-        function(el) {
-            var val = el.value; 
-            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
+    });
+    if (geneannot_state.value !== '') {
+        geneannot.check(geneannot_state.value);
+    } else {
+        var selectedIndex = geneannot.get('checkedButton').index;
+        if (selectedIndex === 0 ) {
+            geneannot_div1.style.display = 'block';
+            geneannot_div2.style.display = 'none';
+        } else {
+            geneannot_div1.style.display = 'none';
+            geneannot_div2.style.display = 'block';
         }
-    );
-    setupToggles('change',
-        { 'fileAccNum': { '' : ['accnumfile_hint'] } },
-        function(el) {
-            var val = el.value; 
-            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
+    }
+
+    // GO annotation: first column
+    var goannot_state = document.getElementById("goannot_state");
+    var goannot_div1 = document.getElementById('goannot_gsymbol_hint');
+    var goannot_div2 = document.getElementById('goannot_accnum_hint');
+    var goannot = new YAHOO.widget.ButtonGroup("goannot_container");
+    goannot.addListener("checkedButtonChange", function(ev) {
+        var selectedIndex = ev.newValue.index;
+        goannot_state.value = selectedIndex;
+        if (selectedIndex === 0 ) {
+            goannot_div1.style.display = 'block';
+            goannot_div2.style.display = 'none';
+        } else {
+            goannot_div1.style.display = 'none';
+            goannot_div2.style.display = 'block';
         }
-    );
+    });
+    if (goannot_state.value !== '') {
+        goannot.check(goannot_state.value);
+    } else {
+        var selectedIndex = goannot.get('checkedButton').index;
+        if (selectedIndex === 0 ) {
+            goannot_div1.style.display = 'block';
+            goannot_div2.style.display = 'none';
+        } else {
+            goannot_div1.style.display = 'none';
+            goannot_div2.style.display = 'block';
+        }
+    }
+
 });
 END_SETUPTOGGLES
 
@@ -485,16 +582,11 @@ sub UploadAccNum_head {
 
     my $t0 = Benchmark->new();
 
-    my $sth_delete = $dbh->prepare(<<"END_delete");
-DELETE accnum FROM accnum 
-INNER JOIN probe USING(rid) 
-WHERE probe.pid=?
-END_delete
-
     my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
 CREATE TEMPORARY TABLE $temp_table (
     reporter char(18) NOT NULL,
-    accnum char(20) NOT NULL
+    accnum char(20) DEFAULT NULL,
+    KEY reporter (reporter),
 ) ENGINE=MEMORY
 END_loadTermDefs_createTemp
 
@@ -508,23 +600,31 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 )
 END_loadTermDefs
 
-    my $sth_insert = $dbh->prepare(<<"END_update");
+    my $sth_delete = $dbh->prepare(<<"END_delete");
+DELETE accnum 
+FROM accnum 
+    INNER JOIN probe ON accnum.rid=probe.rid AND probe.pid=?
+    INNER JOIN $temp_table USING(reporter)
+END_delete
+
+    my $sth_insert = $dbh->prepare(<<"END_insert_accnum");
 INSERT INTO accnum (rid, accnum)
 SELECT
     probe.rid,
     temptable.accnum
 FROM probe
-INNER JOIN $temp_table AS temptable USING(reporter) 
-WHERE probe.pid=?
-ON DUPLICATE KEY UPDATE accnum.rid=probe.rid, accnum.accnum=temptable.accnum
-END_update
+    INNER JOIN $temp_table AS temptable
+        ON temptable.reporter=probe.reporter 
+        AND NOT ISNULL(temptable.accnum)
+        AND probe.pid=?
+END_insert_accnum
 
     my ( $recordsLoaded, $recordsUpdated );
     my $pid = $self->{_id};
     eval {
-        $sth_delete->execute($pid);
         $sth_create_temp->execute();
-        $recordsLoaded  = $sth_load->execute($outputFileName);
+        $recordsLoaded = $sth_load->execute($outputFileName);
+        $sth_delete->execute($pid);
         $recordsUpdated = $sth_insert->execute($pid);
     } or do {
         my $exception = $@;
@@ -609,16 +709,11 @@ sub UploadGO_head {
 
     my $t0 = Benchmark->new();
 
-    my $sth_delete = $dbh->prepare(<<"END_delete");
-DELETE go_link FROM go_link 
-INNER JOIN probe USING(rid) 
-WHERE probe.pid=?
-END_delete
-
     my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
 CREATE TEMPORARY TABLE $temp_table (
     reporter char(18) NOT NULL,
-    go_acc int(10) UNSIGNED NOT NULL
+    go_acc int(10) unsigned DEFAULT NULL,
+    KEY reporter (reporter)
 ) ENGINE=MEMORY
 END_loadTermDefs_createTemp
 
@@ -632,23 +727,31 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 )
 END_loadTermDefs
 
-    my $sth_insert = $dbh->prepare(<<"END_update");
+    my $sth_delete = $dbh->prepare(<<"END_delete");
+DELETE go_link
+FROM go_link 
+    INNER JOIN probe ON go_link.rid=probe.rid AND probe.pid=?
+    INNER JOIN $temp_table USING(reporter)
+END_delete
+
+    my $sth_insert = $dbh->prepare(<<"END_insert_go_link");
 INSERT INTO go_link (rid, go_acc)
 SELECT
     probe.rid,
     temptable.go_acc
 FROM probe
-INNER JOIN $temp_table AS temptable USING(reporter) 
-WHERE probe.pid=?
-ON DUPLICATE KEY UPDATE go_link.rid=probe.rid, go_link.go_acc=temptable.go_acc
-END_update
+    INNER JOIN $temp_table AS temptable 
+        ON temptable.reporter=probe.reporter
+        AND NOT ISNULL(temptable.go_acc)
+        AND probe.pid=?
+END_insert_go_link
 
     my ( $recordsLoaded, $recordsUpdated );
     my $pid = $self->{_id};
     eval {
-        $sth_delete->execute($pid);
         $sth_create_temp->execute();
-        $recordsLoaded  = $sth_load->execute($outputFileName);
+        $recordsLoaded = $sth_load->execute($outputFileName);
+        $sth_delete->execute($pid);
         $recordsUpdated = $sth_insert->execute($pid);
     } or do {
         my $exception = $@;
@@ -694,6 +797,186 @@ end_dbi_sth_exception
             <<END_success,
 Success! Found %d valid entries; created %d links
 between probe IDs and GO terms. The operation took %s.
+END_success
+            $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
+        )
+    );
+
+    $self->readrow_head();
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManagePlatforms
+#       METHOD:  UploadGene_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub UploadGene_head {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    my %gene2reporter;
+    tie %gene2reporter, 'Tie::CPHash';
+    my $gene_process = sub {
+        my $printfun = shift;
+        my $line_num = shift;
+        my $fields   = shift;
+
+        # check total number of fields present
+        if ( @$fields < 2 ) {
+            SGX::Exception::User->throw(
+                error => sprintf(
+                    "Only %d field(s) found (2 required) on line %d\n",
+                    scalar(@$fields), $line_num
+                )
+            );
+        }
+
+        # get probe id
+        my $probe_id;
+        if ( $fields->[0] =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+            $probe_id = $1;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => "Cannot parse probe ID on line $line_num" );
+        }
+
+        # get gene symbol
+        my ($gsymbol) = $fields->[1] =~ /^\s*(.*)\s*$/;
+        if ( $gsymbol =~ m/\s/ ) {
+            SGX::Exception::User->throw(
+                error => 'Gene symbol contains spaces on line ' . shift );
+        }
+
+        # get gene name
+        my ($gname) = ( $fields->[2] =~ /(.*)/ );
+
+        # at this point, we have $probe_id, $gsymbol, and $gname
+        $gsymbol = '' if $gsymbol eq '\N';
+        $gname   = '' if $gname   eq '\N';
+
+        my $gene_key = freeze( [ $gsymbol, $gname ] );
+        if ( my $val = $gene2reporter{$gene_key} ) {
+            push @$val, $probe_id;
+        }
+        else {
+            $gene2reporter{$gene_key} = [$probe_id];
+        }
+        return 1;
+    };
+
+    #---------------------------------------------------------------------------
+    # etc
+    #---------------------------------------------------------------------------
+    require SGX::CSV;
+    my ( $outputFileName, $recordsValid ) =
+      SGX::CSV::sanitizeUploadWithMessages(
+        $self, 'file',
+        csv_in_opts => { quote_char => undef },
+        process     => $gene_process,
+        rewrite     => 0
+      );
+
+    my $dbh            = $self->{_dbh};
+    my $temp_table     = time() . '_' . getppid();
+    my $old_AutoCommit = $dbh->{AutoCommit};
+    $dbh->{AutoCommit} = 0;
+
+    my $t0 = Benchmark->new();
+
+    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
+CREATE TEMPORARY TABLE $temp_table (
+    reporter char(18) NOT NULL,
+    accnum char(20) DEFAULT NULL,
+    KEY reporter (reporter),
+) ENGINE=MEMORY
+END_loadTermDefs_createTemp
+
+    my $sth_load = $dbh->prepare(<<"END_loadTermDefs");
+LOAD DATA LOCAL INFILE ?
+INTO TABLE $temp_table
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
+    reporter,
+    accnum
+)
+END_loadTermDefs
+
+    my $sth_delete = $dbh->prepare(<<"END_delete");
+DELETE accnum 
+FROM accnum 
+    INNER JOIN probe ON accnum.rid=probe.rid AND probe.pid=?
+    INNER JOIN $temp_table USING(reporter)
+END_delete
+
+    my $sth_insert = $dbh->prepare(<<"END_update");
+INSERT INTO accnum (rid, accnum)
+SELECT
+    probe.rid,
+    temptable.accnum
+FROM probe
+    INNER JOIN $temp_table AS temptable USING(reporter) 
+WHERE probe.pid=?
+ON DUPLICATE KEY UPDATE accnum.rid=probe.rid, accnum.accnum=temptable.accnum
+END_update
+
+    my ( $recordsLoaded, $recordsUpdated );
+    my $pid = $self->{_id};
+    eval {
+        $sth_create_temp->execute();
+        $recordsLoaded = $sth_load->execute($outputFileName);
+        $sth_delete->execute($pid);
+        $recordsUpdated = $sth_insert->execute($pid);
+    } or do {
+        my $exception = $@;
+        $dbh->rollback;
+        unlink $outputFileName;
+
+        $sth_create_temp->finish;
+        $sth_load->finish;
+        $sth_insert->finish;
+
+        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+
+            # catch dbi::sth exceptions. note: this block catches duplicate
+            # key record exceptions.
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    <<"end_dbi_sth_exception",
+Error loading data into the database. The database response was:\n\n%s.\n
+No changes to the database were stored.
+end_dbi_sth_exception
+                    $exception->error
+                )
+            );
+        }
+        else {
+            $self->add_message(
+                { -class => 'error' },
+'Error loading data into the database. No changes to the database were stored.'
+            );
+        }
+        $dbh->{AutoCommit} = $old_AutoCommit;
+        $self->readrow_head();
+        return 1;
+    };
+    $dbh->commit;
+    $dbh->{AutoCommit} = $old_AutoCommit;
+    my $t1 = Benchmark->new();
+    unlink $outputFileName;
+
+    $self->add_message(
+        sprintf(
+            <<END_success,
+Success! Found %d valid entries; created %d links between probe IDs and
+accession numbers. The operation took %s.
 END_success
             $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
         )
@@ -885,7 +1168,8 @@ END_insert
                 <<END_success,
 Success! Found %d valid entries; inserted %d probes. The operation took %s.
 END_success
-                $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
+                $recordsValid, $recordsUpdated,
+                timestr( timediff( $t1, $t0 ) )
             )
         );
         1;
@@ -940,21 +1224,23 @@ sub readrow_body {
     my $q    = $self->{_cgi};
 
     my %param = (
-        $q->a( { -href => '#annotation' }, $q->em('Annotation') ) => $q->div(
+        $q->a( { -href => '#annotation' }, $q->em('Genomic Annotation') ) =>
+          $q->div(
             { -id => '#annotation' },
 
-            # GO annotation
-            $q->h3('Upload/Replace GO Annotation'),
+    #---------------------------------------------------------------------------
+    #  Probe locations
+    #---------------------------------------------------------------------------
+            $q->h3('Upload/Replace Probe Locations'),
             $q->p(<<"END_info"),
-Note: this will remove existing GO annotations from this platform
-before adding new annotations.
+Note: this will remove existing accession number annotation from this platform before adding new annotations.
 END_info
             $q->start_form(
                 -method   => 'POST',
                 -enctype  => 'multipart/form-data',
-                -onsubmit => 'return validate_fields(this, ["fileGO"]);',
+                -onsubmit => 'return validate_fields(this, ["fileProbeLoci"]);',
                 -action   => $self->get_resource_uri(
-                    b   => 'uploadGO',
+                    b   => 'uploadProbeLoci',
                     '#' => 'annotation'
                 )
             ),
@@ -962,24 +1248,36 @@ END_info
                 $q->dt('Path to file:'),
                 $q->dd(
                     $q->filefield(
-                        -id    => 'fileGO',
-                        -name  => 'file',
-                        -title => 'File containing probe-GO term annotation'
+                        -id   => 'fileProbeLoci',
+                        -name => 'file',
+                        -title =>
+                          'File containing probe-accession number annotation'
                     ),
                     $q->div(
-                        { -class => 'hint', -id => 'gofile_hint' },
+                        { -class => 'hint visible', -id => 'probeloci_hint' },
                         $q->p(
-                            'The file must contain the following two columns:'),
-                        $q->pre("Probe ID, GO Term(s)")
+                            'The file must be in BED-like format. See '
+                              . $q->a(
+                                {
+                                    -target => '_blank',
+                                    -title => 'UCSC FAQ: BED format',
+                                    -href =>
+'http://genome.ucsc.edu/FAQ/FAQformat.html#format1'
+                                },
+                                'this UCSC page'
+                              )
+                              . ' for more info on BED files.'
+                        ),
+                        $q->pre("chrom, chromStart, chromEnd, Probe_ID")
                     ),
-                    file_opts_html( $q, 'goOpts' )
+                    file_opts_html( $q, 'probelociOpts' )
                 ),
                 $q->dt('&nbsp;'),
                 $q->dd(
                     $q->submit(
                         -name  => 'b',
                         -value => 'Upload',
-                        -title => 'Upload GO annotation',
+                        -title => 'Upload probe locations',
                         -class => 'button black bigrounded'
                     )
                 )
@@ -987,7 +1285,102 @@ END_info
             $q->end_form,
             $q->hr(),
 
-            # Annotation
+    #---------------------------------------------------------------------------
+    #  gene annotation
+    #---------------------------------------------------------------------------
+            $q->h3('Upload/Replace Gene Annotation'),
+            $q->p(<<"END_info"),
+Note: this will remove existing gene annotation from this platform before adding new annotations.
+END_info
+            $q->start_form(
+                -method   => 'POST',
+                -enctype  => 'multipart/form-data',
+                -onsubmit => 'return validate_fields(this, ["fileGene"]);',
+                -action   => $self->get_resource_uri(
+                    b   => 'uploadGene',
+                    '#' => 'annotation'
+                )
+            ),
+            $q->dl(
+                $q->dt('Path to file:'),
+                $q->dd(
+                    $q->filefield(
+                        -id   => 'fileGene',
+                        -name => 'file',
+                        -title =>
+                          'File containing gene symbols and/or gene names'
+                    ),
+                    file_opts_html( $q, 'geneOpts' )
+                ),
+
+                # BEGIN YUI radio buttons
+                $q->dt('First column:'),
+                $q->dd(
+                    $q->div(
+                        {
+                            -id    => 'geneannot_container',
+                            -class => 'input_container'
+                        },
+                        $q->input(
+                            {
+                                -type    => 'radio',
+                                -name    => 'geneannot',
+                                -value   => 'Probe IDs',
+                                -checked => 'checked',
+                                -title   => 'First column is accession numbers'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'radio',
+                                -name  => 'geneannot',
+                                -value => 'Gene Symbols',
+                                -title => 'First column is gene symbols'
+                            }
+                        ),
+
+                        # preserve state of radio buttons
+                        $q->input(
+                            {
+                                -type => 'hidden',
+                                -id   => 'geneannot_state'
+                            }
+                        )
+                    ),
+                    $q->div(
+                        { -class => 'hint', -id => 'geneannot_gsymbol_hint' },
+                        $q->p(
+'The file must consist of three columns in the following format:'
+                        ),
+                        $q->pre("Probe ID, Gene Symbol, Official Gene Name")
+                    ),
+                    $q->div(
+                        { -class => 'hint', -id => 'geneannot_accnum_hint' },
+                        $q->p(
+'The file must consist of two columns in the following format:'
+                        ),
+                        $q->pre("Gene Symbol, Official Gene Name")
+                    ),
+                ),
+
+                # END YUI buttons
+
+                $q->dt('&nbsp;'),
+                $q->dd(
+                    $q->submit(
+                        -name  => 'b',
+                        -value => 'Upload',
+                        -title => 'Upload gene annotation',
+                        -class => 'button black bigrounded'
+                    )
+                )
+            ),
+            $q->end_form,
+            $q->hr(),
+
+    #---------------------------------------------------------------------------
+    #  Accession numbers
+    #---------------------------------------------------------------------------
             $q->h3('Upload/Replace Accession Numbers'),
             $q->p(<<"END_info"),
 Note: this will remove existing accession number annotation from this platform before adding new annotations.
@@ -1011,9 +1404,10 @@ END_info
                           'File containing probe-accession number annotation'
                     ),
                     $q->div(
-                        { -class => 'hint', -id => 'accnumfile_hint' },
+                        { -class => 'hint visible', -id => 'accnumfile_hint' },
                         $q->p(
-                            'The file must contain the following two columns:'),
+                            'The file must contain the following two columns:'
+                        ),
                         $q->pre("Probe ID, Accession Number(s)")
                     ),
                     file_opts_html( $q, 'accnumOpts' )
@@ -1028,8 +1422,103 @@ END_info
                     )
                 )
             ),
-            $q->end_form
-        )
+            $q->end_form,
+            $q->hr(),
+
+    #---------------------------------------------------------------------------
+    #  GO annotation
+    #---------------------------------------------------------------------------
+            $q->h3('Upload/Replace GO Annotation'),
+            $q->p(<<"END_info"),
+Note: this will remove existing GO annotations from this platform
+before adding new annotations.
+END_info
+            $q->start_form(
+                -method   => 'POST',
+                -enctype  => 'multipart/form-data',
+                -onsubmit => 'return validate_fields(this, ["fileGO"]);',
+                -action   => $self->get_resource_uri(
+                    b   => 'uploadGO',
+                    '#' => 'annotation'
+                )
+            ),
+            $q->dl(
+                $q->dt('Path to file:'),
+                $q->dd(
+                    $q->filefield(
+                        -id    => 'fileGO',
+                        -name  => 'file',
+                        -title => 'File containing probe-GO term annotation'
+                    ),
+
+                    file_opts_html( $q, 'goOpts' )
+                ),
+
+                # BEGIN YUI radio buttons
+                $q->dt('First column:'),
+                $q->dd(
+                    $q->div(
+                        {
+                            -id    => 'goannot_container',
+                            -class => 'input_container'
+                        },
+                        $q->input(
+                            {
+                                -type    => 'radio',
+                                -name    => 'goannot',
+                                -value   => 'Gene Symbols',
+                                -checked => 'checked',
+                                -title   => 'First column is gene symbols'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'radio',
+                                -name  => 'goannot',
+                                -value => 'Accession Numbers',
+                                -title => 'First column is accession numbers'
+                            }
+                        ),
+
+                        # preserve state of radio buttons
+                        $q->input(
+                            {
+                                -type => 'hidden',
+                                -id   => 'goannot_state'
+                            }
+                        )
+                    ),
+                    $q->div(
+                        { -class => 'hint', -id => 'goannot_gsymbol_hint' },
+                        $q->p(
+'The file must consist of two columns in the following format:'
+                        ),
+                        $q->pre("Gene Symbol, GO Term(s)")
+                    ),
+                    $q->div(
+                        { -class => 'hint', -id => 'goannot_accnum_hint' },
+                        $q->p(
+'The file must consist of two columns in the following format:'
+                        ),
+                        $q->pre("Accession No., GO Term(s)")
+                    ),
+                ),
+
+                # END YUI buttons
+
+                $q->dt('&nbsp;'),
+                $q->dd(
+                    $q->submit(
+                        -name  => 'b',
+                        -value => 'Upload',
+                        -title => 'Upload GO annotation',
+                        -class => 'button black bigrounded'
+                    )
+                ),
+            ),
+            $q->end_form,
+
+          )
     );
     return $self->SUPER::readrow_body( \%param );
 }

@@ -444,3 +444,6 @@ td.yui-dt-col-5 .yui-dt-liner {
 p.radio_heading {
 	margin-bottom:0.5em;
 }
+.visible {
+	display:block;
+}

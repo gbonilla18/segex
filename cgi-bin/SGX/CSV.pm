@@ -79,34 +79,39 @@ sub sanitizeUploadFile {
     # namespace of this function, the temporary file will be deleted when the
     # function exists (when the reference to File::Temp will go out of context).
 
-    my $outputFileName =
-      File::Temp->new( SUFFIX => '.txt', UNLINK => 1 )->filename();
+    my $rewrite = ( exists $args{rewrite} ) ? $args{rewrite} : 1;
 
     # The is the file handle of the uploaded file.
     my $uploadedFile = $q->upload($inputField)
       or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
 
     #Open file we are writing to server.
-    open my $OUTPUTTOSERVER, '>', $outputFileName
-      or SGX::Exception::Internal->throw(
-        error => "Could not open $outputFileName for writing: $!\n" );
+    my ( $outputFileName, $OUTPUTTOSERVER );
+    if ($rewrite) {
+        $outputFileName = File::Temp->new(
+            SUFFIX => '.txt',
+            UNLINK => 1
+        )->filename();
+        open $OUTPUTTOSERVER, '>', $outputFileName
+          or SGX::Exception::Internal->throw(
+            error => "Could not open $outputFileName for writing: $!\n" );
+    }
 
     $$recordsValid =
       eval { csv_rewrite( $uploadedFile, $OUTPUTTOSERVER, %args ); }
       || 0;
 
     # In case of error, close files first and rethrow the exception
-    if ( my $exception = $@ ) {
+    my $exception = $@;
+    close($OUTPUTTOSERVER) if defined $OUTPUTTOSERVER;
 
-        close($OUTPUTTOSERVER);
+    if ($exception) {
         $exception->throw();
     }
     elsif ( $$recordsValid < 1 ) {
-        close($OUTPUTTOSERVER);
         SGX::Exception::User->throw(
             error => "No records found in input file\n" );
     }
-    close($OUTPUTTOSERVER);
 
     return $outputFileName;
 }
@@ -208,7 +213,11 @@ sub csv_rewrite {
     my $min_field_count = $args{required_fields};
     $min_field_count = @$parser if not defined $min_field_count;
 
+    my $sub_print = sub {
+        $csv_out->print( $out, \@_ );
+    };
     my $process = $args{process} || sub {
+        my $printfun = shift;
         my $line_num = shift;
         my $fields   = shift;
 
@@ -216,7 +225,7 @@ sub csv_rewrite {
         if ( @$fields < $min_field_count ) {
             SGX::Exception::User->throw(
                 error => sprintf(
-                    "Only %d field(s) found (%d required) at line %d\n",
+                    "Only %d field(s) found (%d required) on line %d\n",
                     scalar(@$fields), $min_field_count, $line_num
                 )
             );
@@ -240,7 +249,8 @@ sub csv_rewrite {
                 $exception->throw();    # rethrow otherwise
             }
         };
-        return [ \@out_fields ];
+        $printfun->(@out_fields);
+        return 1;
     };
 
     #---------------------------------------------------------------------------
@@ -256,8 +266,7 @@ sub csv_rewrite {
         $record_num++;
         next if $record_num == 1 and $header;
 
-        my $out_rows = $process->( $line_num, \@fields );
-        @$_ == 0 || $csv_out->print( $out, $_ ) for @$out_rows;
+        $process->( $sub_print, $line_num, \@fields );
     }
 
     # check for errors
