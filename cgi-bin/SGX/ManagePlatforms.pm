@@ -117,20 +117,42 @@ my @probe_parser = (
         }
     },
 
-    # Probe Sequence -- bring to uppercase
     sub {
+
+        # Probe Sequence: bring to uppercase
         my $val = shift;
         if ( not defined $val ) {
             return $val;
         }
         elsif ( $val =~ /^([ACGT]*)$/i ) {
             $val = $1;
-            return ( $val ne '' ) ? uc($val) : undef;
+            if ( length($val) > 100 ) {
+                SGX::Exception::User->throw( error =>
+                      'Probe sequence length exceeds preset limit on line '
+                      . shift );
+            }
+            else {
+                return ( $val ne '' ) ? uc($val) : undef;
+            }
         }
         else {
             SGX::Exception::User->throw( error =>
-'Probe sequence contains letters not in the allowed alphabet {A, C, G, T} on line '
+'Probe sequence contains letters not in the alphabet {A, C, G, T} on line '
                   . shift );
+        }
+    },
+
+    sub {
+
+        # Probe Comment: untaint input value
+        my ($x) = shift =~ /(.*)/;
+        if ( length($x) > 2047 ) {
+            SGX::Exception::User->throw(
+                error => 'Probe comment length exceeds preset limit on line '
+                  . shift );
+        }
+        else {
+            return $x;
         }
     }
 );
@@ -222,7 +244,7 @@ sub new {
                         __tie__      => [ species => 'sid' ]
                     },
                     file => {
-                        label => 'Probes/Sequences',
+                        label => 'Probes',
                         -title =>
 'Upload a file containing a list of probes (with an optional sequence column to the right)',
                         __type__       => 'filefield',
@@ -234,9 +256,13 @@ sub new {
                                 -id    => 'probefile_hint'
                             },
                             $q->p(
-'The file should have the following layout (probe sequences are optional):'
+'The file must contain the following columns (last two columns are optional):'
                             ),
-                            $q->pre("Probe ID, Probe Sequence")
+                            $q->ol(
+                                $q->li('Probe ID'),
+                                $q->li('Probe Sequence'),
+                                $q->li('Probe Comment')
+                            )
                           )
                           . file_opts_html( $q, 'probeseqOpts' )
                     },
@@ -327,14 +353,13 @@ sub new {
                 view  => [qw/locus_count/],
                 meta  => {
                     locus_count => {
-                        __sql__ => 'COUNT(location.rid)',
+                        __sql__ => 'COUNT(locus.rid)',
                         label   => 'Chr. Locations',
                         parser  => 'number'
                     },
                 },
                 group_by => [qw/pid/],
-                join =>
-                  [ location => [ rid => 'rid', { join_type => 'LEFT' } ] ]
+                join => [ locus => [ rid => 'rid', { join_type => 'LEFT' } ] ]
             },
             'study' => {
                 key      => [qw/stid/],
@@ -1117,7 +1142,8 @@ sub uploadProbes {
     my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
 CREATE TEMPORARY TABLE $temp_table (
     reporter char(18) NOT NULL,
-    probe_sequence varchar(100) DEFAULT NULL
+    probe_sequence varchar(100) DEFAULT NULL,
+    probe_comment varchar(2047) DEFAULT NULL
 ) ENGINE=MEMORY
 END_loadTermDefs_createTemp
 
@@ -1127,7 +1153,8 @@ INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n' STARTING BY '' (
     reporter,
-    probe_sequence
+    probe_sequence,
+    probe_comment
 )
 END_loadTermDefs
 
@@ -1136,14 +1163,15 @@ END_loadTermDefs
 UPDATE probe INNER JOIN $temp_table AS temptable
     ON probe.reporter=temptable.reporter
     AND probe.pid=?
-    AND NOT ISNULL(temptable.probe_sequence)
 SET probe.probe_sequence=temptable.probe_sequence
+SET probe.probe_comment=temptable.probe_comment
 END_update
       : $dbh->prepare(<<"END_insert");
-INSERT INTO probe (reporter, probe_sequence, pid)
+INSERT INTO probe (reporter, probe_sequence, probe_comment, pid)
 SELECT
     reporter,
     probe_sequence,
+    probe_comment,
     ? AS pid
 FROM $temp_table
 END_insert
@@ -1231,9 +1259,16 @@ sub readrow_body {
     #---------------------------------------------------------------------------
     #  Probe locations
     #---------------------------------------------------------------------------
-            $q->h3('Upload/Replace Probe Locations'),
+            $q->h3(
+                'Upload/Replace Annotation (' . $q->a(
+                    { -href => $self->get_resource_uri( b => 'clearAnnot' ) },
+                    'clear' )
+                  . ')'
+            ),
             $q->p(<<"END_info"),
-Note: this will remove existing accession number annotation from this platform before adding new annotations.
+Note: Only information for the probe ids that are included in the file will be
+updated. If you wish to fully replace annotation for all existing probes, clear
+the annotation first by pressing "clear" above.
 END_info
             $q->start_form(
                 -method   => 'POST',
@@ -1256,19 +1291,20 @@ END_info
                     $q->div(
                         { -class => 'hint visible', -id => 'probeloci_hint' },
                         $q->p(
-                            'The file must be in BED-like format. See '
-                              . $q->a(
-                                {
-                                    -target => '_blank',
-                                    -title => 'UCSC FAQ: BED format',
-                                    -href =>
-'http://genome.ucsc.edu/FAQ/FAQformat.html#format1'
-                                },
-                                'this UCSC page'
-                              )
-                              . ' for more info on BED files.'
+                            'The file should contain the following columns: '
                         ),
-                        $q->pre("chrom, chromStart, chromEnd, Probe_ID")
+                        $q->ol(
+                            $q->li('Probe ID'),
+                            $q->li(
+'Mapping Location(s). Example: <strong>chr1:1208765-1208786, chr22:106895-106912</strong>'
+                            ),
+                            $q->li(
+'Accession Number(s). Example: <strong>NM_1023678, AK678920</strong>'
+                            ),
+                            $q->li(
+'Gene Symbol(s). Example: <strong>Akr1, Akr7</strong>'
+                            )
+                        )
                     ),
                     file_opts_html( $q, 'probelociOpts' )
                 ),
@@ -1283,241 +1319,6 @@ END_info
                 )
             ),
             $q->end_form,
-            $q->hr(),
-
-    #---------------------------------------------------------------------------
-    #  gene annotation
-    #---------------------------------------------------------------------------
-            $q->h3('Upload/Replace Gene Annotation'),
-            $q->p(<<"END_info"),
-Note: this will remove existing gene annotation from this platform before adding new annotations.
-END_info
-            $q->start_form(
-                -method   => 'POST',
-                -enctype  => 'multipart/form-data',
-                -onsubmit => 'return validate_fields(this, ["fileGene"]);',
-                -action   => $self->get_resource_uri(
-                    b   => 'uploadGene',
-                    '#' => 'annotation'
-                )
-            ),
-            $q->dl(
-                $q->dt('Path to file:'),
-                $q->dd(
-                    $q->filefield(
-                        -id   => 'fileGene',
-                        -name => 'file',
-                        -title =>
-                          'File containing gene symbols and/or gene names'
-                    ),
-                    file_opts_html( $q, 'geneOpts' )
-                ),
-
-                # BEGIN YUI radio buttons
-                $q->dt('First column:'),
-                $q->dd(
-                    $q->div(
-                        {
-                            -id    => 'geneannot_container',
-                            -class => 'input_container'
-                        },
-                        $q->input(
-                            {
-                                -type    => 'radio',
-                                -name    => 'geneannot',
-                                -value   => 'Probe IDs',
-                                -checked => 'checked',
-                                -title   => 'First column is accession numbers'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type  => 'radio',
-                                -name  => 'geneannot',
-                                -value => 'Gene Symbols',
-                                -title => 'First column is gene symbols'
-                            }
-                        ),
-
-                        # preserve state of radio buttons
-                        $q->input(
-                            {
-                                -type => 'hidden',
-                                -id   => 'geneannot_state'
-                            }
-                        )
-                    ),
-                    $q->div(
-                        { -class => 'hint', -id => 'geneannot_gsymbol_hint' },
-                        $q->p(
-'The file must consist of three columns in the following format:'
-                        ),
-                        $q->pre("Probe ID, Gene Symbol, Official Gene Name")
-                    ),
-                    $q->div(
-                        { -class => 'hint', -id => 'geneannot_accnum_hint' },
-                        $q->p(
-'The file must consist of two columns in the following format:'
-                        ),
-                        $q->pre("Gene Symbol, Official Gene Name")
-                    ),
-                ),
-
-                # END YUI buttons
-
-                $q->dt('&nbsp;'),
-                $q->dd(
-                    $q->submit(
-                        -name  => 'b',
-                        -value => 'Upload',
-                        -title => 'Upload gene annotation',
-                        -class => 'button black bigrounded'
-                    )
-                )
-            ),
-            $q->end_form,
-            $q->hr(),
-
-    #---------------------------------------------------------------------------
-    #  Accession numbers
-    #---------------------------------------------------------------------------
-            $q->h3('Upload/Replace Accession Numbers'),
-            $q->p(<<"END_info"),
-Note: this will remove existing accession number annotation from this platform before adding new annotations.
-END_info
-            $q->start_form(
-                -method   => 'POST',
-                -enctype  => 'multipart/form-data',
-                -onsubmit => 'return validate_fields(this, ["fileAccNum"]);',
-                -action   => $self->get_resource_uri(
-                    b   => 'uploadAccNum',
-                    '#' => 'annotation'
-                )
-            ),
-            $q->dl(
-                $q->dt('Path to file:'),
-                $q->dd(
-                    $q->filefield(
-                        -id   => 'fileAccNum',
-                        -name => 'file',
-                        -title =>
-                          'File containing probe-accession number annotation'
-                    ),
-                    $q->div(
-                        { -class => 'hint visible', -id => 'accnumfile_hint' },
-                        $q->p(
-                            'The file must contain the following two columns:'
-                        ),
-                        $q->pre("Probe ID, Accession Number(s)")
-                    ),
-                    file_opts_html( $q, 'accnumOpts' )
-                ),
-                $q->dt('&nbsp;'),
-                $q->dd(
-                    $q->submit(
-                        -name  => 'b',
-                        -value => 'Upload',
-                        -title => 'Upload accession number annotation',
-                        -class => 'button black bigrounded'
-                    )
-                )
-            ),
-            $q->end_form,
-            $q->hr(),
-
-    #---------------------------------------------------------------------------
-    #  GO annotation
-    #---------------------------------------------------------------------------
-            $q->h3('Upload/Replace GO Annotation'),
-            $q->p(<<"END_info"),
-Note: this will remove existing GO annotations from this platform
-before adding new annotations.
-END_info
-            $q->start_form(
-                -method   => 'POST',
-                -enctype  => 'multipart/form-data',
-                -onsubmit => 'return validate_fields(this, ["fileGO"]);',
-                -action   => $self->get_resource_uri(
-                    b   => 'uploadGO',
-                    '#' => 'annotation'
-                )
-            ),
-            $q->dl(
-                $q->dt('Path to file:'),
-                $q->dd(
-                    $q->filefield(
-                        -id    => 'fileGO',
-                        -name  => 'file',
-                        -title => 'File containing probe-GO term annotation'
-                    ),
-
-                    file_opts_html( $q, 'goOpts' )
-                ),
-
-                # BEGIN YUI radio buttons
-                $q->dt('First column:'),
-                $q->dd(
-                    $q->div(
-                        {
-                            -id    => 'goannot_container',
-                            -class => 'input_container'
-                        },
-                        $q->input(
-                            {
-                                -type    => 'radio',
-                                -name    => 'goannot',
-                                -value   => 'Gene Symbols',
-                                -checked => 'checked',
-                                -title   => 'First column is gene symbols'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type  => 'radio',
-                                -name  => 'goannot',
-                                -value => 'Accession Numbers',
-                                -title => 'First column is accession numbers'
-                            }
-                        ),
-
-                        # preserve state of radio buttons
-                        $q->input(
-                            {
-                                -type => 'hidden',
-                                -id   => 'goannot_state'
-                            }
-                        )
-                    ),
-                    $q->div(
-                        { -class => 'hint', -id => 'goannot_gsymbol_hint' },
-                        $q->p(
-'The file must consist of two columns in the following format:'
-                        ),
-                        $q->pre("Gene Symbol, GO Term(s)")
-                    ),
-                    $q->div(
-                        { -class => 'hint', -id => 'goannot_accnum_hint' },
-                        $q->p(
-'The file must consist of two columns in the following format:'
-                        ),
-                        $q->pre("Accession No., GO Term(s)")
-                    ),
-                ),
-
-                # END YUI buttons
-
-                $q->dt('&nbsp;'),
-                $q->dd(
-                    $q->submit(
-                        -name  => 'b',
-                        -value => 'Upload',
-                        -title => 'Upload GO annotation',
-                        -class => 'button black bigrounded'
-                    )
-                ),
-            ),
-            $q->end_form,
-
           )
     );
     return $self->SUPER::readrow_body( \%param );
