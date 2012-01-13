@@ -100,39 +100,75 @@ sub readrow_head {
     my ( $js_src_yui, $js_src_code, $css_src_yui ) =
       @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
 
+    my $clearAnnotURI = $self->get_resource_uri( b => 'clearAnnot' );
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
-    push @$js_src_yui, ( 'element/element-min.js', 'button/button-min.js' );
+    push @$js_src_yui,
+      (
+        'yahoo/yahoo-min.js', 'button/button-min.js',
+        'connection/connection_core-min.js'
+      );
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
+YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
+        if (!confirm("Are you sure you want to clear annotation for this species?")) {
+            return false;
+        }
+        YAHOO.util.Connect.asyncRequest(
+            "POST", 
+            "$clearAnnotURI",
+            {
+                success:function(o) {
+                    console.log("ok");
+                },
+                failure:function(o) { 
+                    alert("request failed");
+                },
+                scope:this
+            },
+            null
+        );
+        return true;
+});
+
 YAHOO.util.Event.addListener(window,'load',function(){
     // Gene annotation: first column
-    var geneannot_state = document.getElementById("geneannot_state");
-    var geneannot_div1 = document.getElementById('geneannot_gsymbol_hint');
-    var geneannot_div2 = document.getElementById('geneannot_accnum_hint');
-    var geneannot = new YAHOO.widget.ButtonGroup("geneannot_container");
-    geneannot.addListener("checkedButtonChange", function(ev) {
-        var selectedIndex = ev.newValue.index;
-        geneannot_state.value = selectedIndex;
-        if (selectedIndex === 0 ) {
-            geneannot_div1.style.display = 'block';
-            geneannot_div2.style.display = 'none';
-        } else {
-            geneannot_div1.style.display = 'none';
-            geneannot_div2.style.display = 'block';
+    var checkboxIds = ['check_gene_name', 'check_gene_desc', 'check_gene_go'];
+    var minChecked = 1;
+    var buttons = {};
+    var count_checked = 0;
+    for (var i = 0, len = checkboxIds.length; i < len; i++) {
+        var checkboxId = checkboxIds[i];
+        var button = new YAHOO.widget.Button(checkboxId);
+        if (button.get('checked')) {
+            count_checked++;
         }
-    });
-    if (geneannot_state.value !== '') {
-        geneannot.check(geneannot_state.value);
-    } else {
-        var selectedIndex = geneannot.get('checkedButton').index;
-        if (selectedIndex === 0 ) {
-            geneannot_div1.style.display = 'block';
-            geneannot_div2.style.display = 'none';
-        } else {
-            geneannot_div1.style.display = 'none';
-            geneannot_div2.style.display = 'block';
-        }
+        buttons[checkboxId] = button;
     }
+    for (var checkboxId in buttons) {
+        var button = buttons[checkboxId];
+        button.addListener("beforeCheckedChange", function(ev) {
+            return ((ev.prevValue && !ev.newValue && count_checked <= minChecked) 
+                ? false 
+                : true);
+        });
+        button.addListener("checkedChange", function(ev) {
+            count_checked += (ev.newValue ? 1 : -1);
+            updateBanner();
+        });
+    }
+    var banner = document.getElementById("geneannot_accnum_hint");
+    function updateBanner() {
+        var bannerText = "<p>The file should contain the following columns</p><ol><li>Gene Symbols</li>";
+        for (var checkboxId in buttons) {
+            var button = buttons[checkboxId];
+            if (button.get('checked')) {
+                bannerText += "<li>" + button.get('value') + "</li>";
+            }
+        }
+        bannerText += "</ol>";
+        banner.innerHTML = bannerText;
+    }
+    updateBanner();
 });
 END_SETUPTOGGLES
     return $self->SUPER::readrow_head();
@@ -160,7 +196,16 @@ sub readrow_body {
     #---------------------------------------------------------------------------
     #  gene annotation
     #---------------------------------------------------------------------------
-            $q->h3('Upload/Replace Gene Annotation'),
+            $q->h3(
+                'Upload/Replace Gene Annotation',
+                $q->button(
+                    {
+                        -id    => 'clearAnnot',
+                        -class => 'plaintext',
+                        -value => '(clear)'
+                    }
+                )
+            ),
             $q->p(<<"END_info"),
 Note: You should first upload gene symbols / accession numbers to corresponding
 platform before using this form to update annotation (gene symbols not that were
@@ -185,20 +230,52 @@ END_info
                           'File containing gene symbols and/or gene names'
                     ),
                     file_opts_html( $q, 'geneOpts' ),
+
+                ),
+
+                $q->dt('&nbsp;'),
+                $q->dd(
+                    $q->div(
+                        {
+                            -id    => 'geneannot_container',
+                            -class => 'input_container'
+                        },
+                        $q->input(
+                            {
+                                -type    => 'checkbox',
+                                -checked => 'checked',
+                                -name    => 'gene_name',
+                                -id      => 'check_gene_name',
+                                -value   => 'Gene Names',
+                                -title   => 'Upload gene names'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type    => 'checkbox',
+                                -checked => 'checked',
+                                -name    => 'gene_desc',
+                                -id      => 'check_gene_desc',
+                                -value   => 'Gene Descriptions',
+                                -title   => 'Upload gene descriptions'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'checkbox',
+                                -name  => 'go_terms',
+                                -id    => 'check_gene_go',
+                                -value => 'GO Terms',
+                                -title => 'Upload GO terms'
+                            }
+                        )
+                    ),
                     $q->div(
                         {
                             -class => 'hint visible',
                             -id    => 'geneannot_accnum_hint'
                         },
-                        $q->p(
-'The file should contain up to four columns (last two columns are optional):'
-                        ),
-                        $q->ol(
-                            $q->li('Gene Symbol / Accession Number'),
-                            $q->li('Official Gene Name'),
-                            $q->li('Gene Description / Comment'),
-                            $q->li('GO Terms')
-                        )
+                        ''
                     )
                 ),
 

@@ -20,7 +20,8 @@ function highlightEditableCell(oArgs) {
     if (YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
         this.highlightCell(elCell); 
     } 
-};
+}
+
 function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
@@ -57,6 +58,7 @@ function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, 
         asyncSubmitter: submitter
     });
 }
+
 function createCellDropdown(resourceURIBuilder, rowNameBuilder) {
     return function(lookup_table, update_field, name_field) {
         var getUpdateQuery = function(update_field, newValue) {
@@ -76,6 +78,7 @@ function createCellDropdown(resourceURIBuilder, rowNameBuilder) {
         return createCellDropdownCreator(transformed_data, update_field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
+
 function createCellDropdownDirect(resourceURIBuilder, rowNameBuilder) {
     return function(field, rename_array) {
         var getUpdateQuery = function(field, newValue) {
@@ -84,6 +87,7 @@ function createCellDropdownDirect(resourceURIBuilder, rowNameBuilder) {
         return createCellDropdownCreator(rename_array, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
+
 function createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
@@ -117,6 +121,7 @@ function createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, row
         asyncSubmitter: submitter
     });
 }
+
 function createCellUpdater(resourceURIBuilder, rowNameBuilder) {
     return function(field) {
         /* uses createCellUpdater in TableUpdateDelete.js */
@@ -135,7 +140,6 @@ function createEditFormatter(verb, noun, resourceURIBuilder) {
     };
 }
 
-var wait_indicator;
 function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder, waitIndicatorImageURL) {
     var verb = buttonValue.toLowerCase();
 
@@ -151,6 +155,7 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
         alert(ajaxError(o, verb, rowNameBuilder(record), resourceURIBuilder(record)));
     };
 
+    var wait_indicator;
     return function(ev) {
         var target = YAHOO.util.Event.getTarget(ev);
         if (target.innerHTML !== buttonValue) { return false; }
@@ -254,12 +259,14 @@ function createRenameFormatter(rename_array) {
         elCell.innerHTML = rename_hash[oData];
     };
 }
+
 function newDataSourceFromArrays(struct) {
     var ds = new YAHOO.util.DataSource(struct.records);
     ds.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
     ds.responseSchema = {fields:struct.fields};
     return ds;
 }
+
 function forPairInList (list, fun) {
     if (list !== null) {
         for (var i = 0, len = list.length; i < len; i += 2) {
@@ -267,6 +274,7 @@ function forPairInList (list, fun) {
         }
     }
 }
+
 function expandJoinedFields(mainTable, lookupTables) {
     var tmp = {};
     forPairInList(mainTable.lookup, function(other_table, tuple) {
