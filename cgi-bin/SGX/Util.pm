@@ -10,7 +10,7 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
-  equal bind_csv_handle notp file_opts_html/;
+  equal bind_csv_handle notp file_opts_html file_opts_columns/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  all_empty
@@ -99,6 +99,45 @@ sub file_opts_html {
                 -override => 1
             )
         )
+      );
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  file_opts_columns
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub file_opts_columns {
+    my $q    = shift;
+    my %args = @_;
+
+    my $items = $args{items};
+    return
+      $q->p('File contains columns:'), $q->div(
+        { -class => 'input_container' },
+        map {
+            $q->input(
+                {
+                    -type  => 'checkbox',
+                    -name  => $_,
+                    -id    => "check_$_",
+                    -title => "Upload $_",
+                    %{ $items->{$_} }
+                }
+              )
+          } keys %$items
+      ),
+      $q->div(
+        {
+            -class => 'hint visible',
+            -id    => $args{hint_id}
+        },
+        ''
       );
 }
 

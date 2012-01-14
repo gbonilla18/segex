@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Abstract::Exception ();
 use Digest::SHA1 qw/sha1_hex/;
-use SGX::Util qw/car file_opts_html/;
+use SGX::Util qw/car file_opts_html file_opts_columns/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageUsers
@@ -129,7 +129,7 @@ YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
 YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
-        checkboxIds: ['check_gene_name', 'check_gene_desc', 'check_gene_go'],
+        checkboxIds: ['check_gene_name', 'check_gene_desc', 'check_go_terms'],
         bannerId:    'geneannot_accnum_hint',
         keyName:     'Gene Symbols'
     });
@@ -195,45 +195,20 @@ END_info
                           'File containing gene symbols and/or gene names'
                     ),
                     file_opts_html( $q, 'geneOpts' ),
-                    $q->p('File contains columns:'),
-                    $q->div(
-                        { -class => 'input_container' },
-                        $q->input(
-                            {
-                                -type    => 'checkbox',
+                    file_opts_columns(
+                        $q,
+                        hint_id => 'geneannot_accnum_hint',
+                        items   => {
+                            gene_name => {
                                 -checked => 'checked',
-                                -name    => 'gene_name',
-                                -id      => 'check_gene_name',
-                                -value   => 'Gene Names',
-                                -title   => 'Upload gene names'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type    => 'checkbox',
+                                -value   => 'Gene Names'
+                            },
+                            gene_desc => {
                                 -checked => 'checked',
-                                -name    => 'gene_desc',
-                                -id      => 'check_gene_desc',
-                                -value   => 'Gene Descriptions',
-                                -title   => 'Upload gene descriptions'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type  => 'checkbox',
-                                -name  => 'go_terms',
-                                -id    => 'check_gene_go',
-                                -value => 'GO Terms',
-                                -title => 'Upload GO terms'
-                            }
-                        )
-                    ),
-                    $q->div(
-                        {
-                            -class => 'hint visible',
-                            -id    => 'geneannot_accnum_hint'
-                        },
-                        ''
+                                -value   => 'Gene Descriptions'
+                            },
+                            go_terms => { -value => 'GO Terms' }
+                        }
                     )
                 ),
 

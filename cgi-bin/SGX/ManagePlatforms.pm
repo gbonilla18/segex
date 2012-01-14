@@ -10,7 +10,7 @@ use Storable qw/freeze thaw/;
 use Benchmark qw/timediff timestr/;
 
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/car file_opts_html/;
+use SGX::Util qw/car file_opts_html file_opts_columns/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
 
@@ -250,37 +250,21 @@ sub new {
                         __type__       => 'filefield',
                         __special__    => 1,
                         __optional__   => 1,
-                        __extra_html__ => file_opts_html( $q, 'probeseqOpts' )
-                          . $q->p('File contains columns:')
-                          . $q->div(
-                            { -class => 'input_container' },
-                            $q->input(
-                                {
-                                    -type    => 'checkbox',
-                                    -checked => 'checked',
-                                    -name    => 'probe_seq',
-                                    -id      => 'check_probe_seq',
-                                    -value   => 'Probe Sequence',
-                                    -title   => 'Upload probe sequences'
-                                }
-                            ),
-                            $q->input(
-                                {
-                                    -type  => 'checkbox',
-                                    -name  => 'probe_note',
-                                    -id    => 'check_probe_note',
-                                    -value => 'Probe Note',
-                                    -title => 'Upload probe notes'
+                        __extra_html__ => join(
+                            '',
+                            file_opts_html( $q, 'probeseqOpts' ),
+                            file_opts_columns(
+                                $q,
+                                hint_id => 'annot_probe_hint',
+                                items   => {
+                                    probe_seq => {
+                                        -checked => 'checked',
+                                        -value   => 'Probe Sequence',
+                                    },
+                                    probe_note => { -value => 'Probe Note' }
                                 }
                             )
-                          )
-                          . $q->div(
-                            {
-                                -class => 'hint visible',
-                                -id    => 'annot_probe_hint'
-                            },
-                            ''
-                          )
+                        )
                     },
                     pid   => { label => 'No.', parser => 'number' },
                     pname => {
@@ -531,16 +515,18 @@ sub readrow_head {
 YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
+        checkboxIds: ['check_probe_seq', 'check_probe_note'],
+        bannerId:    'annot_probe_hint',
+        minChecked:   0,
+        keyName:     'Probe IDs'
+    });
+
+    setupCheckboxes({
         checkboxIds: ['check_map_loci', 'check_accnum', 'check_gene_symbols'],
         bannerId:    'annot_genome_hint',
         keyName:     'Probe IDs'
     });
 
-    setupCheckboxes({
-        checkboxIds: ['check_probe_seq', 'check_probe_note'],
-        bannerId:    'annot_probe_hint',
-        keyName:     'Probe IDs'
-    });
 });
 END_SETUPTOGGLES
 
@@ -1259,68 +1245,22 @@ END_info
                           'File containing probe-accession number annotation'
                     ),
                     file_opts_html( $q, 'probelociOpts' ),
-                    $q->p('File contains columns:'),
-                    $q->div(
-                        { -class => 'input_container' },
-                        $q->input(
-                            {
-                                -type    => 'checkbox',
+                    file_opts_columns(
+                        $q,
+                        hint_id => 'annot_genome_hint',
+                        items   => {
+                            map_loci => {
                                 -checked => 'checked',
-                                -name    => 'map_loci',
-                                -id      => 'check_map_loci',
-                                -value   => 'Mapping Locations',
-                                -title   => 'Upload mapping locations'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type    => 'checkbox',
+                                -value   => 'Mapping Locations'
+                            },
+                            accnum => {
                                 -checked => 'checked',
-                                -name    => 'accnum',
-                                -id      => 'check_accnum',
-                                -value   => 'Accession Numbers',
-                                -title   => 'Upload accession numbers'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type  => 'checkbox',
-                                -name  => 'gene_symbols',
-                                -id    => 'check_gene_symbols',
-                                -value => 'Gene Symbols',
-                                -title => 'Upload gene symbols'
-                            }
-                        )
-                    ),
-                    $q->div(
-                        {
-                            -class => 'hint visible',
-                            -id    => 'annot_genome_hint'
-                        },
-                        ''
+                                -value   => 'Accession Numbers'
+                            },
+                            gene_symbols => { -value => 'Gene Symbols' }
+                        }
                     )
                 ),
-
-#                $q->dd(
-#                    $q->div(
-#                        { -class => 'hint visible', -id => 'probeloci_hint' },
-#                        $q->p(
-#                            'The file should contain the following columns: '
-#                        ),
-#                        $q->ol(
-#                            $q->li('Probe ID'),
-#                            $q->li(
-#'Mapping Location(s). Example: <strong>chr1:1208765-1208786, chr22:106895-106912</strong>'
-#                            ),
-#                            $q->li(
-#'Accession Number(s). Example: <strong>NM_1023678, AK678920</strong>'
-#                            ),
-#                            $q->li(
-#'Gene Symbol(s). Example: <strong>Akr1, Akr7</strong>'
-#                            )
-#                        )
-#                    ),
-#                ),
                 $q->dt('&nbsp;'),
                 $q->dd(
                     $q->submit(

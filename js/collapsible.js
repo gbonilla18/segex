@@ -2,7 +2,7 @@
 
 function setupCheckboxes(obj) {
     var checkboxIds = obj.checkboxIds;
-    var minChecked = 1;
+    var minChecked = (typeof obj.minChecked !== 'undefined') ? obj.minChecked : 1;
     var buttons = {};
     var count_checked = 0;
     for (var i = 0, len = checkboxIds.length; i < len; i++) {
