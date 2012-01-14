@@ -109,7 +109,8 @@ sub new {
                         __special__    => 1,
                         __createonly__ => 1,
                         __readonly__   => 1,
-                        __extra_html__ => $q->div(
+                        __extra_html__ => file_opts_html( $q, 'fileOpts' )
+                          . $q->div(
                             { -class => 'hint', -id => 'datafile_hint' },
                             $q->p(
                                 'The file must contain the following columns:'),
@@ -117,7 +118,6 @@ sub new {
 "Probe ID, Ratio, Fold Change, P-value, Intensity 1, Intensity 2"
                             )
                           )
-                          . file_opts_html( $q, 'fileOpts' )
                     },
                     eid => {
                         label        => 'No.',

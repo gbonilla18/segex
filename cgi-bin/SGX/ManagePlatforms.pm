@@ -250,21 +250,36 @@ sub new {
                         __type__       => 'filefield',
                         __special__    => 1,
                         __optional__   => 1,
-                        __extra_html__ => $q->div(
-                            {
-                                -class => 'hint visible',
-                                -id    => 'probefile_hint'
-                            },
-                            $q->p(
-'The file must contain the following columns (last two columns are optional):'
+                        __extra_html__ => file_opts_html( $q, 'probeseqOpts' )
+                          . $q->div(
+                            { -class => 'input_container' },
+                            $q->input(
+                                {
+                                    -type    => 'checkbox',
+                                    -checked => 'checked',
+                                    -name    => 'probe_seq',
+                                    -id      => 'check_probe_seq',
+                                    -value   => 'Probe Sequence',
+                                    -title   => 'Upload probe sequences'
+                                }
                             ),
-                            $q->ol(
-                                $q->li('Probe ID'),
-                                $q->li('Probe Sequence'),
-                                $q->li('Probe Comment')
+                            $q->input(
+                                {
+                                    -type  => 'checkbox',
+                                    -name  => 'probe_note',
+                                    -id    => 'check_probe_note',
+                                    -value => 'Probe Note',
+                                    -title => 'Upload probe notes'
+                                }
                             )
                           )
-                          . file_opts_html( $q, 'probeseqOpts' )
+                          . $q->div(
+                            {
+                                -class => 'hint visible',
+                                -id    => 'annot_probe_hint'
+                            },
+                            ''
+                          )
                     },
                     pid   => { label => 'No.', parser => 'number' },
                     pname => {
@@ -514,64 +529,17 @@ sub readrow_head {
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
 YAHOO.util.Event.addListener(window,'load',function(){
 
-    // Gene annotation: first column
-    var geneannot_state = document.getElementById("geneannot_state");
-    var geneannot_div1 = document.getElementById('geneannot_gsymbol_hint');
-    var geneannot_div2 = document.getElementById('geneannot_accnum_hint');
-    var geneannot = new YAHOO.widget.ButtonGroup("geneannot_container");
-    geneannot.addListener("checkedButtonChange", function(ev) {
-        var selectedIndex = ev.newValue.index;
-        geneannot_state.value = selectedIndex;
-        if (selectedIndex === 0 ) {
-            geneannot_div1.style.display = 'block';
-            geneannot_div2.style.display = 'none';
-        } else {
-            geneannot_div1.style.display = 'none';
-            geneannot_div2.style.display = 'block';
-        }
+    setupCheckboxes({
+        checkboxIds: ['check_map_loci', 'check_accnum', 'check_gene_symbols'],
+        bannerId:    'annot_genome_hint',
+        keyName:     'Probe IDs'
     });
-    if (geneannot_state.value !== '') {
-        geneannot.check(geneannot_state.value);
-    } else {
-        var selectedIndex = geneannot.get('checkedButton').index;
-        if (selectedIndex === 0 ) {
-            geneannot_div1.style.display = 'block';
-            geneannot_div2.style.display = 'none';
-        } else {
-            geneannot_div1.style.display = 'none';
-            geneannot_div2.style.display = 'block';
-        }
-    }
 
-    // GO annotation: first column
-    var goannot_state = document.getElementById("goannot_state");
-    var goannot_div1 = document.getElementById('goannot_gsymbol_hint');
-    var goannot_div2 = document.getElementById('goannot_accnum_hint');
-    var goannot = new YAHOO.widget.ButtonGroup("goannot_container");
-    goannot.addListener("checkedButtonChange", function(ev) {
-        var selectedIndex = ev.newValue.index;
-        goannot_state.value = selectedIndex;
-        if (selectedIndex === 0 ) {
-            goannot_div1.style.display = 'block';
-            goannot_div2.style.display = 'none';
-        } else {
-            goannot_div1.style.display = 'none';
-            goannot_div2.style.display = 'block';
-        }
+    setupCheckboxes({
+        checkboxIds: ['check_probe_seq', 'check_probe_note'],
+        bannerId:    'annot_probe_hint',
+        keyName:     'Probe IDs'
     });
-    if (goannot_state.value !== '') {
-        goannot.check(goannot_state.value);
-    } else {
-        var selectedIndex = goannot.get('checkedButton').index;
-        if (selectedIndex === 0 ) {
-            goannot_div1.style.display = 'block';
-            goannot_div2.style.display = 'none';
-        } else {
-            goannot_div1.style.display = 'none';
-            goannot_div2.style.display = 'block';
-        }
-    }
-
 });
 END_SETUPTOGGLES
 
@@ -1260,7 +1228,8 @@ sub readrow_body {
     #  Probe locations
     #---------------------------------------------------------------------------
             $q->h3(
-                'Upload/Replace Annotation (' . $q->a(
+                'Upload/Replace Annotation ('
+                  . $q->a(
                     { -href => $self->get_resource_uri( b => 'clearAnnot' ) },
                     'clear' )
                   . ')'
@@ -1288,26 +1257,71 @@ END_info
                         -title =>
                           'File containing probe-accession number annotation'
                     ),
+                    file_opts_html( $q, 'probelociOpts' ),
+                ),
+                $q->dt('Choose columns:'),
+                $q->dd(
                     $q->div(
-                        { -class => 'hint visible', -id => 'probeloci_hint' },
-                        $q->p(
-                            'The file should contain the following columns: '
+                        { -class => 'input_container' },
+                        $q->input(
+                            {
+                                -type    => 'checkbox',
+                                -checked => 'checked',
+                                -name    => 'map_loci',
+                                -id      => 'check_map_loci',
+                                -value   => 'Mapping Locations',
+                                -title   => 'Upload mapping locations'
+                            }
                         ),
-                        $q->ol(
-                            $q->li('Probe ID'),
-                            $q->li(
-'Mapping Location(s). Example: <strong>chr1:1208765-1208786, chr22:106895-106912</strong>'
-                            ),
-                            $q->li(
-'Accession Number(s). Example: <strong>NM_1023678, AK678920</strong>'
-                            ),
-                            $q->li(
-'Gene Symbol(s). Example: <strong>Akr1, Akr7</strong>'
-                            )
+                        $q->input(
+                            {
+                                -type    => 'checkbox',
+                                -checked => 'checked',
+                                -name    => 'accnum',
+                                -id      => 'check_accnum',
+                                -value   => 'Accession Numbers',
+                                -title   => 'Upload accession numbers'
+                            }
+                        ),
+                        $q->input(
+                            {
+                                -type  => 'checkbox',
+                                -name  => 'gene_symbols',
+                                -id    => 'check_gene_symbols',
+                                -value => 'Gene Symbols',
+                                -title => 'Upload gene symbols'
+                            }
                         )
                     ),
-                    file_opts_html( $q, 'probelociOpts' )
+                    $q->div(
+                        {
+                            -class => 'hint visible',
+                            -id    => 'annot_genome_hint'
+                        },
+                        ''
+                    )
                 ),
+
+#                $q->dd(
+#                    $q->div(
+#                        { -class => 'hint visible', -id => 'probeloci_hint' },
+#                        $q->p(
+#                            'The file should contain the following columns: '
+#                        ),
+#                        $q->ol(
+#                            $q->li('Probe ID'),
+#                            $q->li(
+#'Mapping Location(s). Example: <strong>chr1:1208765-1208786, chr22:106895-106912</strong>'
+#                            ),
+#                            $q->li(
+#'Accession Number(s). Example: <strong>NM_1023678, AK678920</strong>'
+#                            ),
+#                            $q->li(
+#'Gene Symbol(s). Example: <strong>Akr1, Akr7</strong>'
+#                            )
+#                        )
+#                    ),
+#                ),
                 $q->dt('&nbsp;'),
                 $q->dd(
                     $q->submit(

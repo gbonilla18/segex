@@ -104,8 +104,7 @@ sub readrow_head {
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
     push @$js_src_yui,
       (
-        'yahoo/yahoo-min.js', 'button/button-min.js',
-        'connection/connection_core-min.js'
+        'yahoo/yahoo-min.js', 'button/button-min.js'
       );
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
@@ -131,44 +130,13 @@ YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
 });
 
 YAHOO.util.Event.addListener(window,'load',function(){
-    // Gene annotation: first column
-    var checkboxIds = ['check_gene_name', 'check_gene_desc', 'check_gene_go'];
-    var minChecked = 1;
-    var buttons = {};
-    var count_checked = 0;
-    for (var i = 0, len = checkboxIds.length; i < len; i++) {
-        var checkboxId = checkboxIds[i];
-        var button = new YAHOO.widget.Button(checkboxId);
-        if (button.get('checked')) {
-            count_checked++;
-        }
-        buttons[checkboxId] = button;
-    }
-    for (var checkboxId in buttons) {
-        var button = buttons[checkboxId];
-        button.addListener("beforeCheckedChange", function(ev) {
-            return ((ev.prevValue && !ev.newValue && count_checked <= minChecked) 
-                ? false 
-                : true);
-        });
-        button.addListener("checkedChange", function(ev) {
-            count_checked += (ev.newValue ? 1 : -1);
-            updateBanner();
-        });
-    }
-    var banner = document.getElementById("geneannot_accnum_hint");
-    function updateBanner() {
-        var bannerText = "<p>The file should contain the following columns</p><ol><li>Gene Symbols</li>";
-        for (var checkboxId in buttons) {
-            var button = buttons[checkboxId];
-            if (button.get('checked')) {
-                bannerText += "<li>" + button.get('value') + "</li>";
-            }
-        }
-        bannerText += "</ol>";
-        banner.innerHTML = bannerText;
-    }
-    updateBanner();
+
+    setupCheckboxes({
+        checkboxIds: ['check_gene_name', 'check_gene_desc', 'check_gene_go'],
+        bannerId:    'geneannot_accnum_hint',
+        keyName:     'Gene Symbols'
+    });
+
 });
 END_SETUPTOGGLES
     return $self->SUPER::readrow_head();
@@ -233,11 +201,10 @@ END_info
 
                 ),
 
-                $q->dt('&nbsp;'),
+                $q->dt('Choose columns:'),
                 $q->dd(
                     $q->div(
                         {
-                            -id    => 'geneannot_container',
                             -class => 'input_container'
                         },
                         $q->input(
