@@ -251,6 +251,7 @@ sub new {
                         __special__    => 1,
                         __optional__   => 1,
                         __extra_html__ => file_opts_html( $q, 'probeseqOpts' )
+                          . $q->p('File contains columns:')
                           . $q->div(
                             { -class => 'input_container' },
                             $q->input(
@@ -1258,9 +1259,7 @@ END_info
                           'File containing probe-accession number annotation'
                     ),
                     file_opts_html( $q, 'probelociOpts' ),
-                ),
-                $q->dt('Choose columns:'),
-                $q->dd(
+                    $q->p('File contains columns:'),
                     $q->div(
                         { -class => 'input_container' },
                         $q->input(

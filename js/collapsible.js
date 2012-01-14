@@ -1,7 +1,6 @@
 "use strict";
 
 function setupCheckboxes(obj) {
-    ////////////////
     var checkboxIds = obj.checkboxIds;
     var minChecked = 1;
     var buttons = {};
@@ -28,8 +27,7 @@ function setupCheckboxes(obj) {
     }
     var banner = document.getElementById(obj.bannerId);
     function updateBanner() {
-        var bannerText = "<p>The file should contain the following columns:</p><ol>";
-        bannerText += "<li>" + obj.keyName + "</li>";
+        var bannerText = "<ol><li>" + obj.keyName + "</li>";
         for (var checkboxId in buttons) {
             var button = buttons[checkboxId];
             if (button.get('checked')) {

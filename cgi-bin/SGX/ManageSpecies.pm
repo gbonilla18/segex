@@ -102,10 +102,7 @@ sub readrow_head {
 
     my $clearAnnotURI = $self->get_resource_uri( b => 'clearAnnot' );
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
-    push @$js_src_yui,
-      (
-        'yahoo/yahoo-min.js', 'button/button-min.js'
-      );
+    push @$js_src_yui, ( 'yahoo/yahoo-min.js', 'button/button-min.js' );
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
 YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
@@ -198,15 +195,9 @@ END_info
                           'File containing gene symbols and/or gene names'
                     ),
                     file_opts_html( $q, 'geneOpts' ),
-
-                ),
-
-                $q->dt('Choose columns:'),
-                $q->dd(
+                    $q->p('File contains columns:'),
                     $q->div(
-                        {
-                            -class => 'input_container'
-                        },
+                        { -class => 'input_container' },
                         $q->input(
                             {
                                 -type    => 'checkbox',
