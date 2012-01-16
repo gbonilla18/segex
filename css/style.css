@@ -286,6 +286,9 @@ img#schema {
 {
 	background-color:#cbdaff;
 }
+.yui-skin-sam .yui-button {
+	margin-bottom:8px;
+}
 /************* tmp drag-drop ******************/
 div.workarea {
 	float:left;

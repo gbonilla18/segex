@@ -255,14 +255,14 @@ sub new {
                             file_opts_html( $q, 'probeseqOpts' ),
                             file_opts_columns(
                                 $q,
-                                hint_id => 'annot_probe_hint',
-                                items   => {
+                                id => 'annot_probe',
+                                items   => [
                                     probe_seq => {
                                         -checked => 'checked',
                                         -value   => 'Probe Sequence',
                                     },
                                     probe_note => { -value => 'Probe Note' }
-                                }
+                                ]
                             )
                         )
                     },
@@ -509,22 +509,20 @@ sub readrow_head {
       @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
 
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
-    push @$js_src_yui, ( 'element/element-min.js', 'button/button-min.js' );
+    push @$js_src_yui, 'button/button-min.js';
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
 YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
-        checkboxIds: ['check_probe_seq', 'check_probe_note'],
-        bannerId:    'annot_probe_hint',
-        minChecked:   0,
-        keyName:     'Probe IDs'
+        idPrefix:   'annot_probe',
+        keyName:    'Probe IDs',
+        minChecked: 0
     });
 
     setupCheckboxes({
-        checkboxIds: ['check_map_loci', 'check_accnum', 'check_gene_symbols'],
-        bannerId:    'annot_genome_hint',
-        keyName:     'Probe IDs'
+        idPrefix: 'annot_genome',
+        keyName:  'Probe IDs'
     });
 
 });
@@ -1247,8 +1245,8 @@ END_info
                     file_opts_html( $q, 'probelociOpts' ),
                     file_opts_columns(
                         $q,
-                        hint_id => 'annot_genome_hint',
-                        items   => {
+                        id => 'annot_genome',
+                        items   => [
                             map_loci => {
                                 -checked => 'checked',
                                 -value   => 'Mapping Locations'
@@ -1258,7 +1256,7 @@ END_info
                                 -value   => 'Accession Numbers'
                             },
                             gene_symbols => { -value => 'Gene Symbols' }
-                        }
+                        ]
                     )
                 ),
                 $q->dt('&nbsp;'),

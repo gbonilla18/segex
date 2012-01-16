@@ -1,12 +1,17 @@
 "use strict";
 
 function setupCheckboxes(obj) {
-    var checkboxIds = obj.checkboxIds;
+    var idPrefix = obj.idPrefix;
+    var checkboxIds = YAHOO.util.Dom.getElementsBy(
+        function(obj) { return ((obj.type === 'checkbox') ? true : false); }, 
+        'INPUT', 
+        idPrefix + '_container'
+    );
     var minChecked = (typeof obj.minChecked !== 'undefined') ? obj.minChecked : 1;
     var buttons = {};
     var count_checked = 0;
     for (var i = 0, len = checkboxIds.length; i < len; i++) {
-        var checkboxId = checkboxIds[i];
+        var checkboxId = checkboxIds[i].id;
         var button = new YAHOO.widget.Button(checkboxId);
         if (button.get('checked')) {
             count_checked++;
@@ -25,9 +30,9 @@ function setupCheckboxes(obj) {
             updateBanner();
         });
     }
-    var banner = document.getElementById(obj.bannerId);
+    var banner = document.getElementById(idPrefix + '_hint');
     function updateBanner() {
-        var bannerText = "<ol><li>" + obj.keyName + "</li>";
+        var bannerText = "<p>The file should contain the following columns:</p><ol><li>" + obj.keyName + "</li>";
         for (var checkboxId in buttons) {
             var button = buttons[checkboxId];
             if (button.get('checked')) {

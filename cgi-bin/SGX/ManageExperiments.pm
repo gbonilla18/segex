@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Debug;
 use Scalar::Util qw/looks_like_number/;
-use SGX::Util qw/file_opts_html/;
+use SGX::Util qw/file_opts_html file_opts_columns/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
 
@@ -109,15 +109,41 @@ sub new {
                         __special__    => 1,
                         __createonly__ => 1,
                         __readonly__   => 1,
-                        __extra_html__ => file_opts_html( $q, 'fileOpts' )
-                          . $q->div(
-                            { -class => 'hint', -id => 'datafile_hint' },
-                            $q->p(
-                                'The file must contain the following columns:'),
-                            $q->pre(
-"Probe ID, Ratio, Fold Change, P-value, Intensity 1, Intensity 2"
+                        __extra_html__ => $q->div(
+                            file_opts_html( $q, 'fileOpts' ),
+                            file_opts_columns(
+                                $q,
+                                id    => 'datafile',
+                                items => [
+                                    ratio => {
+                                        -checked => 'checked',
+                                        -value   => 'Ratio'
+                                    },
+                                    fold_change => {
+                                        -checked => 'checked',
+                                        -value   => 'Fold Change'
+                                    },
+                                    intensity1 => {
+                                        -checked => 'checked',
+                                        -value   => 'Intensity-1'
+                                    },
+                                    intensity2 => {
+                                        -checked => 'checked',
+                                        -value   => 'Intensity-2'
+                                    },
+                                    pvalue1 => {
+                                        -checked => 'checked',
+                                        -value   => 'P-Value (1)'
+                                    },
+                                    pvalue2 => {
+                                        -value   => 'P-Value (2)'
+                                    },
+                                    pvalue3 => {
+                                        -value   => 'P-Value (3)'
+                                    }
+                                ]
                             )
-                          )
+                        )
                     },
                     eid => {
                         label        => 'No.',
@@ -334,23 +360,27 @@ sub form_create_head {
     my $self = shift;
 
     # add platform dropdown
-    push @{ $self->{_js_src_code} },
-      ( { -src => 'collapsible.js' },
+    push @{ $self->{_css_src_yui} }, 'button/assets/skins/sam/button.css';
+    push @{ $self->{_js_src_yui} },  'button/button-min.js';
+
+    # add platform dropdown
+    push @{ $self->{_js_src_code} },                
+      ( { -src => 'collapsible.js' },                   
         { -src => 'PlatformStudyExperiment.js' } );
 
     push @{ $self->{_js_buffer} }, <<"END_SETUPTOGGLES" .
 YAHOO.util.Event.addListener(window,'load',function(){
+
     setupToggles('change',
         { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
         isDefinedSelection
     );
-    setupToggles('change',
-        { 'file': { '' : ['datafile_hint'] } },
-        function(el) { 
-            var val = el.value; 
-            return ((typeof val !== 'undefined' && val !== '') ? 'defined' : ''); 
-        }
-    );
+
+    setupCheckboxes({
+        idPrefix: 'datafile',
+        keyName:  'Probe ID'
+    });
+
 });
 END_SETUPTOGGLES
       $self->get_pse_dropdown_js(

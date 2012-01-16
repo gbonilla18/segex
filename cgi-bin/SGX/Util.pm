@@ -70,11 +70,19 @@ sub file_opts_html {
     my $q  = shift;
     my $id = shift;
     return $q->p(
-        $q->a( { -id => $id, -class => 'pluscol' }, '+ File options' ) )
+        $q->a(
+            {
+                -id    => $id,
+                -class => 'pluscol',
+                -title => 'Click to specify file format'
+            },
+            '+ File options'
+        )
+      )
       . $q->div(
         {
             -id    => "${id}_container",
-            -class => 'dd_collapsible'
+            -class => 'dd_collapsible',
         },
         $q->p(
             $q->radio_group(
@@ -116,26 +124,37 @@ sub file_opts_columns {
     my $q    = shift;
     my %args = @_;
 
+    my $id    = $args{id};
     my $items = $args{items};
-    return
-      $q->p('File contains columns:'), $q->div(
-        { -class => 'input_container' },
+    return $q->p(
+        $q->a(
+            {
+                -id    => $id,
+                -class => 'pluscol',
+                -title => 'Click to customize which columns to upload'
+            },
+            '+ Columns to upload'
+        )
+      ),
+      $q->div(
+        { -id => "${id}_container", -class => 'dd_collapsible' },
         map {
+            my ( $key, $val ) = @$_;
             $q->input(
                 {
                     -type  => 'checkbox',
-                    -name  => $_,
-                    -id    => "check_$_",
-                    -title => "Upload $_",
-                    %{ $items->{$_} }
+                    -name  => $key,
+                    -id    => "check_$key",
+                    -title => "Upload $key",
+                    %$val
                 }
               )
-          } keys %$items
+          } tuples($items)
       ),
       $q->div(
         {
             -class => 'hint visible',
-            -id    => $args{hint_id}
+            -id    => "${id}_hint"
         },
         ''
       );

@@ -102,7 +102,7 @@ sub readrow_head {
 
     my $clearAnnotURI = $self->get_resource_uri( b => 'clearAnnot' );
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
-    push @$js_src_yui, ( 'yahoo/yahoo-min.js', 'button/button-min.js' );
+    push @$js_src_yui, 'button/button-min.js';
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
 YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
@@ -129,9 +129,8 @@ YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
 YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
-        checkboxIds: ['check_gene_name', 'check_gene_desc', 'check_go_terms'],
-        bannerId:    'geneannot_accnum_hint',
-        keyName:     'Gene Symbols'
+        idPrefix: 'geneannot_accnum',
+        keyName:  'Gene Symbols'
     });
 
 });
@@ -197,8 +196,8 @@ END_info
                     file_opts_html( $q, 'geneOpts' ),
                     file_opts_columns(
                         $q,
-                        hint_id => 'geneannot_accnum_hint',
-                        items   => {
+                        id => 'geneannot_accnum',
+                        items   => [
                             gene_name => {
                                 -checked => 'checked',
                                 -value   => 'Gene Names'
@@ -208,7 +207,7 @@ END_info
                                 -value   => 'Gene Descriptions'
                             },
                             go_terms => { -value => 'GO Terms' }
-                        }
+                        ]
                     )
                 ),
 
