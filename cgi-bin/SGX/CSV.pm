@@ -5,9 +5,88 @@ use warnings;
 
 require File::Temp;
 require Text::CSV;
+use Benchmark qw/timediff timestr/;
 use SGX::Util qw/all_match car/;
 use SGX::Abstract::Exception ();
 use SGX::Debug;
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CSV
+#       METHOD:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub delegate_fileUpload {
+    my %args            = @_;
+    my $self            = $args{delegate};
+    my $sql             = $args{statements};
+    my $parameters      = $args{parameters};
+    my $index_for_count = $args{index_for_count};
+    my $filename        = $args{filename};
+
+    my $dbh = $self->{_dbh};
+    my @statements = map { $dbh->prepare($_) } @$sql;
+
+    my $old_AutoCommit = $dbh->{AutoCommit};
+    $dbh->{AutoCommit} = 0;
+    my $t0 = Benchmark->new();
+
+    my @return_codes;
+    eval {
+        @return_codes = map {
+            my $param = shift @$parameters;
+            $_->execute(@$param)
+        } @statements;
+        1;
+    } or do {
+        my $exception = $@;
+        $dbh->rollback;
+        unlink $filename;
+        $_->finish() for @statements;
+
+        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+
+            # catch dbi::sth exceptions. note: this block catches duplicate
+            # key record exceptions.
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    <<"END_dbi_sth_exception",
+Error loading data into the database. The database response was:\n\n%s.\n
+No changes to the database were stored.
+END_dbi_sth_exception
+                    $exception->error
+                )
+            );
+        }
+        else {
+            $self->add_message(
+                { -class => 'error' },
+'Error loading data into the database. No changes to the database were stored.'
+            );
+        }
+        $dbh->{AutoCommit} = $old_AutoCommit;
+        return;
+    };
+    $dbh->commit;
+    $_->finish() for @statements;
+    $dbh->{AutoCommit} = $old_AutoCommit;
+    my $t1 = Benchmark->new();
+    unlink $filename;
+
+    $self->add_message(
+        sprintf(
+            'Success! Added %d entries to the database. The operation took %s.',
+            $return_codes[$#return_codes],
+            timestr( timediff( $t1, $t0 ) )
+        )
+    );
+    return 1;
+}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CSV
@@ -34,9 +113,9 @@ sub sanitizeUploadWithMessages {
       if not defined $args{header};
 
     my $recordsValid = 0;
-    my $outputFileName =
+    my $outputFileNames =
       eval { sanitizeUploadFile( $q, $inputField, \$recordsValid, %args ); }
-      || '';
+      || [];
 
     if ( my $exception = $@ ) {
 
@@ -56,7 +135,7 @@ sub sanitizeUploadWithMessages {
             'No valid records were uploaded.' );
         return 0;
     }
-    return ( $outputFileName, $recordsValid );
+    return ( $outputFileNames, $recordsValid );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -86,24 +165,28 @@ sub sanitizeUploadFile {
       or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
 
     #Open file we are writing to server.
-    my ( $outputFileName, $OUTPUTTOSERVER );
-    if ($rewrite) {
-        $outputFileName = File::Temp->new(
+    my @outputFileName;
+    my @OUTPUTTOSERVER;
+
+    for ( my $i = 0 ; $i < $rewrite ; $i++ ) {
+        my $outputFileName = File::Temp->new(
             SUFFIX => '.txt',
             UNLINK => 1
         )->filename();
-        open $OUTPUTTOSERVER, '>', $outputFileName
+        open my $OUTPUTTOSERVER, '>', $outputFileName
           or SGX::Exception::Internal->throw(
             error => "Could not open $outputFileName for writing: $!\n" );
+        push @outputFileName, $outputFileName;
+        push @OUTPUTTOSERVER, $OUTPUTTOSERVER;
     }
 
     $$recordsValid =
-      eval { csv_rewrite( $uploadedFile, $OUTPUTTOSERVER, %args ); }
+      eval { csv_rewrite( $uploadedFile, \@OUTPUTTOSERVER, %args ); }
       || 0;
 
     # In case of error, close files first and rethrow the exception
     my $exception = $@;
-    close($OUTPUTTOSERVER) if defined $OUTPUTTOSERVER;
+    close($_) for @OUTPUTTOSERVER;
 
     if ($exception) {
         $exception->throw();
@@ -113,7 +196,7 @@ sub sanitizeUploadFile {
             error => "No records found in input file\n" );
     }
 
-    return $outputFileName;
+    return \@outputFileName;
 }
 
 #===  FUNCTION  ================================================================
@@ -213,9 +296,10 @@ sub csv_rewrite {
     my $min_field_count = $args{required_fields};
     $min_field_count = @$parser if not defined $min_field_count;
 
-    my $sub_print = sub {
-        $csv_out->print( $out, \@_ );
-    };
+    my @sub_print;
+    foreach my $fh (@$out) {
+        push @sub_print, sub { $csv_out->print( $fh, \@_ ) };
+    }
     my $process = $args{process} || sub {
         my $printfun = shift;
         my $line_num = shift;
@@ -249,7 +333,7 @@ sub csv_rewrite {
                 $exception->throw();    # rethrow otherwise
             }
         };
-        $printfun->(@out_fields);
+        $printfun->[0]->(@out_fields);
         return 1;
     };
 
@@ -266,7 +350,7 @@ sub csv_rewrite {
         $record_num++;
         next if $record_num == 1 and $header;
 
-        $process->( $sub_print, $line_num, \@fields );
+        $process->( \@sub_print, $line_num, \@fields );
     }
 
     # check for errors

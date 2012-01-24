@@ -7,94 +7,17 @@ use base qw/SGX::Strategy::CRUD/;
 
 require Tie::CPHash;
 use Storable qw/freeze thaw/;
-use Benchmark qw/timediff timestr/;
 
 use Scalar::Util qw/looks_like_number/;
+use SGX::Debug qw/Dumper/;
 use SGX::Util qw/car file_opts_html file_opts_columns/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
+require Data::UUID;
 
 #---------------------------------------------------------------------------
 #  process row in accession number input file
 #---------------------------------------------------------------------------
-my $process_accnum = sub {
-    my $printfun = shift;
-    my $line_num = shift;
-    my $fields   = shift;
-
-    # check total number of fields present
-    if ( @$fields < 2 ) {
-        SGX::Exception::User->throw(
-            error => sprintf(
-                "Only %d field(s) found (2 required) on line %d\n",
-                scalar(@$fields), $line_num
-            )
-        );
-    }
-
-    # perform validation on each column
-    my $probe_id;
-    if ( $fields->[0] =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-        $probe_id = $1;
-    }
-    else {
-        SGX::Exception::User->throw(
-            error => "Cannot parse probe ID on line $line_num" );
-    }
-    my @accnums = map { $_ =~ /^(\S+)$/ } split /[,;\s]+/, $fields->[1];
-
-    #return [ map { [ $probe_id, $_ ] } @accnums ];
-    if ( @accnums > 0 ) {
-        $printfun->( $probe_id, $_ ) for @accnums;
-    }
-    else {
-        $printfun->( $probe_id, undef );
-    }
-    return 1;
-};
-
-#---------------------------------------------------------------------------
-#  process row in go link input file
-#---------------------------------------------------------------------------
-my $process_go = sub {
-    my $printfun = shift;
-    my $line_num = shift;
-    my $fields   = shift;
-
-    # check total number of fields present
-    if ( @$fields < 2 ) {
-        SGX::Exception::User->throw(
-            error => sprintf(
-                "Only %d field(s) found (2 required) on line %d\n",
-                scalar(@$fields), $line_num
-            )
-        );
-    }
-
-    # perform validation on each column
-    my $probe_id;
-    if ( $fields->[0] =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-        $probe_id = $1;
-    }
-    else {
-        SGX::Exception::User->throw(
-            error => "Cannot parse probe ID on line $line_num" );
-    }
-    my $go = $fields->[1];
-    my @gos;
-    while ( $go =~ /\bGO:(\d{7})\b/gi ) {
-        push @gos, $1 + 0;
-    }
-
-    #return [ map { [ $probe_id, $_ ] } @gos ];
-    if ( @gos > 0 ) {
-        $printfun->( $probe_id, $_ ) for @gos;
-    }
-    else {
-        $printfun->( $probe_id, undef );
-    }
-    return 1;
-};
 
 #---------------------------------------------------------------------------
 #  probe parser
@@ -255,8 +178,8 @@ sub new {
                             file_opts_html( $q, 'probeseqOpts' ),
                             file_opts_columns(
                                 $q,
-                                id => 'annot_probe',
-                                items   => [
+                                id    => 'annot_probe',
+                                items => [
                                     probe_seq => {
                                         -checked => 'checked',
                                         -value   => 'Probe Sequence',
@@ -432,14 +355,41 @@ sub init {
     $self->SUPER::init();
 
     $self->register_actions(
+        clearAnnot => { redirect => 'ajax_clear_annot' },
+        uploadAnnot => { head => 'UploadAnnot_head', body => 'readrow_body' },
         form_assign =>
           { head => 'form_assign_head', body => 'form_assign_body' },
-        uploadGene   => { head => 'UploadGene_head',   body => 'readrow_body' },
-        uploadGO     => { head => 'UploadGO_head',     body => 'readrow_body' },
-        uploadAccNum => { head => 'UploadAccNum_head', body => 'readrow_body' }
+
+       #uploadGene   => { head => 'UploadGene_head',   body => 'readrow_body' },
+       #uploadGO     => { head => 'UploadGO_head',     body => 'readrow_body' },
+       #uploadAccNum => { head => 'UploadAccNum_head', body => 'readrow_body' }
     );
 
     return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageSpecies
+#       METHOD:  ajax_clear_annot
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub ajax_clear_annot {
+    my $self = shift;
+    return $self->_ajax_process_request(
+        sub {
+            my $self = shift;
+            my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
+            warn "prepaing request";
+            return sub {
+                warn "executing request";
+            };
+        }
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -508,21 +458,43 @@ sub readrow_head {
     my ( $js_src_yui, $js_src_code, $css_src_yui ) =
       @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
 
+    my $clearAnnotURI = $self->get_resource_uri( b => 'clearAnnot' );
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
-    push @$js_src_yui, 'button/button-min.js';
+    push @$js_src_yui,  'button/button-min.js';
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
+YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
+        if (!confirm("Are you sure you want to clear annotation for this platform?\\n\\nWarning: this will clear both probe mapping locations and associated accession numbers and genes.")) {
+            return false;
+        }
+        YAHOO.util.Connect.asyncRequest(
+            "POST", 
+            "$clearAnnotURI",
+            {
+                success:function(o) {
+                    console.log("ok");
+                },
+                failure:function(o) { 
+                    alert("request failed");
+                },
+                scope:this
+            },
+            null
+        );
+        return true;
+});
+
 YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
         idPrefix:   'annot_probe',
-        keyName:    'Probe IDs',
+        keyName:    'Probe ID',
         minChecked: 0
     });
 
     setupCheckboxes({
         idPrefix: 'annot_genome',
-        keyName:  'Probe IDs'
+        keyName:  'Probe ID'
     });
 
 });
@@ -533,277 +505,32 @@ END_SETUPTOGGLES
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
-#       METHOD:  UploadAccNum_head
+#       METHOD:  UploadAnnot_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:
+#  DESCRIPTION:  upload (1) mapping locations, (2) accession numbers, (3) gene
+#                symbols.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub UploadAccNum_head {
+sub UploadAnnot_head {
     my $self = shift;
-    my $q    = $self->{_cgi};
 
-    require SGX::CSV;
-    my ( $outputFileName, $recordsValid ) =
-      SGX::CSV::sanitizeUploadWithMessages(
-        $self, 'file',
-        csv_in_opts => { quote_char => undef },
-        process     => $process_accnum
-      );
+    my $species_id = $self->{_id_data}->{sid};
+    my $pid        = $self->{_id};
 
-    my $dbh            = $self->{_dbh};
-    my $temp_table     = time() . '_' . getppid();
-    my $old_AutoCommit = $dbh->{AutoCommit};
-    $dbh->{AutoCommit} = 0;
+    my $q              = $self->{_cgi};
+    my $upload_maploci = defined( $q->param('map_loci') );
+    my $upload_accnums = defined( $q->param('accnum') );
+    my $upload_symbols = defined( $q->param('gene_symbols') );
 
-    my $t0 = Benchmark->new();
-
-    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
-CREATE TEMPORARY TABLE $temp_table (
-    reporter char(18) NOT NULL,
-    accnum char(20) DEFAULT NULL,
-    KEY reporter (reporter),
-) ENGINE=MEMORY
-END_loadTermDefs_createTemp
-
-    my $sth_load = $dbh->prepare(<<"END_loadTermDefs");
-LOAD DATA LOCAL INFILE ?
-INTO TABLE $temp_table
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n' STARTING BY '' (
-    reporter,
-    accnum
-)
-END_loadTermDefs
-
-    my $sth_delete = $dbh->prepare(<<"END_delete");
-DELETE accnum 
-FROM accnum 
-    INNER JOIN probe ON accnum.rid=probe.rid AND probe.pid=?
-    INNER JOIN $temp_table USING(reporter)
-END_delete
-
-    my $sth_insert = $dbh->prepare(<<"END_insert_accnum");
-INSERT INTO accnum (rid, accnum)
-SELECT
-    probe.rid,
-    temptable.accnum
-FROM probe
-    INNER JOIN $temp_table AS temptable
-        ON temptable.reporter=probe.reporter 
-        AND NOT ISNULL(temptable.accnum)
-        AND probe.pid=?
-END_insert_accnum
-
-    my ( $recordsLoaded, $recordsUpdated );
-    my $pid = $self->{_id};
-    eval {
-        $sth_create_temp->execute();
-        $recordsLoaded = $sth_load->execute($outputFileName);
-        $sth_delete->execute($pid);
-        $recordsUpdated = $sth_insert->execute($pid);
-    } or do {
-        my $exception = $@;
-        $dbh->rollback;
-        unlink $outputFileName;
-
-        $sth_create_temp->finish;
-        $sth_load->finish;
-        $sth_insert->finish;
-
-        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
-
-            # catch dbi::sth exceptions. note: this block catches duplicate
-            # key record exceptions.
-            $self->add_message(
-                { -class => 'error' },
-                sprintf(
-                    <<"end_dbi_sth_exception",
-Error loading data into the database. The database response was:\n\n%s.\n
-No changes to the database were stored.
-end_dbi_sth_exception
-                    $exception->error
-                )
-            );
-        }
-        else {
-            $self->add_message(
-                { -class => 'error' },
-'Error loading data into the database. No changes to the database were stored.'
-            );
-        }
-        $dbh->{AutoCommit} = $old_AutoCommit;
-        $self->readrow_head();
-        return 1;
-    };
-    $dbh->commit;
-    $dbh->{AutoCommit} = $old_AutoCommit;
-    my $t1 = Benchmark->new();
-    unlink $outputFileName;
-
-    $self->add_message(
-        sprintf(
-            <<END_success,
-Success! Found %d valid entries; created %d links between probe IDs and
-accession numbers. The operation took %s.
-END_success
-            $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
-        )
-    );
-
-    $self->readrow_head();
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManagePlatforms
-#       METHOD:  UploadGO_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub UploadGO_head {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    require SGX::CSV;
-    my ( $outputFileName, $recordsValid ) =
-      SGX::CSV::sanitizeUploadWithMessages(
-        $self, 'file',
-        csv_in_opts => { quote_char => undef },
-        process     => $process_go
-      );
-
-    my $dbh        = $self->{_dbh};
-    my $temp_table = time() . '_' . getppid();
-
-    my $old_AutoCommit = $dbh->{AutoCommit};
-    $dbh->{AutoCommit} = 0;
-
-    my $t0 = Benchmark->new();
-
-    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
-CREATE TEMPORARY TABLE $temp_table (
-    reporter char(18) NOT NULL,
-    go_acc int(10) unsigned DEFAULT NULL,
-    KEY reporter (reporter)
-) ENGINE=MEMORY
-END_loadTermDefs_createTemp
-
-    my $sth_load = $dbh->prepare(<<"END_loadTermDefs");
-LOAD DATA LOCAL INFILE ?
-INTO TABLE $temp_table
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n' STARTING BY '' (
-    reporter,
-    go_acc
-)
-END_loadTermDefs
-
-    my $sth_delete = $dbh->prepare(<<"END_delete");
-DELETE go_link
-FROM go_link 
-    INNER JOIN probe ON go_link.rid=probe.rid AND probe.pid=?
-    INNER JOIN $temp_table USING(reporter)
-END_delete
-
-    my $sth_insert = $dbh->prepare(<<"END_insert_go_link");
-INSERT INTO go_link (rid, go_acc)
-SELECT
-    probe.rid,
-    temptable.go_acc
-FROM probe
-    INNER JOIN $temp_table AS temptable 
-        ON temptable.reporter=probe.reporter
-        AND NOT ISNULL(temptable.go_acc)
-        AND probe.pid=?
-END_insert_go_link
-
-    my ( $recordsLoaded, $recordsUpdated );
-    my $pid = $self->{_id};
-    eval {
-        $sth_create_temp->execute();
-        $recordsLoaded = $sth_load->execute($outputFileName);
-        $sth_delete->execute($pid);
-        $recordsUpdated = $sth_insert->execute($pid);
-    } or do {
-        my $exception = $@;
-        $dbh->rollback;
-        unlink $outputFileName;
-
-        $sth_create_temp->finish;
-        $sth_load->finish;
-        $sth_insert->finish;
-
-        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
-
-            # catch dbi::sth exceptions. note: this block catches duplicate
-            # key record exceptions.
-            $self->add_message(
-                { -class => 'error' },
-                sprintf(
-                    <<"end_dbi_sth_exception",
-Error loading data into the database. The database response was:\n\n%s.\n
-No changes to the database were stored.
-end_dbi_sth_exception
-                    $exception->error
-                )
-            );
-        }
-        else {
-            $self->add_message(
-                { -class => 'error' },
-'Error loading data into the database. No changes to the database were stored.'
-            );
-        }
-        $dbh->{AutoCommit} = $old_AutoCommit;
-        $self->readrow_head();
-        return 1;
-    };
-    $dbh->commit;
-    $dbh->{AutoCommit} = $old_AutoCommit;
-    my $t1 = Benchmark->new();
-    unlink $outputFileName;
-
-    $self->add_message(
-        sprintf(
-            <<END_success,
-Success! Found %d valid entries; created %d links
-between probe IDs and GO terms. The operation took %s.
-END_success
-            $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
-        )
-    );
-
-    $self->readrow_head();
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManagePlatforms
-#       METHOD:  UploadGene_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub UploadGene_head {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-
-    my %gene2reporter;
-    tie %gene2reporter, 'Tie::CPHash';
-    my $gene_process = sub {
+    my $process_accnum = sub {
         my $printfun = shift;
         my $line_num = shift;
         my $fields   = shift;
+
+        my ( $print_loci, $print_symbols ) = @$printfun;
 
         # check total number of fields present
         if ( @$fields < 2 ) {
@@ -815,7 +542,9 @@ sub UploadGene_head {
             );
         }
 
-        # get probe id
+        #----------------------------------------------------------------------
+        #  get probe id (first column)
+        #----------------------------------------------------------------------
         my $probe_id;
         if ( $fields->[0] =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
             $probe_id = $1;
@@ -824,144 +553,201 @@ sub UploadGene_head {
             SGX::Exception::User->throw(
                 error => "Cannot parse probe ID on line $line_num" );
         }
+        my $i = 1;
 
-        # get gene symbol
-        my ($gsymbol) = $fields->[1] =~ /^\s*(.*)\s*$/;
-        if ( $gsymbol =~ m/\s/ ) {
-            SGX::Exception::User->throw(
-                error => 'Gene symbol contains spaces on line ' . shift );
+        #----------------------------------------------------------------------
+        #  get mapping locations (second column)
+        #----------------------------------------------------------------------
+        if ($upload_maploci) {
+            my @loci;
+            my $locus = $fields->[$i];
+            while ( $locus =~ /\b(?:chr|)([^,;\s]+)\s*:\s*(\d+)-(\d+)\b/g ) {
+                push @loci, [ $1, $2, $3 ];
+            }
+            $print_loci->( $probe_id, @$_ ) for @loci;
+            $i++;
         }
 
-        # get gene name
-        my ($gname) = ( $fields->[2] =~ /(.*)/ );
-
-        # at this point, we have $probe_id, $gsymbol, and $gname
-        $gsymbol = '' if $gsymbol eq '\N';
-        $gname   = '' if $gname   eq '\N';
-
-        my $gene_key = freeze( [ $gsymbol, $gname ] );
-        if ( my $val = $gene2reporter{$gene_key} ) {
-            push @$val, $probe_id;
+        #----------------------------------------------------------------------
+        #  get accession numbers (third column)
+        #----------------------------------------------------------------------
+        if ($upload_accnums) {
+            $print_symbols->( $probe_id, 0, $_ )
+              for ( map { $_ =~ /^(\S+)$/ } split /[,;\s]+/, $fields->[$i] );
+            $i++;
         }
-        else {
-            $gene2reporter{$gene_key} = [$probe_id];
+
+        #----------------------------------------------------------------------
+        # get gene symbols (fourth column)
+        #----------------------------------------------------------------------
+        if ($upload_symbols) {
+            $print_symbols->( $probe_id, 1, $_ )
+              for ( map { $_ =~ /^(\S+)$/ } split /[,;\s]+/, $fields->[$i] );
+            $i++;
         }
+
         return 1;
     };
 
-    #---------------------------------------------------------------------------
-    # etc
-    #---------------------------------------------------------------------------
     require SGX::CSV;
-    my ( $outputFileName, $recordsValid ) =
+    my ( $outputFileNames, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         csv_in_opts => { quote_char => undef },
-        process     => $gene_process,
-        rewrite     => 0
+        rewrite     => 2,
+        process     => $process_accnum
       );
 
-    my $dbh            = $self->{_dbh};
-    my $temp_table     = time() . '_' . getppid();
-    my $old_AutoCommit = $dbh->{AutoCommit};
-    $dbh->{AutoCommit} = 0;
+    my ( $filename_maploci, $filename_symbols ) = @$outputFileNames;
 
-    my $t0 = Benchmark->new();
+    my $dbh = $self->{_dbh};
+    my $ret = $self->readrow_head();
 
-    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
-CREATE TEMPORARY TABLE $temp_table (
+    my $ug = Data::UUID->new();
+
+    #---------------------------------------------------------------------------
+    #  add gene symbols
+    #---------------------------------------------------------------------------
+
+    if ($upload_symbols) {
+        my $symbol_table = $ug->to_string( $ug->create() );
+        $symbol_table =~ s/-/_/g;
+        $symbol_table = "tmp$symbol_table";
+        my @sth_symbols;
+        my @param_symbols;
+
+        push @sth_symbols, <<"END_loadTermDefs_createTemp";
+CREATE TEMPORARY TABLE $symbol_table (
     reporter char(18) NOT NULL,
-    accnum char(20) DEFAULT NULL,
+    gtype tinyint(3) unsigned NOT NULL DEFAULT '0',
+    gsymbol char(32) DEFAULT NULL,
     KEY reporter (reporter),
+    KEY gsymbol (gsymbol)
 ) ENGINE=MEMORY
 END_loadTermDefs_createTemp
+        push @param_symbols, [];
 
-    my $sth_load = $dbh->prepare(<<"END_loadTermDefs");
+        push @sth_symbols, <<"END_loadTermDefs";
 LOAD DATA LOCAL INFILE ?
-INTO TABLE $temp_table
+INTO TABLE $symbol_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n' STARTING BY '' (
     reporter,
-    accnum
+    gtype,
+    gsymbol
 )
 END_loadTermDefs
+        push @param_symbols, [$filename_symbols];
 
-    my $sth_delete = $dbh->prepare(<<"END_delete");
-DELETE accnum 
-FROM accnum 
-    INNER JOIN probe ON accnum.rid=probe.rid AND probe.pid=?
-    INNER JOIN $temp_table USING(reporter)
+        push @sth_symbols, <<"END_delete";
+DELETE ProbeGene 
+FROM ProbeGene 
+    INNER JOIN probe ON ProbeGene.rid=probe.rid AND probe.pid=?
+    INNER JOIN $symbol_table USING(reporter)
 END_delete
+        push @param_symbols, [$pid];
 
-    my $sth_insert = $dbh->prepare(<<"END_update");
-INSERT INTO accnum (rid, accnum)
+        push @sth_symbols, <<"END_insert_gene";
+INSERT IGNORE INTO gene (sid, gtype, gsymbol)
+SELECT
+    ? AS sid,
+    temptable.gtype,
+    temptable.gsymbol
+FROM $symbol_table AS temptable
+    INNER JOIN probe
+        ON probe.pid=?
+        AND temptable.reporter=probe.reporter 
+END_insert_gene
+        push @param_symbols, [ $species_id, $pid ];
+
+        push @sth_symbols, <<"END_insert_ProbeGene";
+INSERT IGNORE INTO ProbeGene (rid, gid)
 SELECT
     probe.rid,
-    temptable.accnum
-FROM probe
-    INNER JOIN $temp_table AS temptable USING(reporter) 
-WHERE probe.pid=?
-ON DUPLICATE KEY UPDATE accnum.rid=probe.rid, accnum.accnum=temptable.accnum
-END_update
+    gene.gid
+FROM $symbol_table AS temptable
+    INNER JOIN probe
+        ON probe.pid=?
+        AND probe.reporter=temptable.reporter 
+    INNSER JOIN gene
+        ON gene.sid=?
+        AND gene.gsymbol=temptable.gsymbol
+END_insert_ProbeGene
+        push @param_symbols, [ $pid, $species_id ];
 
-    my ( $recordsLoaded, $recordsUpdated );
-    my $pid = $self->{_id};
-    eval {
-        $sth_create_temp->execute();
-        $recordsLoaded = $sth_load->execute($outputFileName);
-        $sth_delete->execute($pid);
-        $recordsUpdated = $sth_insert->execute($pid);
-    } or do {
-        my $exception = $@;
-        $dbh->rollback;
-        unlink $outputFileName;
+        SGX::CSV::delegate_fileUpload(
+            delegate   => $self,
+            statements => \@sth_symbols,
+            parameters => \@param_symbols,
+            filename   => $filename_symbols
+        );
+    }
 
-        $sth_create_temp->finish;
-        $sth_load->finish;
-        $sth_insert->finish;
+    #---------------------------------------------------------------------------
+    #  add mapping locations
+    #---------------------------------------------------------------------------
 
-        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+    if ($upload_maploci) {
+        my $maploci_table = $ug->to_string( $ug->create() );
+        $maploci_table =~ s/-/_/g;
+        $maploci_table = "tmp$maploci_table";
+        my @sth_maploci;
+        my @param_maploci;
 
-            # catch dbi::sth exceptions. note: this block catches duplicate
-            # key record exceptions.
-            $self->add_message(
-                { -class => 'error' },
-                sprintf(
-                    <<"end_dbi_sth_exception",
-Error loading data into the database. The database response was:\n\n%s.\n
-No changes to the database were stored.
-end_dbi_sth_exception
-                    $exception->error
-                )
-            );
-        }
-        else {
-            $self->add_message(
-                { -class => 'error' },
-'Error loading data into the database. No changes to the database were stored.'
-            );
-        }
-        $dbh->{AutoCommit} = $old_AutoCommit;
-        $self->readrow_head();
-        return 1;
-    };
-    $dbh->commit;
-    $dbh->{AutoCommit} = $old_AutoCommit;
-    my $t1 = Benchmark->new();
-    unlink $outputFileName;
+        push @sth_maploci, <<"END_loadTermDefs_createTemp";
+CREATE TEMPORARY TABLE $maploci_table (
+    reporter char(18) NOT NULL,
+    chr varchar(127) NOT NULL,
+    start int(10) unsigned NOT NULL,
+    end int(10) unsigned NOT NULL
+) ENGINE=MEMORY
+END_loadTermDefs_createTemp
+        push @param_maploci, [];
 
-    $self->add_message(
-        sprintf(
-            <<END_success,
-Success! Found %d valid entries; created %d links between probe IDs and
-accession numbers. The operation took %s.
-END_success
-            $recordsValid, $recordsUpdated, timestr( timediff( $t1, $t0 ) )
-        )
-    );
+        push @sth_maploci, <<"END_loadTermDefs";
+LOAD DATA LOCAL INFILE ?
+INTO TABLE $maploci_table
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (
+    reporter,
+    chr,
+    start,
+    end
+)
+END_loadTermDefs
+        push @param_maploci, [$filename_maploci];
 
-    $self->readrow_head();
-    return 1;
+        push @sth_maploci, <<"END_delete";
+DELETE locus 
+FROM locus 
+    INNER JOIN probe ON locus.rid=probe.rid AND probe.pid=?
+    INNER JOIN $maploci_table USING(reporter)
+END_delete
+        push @param_maploci, [$pid];
+
+        push @sth_maploci, <<"END_insert_gene";
+INSERT INTO locus (rid, sid, chr, zinterval)
+SELECT
+    probe.rid AS rid,
+    ? AS sid,
+    temptable.chr AS chr,
+    LineString(Point(0,temptable.start), Point(0,temptable.end)) AS zinterval
+FROM $maploci_table AS temptable
+    INNER JOIN probe
+        ON probe.pid=?
+        AND temptable.reporter=probe.reporter 
+END_insert_gene
+        push @param_maploci, [ $species_id, $pid ];
+
+        SGX::CSV::delegate_fileUpload(
+            delegate   => $self,
+            statements => \@sth_maploci,
+            parameters => \@param_maploci,
+            filename   => $filename_maploci
+        );
+    }
+
+    return $ret;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1150,7 +936,7 @@ END_insert
 Success! Found %d valid entries; inserted %d probes. The operation took %s.
 END_success
                 $recordsValid, $recordsUpdated,
-                timestr( timediff( $t1, $t0 ) )
+                '0' #timestr( timediff( $t1, $t0 ) )
             )
         );
         1;
@@ -1213,11 +999,14 @@ sub readrow_body {
     #  Probe locations
     #---------------------------------------------------------------------------
             $q->h3(
-                'Upload/Replace Annotation ('
-                  . $q->a(
-                    { -href => $self->get_resource_uri( b => 'clearAnnot' ) },
-                    'clear' )
-                  . ')'
+                'Upload/Replace Annotation',
+                $q->button(
+                    {
+                        -id    => 'clearAnnot',
+                        -class => 'plaintext',
+                        -value => '(clear)'
+                    }
+                )
             ),
             $q->p(<<"END_info"),
 Note: Only information for the probe ids that are included in the file will be
@@ -1229,7 +1018,7 @@ END_info
                 -enctype  => 'multipart/form-data',
                 -onsubmit => 'return validate_fields(this, ["fileProbeLoci"]);',
                 -action   => $self->get_resource_uri(
-                    b   => 'uploadProbeLoci',
+                    b   => 'uploadAnnot',
                     '#' => 'annotation'
                 )
             ),
@@ -1245,8 +1034,8 @@ END_info
                     file_opts_html( $q, 'probelociOpts' ),
                     file_opts_columns(
                         $q,
-                        id => 'annot_genome',
-                        items   => [
+                        id    => 'annot_genome',
+                        items => [
                             map_loci => {
                                 -checked => 'checked',
                                 -value   => 'Mapping Locations'
@@ -1255,7 +1044,10 @@ END_info
                                 -checked => 'checked',
                                 -value   => 'Accession Numbers'
                             },
-                            gene_symbols => { -value => 'Gene Symbols' }
+                            gene_symbols => {
+                                -checked => 'checked',
+                                -value   => 'Gene Symbols'
+                            }
                         ]
                     )
                 ),

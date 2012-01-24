@@ -9,6 +9,50 @@ use SGX::Abstract::Exception ();
 use Digest::SHA1 qw/sha1_hex/;
 use SGX::Util qw/car file_opts_html file_opts_columns/;
 
+#---------------------------------------------------------------------------
+#  process row in go link input file
+#---------------------------------------------------------------------------
+my $process_go = sub {
+    my $printfun = shift;
+    my $line_num = shift;
+    my $fields   = shift;
+
+    # check total number of fields present
+    if ( @$fields < 2 ) {
+        SGX::Exception::User->throw(
+            error => sprintf(
+                "Only %d field(s) found (2 required) on line %d\n",
+                scalar(@$fields), $line_num
+            )
+        );
+    }
+
+    # perform validation on each column
+    my $probe_id;
+    if ( $fields->[0] =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+        $probe_id = $1;
+    }
+    else {
+        SGX::Exception::User->throw(
+            error => "Cannot parse probe ID on line $line_num" );
+    }
+    my $go = $fields->[1];
+    my @gos;
+    while ( $go =~ /\bGO:(\d{7})\b/gi ) {
+        push @gos, $1 + 0;
+    }
+
+    #return [ map { [ $probe_id, $_ ] } @gos ];
+    if ( @gos > 0 ) {
+        $printfun->( $probe_id, $_ ) for @gos;
+    }
+    else {
+        $printfun->( $probe_id, undef );
+    }
+    return 1;
+};
+
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageUsers
 #       METHOD:  new
@@ -87,6 +131,50 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageSpecies
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+    $self->SUPER::init();
+
+    $self->register_actions(
+        clearAnnot => { redirect => 'ajax_clear_annot' }
+    );
+
+    return $self;
+}
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageSpecies
+#       METHOD:  ajax_clear_annot
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub ajax_clear_annot {
+    my $self = shift;
+    return $self->_ajax_process_request(
+        sub {
+            my $self = shift;
+            my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
+            warn "preparing request";
+            return sub {
+                warn "executing request";
+            };
+        }
+    );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageSpecies
 #       METHOD:  readrow_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -102,11 +190,11 @@ sub readrow_head {
 
     my $clearAnnotURI = $self->get_resource_uri( b => 'clearAnnot' );
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
-    push @$js_src_yui, 'button/button-min.js';
+    push @$js_src_yui,  'button/button-min.js';
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
 YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
-        if (!confirm("Are you sure you want to clear annotation for this species?")) {
+        if (!confirm("Are you sure you want to clear annotation for this species?\\n\\nWarning: all related platforms will lose their accession numbers and gene annotation.")) {
             return false;
         }
         YAHOO.util.Connect.asyncRequest(
@@ -130,7 +218,7 @@ YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
         idPrefix: 'geneannot_accnum',
-        keyName:  'Gene Symbols'
+        keyName:  'Gene Symbol'
     });
 
 });
@@ -196,15 +284,15 @@ END_info
                     file_opts_html( $q, 'geneOpts' ),
                     file_opts_columns(
                         $q,
-                        id => 'geneannot_accnum',
-                        items   => [
+                        id    => 'geneannot_accnum',
+                        items => [
                             gene_name => {
                                 -checked => 'checked',
-                                -value   => 'Gene Names'
+                                -value   => 'Gene Name'
                             },
                             gene_desc => {
                                 -checked => 'checked',
-                                -value   => 'Gene Descriptions'
+                                -value   => 'Gene Description'
                             },
                             go_terms => { -value => 'GO Terms' }
                         ]
