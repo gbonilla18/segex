@@ -28,8 +28,11 @@ ol li { list-style: decimal; margin-left:20px; }
 	-moz-border-radius: 13px;
 	border-radius: 13px;
 }
-#message p.error {
+#message .error {
 	color:#f00; /* red; also try #ec1b23 */
+}
+#message .success {
+	color:#0a0; /* red; also try #ec1b23 */
 }
 #graph_option_values {
 	padding: 1em 0 1em 0;

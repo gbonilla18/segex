@@ -79,6 +79,7 @@ END_dbi_sth_exception
     unlink $filename;
 
     $self->add_message(
+        { -class => 'success' }, 
         sprintf(
             'Success! Added %d entries to the database. The operation took %s.',
             $return_codes[$#return_codes],

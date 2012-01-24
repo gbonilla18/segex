@@ -384,7 +384,7 @@ sub ajax_clear_annot {
         sub {
             my $self = shift;
             my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
-            warn "prepaing request";
+            warn "preparing request";
             return sub {
                 warn "executing request";
             };
@@ -517,6 +517,7 @@ END_SETUPTOGGLES
 sub UploadAnnot_head {
     my $self = shift;
 
+    my $ret        = $self->readrow_head();
     my $species_id = $self->{_id_data}->{sid};
     my $pid        = $self->{_id};
 
@@ -601,7 +602,6 @@ sub UploadAnnot_head {
     my ( $filename_maploci, $filename_symbols ) = @$outputFileNames;
 
     my $dbh = $self->{_dbh};
-    my $ret = $self->readrow_head();
 
     my $ug = Data::UUID->new();
 
@@ -610,6 +610,7 @@ sub UploadAnnot_head {
     #---------------------------------------------------------------------------
 
     if ($upload_symbols) {
+        $self->add_message('Loading accession numbers/gene symbols:');
         my $symbol_table = $ug->to_string( $ug->create() );
         $symbol_table =~ s/-/_/g;
         $symbol_table = "tmp$symbol_table";
@@ -669,7 +670,7 @@ FROM $symbol_table AS temptable
     INNER JOIN probe
         ON probe.pid=?
         AND probe.reporter=temptable.reporter 
-    INNSER JOIN gene
+    INNER JOIN gene
         ON gene.sid=?
         AND gene.gsymbol=temptable.gsymbol
 END_insert_ProbeGene
@@ -688,6 +689,7 @@ END_insert_ProbeGene
     #---------------------------------------------------------------------------
 
     if ($upload_maploci) {
+        $self->add_message('Loading mapping locations:');
         my $maploci_table = $ug->to_string( $ug->create() );
         $maploci_table =~ s/-/_/g;
         $maploci_table = "tmp$maploci_table";
@@ -936,7 +938,7 @@ END_insert
 Success! Found %d valid entries; inserted %d probes. The operation took %s.
 END_success
                 $recordsValid, $recordsUpdated,
-                '0' #timestr( timediff( $t1, $t0 ) )
+                '0'    #timestr( timediff( $t1, $t0 ) )
             )
         );
         1;
