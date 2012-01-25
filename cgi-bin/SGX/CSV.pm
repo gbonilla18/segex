@@ -129,14 +129,10 @@ sub sanitizeUploadWithMessages {
         else {
             $exception->throw();
         }
-        $outputFileNames = [];
-        $recordsValid = 0;
     }
     elsif ( $recordsValid == 0 ) {
         $delegate->add_message( { -class => 'error' },
             'No valid records were uploaded.' );
-        $outputFileNames = [];
-        $recordsValid = 0;
     }
     return ( $outputFileNames, $recordsValid );
 }

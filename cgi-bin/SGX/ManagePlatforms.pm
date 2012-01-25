@@ -5,121 +5,12 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
-require Tie::CPHash;
-use Storable qw/freeze thaw/;
-
 use Scalar::Util qw/looks_like_number/;
 use SGX::Debug qw/Dumper/;
 use SGX::Util qw/car file_opts_html file_opts_columns/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
 require Data::UUID;
-
-#---------------------------------------------------------------------------
-#  process row in accession number input file
-#---------------------------------------------------------------------------
-
-#---------------------------------------------------------------------------
-#  probe parser
-#---------------------------------------------------------------------------
-my @probe_parser = (
-
-    # Probe ID
-    sub {
-
-        # Regular expression for the first column (probe/reporter id) reads as
-        # follows: from beginning to end, match any character other than [space,
-        # forward/back slash, comma, equal or pound sign, opening or closing
-        # parentheses, double quotation mark] from 1 to 18 times.
-        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-            return $1;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'Cannot parse probe ID on line ' . shift );
-        }
-    },
-
-    sub {
-
-        # Probe Sequence: bring to uppercase
-        my $val = shift;
-        if ( not defined $val ) {
-            return $val;
-        }
-        elsif ( $val =~ /^([ACGT]*)$/i ) {
-            $val = $1;
-            if ( length($val) > 100 ) {
-                SGX::Exception::User->throw( error =>
-                      'Probe sequence length exceeds preset limit on line '
-                      . shift );
-            }
-            else {
-                return ( $val ne '' ) ? uc($val) : undef;
-            }
-        }
-        else {
-            SGX::Exception::User->throw( error =>
-'Probe sequence contains letters not in the alphabet {A, C, G, T} on line '
-                  . shift );
-        }
-    },
-
-    sub {
-
-        # Probe Comment: untaint input value
-        my ($x) = shift =~ /(.*)/;
-        if ( length($x) > 2047 ) {
-            SGX::Exception::User->throw(
-                error => 'Probe comment length exceeds preset limit on line '
-                  . shift );
-        }
-        else {
-            return $x;
-        }
-    }
-);
-
-#---------------------------------------------------------------------------
-#  gene parser
-#---------------------------------------------------------------------------
-my @gene_parser = (
-
-    # Probe ID
-    sub {
-
-        # Regular expression for the first column (probe/reporter id) reads as
-        # follows: from beginning to end, match any character other than [space,
-        # forward/back slash, comma, equal or pound sign, opening or closing
-        # parentheses, double quotation mark] from 1 to 18 times.
-        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-            return $1;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'Cannot parse probe ID on line ' . shift );
-        }
-    },
-
-    # Gene symbol -- disallow spaces and plus signs
-    sub {
-        my $x = shift;
-        if ( $x =~ /^\s*([^\+\s]*)\s*$/ ) {
-            $x = $1;
-            return ( $x ne '' ) ? $x : undef;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'Invalid gene symbol on line ' . shift );
-        }
-    },
-
-    # Gene name -- anything allowed
-    sub {
-        my ($x) = shift =~ /(.*)/;
-        return ( $x ne '' ) ? $x : undef;
-    }
-);
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
@@ -404,7 +295,22 @@ sub ajax_clear_annot {
 #===============================================================================
 sub form_create_head {
     my $self = shift;
-    push @{ $self->{_js_src_code} }, { -src => 'collapsible.js' };
+    my ( $js_src_yui, $js_src_code, $css_src_yui ) =
+      @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
+
+    push @$css_src_yui, 'button/assets/skins/sam/button.css';
+    push @$js_src_yui,  'button/button-min.js';
+    push @$js_src_code,
+      ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
+YAHOO.util.Event.addListener(window,'load',function(){
+    setupCheckboxes({
+        idPrefix:   'annot_probe',
+        keyName:    'Probe ID',
+        minChecked: 0
+    });
+});
+END_SETUPTOGGLES
+
     return $self->SUPER::form_create_head();
 }
 
@@ -548,7 +454,7 @@ sub UploadAnnot_head {
         #----------------------------------------------------------------------
         my $probe_id;
         if ( $fields->[0] =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-            $probe_id = $1;
+            $probe_id = uc($1);
         }
         else {
             SGX::Exception::User->throw(
@@ -573,8 +479,11 @@ sub UploadAnnot_head {
         #  get accession numbers (third column)
         #----------------------------------------------------------------------
         if ($upload_accnums) {
+
+            # disallow spaces and plus signs
             $print_symbols->( $probe_id, 0, $_ )
-              for ( map { $_ =~ /^(\S+)$/ } split /[,;\s]+/, $fields->[$i] );
+              for ( map { $_ =~ /^([^\+\s]+)$/ } split /[,;\s]+/,
+                $fields->[$i] );
             $i++;
         }
 
@@ -582,8 +491,11 @@ sub UploadAnnot_head {
         # get gene symbols (fourth column)
         #----------------------------------------------------------------------
         if ($upload_symbols) {
+
+            # disallow spaces and plus signs
             $print_symbols->( $probe_id, 1, $_ )
-              for ( map { $_ =~ /^(\S+)$/ } split /[,;\s]+/, $fields->[$i] );
+              for ( map { $_ =~ /^([^\+\s]+)$/ } split /[,;\s]+/,
+                $fields->[$i] );
             $i++;
         }
 
@@ -600,8 +512,6 @@ sub UploadAnnot_head {
       );
 
     my ( $filename_maploci, $filename_symbols ) = @$outputFileNames;
-
-    my $dbh = $self->{_dbh};
 
     my $ug = Data::UUID->new();
 
@@ -789,12 +699,14 @@ sub default_update {
     my $self = shift;
     return if not defined $self->{_id};
 
-    eval { $self->{_upload_completed} = $self->uploadProbes( update => 1 ); }
-      or do {
-        my $exception = $@;
-        my $msg = ( defined $exception ) ? "$exception" : '';
-        $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
-      };
+    $self->uploadProbes( update => 1 );
+
+    #eval { $self->{_upload_completed} = $self->uploadProbes( update => 1 ); }
+    #  or do {
+    #    my $exception = $@;
+    #    my $msg = ( defined $exception ) ? "$exception" : '';
+    #    $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
+    #  };
 
     # show body for "readrow"
     $self->set_action('');
@@ -815,16 +727,21 @@ sub default_create {
     my $self = shift;
     return if defined $self->{_id};
 
-    eval { $self->{_upload_completed} = $self->uploadProbes( update => 0 ); }
-      or do {
-        my $exception = $@;
-        my $msg = ( defined $exception ) ? "$exception" : '';
-        $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
+    #eval { $self->{_upload_completed} = $self->uploadProbes( update => 0 ); }
+    #  or do {
+    #    my $exception = $@;
+    #    my $msg = ( defined $exception ) ? "$exception" : '';
+    #    $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
 
-        # show body for form_create again
+    #    # show body for form_create again
+    #    $self->set_action('form_create');
+    #    return;
+    #  };
+
+    if ( $self->uploadProbes( update => 0 ) ) {
         $self->set_action('form_create');
         return;
-      };
+    }
 
     # Show body for the created platform
     if ( defined $self->{_last_insert_id} ) {
@@ -856,13 +773,82 @@ sub default_create {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub uploadProbes {
-    my $self = shift;
-    my %args = @_;
-
+    my $self   = shift;
+    my %args   = @_;
     my $update = $args{update};
 
+    my $q           = $self->{_cgi};
+    my $upload_seq  = defined( $q->param('probe_seq') );
+    my $upload_note = defined( $q->param('probe_note') );
+
+    my @probe_parser = (
+
+        # Probe ID
+        sub {
+
+        # Regular expression for the first column (probe/reporter id) reads as
+        # follows: from beginning to end, match any character other than [space,
+        # forward/back slash, comma, equal or pound sign, opening or closing
+        # parentheses, double quotation mark] from 1 to 18 times.
+            if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+                return uc($1);
+            }
+            else {
+                SGX::Exception::User->throw(
+                    error => 'Cannot parse probe ID on line ' . shift );
+            }
+        },
+
+        (
+            $upload_seq
+            ? sub {
+
+                # Probe Sequence: bring to uppercase
+                my $val = shift;
+                if ( not defined $val ) {
+                    return $val;
+                }
+                elsif ( $val =~ /^([ACGT]*)$/i ) {
+                    $val = $1;
+                    if ( length($val) > 100 ) {
+                        SGX::Exception::User->throw( error =>
+'Probe sequence length exceeds preset limit on line '
+                              . shift );
+                    }
+                    else {
+                        return ( $val ne '' ) ? uc($val) : undef;
+                    }
+                }
+                else {
+                    SGX::Exception::User->throw( error =>
+'Probe sequence contains letters not in the alphabet {A, C, G, T} on line '
+                          . shift );
+                }
+              }
+            : ()
+        ),
+
+        (
+            $upload_note
+            ? sub {
+
+                # Probe Comment: untaint input value
+                my ($x) = shift =~ /(.*)/;
+                if ( length($x) > 2047 ) {
+                    SGX::Exception::User->throw( error =>
+                          'Probe comment length exceeds preset limit on line '
+                          . shift );
+                }
+                else {
+                    return $x;
+                }
+              }
+            : ()
+        )
+    );
+
     require SGX::CSV;
-    my ( $outputFileName, $recordsValid ) =
+    my ( $outputFileNames, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         csv_in_opts     => { quote_char => undef },
@@ -870,112 +856,92 @@ sub uploadProbes {
         required_fields => 1
       );
 
-    my $dbh            = $self->{_dbh};
-    my $temp_table     = time() . '_' . getppid();
-    my $old_AutoCommit = $dbh->{AutoCommit};
-    $dbh->{AutoCommit} = 0;
+    my ($filename_probes) = @$outputFileNames;
 
-    my $t0 = Benchmark->new();
+    my $ug         = Data::UUID->new();
+    my $temp_table = $ug->to_string( $ug->create() );
+    $temp_table =~ s/-/_/g;
+    $temp_table = "tmp$temp_table";
 
     my $cmd_createPlatform =
       ($update) ? $self->_update_command() : $self->_create_command();
+    $cmd_createPlatform->();
+    my $pid = ($update) ? $self->{_id} : $self->get_last_insert_id();
 
-    my $sth_create_temp = $dbh->prepare(<<"END_loadTermDefs_createTemp");
-CREATE TEMPORARY TABLE $temp_table (
-    reporter char(18) NOT NULL,
-    probe_sequence varchar(100) DEFAULT NULL,
-    probe_comment varchar(2047) DEFAULT NULL
-) ENGINE=MEMORY
-END_loadTermDefs_createTemp
+    my @sth_probes;
+    my @param_probes;
 
-    my $sth_load = $dbh->prepare(<<"END_loadTermDefs");
+    push @sth_probes,
+      sprintf(
+        "CREATE TEMPORARY TABLE $temp_table (%s) ENGINE=MEMORY",
+        join( ',',
+            'reporter char(18) NOT NULL',
+            ( $upload_seq  ? 'probe_sequence varchar(100) DEFAULT NULL' : () ),
+            ( $upload_note ? 'probe_comment varchar(2047) DEFAULT NULL' : () ) )
+      );
+    push @param_probes, [];
+
+    push @sth_probes, sprintf(
+        <<"END_loadTermDefs",
 LOAD DATA LOCAL INFILE ?
 INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n' STARTING BY '' (
-    reporter,
-    probe_sequence,
-    probe_comment
-)
+LINES TERMINATED BY '\n' STARTING BY '' (%s)
 END_loadTermDefs
+        join( ',',
+            'reporter',
+            ( $upload_seq  ? 'probe_sequence' : () ),
+            ( $upload_note ? 'probe_comment'  : () ) )
+    );
+    push @param_probes, [$filename_probes];
 
-    my $sth_insert_update = ($update)
-      ? $dbh->prepare(<<"END_update")
+    push @sth_probes, (
+        $update
+        ? sprintf(
+            <<"END_update",
 UPDATE probe INNER JOIN $temp_table AS temptable
-    ON probe.reporter=temptable.reporter
-    AND probe.pid=?
-SET probe.probe_sequence=temptable.probe_sequence
-SET probe.probe_comment=temptable.probe_comment
+ON probe.reporter=temptable.reporter AND probe.pid=?
+%s
 END_update
-      : $dbh->prepare(<<"END_insert");
-INSERT INTO probe (reporter, probe_sequence, probe_comment, pid)
-SELECT
-    reporter,
-    probe_sequence,
-    probe_comment,
-    ? AS pid
-FROM $temp_table
-END_insert
-
-    my ( $recordsLoaded, $recordsUpdated );
-    my @ret;
-    @ret = eval {
-        $cmd_createPlatform->();
-        my $pid = ($update) ? $self->{_id} : $self->get_last_insert_id();
-        $sth_create_temp->execute();
-        $recordsLoaded  = $sth_load->execute($outputFileName);
-        $recordsUpdated = $sth_insert_update->execute($pid);
-
-        $dbh->commit;
-        $self->{_last_insert_id} = $pid if not $update;
-
-        my $t1 = Benchmark->new();
-        unlink $outputFileName;
-
-        $self->add_message(
-            sprintf(
-                <<END_success,
-Success! Found %d valid entries; inserted %d probes. The operation took %s.
-END_success
-                $recordsValid, $recordsUpdated,
-                '0'    #timestr( timediff( $t1, $t0 ) )
-            )
-        );
-        1;
-    } or do {
-        my $exception = $@;
-        $dbh->rollback;
-        unlink $outputFileName;
-
-        $sth_create_temp->finish;
-        $sth_load->finish;
-        $sth_insert_update->finish;
-
-        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
-
-            # catch dbi::sth exceptions. note: this block catches duplicate
-            # key record exceptions.
-            $self->add_message(
-                { -class => 'error' },
-                sprintf(
-                    <<"end_dbi_sth_exception",
-Error loading probes into the database. The database response was:\n\n%s.\n
-No changes to the database were stored.
-end_dbi_sth_exception
-                    $exception->error
+            join(
+                ',',
+                'SET probe.reporter=temptable.reporter',
+                (
+                    $upload_seq
+                    ? 'SET probe.probe_sequence=temptable.probe_sequence'
+                    : ()
+                ),
+                (
+                    $upload_note
+                    ? 'SET probe.probe_comment=temptable.probe_comment'
+                    : ()
                 )
-            );
-        }
-        else {
-            $self->add_message(
-                { -class => 'error' },
-'Error loading probes into the database. No changes to the database were stored.'
-            );
-        }
-        ();
-    };
-    $dbh->{AutoCommit} = $old_AutoCommit;
-    return @ret;
+            )
+          )
+        : sprintf(
+            "INSERT INTO probe (%s) SELECT %s FROM $temp_table",
+            join( ',',
+                'pid',
+                'reporter',
+                ( $upload_seq  ? 'probe_sequence' : () ),
+                ( $upload_note ? 'probe_comment'  : () ) ),
+            join( ',',
+                '? AS pid',
+                'reporter',
+                ( $upload_seq  ? 'probe_sequence' : () ),
+                ( $upload_note ? 'probe_comment'  : () ) )
+        )
+    );
+    push @param_probes, [$pid];
+
+    SGX::CSV::delegate_fileUpload(
+        delegate   => $self,
+        statements => \@sth_probes,
+        parameters => \@param_probes,
+        filename   => $filename_probes
+    );
+
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
