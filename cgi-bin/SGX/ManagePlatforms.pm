@@ -897,26 +897,29 @@ END_loadTermDefs
 
     push @sth_probes, (
         $update
-        ? sprintf(
-            <<"END_update",
+        ? (
+            ( $upload_seq || $upload_note )
+            ? sprintf(
+                <<"END_update",
 UPDATE probe INNER JOIN $temp_table AS temptable
 ON probe.reporter=temptable.reporter AND probe.pid=?
 %s
 END_update
-            join(
-                ',',
-                'SET probe.reporter=temptable.reporter',
-                (
-                    $upload_seq
-                    ? 'SET probe.probe_sequence=temptable.probe_sequence'
-                    : ()
-                ),
-                (
-                    $upload_note
-                    ? 'SET probe.probe_comment=temptable.probe_comment'
-                    : ()
+                join(
+                    ',',
+                    (
+                        $upload_seq
+                        ? 'SET probe.probe_sequence=temptable.probe_sequence'
+                        : ()
+                    ),
+                    (
+                        $upload_note
+                        ? 'SET probe.probe_comment=temptable.probe_comment'
+                        : ()
+                    )
                 )
-            )
+              )
+            : ()
           )
         : sprintf(
             "INSERT INTO probe (%s) SELECT %s FROM $temp_table",
@@ -932,7 +935,8 @@ END_update
                 ( $upload_note ? 'probe_comment'  : () ) )
         )
     );
-    push @param_probes, [$pid];
+    push @param_probes,
+      [ ( $update && !( $upload_seq || $upload_note ) ) ? () : $pid ];
 
     SGX::CSV::delegate_fileUpload(
         delegate   => $self,
