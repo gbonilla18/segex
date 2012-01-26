@@ -39,7 +39,7 @@ sub delegate_fileUpload {
     eval {
         @return_codes = map {
             my $param = shift @$parameters;
-            $_->execute(@$param)
+            $_->execute( map { ( ref($_) eq 'CODE' ) ? $_->() : $_ } @$param );
         } @statements;
         1;
     } or do {
@@ -79,7 +79,7 @@ END_dbi_sth_exception
     unlink $filename;
 
     $self->add_message(
-        { -class => 'success' }, 
+        { -class => 'success' },
         sprintf(
             'Success! Added %d entries to the database. The operation took %s.',
             $return_codes[$#return_codes],

@@ -275,7 +275,18 @@ sub ajax_clear_annot {
         sub {
             my $self = shift;
             my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
-            warn "preparing request";
+
+            # prepare request only
+            my @sth;
+            my @param;
+
+            push @sth, $dbh->prepare(<<"END_delete");
+DELETE ProbeGene 
+FROM ProbeGene 
+    INNER JOIN probe ON ProbeGene.rid=probe.rid AND probe.pid=?
+END_delete
+            push @param, [ $self->{_id} ];
+
             return sub {
                 warn "executing request";
             };
@@ -699,14 +710,12 @@ sub default_update {
     my $self = shift;
     return if not defined $self->{_id};
 
-    $self->uploadProbes( update => 1 );
-
-    #eval { $self->{_upload_completed} = $self->uploadProbes( update => 1 ); }
-    #  or do {
-    #    my $exception = $@;
-    #    my $msg = ( defined $exception ) ? "$exception" : '';
-    #    $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
-    #  };
+    my $q             = $self->{_cgi};
+    my $filefield     = 'file';
+    my $filefield_val = $q->param($filefield);
+    if ( defined($filefield_val) and $filefield_val ne '' ) {
+        $self->uploadProbes( update => 1, filefield => $filefield );
+    }
 
     # show body for "readrow"
     $self->set_action('');
@@ -727,20 +736,14 @@ sub default_create {
     my $self = shift;
     return if defined $self->{_id};
 
-    #eval { $self->{_upload_completed} = $self->uploadProbes( update => 0 ); }
-    #  or do {
-    #    my $exception = $@;
-    #    my $msg = ( defined $exception ) ? "$exception" : '';
-    #    $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
-
-    #    # show body for form_create again
-    #    $self->set_action('form_create');
-    #    return;
-    #  };
-
-    if ( $self->uploadProbes( update => 0 ) ) {
-        $self->set_action('form_create');
-        return;
+    my $q             = $self->{_cgi};
+    my $filefield     = 'file';
+    my $filefield_val = $q->param($filefield);
+    if ( defined($filefield_val) and $filefield_val ne '' ) {
+        $self->uploadProbes( update => 0, filefield => $filefield );
+    }
+    else {
+        return $self->SUPER::default_create();
     }
 
     # Show body for the created platform
@@ -749,14 +752,6 @@ sub default_create {
         $self->redirect(
             $self->get_resource_uri( id => $self->{_last_insert_id} ) );
         return 1;
-
-        # Code below results in Platform table to be shown in the Studies
-        # section.
-        #$self->{_id} = $self->{_last_insert_id};
-        #$self->set_action('');
-        #$self->register_actions( '' => { body => 'readrow_body' });
-        #$self->readrow_head();
-        #return;
     }
 
     return;
@@ -773,9 +768,10 @@ sub default_create {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub uploadProbes {
-    my $self   = shift;
-    my %args   = @_;
-    my $update = $args{update};
+    my $self      = shift;
+    my %args      = @_;
+    my $update    = $args{update};
+    my $filefield = $args{filefield};
 
     my $q           = $self->{_cgi};
     my $upload_seq  = defined( $q->param('probe_seq') );
@@ -850,7 +846,7 @@ sub uploadProbes {
     require SGX::CSV;
     my ( $outputFileNames, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
-        $self, 'file',
+        $self, $filefield,
         csv_in_opts     => { quote_char => undef },
         parser          => \@probe_parser,
         required_fields => 1
@@ -862,11 +858,6 @@ sub uploadProbes {
     my $temp_table = $ug->to_string( $ug->create() );
     $temp_table =~ s/-/_/g;
     $temp_table = "tmp$temp_table";
-
-    my $cmd_createPlatform =
-      ($update) ? $self->_update_command() : $self->_create_command();
-    $cmd_createPlatform->();
-    my $pid = ($update) ? $self->{_id} : $self->get_last_insert_id();
 
     my @sth_probes;
     my @param_probes;
@@ -935,8 +926,25 @@ END_update
                 ( $upload_note ? 'probe_comment'  : () ) )
         )
     );
-    push @param_probes,
-      [ ( $update && !( $upload_seq || $upload_note ) ) ? () : $pid ];
+
+    my $exec_command =
+        $update
+      ? $self->_update_command()
+      : $self->_create_command();
+    push @param_probes, [
+        ( $update && !( $upload_seq || $upload_note ) )
+
+        # nothing
+        ? ()
+
+          # execute update/create command and return platform id
+        : sub {
+            $exec_command->();
+            my $insert_id = $self->get_last_insert_id();
+            $self->{_last_insert_id} = $insert_id;
+            return ( $update ? $self->{_id} : $insert_id );
+          }
+    ];
 
     SGX::CSV::delegate_fileUpload(
         delegate   => $self,
