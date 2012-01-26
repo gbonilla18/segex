@@ -11,6 +11,8 @@ use SGX::Util qw/car file_opts_html file_opts_columns/;
 use SGX::Abstract::Exception ();
 require SGX::Model::ProjectStudyExperiment;
 require Data::UUID;
+use List::Util qw/sum/;
+use SGX::Config qw/$YUI_BUILD_ROOT/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
@@ -281,14 +283,22 @@ sub ajax_clear_annot {
             my @param;
 
             push @sth, $dbh->prepare(<<"END_delete");
-DELETE ProbeGene 
-FROM ProbeGene 
-    INNER JOIN probe ON ProbeGene.rid=probe.rid AND probe.pid=?
+DELETE ProbeGene FROM ProbeGene INNER JOIN probe ON probe.pid=? AND ProbeGene.rid=probe.rid
+END_delete
+            push @param, [ $self->{_id} ];
+
+            push @sth, $dbh->prepare(<<"END_delete");
+DELETE locus FROM locus INNER JOIN probe ON probe.pid=? AND locus.rid=probe.rid
 END_delete
             push @param, [ $self->{_id} ];
 
             return sub {
-                warn "executing request";
+                my @return_codes = map {
+                    my $p = shift @param;
+                    $_->execute(@$p)
+                } @sth;
+                $_->finish() for @sth;
+                return 1;
             };
         }
     );
@@ -380,22 +390,45 @@ sub readrow_head {
     push @$js_src_yui,  'button/button-min.js';
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
+var wait_indicator;
 YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
+        //
         if (!confirm("Are you sure you want to clear annotation for this platform?\\n\\nWarning: this will clear both probe mapping locations and associated accession numbers and genes.")) {
             return false;
         }
+        //
+        // show wait indicator
+        if (!wait_indicator) {
+            // Initialize the temporary Panel to display while waiting for external content to load
+            wait_indicator = new YAHOO.widget.Panel("wait", { 
+                width: "200px", 
+                fixedcenter: true, 
+                close: false, 
+                draggable: false, 
+                zindex:4, 
+                modal: true, 
+                visible: false 
+            });
+            wait_indicator.setHeader("Deleting, please wait...");
+            wait_indicator.setBody('<img src="$YUI_BUILD_ROOT/assets/skins/sam/ajax-loader.gif"/>');
+            wait_indicator.render(document.body);
+        }
+        //
+        var callbackObject = {
+            success:function(o) {
+                wait_indicator.hide();
+            },
+            failure:function(o) { 
+                wait_indicator.hide();
+                alert("Clear request failed.");
+            },
+            scope:this
+        };
+        wait_indicator.show();
         YAHOO.util.Connect.asyncRequest(
             "POST", 
             "$clearAnnotURI",
-            {
-                success:function(o) {
-                    console.log("ok");
-                },
-                failure:function(o) { 
-                    alert("request failed");
-                },
-                scope:this
-            },
+            callbackObject,
             null
         );
         return true;
