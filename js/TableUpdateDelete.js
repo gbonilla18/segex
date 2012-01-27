@@ -140,6 +140,25 @@ function createEditFormatter(verb, noun, resourceURIBuilder) {
     };
 }
 
+function createWaitIndicator(wait_indicator, waitIndicatorImageURL) {
+    if (!wait_indicator) {
+        // Initialize the temporary Panel to display while waiting for external content to load
+        wait_indicator = new YAHOO.widget.Panel("wait", { 
+            width: "200px", 
+            fixedcenter: true, 
+            close: false, 
+            draggable: false, 
+            zindex:4, 
+            modal: true, 
+            visible: false 
+        });
+        wait_indicator.setHeader("Deleting, please wait...");
+        wait_indicator.setBody("<img src=\"" + waitIndicatorImageURL + "\"/>");
+        wait_indicator.render(document.body);
+    }
+    return wait_indicator;
+}
+
 function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder, waitIndicatorImageURL) {
     var verb = buttonValue.toLowerCase();
 
@@ -167,21 +186,8 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
         if (!confirm("Are you sure you want to " + verb + " " + name + "?")) { return false; }
 
         // show wait indicator
-        if (!wait_indicator) {
-            // Initialize the temporary Panel to display while waiting for external content to load
-            wait_indicator = new YAHOO.widget.Panel("wait", { 
-                width: "200px", 
-                fixedcenter: true, 
-                close: false, 
-                draggable: false, 
-                zindex:4, 
-                modal: true, 
-                visible: false 
-            });
-            wait_indicator.setHeader("Deleting, please wait...");
-            wait_indicator.setBody("<img src=\"" + waitIndicatorImageURL + "\"/>");
-            wait_indicator.render(document.body);
-        }
+        wait_indicator = createWaitIndicator(wait_indicator, waitIndicatorImageURL);
+
         var callbackObject = {
             success:function(o) { 
                 wait_indicator.hide();

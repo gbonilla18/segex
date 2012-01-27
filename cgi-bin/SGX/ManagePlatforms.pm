@@ -127,6 +127,7 @@ sub new {
                 lookup => [
                     species      => [ sid => 'sid', { join_type => 'LEFT' } ],
                     probe_counts => [ pid => 'pid', { join_type => 'LEFT' } ],
+                    annot_counts => [ pid => 'pid', { join_type => 'LEFT' } ],
                     locus_counts => [ pid => 'pid', { join_type => 'LEFT' } ]
                 ]
             },
@@ -162,6 +163,20 @@ sub new {
                     },
                 },
                 group_by => [qw/pid/]
+            },
+            annot_counts => {
+                table => 'probe',
+                key   => [qw/pid/],
+                view  => [qw/annot_count/],
+                meta  => {
+                    annot_count => {
+                        __sql__ => 'COUNT(ProbeGene.gid)',
+                        label   => 'Annot. Records',
+                        parser  => 'number'
+                    },
+                },
+                group_by => [qw/pid/],
+                join => [ ProbeGene => [ rid => 'rid', { join_type => 'LEFT' } ] ]
             },
             locus_counts => {
                 table => 'probe',
@@ -392,28 +407,10 @@ sub readrow_head {
       ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
 var wait_indicator;
 YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
-        //
         if (!confirm("Are you sure you want to clear annotation for this platform?\\n\\nWarning: this will clear both probe mapping locations and associated accession numbers and genes.")) {
             return false;
         }
-        //
-        // show wait indicator
-        if (!wait_indicator) {
-            // Initialize the temporary Panel to display while waiting for external content to load
-            wait_indicator = new YAHOO.widget.Panel("wait", { 
-                width: "200px", 
-                fixedcenter: true, 
-                close: false, 
-                draggable: false, 
-                zindex:4, 
-                modal: true, 
-                visible: false 
-            });
-            wait_indicator.setHeader("Deleting, please wait...");
-            wait_indicator.setBody('<img src="$YUI_BUILD_ROOT/assets/skins/sam/ajax-loader.gif"/>');
-            wait_indicator.render(document.body);
-        }
-        //
+        wait_indicator = createWaitIndicator(wait_indicator, '$YUI_BUILD_ROOT/assets/skins/sam/ajax-loader.gif');
         var callbackObject = {
             success:function(o) {
                 wait_indicator.hide();
@@ -482,16 +479,6 @@ sub UploadAnnot_head {
         my $fields   = shift;
 
         my ( $print_loci, $print_symbols ) = @$printfun;
-
-        # check total number of fields present
-        if ( @$fields < 2 ) {
-            SGX::Exception::User->throw(
-                error => sprintf(
-                    "Only %d field(s) found (2 required) on line %d\n",
-                    scalar(@$fields), $line_num
-                )
-            );
-        }
 
         #----------------------------------------------------------------------
         #  get probe id (first column)
@@ -597,7 +584,7 @@ END_loadTermDefs
         push @sth_symbols, <<"END_delete";
 DELETE ProbeGene 
 FROM ProbeGene 
-    INNER JOIN probe ON ProbeGene.rid=probe.rid AND probe.pid=?
+    INNER JOIN probe ON probe.pid=? AND ProbeGene.rid=probe.rid
     INNER JOIN $symbol_table USING(reporter)
 END_delete
         push @param_symbols, [$pid];
