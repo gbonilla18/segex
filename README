@@ -44,19 +44,20 @@ Perl installation on Linux Cent OS. The commands below upgrade and reload the
 cpan executable before installing the packages on which Segex depends:
 
   sudo /usr/bin/perl -MCPAN -e shell
-  > install CPAN
-  > reload cpan
-  > install Tie::IxHash
-  > install JSON
-  > install Text::CSV
-  > install Text::CSV_XS
-  > install Exception::Class::DBI
-  > install Email::Address
-  > install Readonly
-  > install Lingua::EN::Inflect
-  > install Text::Autoformat
-  > install Email::Address
-  > install Hash::Merge
+    install CPAN
+    reload cpan
+    install Tie::IxHash
+    install JSON
+    install Text::CSV
+    install Text::CSV_XS
+    install Exception::Class::DBI
+    install Email::Address
+    install Readonly
+    install Lingua::EN::Inflect
+    install Text::Autoformat
+    install Email::Address
+    install Hash::Merge
+    install Data::UUID
  
 3. Copy files. Note: symlinks can be created instead of copying, however that
 would require FollowSymLinks directive to be set in the Apache configuration
@@ -130,22 +131,23 @@ are not included in the default Perl installation on Mac OS X Snow Leopard. The
 commands below upgrade and reload the cpan executable before installing packages
 on which Segex depends:
 
-  sudo /usr/bin/perl -MCPAN -e shell
-  > install CPAN
-  > reload cpan
-  > install Apache::Session
-  > install DBD::mysql
-  > install Mail::Send
-  > install Tie::IxHash
-  > install JSON
-  > install Text::CSV
-  > install Text::CSV_XS
-  > install Exception::Class::DBI
-  > install Readonly
-  > install Lingua::EN::Inflect
-  > install Text::Autoformat
-  > install Email::Address
-  > install Hash::Merge
+  > sudo /usr/bin/perl -MCPAN -e shell
+    install CPAN
+    reload cpan
+    install Apache::Session
+    install DBD::mysql
+    install Mail::Send
+    install Tie::IxHash
+    install JSON
+    install Text::CSV
+    install Text::CSV_XS
+    install Exception::Class::DBI
+    install Readonly
+    install Lingua::EN::Inflect
+    install Text::Autoformat
+    install Email::Address
+    install Hash::Merge
+    install Data::UUID
 
 Note 1: If you are running Mac OS X 10.6 and have Xcode 4 installed, you no
 longer have PPC assembler required to build CPAN packages. To work around this,

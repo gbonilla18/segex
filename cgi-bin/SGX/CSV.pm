@@ -78,14 +78,11 @@ END_dbi_sth_exception
     my $t1 = Benchmark->new();
     unlink $filename;
 
-    $self->add_message(
-        { -class => 'success' },
-        sprintf(
-            'Success! Added %d entries to the database. The operation took %s.',
-            $return_codes[$#return_codes],
-            timestr( timediff( $t1, $t0 ) )
-        )
-    );
+    my $records_added = $return_codes[$#return_codes] + 0;
+    my $time_diff = timestr( timediff( $t1, $t0 ) );
+    my $msg =
+"Success! Added $records_added entries to the database. The operation took $time_diff.";
+    $self->add_message( { -class => 'success' }, $msg );
     return 1;
 }
 

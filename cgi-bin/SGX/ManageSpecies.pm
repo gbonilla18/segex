@@ -378,8 +378,9 @@ END_insertUpdate
         push @sth_terms, <<"END_loadTermDefs_createTemp";
 CREATE TEMPORARY TABLE $terms_table (
     gsymbol char(32) NOT NULL,
-    go_acc int(10) unsigned NOT NULL
-) ENGINE=MEMORY
+    go_acc int(10) unsigned NOT NULL,
+    KEY gsymbol (gsymbol)
+) ENGINE=MyISAM
 END_loadTermDefs_createTemp
         push @param_terms, [];
 
