@@ -9,6 +9,7 @@ use SGX::Abstract::Exception ();
 use Digest::SHA1 qw/sha1_hex/;
 use SGX::Util qw/car file_opts_html file_opts_columns/;
 use SGX::Config qw/$YUI_BUILD_ROOT/;
+require Data::UUID;
 
 #---------------------------------------------------------------------------
 #  process row in go link input file
@@ -82,7 +83,24 @@ sub new {
                         -size => 30
                     }
                 },
-                lookup => [ gene_counts => [ sid => 'sid' ] ]
+                lookup => [
+                    gene_counts => [ sid => 'sid' ],
+                    go_counts   => [ sid => 'sid' ]
+                ]
+            },
+            go_counts => {
+                table => 'gene',
+                key   => [qw/sid/],
+                view  => [qw/go_count/],
+                meta  => {
+                    go_count => {
+                        __sql__ => 'COUNT(go_acc)',
+                        label   => 'Links to GO terms',
+                        parser  => 'number'
+                    }
+                },
+                group_by => [qw/sid/],
+                join => [ GeneGO => [ gid => 'gid', { join_type => 'LEFT' } ] ]
             },
             gene_counts => {
                 table => 'gene',
@@ -171,11 +189,6 @@ sub ajax_clear_annot {
             # prepare request only
             my @sth;
             my @param;
-
-            push @sth, $dbh->prepare(<<"END_delete");
-DELETE GeneGO FROM GeneGO INNER JOIN gene ON gene.sid=? AND GeneGO.gid=gene.gid
-END_delete
-            push @param, [ $self->{_id} ];
 
             push @sth, $dbh->prepare('DELETE FROM gene WHERE sid=?');
             push @param, [ $self->{_id} ];
@@ -291,7 +304,7 @@ sub UploadAnnot_head {
 
         push @sth_genes,
           sprintf(
-            "CREATE TEMPORARY TABLE $genes_table (%s) ENGINE=MEMORY",
+            "CREATE TEMPORARY TABLE $genes_table (%s) ENGINE=MyISAM",
             join( ',',
                 'gsymbol char(32) NOT NULL',
                 ( $upload_gname ? 'gname varchar(1022) DEFAULT NULL' : () ),
@@ -314,30 +327,34 @@ END_loadTermDefs
         push @param_genes, [$filename_genes];
 
         push @sth_genes, sprintf(
-            <<"END_update",
-UPDATE gene INNER JOIN $genes_table AS temptable
-ON gene.gsymbol=temptable.gsymbol AND gene.sid=?
-%s
-END_update
+            <<"END_insertUpdate",
+INSERT INTO gene (%s)
+SELECT %s FROM $genes_table AS temptable
+ON DUPLICATE KEY UPDATE %s
+END_insertUpdate
+            join( ',',
+                'sid', 'gsymbol', 'gtype',
+                ( $upload_gname ? 'gname' : () ),
+                ( $upload_gdesc ? 'gdesc' : () ) ),
+            join( ',',
+                '? AS sid',
+                'gsymbol',
+                '1 AS gtype',
+                ( $upload_gname ? 'gname' : () ),
+                ( $upload_gdesc ? 'gdesc' : () ) ),
             join(
                 ',',
                 (
-                    $upload_gname ? 'SET gene.gname=temptable.gname'
+                    $upload_gname ? 'gene.gname=temptable.gname'
                     : ()
                 ),
                 (
-                    $upload_gdesc ? 'SET gene.gdesc=temptable.gdesc'
+                    $upload_gdesc ? 'gene.gdesc=temptable.gdesc'
                     : ()
                 )
             )
         );
-        my $exec_command = $self->_update_command();
-        push @param_genes,
-          [
-            $update_genes
-            ? sub { $exec_command->(); return $self->{_id}; }
-            : ()
-          ];
+        push @param_genes, [$species_id];
 
         SGX::CSV::delegate_fileUpload(
             delegate   => $self,
@@ -380,16 +397,22 @@ END_loadTermDefs
         push @sth_terms, <<"END_delete";
 DELETE GeneGO 
 FROM GeneGO
-    INNER JOIN gene ON gene.sid=? AND gene.rid=GeneGO.rid
+    INNER JOIN gene ON gene.sid=? AND gene.gid=GeneGO.gid
     INNER JOIN $terms_table USING(gsymbol)
 END_delete
+        push @param_terms, [$species_id];
+
+        push @sth_terms, sprintf(<<"END_insertUpdate");
+INSERT IGNORE INTO gene (sid, gsymbol, gtype)
+SELECT ? AS sid, gsymbol, 1 AS gtype FROM $terms_table
+END_insertUpdate
         push @param_terms, [$species_id];
 
         push @sth_terms, <<"END_insert_gene";
 INSERT IGNORE INTO GeneGO (gid, go_acc)
 SELECT
     gene.gid AS gid,
-    temptable.go_acc AS go_acc,
+    temptable.go_acc AS go_acc
 FROM $terms_table AS temptable
     INNER JOIN gene
         ON gene.sid=?
@@ -444,6 +467,7 @@ YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
             },
             scope:this
         };
+        wait_indicator.show();
         YAHOO.util.Connect.asyncRequest(
             "POST", 
             "$clearAnnotURI",

@@ -914,18 +914,18 @@ END_loadTermDefs
                 <<"END_update",
 UPDATE probe INNER JOIN $temp_table AS temptable
 ON probe.reporter=temptable.reporter AND probe.pid=?
-%s
+SET %s
 END_update
                 join(
                     ',',
                     (
                         $upload_seq
-                        ? 'SET probe.probe_sequence=temptable.probe_sequence'
+                        ? 'probe.probe_sequence=temptable.probe_sequence'
                         : ()
                     ),
                     (
                         $upload_note
-                        ? 'SET probe.probe_comment=temptable.probe_comment'
+                        ? 'probe.probe_comment=temptable.probe_comment'
                         : ()
                     )
                 )
