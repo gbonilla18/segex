@@ -24,6 +24,7 @@ sub delegate_fileUpload {
     my %args            = @_;
     my $self            = $args{delegate};
     my $sql             = $args{statements};
+    my $validators      = $args{validators};
     my $parameters      = $args{parameters};
     my $index_for_count = $args{index_for_count};
     my $filename        = $args{filename};
@@ -37,15 +38,22 @@ sub delegate_fileUpload {
 
     my @return_codes;
     eval {
-        @return_codes = map {
+        foreach my $sth (@statements)
+        {
             my $param = shift @$parameters;
-            $_->execute( map { ( ref($_) eq 'CODE' ) ? $_->() : $_ } @$param );
-        } @statements;
+            my @proc_param =
+              map { ( ref($_) eq 'CODE' ) ? $_->() : $_ } @$param;
+            push @return_codes, 0 + $sth->execute(@proc_param);
+            if ( defined $validators ) {
+                my $validator = shift @$validators;
+                $validator->( \@return_codes ) if defined $validator;
+            }
+        }
         1;
     } or do {
         my $exception = $@;
         $dbh->rollback;
-        unlink $filename;
+        unlink $filename if defined $filename;
         $_->finish() for @statements;
 
         if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
@@ -63,10 +71,14 @@ END_dbi_sth_exception
                 )
             );
         }
+        elsif ($exception) {
+            $self->add_message( { -class => 'error' },
+                "$exception\n\n No changes to the database were stored." );
+        }
         else {
             $self->add_message(
                 { -class => 'error' },
-'Error loading data into the database. No changes to the database were stored.'
+'Unknown error occured when loading data into the database. No changes to the database were stored.'
             );
         }
         $dbh->{AutoCommit} = $old_AutoCommit;
@@ -76,9 +88,9 @@ END_dbi_sth_exception
     $_->finish() for @statements;
     $dbh->{AutoCommit} = $old_AutoCommit;
     my $t1 = Benchmark->new();
-    unlink $filename;
+    unlink $filename if defined $filename;
 
-    my $records_added = $return_codes[$#return_codes] + 0;
+    my $records_added = $return_codes[$#return_codes];
     my $time_diff = timestr( timediff( $t1, $t0 ) );
     my $msg =
 "Success! Added $records_added entries to the database. The operation took $time_diff.";

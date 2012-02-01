@@ -6,76 +6,7 @@ use warnings;
 use SGX::Debug;
 use SGX::Abstract::Exception ();
 use Scalar::Util qw/looks_like_number/;
-
-# Note: expression 'my ($x) = shift =~ /(.*)/' untaints input value and
-# assigns it to $x (untainting is important when perl -T option is used).
-my @parser = (
-    sub {
-
-        # Regular expression for the first column (probe/reporter id) reads as
-        # follows: from beginning to end, match any character other than [space,
-        # forward/back slash, comma, equal or pound sign, opening or closing
-        # parentheses, double quotation mark] from 1 to 18 times.
-        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-            return $1;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'Cannot parse probe ID on line ' . shift );
-        }
-    },
-    sub {
-        my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) && $x >= 0 ) {
-            return $x;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'Ratio not a decimal r >= 0.0 on line ' . shift );
-        }
-    },
-    sub {
-        my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) && abs($x) >= 1.0 ) {
-            return $x;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'Fold change not a decimal |fc| >= 1.0 ' . shift );
-        }
-    },
-    sub {
-        my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) && $x >= 0.0 && $x <= 1.0 ) {
-            return $x;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'P-value not a decimal 0.0 <= p <= 1.0 on line '
-                  . shift );
-        }
-    },
-    sub {
-        my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) && $x >= 0.0 ) {
-            return $x;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'Intensity 1 not a decimal i1 >= 0 on line ' . shift );
-        }
-    },
-    sub {
-        my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) && $x >= 0.0 ) {
-            return $x;
-        }
-        else {
-            SGX::Exception::User->throw(
-                error => 'Intensity 2 not a decimal i2 >= 0 on line ' . shift );
-        }
-    }
-);
+require Data::UUID;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  UploadData
@@ -121,125 +52,276 @@ sub uploadData {
     my ( $self, %args ) = @_;
     my $delegate = $self->{delegate};
 
+    my $q                 = $delegate->{_cgi};
+    my $upload_ratio      = defined( $q->param('ratio') );
+    my $upload_fchange    = defined( $q->param('fold_change') );
+    my $upload_intensity1 = defined( $q->param('intensity1') );
+    my $upload_intensity2 = defined( $q->param('intensity2') );
+    my $upload_pvalue     = defined( $q->param('pvalue') );
+    my $upload_pvalue2    = defined( $q->param('pvalue2') );
+    my $upload_pvalue3    = defined( $q->param('pvalue3') );
+
+    # Note: expression 'my ($x) = shift =~ /(.*)/' untaints input value and
+    # assigns it to $x (untainting is important when perl -T option is used).
+    my @parser = (
+        sub {
+
+        # Regular expression for the first column (probe/reporter id) reads as
+        # follows: from beginning to end, match any character other than [space,
+        # forward/back slash, comma, equal or pound sign, opening or closing
+        # parentheses, double quotation mark] from 1 to 18 times.
+            if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+                return $1;
+            }
+            else {
+                SGX::Exception::User->throw(
+                    error => 'Cannot parse probe ID on line ' . shift );
+            }
+        },
+        (
+            $upload_ratio
+            ? sub {
+                my ($x) = shift =~ /(.*)/;
+                if ( looks_like_number($x) && $x >= 0 ) {
+                    return $x;
+                }
+                else {
+                    SGX::Exception::User->throw(
+                        error => 'Ratio not a decimal r >= 0.0 on line '
+                          . shift );
+                }
+              }
+            : ()
+        ),
+        (
+            $upload_fchange
+            ? sub {
+                my ($x) = shift =~ /(.*)/;
+                if ( looks_like_number($x) && abs($x) >= 1.0 ) {
+                    return $x;
+                }
+                else {
+                    SGX::Exception::User->throw(
+                        error => 'Fold change not a decimal |fc| >= 1.0 '
+                          . shift );
+                }
+              }
+            : ()
+        ),
+        (
+            $upload_intensity1
+            ? sub {
+                my ($x) = shift =~ /(.*)/;
+                if ( looks_like_number($x) && $x >= 0.0 ) {
+                    return $x;
+                }
+                else {
+                    SGX::Exception::User->throw(
+                        error => 'Intensity 1 not a decimal i1 >= 0 on line '
+                          . shift );
+                }
+              }
+            : ()
+        ),
+        (
+            $upload_intensity2
+            ? sub {
+                my ($x) = shift =~ /(.*)/;
+                if ( looks_like_number($x) && $x >= 0.0 ) {
+                    return $x;
+                }
+                else {
+                    SGX::Exception::User->throw(
+                        error => 'Intensity 2 not a decimal i2 >= 0 on line '
+                          . shift );
+                }
+              }
+            : ()
+        ),
+        (
+            $upload_pvalue
+            ? sub {
+                my ($x) = shift =~ /(.*)/;
+                if ( looks_like_number($x) && $x >= 0.0 && $x <= 1.0 ) {
+                    return $x;
+                }
+                else {
+                    SGX::Exception::User->throw( error =>
+                          'P-value not a decimal 0.0 <= p <= 1.0 on line '
+                          . shift );
+                }
+              }
+            : ()
+        )
+    );
+
     require SGX::CSV;
-    my ( $outputFileName, $recordsValid ) =
-      SGX::CSV::sanitizeUploadWithMessages(
-        $delegate, $args{filefield},
-        parser      => \@parser
-      );
+    my ( $outputFileNames, $recordsValid ) =
+      SGX::CSV::sanitizeUploadWithMessages( $delegate, $args{filefield},
+        parser => \@parser );
 
-    # some valid records uploaded -- now load to the database
-    my $dbh = $delegate->{_dbh};
-
-    # turn off auto-commit to allow rollback; cache old value
-    my $old_AutoCommit = $dbh->{AutoCommit};
-    $dbh->{AutoCommit} = 0;
+    my ($outputFileName) = @$outputFileNames;
 
     my $totalProbes = $self->countProbes();
 
-    # prepare SQL statements (all prepare errors are fatal)
-    my $sth_hash = $self->loadToDatabase_prepare($totalProbes);
+    my $ug         = Data::UUID->new();
+    my $temp_table = $ug->to_string( $ug->create() );
+    $temp_table =~ s/-/_/g;
+    $temp_table = "tmp$temp_table";
 
-    # execute SQL statements (catch some errors)
-    my $recordsLoaded =
-      eval { $self->loadToDatabase_execute( $sth_hash, $outputFileName,
-              \$totalProbes ) }
-      || 0;
+    my @sth;
+    my @param;
+    my @check;
 
-    # file is not delete automatically so we do it using code here...
-    unlink $outputFileName;
+    #---------------------------------------------------------------------------
+    #  0
+    #---------------------------------------------------------------------------
+    push @sth,
+      sprintf(
+        "CREATE TEMPORARY TABLE $temp_table (%s) ENGINE=MyISAM",
+        join( ',',
+            'reporter CHAR(18) NOT NULL',
+            ( $upload_ratio      ? 'ratio DOUBLE'      : () ),
+            ( $upload_fchange    ? 'foldchange DOUBLE' : () ),
+            ( $upload_intensity1 ? 'intensity1 DOUBLE' : () ),
+            ( $upload_intensity2 ? 'intensity2 DOUBLE' : () ),
+            ( $upload_pvalue     ? 'pvalue DOUBLE'     : () ),
+            ( $upload_pvalue2    ? 'pvalue2 DOUBLE'    : () ),
+            ( $upload_pvalue3    ? 'pvalue3 DOUBLE'    : () ) )
+      );
+    push @param, [];
+    push @check, undef;
 
-    if ( my $exception = $@ ) {
-        $dbh->rollback;
-        $self->loadToDatabase_finish($sth_hash);
-
-        if ( $exception->isa('SGX::Exception::User') ) {
-
-            # Catch User exceptions
-            $delegate->add_message(
-                { -class => 'error' },
-                sprintf(
-                    <<"END_User_exception",
-Error loading data into the database:\n\n%s\n
-No changes to the database were stored.
-END_User_exception
-                    $exception->error
-                )
+    #---------------------------------------------------------------------------
+    #  1
+    #---------------------------------------------------------------------------
+    push @sth, sprintf(
+        <<"END_loadData",
+LOAD DATA LOCAL INFILE ?
+INTO TABLE $temp_table
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (%s)
+END_loadData
+        join( ',',
+            'reporter',
+            ( $upload_ratio      ? 'ratio'      : () ),
+            ( $upload_fchange    ? 'foldchange' : () ),
+            ( $upload_intensity1 ? 'intensity1' : () ),
+            ( $upload_intensity2 ? 'intensity2' : () ),
+            ( $upload_pvalue     ? 'pvalue'     : () ),
+            ( $upload_pvalue2    ? 'pvalue2'    : () ),
+            ( $upload_pvalue3    ? 'pvalue3'    : () ) )
+    );
+    push @param, [$outputFileName];
+    push @check, sub {
+        my $responses    = shift;
+        my $recordsFound = $responses->[$#$responses];
+        if ( $recordsFound == 0 ) {
+            SGX::Exception::User->throw( error => "No records in file.\n" );
+        }
+        elsif ( $totalProbes > 0 && $recordsFound > $totalProbes ) {
+            SGX::Exception::User->throw( error =>
+"File contains $recordsFound data records but there are $totalProbes probes for this platform.\n"
             );
         }
-        elsif ( $exception->isa('Exception::Class::DBI::STH') ) {
+    };
 
-            # Catch DBI::STH exceptions. Note: this block catches duplicate
-            # key record exceptions.
-            $delegate->add_message(
-                { -class => 'error' },
-                sprintf(
-                    <<"END_DBI_STH_exception",
-Error loading data into the database. The database response was:\n\n%s\n
-No changes to the database were stored.
-END_DBI_STH_exception
-                    $exception->error
-                )
-            );
-        }
-        else {
+    if ( $totalProbes == 0 ) {
 
-            # Rethrow Internal and other types of exceptions.
-            $exception->throw();
-        }
-    }
-    elsif ( $recordsLoaded == 0 ) {
-        $dbh->rollback;
-        $self->loadToDatabase_finish($sth_hash);
-        $delegate->add_message( { -class => 'error' },
-            'Failed to add data to the database.' );
-    }
-    else {
-        $dbh->commit;
-        $self->loadToDatabase_finish($sth_hash);
-
-        if ( $recordsLoaded == $totalProbes ) {
-            $delegate->add_message(
-                sprintf(
-                    <<"END_FULL_SUCCESS",
-Success! Data for all %d probes from the selected platform 
-were added to the database.
-END_FULL_SUCCESS
-                    $recordsLoaded
-                )
-            );
-        }
-        elsif ( $recordsLoaded < $totalProbes ) {
-            $delegate->add_message(
-                sprintf(
-                    <<"END_PARTIAL_SUCCESS",
-You added data for %d probes out of total %d in the selected platform
-(no data were added for %d probes).
-END_PARTIAL_SUCCESS
-                    $recordsLoaded,
-                    $totalProbes,
-                    $totalProbes - $recordsLoaded
-                )
-            );
-        }
-        else {
-
-            # restore old value of AutoCommit
-            $dbh->{AutoCommit} = $old_AutoCommit;
-
-            # shouldn't happen
-            SGX::Exception::Internal->throw(
-                error => sprintf(
-                    "Platform contains %d probes but %d were loaded\n",
-                    $totalProbes, $recordsLoaded
-                )
-            );
-        }
+    #---------------------------------------------------------------------------
+    #  2
+    #---------------------------------------------------------------------------
+        push @sth, <<"END_insertProbe";
+INSERT INTO probe (pid, reporter)
+SELECT ? as pid, reporter
+FROM $temp_table
+END_insertProbe
+        push @param, [ $self->{_pid} ];
+        push @check, undef;
     }
 
-    # restore old value of AutoCommit
-    $dbh->{AutoCommit} = $old_AutoCommit;
-    return $recordsLoaded;
+    #---------------------------------------------------------------------------
+    #  2 || 3
+    #---------------------------------------------------------------------------
+    push @sth, sprintf(
+        <<"END_insertResponse",
+INSERT INTO microarray (%s)
+SELECT %s FROM probe
+INNER JOIN $temp_table AS temptable USING(reporter)
+WHERE probe.pid=?
+END_insertResponse
+        join( ',',
+            'rid',
+            'eid',
+            ( $upload_ratio      ? 'ratio'      : () ),
+            ( $upload_fchange    ? 'foldchange' : () ),
+            ( $upload_intensity1 ? 'intensity1' : () ),
+            ( $upload_intensity2 ? 'intensity2' : () ),
+            ( $upload_pvalue     ? 'pvalue'     : () ),
+            ( $upload_pvalue2    ? 'pvalue2'    : () ),
+            ( $upload_pvalue3    ? 'pvalue3'    : () ) ),
+        join( ',',
+            'probe.rid',
+            '? as eid',
+            ( $upload_ratio      ? 'temptable.ratio'      : () ),
+            ( $upload_fchange    ? 'temptable.foldchange' : () ),
+            ( $upload_intensity1 ? 'temptable.intensity1' : () ),
+            ( $upload_intensity2 ? 'temptable.intensity2' : () ),
+            ( $upload_pvalue     ? 'temptable.pvalue'     : () ),
+            ( $upload_pvalue2    ? 'temptable.pvalue2'    : () ),
+            ( $upload_pvalue3    ? 'temptable.pvalue3'    : () ) )
+    );
+
+    my $create_cmd1 = $self->{delegate}->_create_command();
+
+    my $dbh = $delegate->{_dbh};
+    my $create_cmd2 =
+      defined( $self->{_stid} )
+      ? $dbh->prepare('INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)')
+      : undef;
+
+    push @param, [
+        sub {
+            $create_cmd1->();
+            my $eid = $dbh->last_insert_id( undef, undef, 'experiment', 'eid' );
+            $self->{_eid} = $eid;
+            if ( defined $create_cmd2 ) {
+                $create_cmd2->execute( $self->{_stid}, $eid );
+                $create_cmd2->finish();
+            }
+            return $eid;
+        },
+        $self->{_pid}
+    ];
+
+    push @check, sub {
+        my $responses     = shift;
+        my $recordsAdded  = $responses->[$#$responses];
+        my $probeCount    = $totalProbes || $responses->[2];
+        my $recordsLoaded = $responses->[1];
+        if ( $recordsAdded != $recordsLoaded ) {
+            my $msg =
+"$recordsLoaded records found in input but only $recordsAdded could be added to database\n";
+            SGX::Exception::User->throw( error => $msg );
+        }
+        elsif ( $recordsAdded > $probeCount ) {
+            SGX::Exception::User->throw(
+                error => "Uploaded file contains duplicate data.\n" );
+        }
+        elsif ( $recordsAdded < $probeCount ) {
+            my $msg =
+"WARNING: Added data to $recordsAdded probes (out of $probeCount probes under this platform)";
+            $delegate->add_message( { -class => 'error' }, $msg );
+        }
+    };
+
+    return SGX::CSV::delegate_fileUpload(
+        delegate   => $delegate,
+        statements => \@sth,
+        parameters => \@param,
+        validators => \@check,
+        filename   => $outputFileName
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -265,188 +347,6 @@ sub countProbes {
     $sth->finish;
 
     return $count;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  loadToDatabase_prepare
-#   PARAMETERS:  $self           - object instance
-#      RETURNS:  Hash reference containing prepared statements
-#  DESCRIPTION:  Prepare SQL statements used for loading data. We prepare these
-#                statements separately from where they are executed because we
-#                want to separate possible prepare exceptions (which are fatal
-#                and do not cause rollback) from execute exceptions (which are
-#                currently fatal though may be caught in the future and which
-#                *do* cause rollback).
-#       THROWS:  Exception::Class::DBI
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub loadToDatabase_prepare {
-    my $self        = shift;
-    my $totalProbes = shift;
-
-    my $dbh = $self->{delegate}->{_dbh};
-
-    # Give temporary table a unique ID using time and running process ID
-    my $temp_table = time() . '_' . getppid();
-
-    my $sth_hash = {};
-
-    $sth_hash->{createTable} ||= $dbh->prepare(<<"END_createTable");
-CREATE TEMPORARY TABLE $temp_table (
-    reporter CHAR(18) NOT NULL,
-    ratio DOUBLE,
-    foldchange DOUBLE,
-    pvalue DOUBLE,
-    intensity1 DOUBLE,
-    intensity2 DOUBLE
-) ENGINE=MEMORY
-END_createTable
-
-    $sth_hash->{loadData} ||= $dbh->prepare(<<"END_loadData");
-LOAD DATA LOCAL INFILE ?
-INTO TABLE $temp_table
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n' STARTING BY '' (
-    reporter,
-    ratio,
-    foldchange,
-    pvalue,
-    intensity1,
-    intensity2
-)
-END_loadData
-
-    if ( $totalProbes == 0 ) {
-        $sth_hash->{insertProbe} ||= $dbh->prepare(<<"END_insertProbe");
-INSERT INTO probe (reporter, pid)
-SELECT
-    reporter,
-    ? as pid
-FROM $temp_table
-END_insertProbe
-    }
-
-    $sth_hash->{insertResponse} ||= $dbh->prepare(<<"END_insertResponse");
-INSERT INTO microarray (rid,eid,ratio,foldchange,pvalue,intensity1,intensity2)
-SELECT
-    probe.rid,
-    ? as eid,
-    temptable.ratio,
-    temptable.foldchange,
-    temptable.pvalue,
-    temptable.intensity1,
-    temptable.intensity2
-FROM probe
-INNER JOIN $temp_table AS temptable USING(reporter)
-WHERE probe.pid=?
-END_insertResponse
-
-    $sth_hash->{insertExperiment} = $self->{delegate}->_create_command();
-
-    $sth_hash->{insertStudyExperiment} ||=
-      ( defined $self->{_stid} )
-      ? $dbh->prepare('INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)')
-      : undef;
-
-    return $sth_hash;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  UploadData
-#       METHOD:  loadToDatabase_execute
-#   PARAMETERS:  $self        - object instance
-#                $sth_hash    - reference to hash containing statement handles
-#                               to be executed
-#                $outputFileName - Name of the sanitized file to use for database
-#                                  loading.
-#      RETURNS:  Number of records inserted into the microarray table (also
-#                duplicated as _recordsInserted field). Fills _eid field
-#                (corresponds to the id of the added experiment).
-#  DESCRIPTION:  Runs SQL statements
-#       THROWS:  SGX::Exception::Internal, SGX::Exception::User,
-#                Exception::Class::DBI
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub loadToDatabase_execute {
-    my ( $self, $sth_hash, $outputFileName, $totalProbes ) = @_;
-
-    my (
-        $sth_createTable,  $sth_loadData,
-        $insertExperiment, $sth_insertStudyExperiment,
-        $sth_insertProbe,  $sth_insertResponse
-      )
-      = @$sth_hash{
-        qw(createTable loadData insertExperiment insertStudyExperiment insertProbe insertResponse)
-      };
-
-    #SGX::Exception::User->throw(
-    #    error => "Sample 1 name is the same as that of sample 2.\n" )
-    #  if ( $self->{_sample1} eq $self->{_sample2} );
-
-    my $dbh = $self->{delegate}->{_dbh};
-
-    # Create temporary table
-    $sth_createTable->execute();
-
-    # insert a new experiment
-    my $experimentsAdded = $insertExperiment->();
-
-    # Check that experiment was actually added
-    if ( $experimentsAdded < 1 ) {
-        SGX::Exception::Internal->throw(
-            error => "Failed to create new experiment\n" );
-    }
-
-    # Grab the id of the experiment inserted
-    my $this_eid = $dbh->last_insert_id( undef, undef, 'experiment', 'eid' );
-
-    $self->{_eid} = $this_eid;
-
-    # Add experiment to study if study id is defined
-    $sth_insertStudyExperiment->execute( $self->{_stid}, $this_eid )
-      if defined($sth_insertStudyExperiment);
-
-    # Suck in the data into the temporary table
-    my $rowsLoaded = $sth_loadData->execute($outputFileName);
-
-    # If no rows were loaded, bail out ASAP
-    if ( $rowsLoaded < 1 ) {
-        SGX::Exception::Internal->throw(
-            error => "No rows were loaded into temporary table\n" );
-    }
-
-    my $pid = $self->{_pid};
-    if ( defined $sth_insertProbe ) {
-        $$totalProbes = $sth_insertProbe->execute($pid);
-    }
-
-    # Copy data from temporary table to the microarray/reposnse table
-    my $recordsInserted = $sth_insertResponse->execute( $this_eid, $pid );
-    $self->{_recordsInserted} = $recordsInserted;
-
-    # Check row counts; throw error if too few or too many records were
-    # inserted into the microarray/response table
-    if ( my $extraRecords = $rowsLoaded - $recordsInserted ) {
-        SGX::Exception::User->throw(
-            error => sprintf(
-                <<"END_WRONGPLATFORM",
-The input file contains %d records absent from the platform you entered.
-Make sure you are uploading data from a correct platform.
-END_WRONGPLATFORM
-                $extraRecords
-            )
-        );
-    }
-    elsif ( $recordsInserted > $rowsLoaded ) {
-        SGX::Exception::Internal->throw(
-            error => "More probe records were updated than rows uploaded\n" );
-    }
-
-    # Return the number of records inserted into the microarray/reposnse table
-    return $recordsInserted;
 }
 
 #===  CLASS METHOD  ============================================================

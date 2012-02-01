@@ -131,9 +131,9 @@ sub new {
                                         -checked => 'checked',
                                         -value   => 'Intensity-2'
                                     },
-                                    pvalue1 => {
+                                    pvalue => {
                                         -checked => 'checked',
-                                        -value   => 'P-Value (1)'
+                                        -value   => 'P-Value'
                                     },
                                     pvalue2 => {
                                         -value   => 'P-Value (2)'
@@ -370,17 +370,14 @@ sub form_create_head {
 
     push @{ $self->{_js_buffer} }, <<"END_SETUPTOGGLES" .
 YAHOO.util.Event.addListener(window,'load',function(){
-
     setupToggles('change',
         { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
         isDefinedSelection
     );
-
     setupCheckboxes({
         idPrefix: 'datafile',
         keyName:  'Probe ID'
     });
-
 });
 END_SETUPTOGGLES
       $self->get_pse_dropdown_js(
