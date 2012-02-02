@@ -16,6 +16,41 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Table structure for table `GeneGO`
+--
+
+DROP TABLE IF EXISTS `GeneGO`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `GeneGO` (
+  `gid` int(10) unsigned NOT NULL,
+  `go_acc` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`gid`,`go_acc`),
+  KEY `gid` (`gid`),
+  KEY `go_acc` (`go_acc`),
+  CONSTRAINT `GeneGo_ibfk_1` FOREIGN KEY (`gid`) REFERENCES `gene` (`gid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `ProbeGene`
+--
+
+DROP TABLE IF EXISTS `ProbeGene`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `ProbeGene` (
+  `rid` int(10) unsigned NOT NULL,
+  `gid` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`rid`,`gid`),
+  KEY `rid` (`rid`),
+  KEY `gid` (`gid`),
+  CONSTRAINT `ProbeGene_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE,
+  CONSTRAINT `ProbeGene_ibfk_2` FOREIGN KEY (`gid`) REFERENCES `gene` (`gid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `ProjectStudy`
 --
 
@@ -52,38 +87,6 @@ CREATE TABLE `StudyExperiment` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `accnum`
---
-
-DROP TABLE IF EXISTS `accnum`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `accnum` (
-  `rid` int(10) unsigned NOT NULL,
-  `accnum` char(20) NOT NULL DEFAULT '',
-  PRIMARY KEY (`rid`,`accnum`),
-  KEY `rid` (`rid`),
-  KEY `accnum` (`accnum`),
-  CONSTRAINT `accnum_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `annotates`
---
-
-DROP TABLE IF EXISTS `annotates`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `annotates` (
-  `rid` int(10) unsigned NOT NULL,
-  `gid` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`rid`,`gid`),
-  KEY `gid` (`gid`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `experiment`
 --
 
@@ -101,7 +104,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=148 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=172 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -113,33 +116,16 @@ DROP TABLE IF EXISTS `gene`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `gene` (
   `gid` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `seqname` char(30) DEFAULT NULL,
-  `accnum` char(30) DEFAULT NULL,
-  `description` varchar(1022) DEFAULT NULL,
-  `gene_note` varchar(1022) DEFAULT NULL,
+  `sid` int(10) unsigned NOT NULL,
+  `gtype` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `gsymbol` char(32) NOT NULL,
+  `gname` varchar(1022) DEFAULT NULL,
+  `gdesc` varchar(2044) DEFAULT NULL,
   PRIMARY KEY (`gid`),
-  UNIQUE KEY `gid` (`gid`),
-  KEY `accnum_seqname` (`accnum`,`seqname`(18)),
-  KEY `seqname` (`seqname`),
-  KEY `accnum` (`accnum`)
-) ENGINE=InnoDB AUTO_INCREMENT=360282 DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `go_link`
---
-
-DROP TABLE IF EXISTS `go_link`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `go_link` (
-  `rid` int(10) unsigned NOT NULL,
-  `go_acc` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`rid`,`go_acc`),
-  KEY `rid` (`rid`),
-  KEY `go_acc` (`go_acc`),
-  CONSTRAINT `go_link_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+  UNIQUE KEY `sid_gsymbol` (`sid`,`gsymbol`),
+  KEY `sid` (`sid`),
+  CONSTRAINT `gene_ibfk_1` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=534869 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -150,36 +136,31 @@ DROP TABLE IF EXISTS `go_term`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `go_term` (
-  `go_term_id` int(10) unsigned NOT NULL,
   `go_acc` int(10) unsigned NOT NULL,
   `go_term_type` varchar(55) NOT NULL,
   `go_name` varchar(255) NOT NULL DEFAULT '',
   `go_term_definition` text,
-  PRIMARY KEY (`go_term_id`),
-  UNIQUE KEY `go_acc` (`go_acc`),
+  PRIMARY KEY (`go_acc`),
   FULLTEXT KEY `full` (`go_name`,`go_term_definition`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `location`
+-- Table structure for table `locus`
 --
 
-DROP TABLE IF EXISTS `location`;
+DROP TABLE IF EXISTS `locus`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `location` (
+CREATE TABLE `locus` (
   `rid` int(10) unsigned NOT NULL,
-  `chromosome` varchar(127) DEFAULT NULL,
-  `start` int(10) unsigned DEFAULT NULL,
-  `end` int(10) unsigned DEFAULT NULL,
   `sid` int(10) unsigned NOT NULL,
+  `chr` varchar(127) NOT NULL,
+  `zinterval` geometry NOT NULL,
+  SPATIAL KEY `zinterval` (`zinterval`),
   KEY `rid` (`rid`),
-  KEY `sid` (`sid`),
-  KEY `common` (`sid`,`chromosome`(2),`start`,`end`),
-  CONSTRAINT `location_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE,
-  CONSTRAINT `location_ibfk_2` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+  KEY `sid_chr` (`sid`,`chr`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -197,6 +178,8 @@ CREATE TABLE `microarray` (
   `pvalue` double DEFAULT NULL,
   `intensity2` double DEFAULT NULL,
   `intensity1` double DEFAULT NULL,
+  `pvalue2` double DEFAULT NULL,
+  `pvalue3` double DEFAULT NULL,
   PRIMARY KEY (`eid`,`rid`),
   KEY `rid` (`rid`),
   KEY `eid` (`eid`),
@@ -219,9 +202,10 @@ CREATE TABLE `platform` (
   `def_f_cutoff` double DEFAULT NULL,
   `sid` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`pid`),
+  UNIQUE KEY `pname` (`pname`),
   KEY `sid` (`sid`),
   CONSTRAINT `platform_ibfk_1` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=48 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -236,11 +220,12 @@ CREATE TABLE `probe` (
   `reporter` char(18) NOT NULL,
   `probe_sequence` varchar(100) DEFAULT NULL,
   `pid` int(10) unsigned NOT NULL,
+  `probe_comment` varchar(2047) DEFAULT NULL,
   PRIMARY KEY (`rid`),
-  UNIQUE KEY `reporter_pid` (`reporter`,`pid`),
+  UNIQUE KEY `pid_reporter` (`pid`,`reporter`),
   KEY `pid` (`pid`),
   CONSTRAINT `probe_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=316999 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=1193029 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -287,7 +272,7 @@ CREATE TABLE `species` (
   `sid` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `sname` varchar(120) NOT NULL,
   PRIMARY KEY (`sid`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -341,4 +326,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2011-12-13 15:09:37
+-- Dump completed on 2012-02-02 15:45:48
