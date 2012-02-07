@@ -105,6 +105,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
                 } else if (b.match(/^\d+$/)) {
                     out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/gene?term=" + b + "[uid]\">" + b + "</a>");
+                } else if (b.match(/-similar_to/)) {
+                    out.push(b);
                 } else {
                     out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[GENE]\">" + b + "</a>");
                 }
