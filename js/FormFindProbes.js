@@ -20,7 +20,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     scope.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;
         scope_state.value = selectedIndex;
-        if (selectedIndex === 0 ) {
+        if (selectedIndex !== 0 ) {
             pattern_div.style.display = 'block';
         } else {
             pattern_div.style.display = 'none';

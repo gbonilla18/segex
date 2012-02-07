@@ -75,36 +75,42 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
 
     YAHOO.widget.DataTable.Formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
-        var a = oData.split(/\s+/);
-        var out = [];
-        for (var i=0, al=a.length; i < al; i++) {
-            var b = a[i];
-            var hClass = (searchColumn === oColumn.key && matchesQuery(b))
-                ? 'class="highlight"' 
-                : '';
-            if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
-                out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
-            } else {
-                out.push("<a " + hClass + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>");
+        if (oData !== null) {
+            var a = oData.split(/\s+/);
+            var out = [];
+            for (var i=0, al=a.length; i < al; i++) {
+                var b = a[i];
+                var hClass = (searchColumn === oColumn.key && matchesQuery(b))
+                    ? 'class="highlight"' 
+                    : '';
+                if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
+                    out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
+                } else {
+                    out.push("<a " + hClass + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>");
+                }
             }
+            elCell.innerHTML = out.join(', ');
         }
-        elCell.innerHTML = out.join(', ');
     };
     YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
-        var a = oData.split(/\s+/);
-        var out = [];
-        for (var i=0, al=a.length; i < al; i++) {
-            var b = a[i];
-            var hClass = (searchColumn === oColumn.key && matchesQuery(b))
-                ? 'class="highlight"' 
-                : '';
-            if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
-                out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
-            } else {
-                out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[GENE]\">" + b + "</a>");
+        if (oData !== null) {
+            var a = oData.split(/\s+/);
+            var out = [];
+            for (var i=0, al=a.length; i < al; i++) {
+                var b = a[i];
+                var hClass = (searchColumn === oColumn.key && matchesQuery(b))
+                    ? 'class="highlight"' 
+                    : '';
+                if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
+                    out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
+                } else if (b.match(/^\d+$/)) {
+                    out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/gene?term=" + b + "[uid]\">" + b + "</a>");
+                } else {
+                    out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[GENE]\">" + b + "</a>");
+                }
             }
+            elCell.innerHTML = out.join(', ');
         }
-        elCell.innerHTML = out.join(', ');
     };
     YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("7") + "&rev=0&fc=" + oRecord.getData("10") + "&pval=" + oRecord.getData("9") + "&opts=2\">" + oData + "</a>";

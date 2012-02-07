@@ -86,7 +86,8 @@ sub default_head {
         'element/element-min.js', 'button/button-min.js'
       );
     $self->getSessionOverrideCGI();
-    push @$js_src_code, ( { -src => 'collapsible.js' },{ -src => 'FormFindProbes.js' } );
+    push @$js_src_code,
+      ( { -src => 'collapsible.js' }, { -src => 'FormFindProbes.js' } );
 
     $self->{_species_data} = $self->get_species();
     return 1;
@@ -106,7 +107,7 @@ sub get_species {
     my $self = shift;
     my $dbh  = $self->{_dbh};
     my $sth  = $dbh->prepare('SELECT sid, sname FROM species ORDER BY sname');
-    my $rc   = $sth->execute;
+    my $rc   = $sth->execute();
     my $data = $sth->fetchall_arrayref();
     $sth->finish;
 
@@ -312,29 +313,43 @@ sub build_SearchPredicate {
     my $qtext;
     my $predicate;
     my %translate_fields = (
-        'Probe IDs'         => 'reporter',
-        'Gene Symbols'      => 'seqname',
-        'Accession Numbers' => 'accnum'
+        'Probe IDs'              => ['reporter'],
+        'Gene Symbols'           => ['gsymbol'],
+        'Gene Names/Description' => [ 'gsymbol', 'gname', 'gdesc' ]
     );
     my $type = $translate_fields{ $self->{_scope} };
 
     if ( $match eq 'Full Word' ) {
-        ( $predicate => $qtext ) =
-          @$items
-          ? ( [ "$type IN (" . join( ',', map { '?' } @$items ) . ')' ] =>
-              $items )
+        ( $predicate => $qtext ) = @$items
+          ? (
+            [
+                join(
+                    ' OR ',
+                    map {
+                        "$_ IN ("
+                          . join( ',', map { '?' } @$items ) . ')'
+                      } @$type
+                )
+            ] => [ map { @$items } @$type ]
+          )
           : ( [] => [] );
     }
     elsif ( $match eq 'Prefix' ) {
-        ( $predicate => $qtext ) =
-          @$items
-          ? ( ["$type REGEXP ?"] => [ join( '|', map { "^$_" } @$items ) ] )
+        ( $predicate => $qtext ) = @$items
+          ? (
+            [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] => [
+                map {
+                    join( '|', map { "^$_" } @$items )
+                  } @$type
+            ]
+          )
           : ( [] => [] );
     }
     elsif ( $match eq 'Partial' ) {
         ( $predicate => $qtext ) =
           @$items
-          ? ( ["$type REGEXP ?"] => [ join( '|', @$items ) ] )
+          ? ( [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] =>
+              [ map { join( '|', @$items ) } @$type ] )
           : ( [] => [] );
     }
     else {
@@ -371,26 +386,26 @@ sub build_location_predparam {
     #---------------------------------------------------------------------------
     my $loc_sid = car $q->param('spid');
     if ( defined $loc_sid and $loc_sid ne '' ) {
-        $query = 'location.sid=?';
+        $query = 'locus.sid=?';
         push @param, $loc_sid;
 
-        # chromosome is meaningless unless species was specified.
+ # where Intersects(LineString(Point(0,93160788), Point(0,103160849)), # locus);
+ # chromosome is meaningless unless species was specified.
         my $loc_chr = car $q->param('chr');
         if ( defined $loc_chr and $loc_chr ne '' ) {
-            $query .= ' AND location.chromosome=?';
+            $query .= ' AND locus.chr=?';
             push @param, $loc_chr;
 
             # starting and ending interval positions are meaningless if no
             # chromosome was specified.
-            my $loc_end = car $q->param('end');
-            if ( defined $loc_end and $loc_end ne '' ) {
-                $query .= ' AND location.start<=?';
-                push @param, $loc_end;
-            }
+            my $loc_end   = car $q->param('end');
             my $loc_start = car $q->param('start');
-            if ( defined $loc_start and $loc_start ne '' ) {
-                $query .= ' AND location.end>=?';
-                push @param, $loc_start;
+            if (   ( defined $loc_start and $loc_start ne '' )
+                && ( defined $loc_end and $loc_end ne '' ) )
+            {
+                $query =
+                  ' Intersects(LineString(Point(0,?), Point(0,?)), zinterval)';
+                push @param, ( $loc_start, $loc_end );
             }
         }
     }
@@ -462,13 +477,13 @@ END_ExperimentDataQuery
 #     SEE ALSO:  n/a
 #===============================================================================
 sub loadProbeData {
-    my ($self) = @_;
+    my $self = shift;
 
     my $dbh         = $self->{_dbh};
     my $searchItems = $self->{_SearchTerms};
     my $filterItems = $self->{_FilterItems};
-    my $sth         = $dbh->prepare( $self->{_ProbeQuery} );
-    my $rc = $sth->execute( @$searchItems, @$searchItems, @$filterItems );
+    my $sth         = $dbh->prepare( $self->{_XTableQuery} );
+    my $rc          = $sth->execute( @$searchItems, @$filterItems );
     $self->{_ProbeCount} = $rc;
 
     # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
@@ -887,10 +902,18 @@ or be on separate lines.
 END_terms_title
             )
         ),
-        $q->dt( 'Scope and Options:' ),
+        $q->dt('Scope and Options:'),
         $q->dd(
             $q->div(
                 { -id => 'scope_container', -class => 'input_container' },
+                $q->input(
+                    {
+                        -type  => 'radio',
+                        -name  => 'scope',
+                        -value => 'Probe IDs',
+                        -title => 'Search probe IDs'
+                    }
+                ),
                 $q->input(
                     {
                         -type    => 'radio',
@@ -898,6 +921,14 @@ END_terms_title
                         -value   => 'Gene Symbols',
                         -checked => 'checked',
                         -title   => 'Search gene symbols'
+                    }
+                ),
+                $q->input(
+                    {
+                        -type  => 'radio',
+                        -name  => 'scope',
+                        -value => 'Gene Names',
+                        -title => 'Search gene names'
                     }
                 ),
 
@@ -917,23 +948,6 @@ END_terms_title
                 #        -title => 'Search gene ontology terms'
                 #    }
                 #),
-                $q->input(
-                    {
-                        -type  => 'radio',
-                        -name  => 'scope',
-                        -value => 'Accession Numbers',
-                        -title => 'Search accession numbers'
-                    }
-                ),
-                $q->input(
-                    {
-                        -type  => 'radio',
-                        -name  => 'scope',
-                        -value => 'Probe IDs',
-                        -title => 'Search probe IDs'
-                    }
-                ),
-
                 # preserve state of radio buttons
                 $q->input(
                     {
@@ -1008,12 +1022,15 @@ END_EXAMPLE_TEXT
             $q->div(
                 $q->p(
                     $q->a(
-                        { -id => 'locusFilter' , -class => 'pluscol'},
+                        { -id => 'locusFilter', -class => 'pluscol' },
                         '+ Species / chromosomal location'
                     )
                 ),
                 $q->div(
-                    { -id => 'locusFilter_container', -class => 'dd_collapsible' },
+                    {
+                        -id    => 'locusFilter_container',
+                        -class => 'dd_collapsible'
+                    },
                     $q->div(
                         { -class => 'input_container' },
                         $q->popup_menu(
@@ -1062,7 +1079,12 @@ END_EXAMPLE_TEXT
                     ),
                 )
             ),
-            $q->p( $q->a( { -id => 'outputOpts' , -class => 'pluscol'}, '+ Output options' ) ),
+            $q->p(
+                $q->a(
+                    { -id => 'outputOpts', -class => 'pluscol' },
+                    '+ Output options'
+                )
+            ),
             $q->div(
                 { -id => 'outputOpts_container', -class => 'dd_collapsible' },
                 $q->p( { -class => 'radio_heading' }, 'Format:' ),
@@ -1184,8 +1206,8 @@ END_EXAMPLE_TEXT
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  build_InsideTableQuery
-#   PARAMETERS:  $type - query type (probe|gene|accnum)
+#       METHOD:  build_XTableQuery
+#   PARAMETERS:  $type - query type (probe|gene)
 #                tmp_table => $tmpTable - uploaded table to join on
 #      RETURNS:  true value
 #  DESCRIPTION:  Fills _InsideTableQuery field
@@ -1193,45 +1215,110 @@ END_EXAMPLE_TEXT
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub build_InsideTableQuery {
+sub build_XTableQuery {
     my $self      = shift;
     my $predicate = $self->{_Predicate};
 
-    my $probe_spec_fields =
+    #---------------------------------------------------------------------------
+    #  innermost SELECT statement differs depending on whether we are searching
+    #  the probe table or the gene table
+    #---------------------------------------------------------------------------
+    my $innerSQL =
       ( $self->{_scope} eq 'Probe IDs' )
-      ? 'rid, reporter, probe_sequence, pid'
-      : 'NULL AS rid, NULL AS reporter, NULL AS probe_sequence, NULL AS pid';
+      ? "select rid from probe $predicate"
+      : "select rid from gene inner join ProbeGene USING(gid) inner join probe USING(rid) $predicate";
 
-    $self->{_InsideTableQuery} = <<"END_InsideTableQuery_probe";
-select $probe_spec_fields,
-g2.gid, 
-g2.accnum,
-g2.seqname, 
-g2.description, 
-g2.gene_note 
+    #---------------------------------------------------------------------------
+    # only return results for platforms that belong to the current working
+    # project (as determined through looking up studies linked to the current
+    # project).
+    #---------------------------------------------------------------------------
+    my $curr_proj             = $self->{_WorkingProject};
+    my $sql_subset_by_project = '';
+    if ( defined($curr_proj) && $curr_proj ne '' ) {
+        $curr_proj             = $self->{_dbh}->quote($curr_proj);
+        $sql_subset_by_project = <<"END_sql_subset_by_project"
+INNER JOIN study ON study.pid=platform.pid
+INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
+END_sql_subset_by_project
+    }
 
-from gene g2 right join
-(select probe.rid, probe.reporter, probe.probe_sequence, probe.pid,
-    accnum from probe left join annotates on annotates.rid=probe.rid left join
-gene on gene.gid=annotates.gid $predicate GROUP BY accnum) as g1
-on g2.accnum=g1.accnum where rid is not NULL
+    #---------------------------------------------------------------------------
+    # Filter by chromosomal location (use platform table to look up species when
+    # only species is specified and not an actual chromosomal location).
+    #---------------------------------------------------------------------------
+    my ( $subquery, $subparam ) = $self->build_location_predparam();
+    my $location_predicate = '';
+    my $species_predicate  = '';
+    my $join_species_on    = 'platform.sid';
+    if ( @$subparam == 1 ) {
 
-union
+        #species only
+        $species_predicate = 'AND platform.sid=?';
+        push @{ $self->{_FilterItems} }, @$subparam;
+    }
+    elsif ( @$subparam > 1 ) {
+        $location_predicate =
+          'INNER JOIN locus ON probe.rid=locus.rid AND ' . $subquery;
+        push @{ $self->{_FilterItems} }, @$subparam;
+        $join_species_on = 'locus.sid';
+    }
 
-select $probe_spec_fields,
-g4.gid, 
-g4.accnum,
-g4.seqname, 
-g4.description, 
-g4.gene_note 
+    #---------------------------------------------------------------------------
+    #  fields to select
+    #---------------------------------------------------------------------------
+    my @select_fields = (
+        'probe.rid',
+        'platform.pid',
+        "probe.reporter  AS 'Probe ID'",
+        "platform.pname  AS 'Platform'",
+"group_concat(if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.'",
+"group_concat(if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
+        "species.sname   AS 'Species'"
+    );
 
-from gene g4 right join
-(select probe.rid, probe.reporter, probe.probe_sequence, probe.pid,
-    seqname from probe left join annotates on annotates.rid=probe.rid left join
-    gene on gene.gid=annotates.gid $predicate GROUP BY seqname) as g3
-on g4.seqname=g3.seqname where rid is not NULL
+    if ( $self->{_opts} ne 'Basic' ) {
 
-END_InsideTableQuery_probe
+        # extra fields
+        push @select_fields,
+          (
+            "probe.probe_sequence                    AS 'Probe Sequence'",
+            "group_concat(gene.gname separator '; ') AS 'Gene Name'",
+            "group_concat(gene.gdesc separator '; ') AS 'Gene Desc.'"
+          );
+    }
+    my $selectFieldsSQL = join( ',', @select_fields );
+
+    #---------------------------------------------------------------------------
+    #  main query
+    #---------------------------------------------------------------------------
+    $self->{_XTableQuery} = <<"END_XTableQuery";
+select
+$selectFieldsSQL
+from probe inner join (
+        select
+        rid
+        from probe
+        inner join ProbeGene USING(rid)
+        inner join (
+                select
+                gene.gid
+                from probe
+                inner join ProbeGene ON probe.rid=ProbeGene.rid
+                inner join gene ON ProbeGene.gid=gene.gid
+                inner join ($innerSQL) as d1 on d1.rid=probe.rid
+                group by gene.gid
+        ) as d2 USING(gid)
+        group by rid
+) as d3 on probe.rid=d3.rid
+inner join ProbeGene ON probe.rid=ProbeGene.rid
+inner join gene ON gene.gid=ProbeGene.gid
+$location_predicate
+INNER JOIN platform ON probe.pid=platform.pid $species_predicate
+LEFT JOIN species ON species.sid=$join_species_on
+$sql_subset_by_project
+group by probe.rid
+END_XTableQuery
 
     return 1;
 }
@@ -1268,8 +1355,8 @@ END_sql_subset_by_project
     $self->{_ProbeQuery} = <<"END_ProbeQuery";
 SELECT DISTINCT probe.rid
 FROM ( $InsideTableQuery ) as g0
-LEFT JOIN annotates USING(gid)
-INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
+LEFT JOIN ProbeGene USING(gid)
+INNER JOIN probe ON probe.rid=COALESCE(ProbeGene.rid, g0.rid)
 $sql_subset_by_project
 END_ProbeQuery
 
@@ -1298,14 +1385,8 @@ probe.rid,
 platform.pid,
 probe.reporter                          AS 'Probe ID',
 platform.pname                          AS 'Platform',
-GROUP_CONCAT(
-    DISTINCT COALESCE(g0.accnum, '')
-    ORDER BY g0.seqname ASC SEPARATOR ' '
-)                                       AS 'Accession No.', 
-GROUP_CONCAT(
-    DISTINCT COALESCE(g0.seqname, '')
-    ORDER BY g0.seqname ASC SEPARATOR ' '
-)                                       AS 'Gene Symb.',
+group_concat(if(gtype=0, g0.gsymbol, NULL) separator ', ') AS 'Accession No.',
+group_concat(if(gtype=1, g0.gsymbol, NULL) separator ', ') AS 'Gene Symb.',
 species.sname                        AS 'Species' 
 END_select_fields_basic
     }
@@ -1317,21 +1398,15 @@ probe.rid,
 platform.pid,
 probe.reporter                          AS 'Probe ID', 
 platform.pname                          AS 'Platform',
-GROUP_CONCAT(
-    DISTINCT COALESCE(g0.accnum, '')
-    ORDER BY g0.seqname ASC SEPARATOR ' '
-)                                       AS 'Accession No.', 
-GROUP_CONCAT(
-    DISTINCT COALESCE(g0.seqname, '')
-    ORDER BY g0.seqname ASC SEPARATOR ' '
+GROUP_CONCAT( DISTINCT COALESCE(g0.gsymbol, '') ORDER BY g0.gsymbol ASC SEPARATOR ' '
 )                                       AS 'Gene Symb.', 
 species.sname                        AS 'Species', 
 probe.probe_sequence                    AS 'Probe Sequence',
 GROUP_CONCAT(
-    DISTINCT g0.description ORDER BY g0.seqname ASC SEPARATOR '; '
+    DISTINCT g0.gdesc ORDER BY g0.gsymbol ASC SEPARATOR '; '
 )                                       AS 'Offic. Gene Name',
 GROUP_CONCAT(
-    DISTINCT gene_note ORDER BY g0.seqname ASC SEPARATOR '; '
+    DISTINCT gdesc ORDER BY g0.gsymbol ASC SEPARATOR '; '
 )                                       AS 'Gene Ontology'
 END_select_fields_extras
     }
@@ -1345,8 +1420,7 @@ END_select_fields_extras
         $curr_proj             = $self->{_dbh}->quote($curr_proj);
         $sql_subset_by_project = <<"END_sql_subset_by_project"
 INNER JOIN study ON study.pid=platform.pid
-INNER JOIN ProjectStudy USING(stid) 
-WHERE prid=$curr_proj 
+INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
 END_sql_subset_by_project
     }
 
@@ -1366,9 +1440,9 @@ END_sql_subset_by_project
     }
     elsif ( @$subparam > 1 ) {
         $location_predicate =
-          'INNER JOIN location ON probe.rid=location.rid AND ' . $subquery;
+          'INNER JOIN locus ON probe.rid=locus.rid AND ' . $subquery;
         push @{ $self->{_FilterItems} }, @$subparam;
-        $join_species_on = 'location.sid';
+        $join_species_on = 'locus.sid';
     }
 
     my $InsideTableQuery = $self->{_InsideTableQuery};
@@ -1376,8 +1450,8 @@ END_sql_subset_by_project
 SELECT
 $sql_select_fields
 FROM ( $InsideTableQuery ) AS g0
-LEFT JOIN annotates USING(gid)
-INNER JOIN probe ON probe.rid=COALESCE(annotates.rid, g0.rid)
+LEFT JOIN ProbeGene USING(gid)
+INNER JOIN probe ON probe.rid=COALESCE(ProbeGene.rid, g0.rid)
 $location_predicate
 INNER JOIN platform ON probe.pid=platform.pid $species_predicate
 LEFT JOIN species ON species.sid=$join_species_on
@@ -1403,8 +1477,9 @@ sub findProbes_js {
     my $self = shift;
 
     $self->build_SearchPredicate();
-    $self->build_InsideTableQuery();
-    $self->build_ProbeQuery( extra_fields => ( $self->{_opts} ne 'Basic' ) );
+    $self->build_XTableQuery();
+
+    #$self->build_ProbeQuery( extra_fields => ( $self->{_opts} ne 'Basic' ) );
 
     if ( $self->{_opts} eq 'Complete (CSV)' ) {
 
@@ -1444,9 +1519,8 @@ sub findProbes_js {
         }
 
         my %type_to_column = (
-            'Probe IDs'         => '1',
-            'Accession Numbers' => '3',
-            'Gene Symbols'      => '4'
+            'Probe IDs'    => '1',
+            'Gene Symbols' => '4'
         );
 
         my %json_probelist = (
