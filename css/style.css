@@ -362,16 +362,18 @@ dl, table, div.table_cont {
 .hint pre, .hint p {
 	margin-bottom:0.75em;
 }
-/* word-wrap: break-word -- breaks long words such as DNA sequences
-td.yui-dt-col-5 .yui-dt-liner {
-	width:100px;
+/* word-wrap: break-word -- breaks long words such as DNA sequences */
+td.yui-dt-resizeable .yui-dt-liner {
 	white-space: pre-wrap;
 	white-space: -moz-pre-wrap;
 	white-space: -pre-wrap;
 	white-space: -o-pre-wrap;
 	word-wrap: break-word;
 }
-*/
+.sgx-dt-sequence {
+	font-family:Menlo, "Lucida Console", Monaco, monospace;
+	width: 250px;
+}
 
 /* ------------------------------------------------------------
  * Button

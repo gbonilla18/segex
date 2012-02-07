@@ -10,7 +10,7 @@ use File::Basename;
 use JSON qw/encode_json/;
 use File::Temp;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car all_match trim min bind_csv_handle/;
+use SGX::Util qw/car all_match trim min bind_csv_handle distinct/;
 use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
@@ -178,7 +178,9 @@ sub FindProbes_init {
 
     my $scope = car $q->param('scope');
     my $match = car $q->param('match');
-    $match = 'Full Word' if ( not defined $match ) or $scope ne 'Gene Symbols';
+    $match = 'Full Word'
+      if ( not defined $match )
+      or $scope eq 'Probe IDs';
     $self->{_scope} = $scope;
     $self->{_match} = $match;
     $self->{_graph} = car $q->param('graph');
@@ -313,9 +315,9 @@ sub build_SearchPredicate {
     my $qtext;
     my $predicate;
     my %translate_fields = (
-        'Probe IDs'              => ['reporter'],
-        'Gene Symbols'           => ['gsymbol'],
-        'Gene Names/Description' => [ 'gsymbol', 'gname', 'gdesc' ]
+        'Probe IDs'            => ['reporter'],
+        'Genes/Accession Nos.' => ['gsymbol'],
+        'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ]
     );
     my $type = $translate_fields{ $self->{_scope} };
 
@@ -842,7 +844,7 @@ sub Search_body {
                 'Searched %s (%s): %s',
                 lc( $self->{_scope} ),
                 lc( $self->{_match} ),
-                join( ', ', @{ $self->{_SearchTerms} } )
+                join( ', ', distinct( @{ $self->{_SearchTerms} } ) )
             )
         ),
         $q->div(
@@ -918,7 +920,7 @@ END_terms_title
                     {
                         -type    => 'radio',
                         -name    => 'scope',
-                        -value   => 'Gene Symbols',
+                        -value   => 'Genes/Accession Nos.',
                         -checked => 'checked',
                         -title   => 'Search gene symbols'
                     }
@@ -927,7 +929,7 @@ END_terms_title
                     {
                         -type  => 'radio',
                         -name  => 'scope',
-                        -value => 'Gene Names',
+                        -value => 'Gene Names/Desc.',
                         -title => 'Search gene names'
                     }
                 ),
@@ -1283,8 +1285,7 @@ END_sql_subset_by_project
         push @select_fields,
           (
             "probe.probe_sequence                    AS 'Probe Sequence'",
-            "group_concat(gene.gname separator '; ') AS 'Gene Name'",
-            "group_concat(gene.gdesc separator '; ') AS 'Gene Desc.'"
+"group_concat(concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
           );
     }
     my $selectFieldsSQL = join( ',', @select_fields );
@@ -1519,8 +1520,9 @@ sub findProbes_js {
         }
 
         my %type_to_column = (
-            'Probe IDs'    => '1',
-            'Gene Symbols' => '4'
+            'Probe IDs'            => 'reporter',
+            'Genes/Accession Nos.' => 'gsymbol',
+            'Gene Names/Desc.'     => 'gname+gdesc'
         );
 
         my %json_probelist = (

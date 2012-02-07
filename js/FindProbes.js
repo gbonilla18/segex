@@ -5,6 +5,7 @@
 * http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=Cyp2a12+AND+mouse[ORGN]
 */
 
+var dom = YAHOO.util.Dom;
 YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
 YAHOO.util.Event.addListener(window, "load", function() {
     var graph_ul;
@@ -55,13 +56,13 @@ YAHOO.util.Event.addListener(window, "load", function() {
     }
 
     if (show_graphs !== 'No Graphs') {
-        graph_ul = YAHOO.util.Dom.get("graphs");
+        graph_ul = dom.get("graphs");
     }
 
-    YAHOO.util.Dom.get("caption").innerHTML = probelist.caption;
+    dom.get("caption").innerHTML = probelist.caption;
 
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
-        var hClass = (searchColumn === oColumn.key && matchesQuery(oData))
+        var hClass = (searchColumn === 'reporter' && matchesQuery(oData))
             ? 'class="highlight"' 
             : '';
         var i = oRecord.getCount();
@@ -80,7 +81,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             var out = [];
             for (var i=0, al=a.length; i < al; i++) {
                 var b = a[i];
-                var hClass = (searchColumn === oColumn.key && matchesQuery(b))
+                var hClass = (searchColumn === 'gsymbol' && matchesQuery(b))
                     ? 'class="highlight"' 
                     : '';
                 if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
@@ -98,7 +99,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             var out = [];
             for (var i=0, al=a.length; i < al; i++) {
                 var b = a[i];
-                var hClass = (searchColumn === oColumn.key && matchesQuery(b))
+                var hClass = (searchColumn === 'gsymbol' && matchesQuery(b))
                     ? 'class="highlight"' 
                     : '';
                 if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
@@ -118,6 +119,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("7") + "&rev=0&fc=" + oRecord.getData("10") + "&pval=" + oRecord.getData("9") + "&opts=2\">" + oData + "</a>";
     };
     YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
+        dom.addClass(elCell, 'sgx-dt-sequence');
         elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("5") + "\" title=\"Search for this sequence using BLAT in " + oRecord.getData("5") + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
     };
 
@@ -138,14 +140,12 @@ YAHOO.util.Event.addListener(window, "load", function() {
             label:probelist.headers[4]}
     ];
     if (extra_fields !== 'Basic') {
-        myColumnList.push("6","7","8");
+        myColumnList.push("6","7");
         myColumnDefs.push(
             {key:"6", sortable:true, resizeable:true, 
                 label:probelist.headers[5], formatter:"formatSequence"},
             {key:"7", sortable:true, resizeable:true, 
-                label:probelist.headers[6]},
-            {key:"8", sortable:true, resizeable:true, 
-                label:probelist.headers[7]}
+                label:probelist.headers[6]}
         );
     }
     myDataSource.responseSchema = {
@@ -163,7 +163,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     // Set up editing flow 
     var highlightEditableCell = function(oArgs) { 
         var elCell = oArgs.target; 
-        if(YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
+        if(dom.hasClass(elCell, "yui-dt-editable")) { 
             this.highlightCell(elCell); 
         } 
     }; 
