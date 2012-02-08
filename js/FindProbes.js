@@ -115,6 +115,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
             elCell.innerHTML = out.join(', ');
         }
     };
+    YAHOO.widget.DataTable.Formatter.formatGeneName = function(elCell, oRecord, oColumn, oData) {
+        if (oData !== null) {
+            //var hClass = (searchColumn === 'gname+gdesc' && matchesQuery(oData))
+            //    ? 'class="highlight"'
+            //    : '';
+            elCell.innerHTML = oData;
+        }
+    }
     YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("7") + "&rev=0&fc=" + oRecord.getData("10") + "&pval=" + oRecord.getData("9") + "&opts=2\">" + oData + "</a>";
     };
@@ -145,7 +153,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             {key:"6", sortable:true, resizeable:true, 
                 label:probelist.headers[5], formatter:"formatSequence"},
             {key:"7", sortable:true, resizeable:true, 
-                label:probelist.headers[6]}
+                label:probelist.headers[6], formatter:"formatGeneName"}
         );
     }
     myDataSource.responseSchema = {

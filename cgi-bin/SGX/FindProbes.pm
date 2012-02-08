@@ -178,7 +178,7 @@ sub FindProbes_init {
 
     my $scope = car $q->param('scope');
     my $match = car $q->param('match');
-    $match = 'Full Word'
+    $match = 'Exact'
       if ( not defined $match )
       or $scope eq 'Probe IDs';
     $self->{_scope} = $scope;
@@ -313,15 +313,14 @@ sub build_SearchPredicate {
     my $items = $self->{_SearchTerms};
 
     my $qtext;
-    my $predicate;
+    my $predicate = [];
     my %translate_fields = (
         'Probe IDs'            => ['reporter'],
         'Genes/Accession Nos.' => ['gsymbol'],
         'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ]
     );
     my $type = $translate_fields{ $self->{_scope} };
-
-    if ( $match eq 'Full Word' ) {
+    if ( $match eq 'Exact' ) {
         ( $predicate => $qtext ) = @$items
           ? (
             [
@@ -360,10 +359,11 @@ sub build_SearchPredicate {
     }
 
     if ( @$predicate == 0 ) {
-        push @$predicate, "$type IN (NULL)";
+        push @$predicate, map { "$_ IN (NULL)" } @$type;
     }
     $self->{_Predicate} = 'WHERE ' . join( ' AND ', @$predicate );
     $self->{_SearchTerms} = $qtext;
+
     return 1;
 }
 
@@ -484,8 +484,14 @@ sub loadProbeData {
     my $dbh         = $self->{_dbh};
     my $searchItems = $self->{_SearchTerms};
     my $filterItems = $self->{_FilterItems};
-    my $sth         = $dbh->prepare( $self->{_XTableQuery} );
-    my $rc          = $sth->execute( @$searchItems, @$filterItems );
+    my $sth = $dbh->prepare( $self->{_XTableQuery} );
+    my $rc  = $sth->execute(
+        @$searchItems,
+        (
+            ($self->{_scope} eq 'Probe IDs') ? @$searchItems : ()
+        ),
+        @$filterItems
+    );
     $self->{_ProbeCount} = $rc;
 
     # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
@@ -980,7 +986,7 @@ END_terms_title
                             {
                                 -type    => 'radio',
                                 -name    => 'match',
-                                -value   => 'Full Word',
+                                -value   => 'Exact',
                                 -checked => 'checked',
                                 -title   => 'Match full words'
                             }
@@ -1229,6 +1235,7 @@ sub build_XTableQuery {
       ( $self->{_scope} eq 'Probe IDs' )
       ? "select rid from probe $predicate"
       : "select rid from gene inner join ProbeGene USING(gid) inner join probe USING(rid) $predicate";
+    my $extraSQL = ( $self->{_scope} eq 'Probe IDs' ) ? "UNION $innerSQL" : '';
 
     #---------------------------------------------------------------------------
     # only return results for platforms that belong to the current working
@@ -1294,26 +1301,26 @@ END_sql_subset_by_project
     #  main query
     #---------------------------------------------------------------------------
     $self->{_XTableQuery} = <<"END_XTableQuery";
-select
+SELECT
 $selectFieldsSQL
-from probe inner join (
-        select
-        rid
+FROM probe
+INNER JOIN (
+        select rid
         from probe
         inner join ProbeGene USING(rid)
         inner join (
-                select
-                gene.gid
+                select gene.gid
                 from probe
                 inner join ProbeGene ON probe.rid=ProbeGene.rid
                 inner join gene ON ProbeGene.gid=gene.gid
                 inner join ($innerSQL) as d1 on d1.rid=probe.rid
                 group by gene.gid
         ) as d2 USING(gid)
+        $extraSQL
         group by rid
 ) as d3 on probe.rid=d3.rid
-inner join ProbeGene ON probe.rid=ProbeGene.rid
-inner join gene ON gene.gid=ProbeGene.gid
+LEFT join ProbeGene ON probe.rid=ProbeGene.rid
+LEFT join gene ON gene.gid=ProbeGene.gid
 $location_predicate
 INNER JOIN platform ON probe.pid=platform.pid $species_predicate
 LEFT JOIN species ON species.sid=$join_species_on
@@ -1522,7 +1529,7 @@ sub findProbes_js {
         my %type_to_column = (
             'Probe IDs'            => 'reporter',
             'Genes/Accession Nos.' => 'gsymbol',
-            'Gene Names/Desc.'     => 'gname+gdesc'
+            'Gene Names/Desc.'     => 'gsymbol+gname+gdesc'
         );
 
         my %json_probelist = (
@@ -1544,9 +1551,9 @@ var project_id = "%s";
 END_JSON_DATA
             $type_to_column{$type},
             encode_json(
-                ( $match eq 'Full Word' )
+                ( $match eq 'Exact' )
                 ? +{ map { lc($_) => undef } @{ $self->{_SearchTerms} } }
-                : $self->{_SearchTerms}
+                : [ distinct( @{ $self->{_SearchTerms} } ) ]
             ),
             encode_json( \%json_probelist ),
             $self->{_cgi}->url( -absolute => 1 ),

@@ -17,13 +17,23 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     var scope_state = document.getElementById("scope_state");
     var pattern_div = document.getElementById('pattern_div');
     var scope = new YAHOO.widget.ButtonGroup("scope_container");
+    var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
     scope.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;
         scope_state.value = selectedIndex;
-        if (selectedIndex !== 0 ) {
-            pattern_div.style.display = 'block';
-        } else {
+        switch (selectedIndex) {
+        case 0:
+            patterns.check(0);
             pattern_div.style.display = 'none';
+            break;
+        case 1:
+            patterns.check(0);
+            pattern_div.style.display = 'block';
+            break;
+        case 2:
+            patterns.check(2);
+            pattern_div.style.display = 'block';
+            break;
         }
     });
     if (scope_state.value !== '') {
@@ -32,7 +42,6 @@ YAHOO.util.Event.addListener(window, 'load', function() {
 
     // pattern/match
     var pattern_state = document.getElementById("pattern_state");
-    var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
     var pattern_part_hint = document.getElementById('pattern_part_hint');
     patterns.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;

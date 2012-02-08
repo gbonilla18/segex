@@ -371,7 +371,7 @@ td.yui-dt-resizeable .yui-dt-liner {
 	word-wrap: break-word;
 }
 .sgx-dt-sequence {
-	font-family:Menlo, "Lucida Console", Monaco, monospace;
+	font-family:Menlo,Consolas,Monaco,"Lucida Console",monospace;
 	width: 250px;
 }
 
