@@ -405,8 +405,8 @@ sub build_location_predparam {
             if (   ( defined $loc_start and $loc_start ne '' )
                 && ( defined $loc_end and $loc_end ne '' ) )
             {
-                $query =
-                  ' Intersects(LineString(Point(0,?), Point(0,?)), zinterval)';
+                $query .=
+                  ' AND Intersects(LineString(Point(0,?), Point(0,?)), zinterval)';
                 push @param, ( $loc_start, $loc_end );
             }
         }
