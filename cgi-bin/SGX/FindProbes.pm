@@ -313,7 +313,7 @@ sub build_SearchPredicate {
     my $items = $self->{_SearchTerms};
 
     my $qtext;
-    my $predicate = [];
+    my $predicate        = [];
     my %translate_fields = (
         'Probe IDs'            => ['reporter'],
         'Genes/Accession Nos.' => ['gsymbol'],
@@ -406,7 +406,7 @@ sub build_location_predparam {
                 && ( defined $loc_end and $loc_end ne '' ) )
             {
                 $query .=
-                  ' AND Intersects(LineString(Point(0,?), Point(0,?)), zinterval)';
+' AND Intersects(LineString(Point(0,?), Point(0,?)), zinterval)';
                 push @param, ( $loc_start, $loc_end );
             }
         }
@@ -485,13 +485,10 @@ sub loadProbeData {
     my $searchItems = $self->{_SearchTerms};
     my $filterItems = $self->{_FilterItems};
     my $sth = $dbh->prepare( $self->{_XTableQuery} );
-    my $rc  = $sth->execute(
-        @$searchItems,
-        (
-            ($self->{_scope} eq 'Probe IDs') ? @$searchItems : ()
-        ),
-        @$filterItems
-    );
+    my $rc =
+      $sth->execute( @$searchItems,
+        ( ( $self->{_scope} eq 'Probe IDs' ) ? @$searchItems : () ),
+        @$filterItems );
     $self->{_ProbeCount} = $rc;
 
     # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
@@ -899,19 +896,18 @@ END_H2P_TEXT
       $q->dl(
         $q->dt( $q->label( { -for => 'q' }, 'Search Term(s):' ) ),
         $q->dd(
-            $q->textarea(
-                -name    => 'q',
-                -id      => 'q',
-                -rows    => 10,
-                -columns => 50,
-                -title   => <<"END_terms_title"
+            $q->p(
+                $q->textarea(
+                    -name    => 'q',
+                    -id      => 'q',
+                    -rows    => 10,
+                    -columns => 50,
+                    -title   => <<"END_terms_title"
 Enter list of terms to search. Multiple entries have to be separated by commas 
 or be on separate lines.
 END_terms_title
-            )
-        ),
-        $q->dt('Scope and Options:'),
-        $q->dd(
+                )
+            ),
             $q->div(
                 { -id => 'scope_container', -class => 'input_container' },
                 $q->input(
@@ -1027,65 +1023,54 @@ digit."  See <a target="_blank"
 href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
 information.
 END_EXAMPLE_TEXT
+        ),
+        $q->dt('Scope and Options:'),
+        $q->dd(
             $q->div(
-                $q->p(
-                    $q->a(
-                        { -id => 'locusFilter', -class => 'pluscol' },
-                        '+ Species / chromosomal location'
+                $q->div(
+                    { -class => 'input_container' },
+                    $q->popup_menu(
+                        -name   => 'spid',
+                        -id     => 'spid',
+                        -title  => 'Choose species to search',
+                        -values => [ keys %{ $self->{_species_data} } ],
+                        -labels => $self->{_species_data}
                     )
                 ),
                 $q->div(
                     {
-                        -id    => 'locusFilter_container',
-                        -class => 'dd_collapsible'
+                        -id    => 'chr_div',
+                        -style => 'display:none;'
                     },
                     $q->div(
                         { -class => 'input_container' },
-                        $q->popup_menu(
-                            -name   => 'spid',
-                            -id     => 'spid',
-                            -title  => 'Choose species to search',
-                            -values => [ keys %{ $self->{_species_data} } ],
-                            -labels => $self->{_species_data}
+                        $q->label( { -for => 'chr' }, 'chr' ),
+                        $q->textfield(
+                            -name  => 'chr',
+                            -id    => 'chr',
+                            -title => 'Type chromosome name',
+                            -size  => 3
+                        ),
+                        $q->label( { -for => 'start' }, ':' ),
+                        $q->textfield(
+                            -name  => 'start',
+                            -id    => 'start',
+                            -title => 'Enter start position on the chromosome',
+                            -size  => 14
+                        ),
+                        $q->label( { -for => 'end' }, '-' ),
+                        $q->textfield(
+                            -name  => 'end',
+                            -id    => 'end',
+                            -title => 'Enter end position on the chromosome',
+                            -size  => 14
                         )
                     ),
-                    $q->div(
-                        {
-                            -id    => 'chr_div',
-                            -style => 'display:none;'
-                        },
-                        $q->div(
-                            { -class => 'input_container' },
-                            $q->label( { -for => 'chr' }, 'chr' ),
-                            $q->textfield(
-                                -name  => 'chr',
-                                -id    => 'chr',
-                                -title => 'Type chromosome name',
-                                -size  => 3
-                            ),
-                            $q->label( { -for => 'start' }, ':' ),
-                            $q->textfield(
-                                -name => 'start',
-                                -id   => 'start',
-                                -title =>
-                                  'Enter start position on the chromosome',
-                                -size => 14
-                            ),
-                            $q->label( { -for => 'end' }, '-' ),
-                            $q->textfield(
-                                -name => 'end',
-                                -id   => 'end',
-                                -title =>
-                                  'Enter end position on the chromosome',
-                                -size => 14
-                            )
-                        ),
-                        $q->p(
-                            { -class => 'hint', -style => 'display:block;' },
+                    $q->p(
+                        { -class => 'hint', -style => 'display:block;' },
 'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X. Leave these fields blank to search all chromosomes.'
-                        ),
                     ),
-                )
+                ),
             ),
             $q->p(
                 $q->a(
@@ -1300,10 +1285,10 @@ END_sql_subset_by_project
     #---------------------------------------------------------------------------
     #  main query
     #---------------------------------------------------------------------------
-    $self->{_XTableQuery} = <<"END_XTableQuery";
-SELECT
-$selectFieldsSQL
-FROM probe
+    my $main_subquery =
+      ( @{ $self->{_SearchTerms} } == 0 )
+      ? ''
+      : <<"END_mainSubQuery";
 INNER JOIN (
         select rid
         from ProbeGene
@@ -1315,6 +1300,13 @@ INNER JOIN (
         $extraSQL
         group by rid
 ) as d3 on probe.rid=d3.rid
+END_mainSubQuery
+
+    $self->{_XTableQuery} = <<"END_XTableQuery";
+SELECT
+$selectFieldsSQL
+FROM probe
+$main_subquery
 LEFT join ProbeGene ON probe.rid=ProbeGene.rid
 LEFT join gene ON gene.gid=ProbeGene.gid
 $location_predicate
