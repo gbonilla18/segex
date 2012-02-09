@@ -68,12 +68,12 @@ sub default_head {
     # Get the sequence name for the title
     my $sth = $dbh->prepare(<<"END_SQL1");
 SELECT 
-GROUP_CONCAT(DISTINCT IF(seqname IS NULL, '', seqname) SEPARATOR ', ') AS seqname, 
+GROUP_CONCAT(DISTINCT IF(gsymbol IS NULL, '', gsymbol) SEPARATOR ', ') AS gsymbol, 
 $sql_cutoff AS cutoff, 
 def_p_cutoff AS cutoff_p 
 FROM probe 
 INNER JOIN platform USING(pid) $sql_join_clause
-LEFT JOIN (annotates NATURAL JOIN gene) USING(rid)
+LEFT JOIN (ProbeGene NATURAL JOIN gene) USING(rid)
 WHERE rid=? $sql_where_clause
 GROUP BY probe.rid
 END_SQL1
