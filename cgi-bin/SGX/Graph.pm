@@ -154,6 +154,7 @@ sub default_body {
     my ( $ytitle_text, $y_start, $middle_label ) = @{ $self->{_meta} };
     my ( $seqname,     $cutoff,  $cutoff_p )     = @{ $self->{_scc} };
 
+    $seqname = '' if not defined $seqname;
     my $title_text = "$seqname Differential Expression: Probe $reporter_name";
 
     #Set particulars for graph
