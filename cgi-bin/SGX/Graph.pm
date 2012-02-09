@@ -68,7 +68,7 @@ sub default_head {
     # Get the sequence name for the title
     my $sth = $dbh->prepare(<<"END_SQL1");
 SELECT 
-GROUP_CONCAT(DISTINCT IF(gsymbol IS NULL, '', gsymbol) SEPARATOR ', ') AS gsymbol, 
+group_concat(if(gtype=1, gsymbol, NULL) separator ', ') AS 'Gene Symb.',
 $sql_cutoff AS cutoff, 
 def_p_cutoff AS cutoff_p 
 FROM probe 
