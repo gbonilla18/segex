@@ -1306,15 +1306,12 @@ $selectFieldsSQL
 FROM probe
 INNER JOIN (
         select rid
-        from probe
-        inner join ProbeGene USING(rid)
+        from ProbeGene
         inner join (
-                select gene.gid
-                from probe
-                inner join ProbeGene ON probe.rid=ProbeGene.rid
-                inner join gene ON ProbeGene.gid=gene.gid
-                inner join ($innerSQL) as d1 on d1.rid=probe.rid
-                group by gene.gid
+                select distinct gid
+                from ProbeGene
+                inner join gene USING(gid)
+                inner join ($innerSQL) as d1 USING(rid)
         ) as d2 USING(gid)
         $extraSQL
         group by rid
