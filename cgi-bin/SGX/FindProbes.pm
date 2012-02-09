@@ -1310,7 +1310,6 @@ INNER JOIN (
         inner join (
                 select distinct gid
                 from ProbeGene
-                inner join gene USING(gid)
                 inner join ($innerSQL) as d1 USING(rid)
         ) as d2 USING(gid)
         $extraSQL
