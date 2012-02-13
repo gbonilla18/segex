@@ -17,6 +17,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     var scope_state = document.getElementById("scope_state");
     var pattern_div = document.getElementById('pattern_div');
     var scope = new YAHOO.widget.ButtonGroup("scope_container");
+    var scope = new YAHOO.widget.ButtonGroup("scope2_container");
     var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
     scope.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;

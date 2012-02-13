@@ -605,7 +605,9 @@ sub readrow_head {
 
     # background image from: http://subtlepatterns.com/?p=703
     push @{ $self->{_css_src_code} }, +{ -code => <<END_css};
-.yui-skin-sam .yui-navset .yui-content { background-image:url('$IMAGES_DIR/fancy_deboss.png'); border-color:#ccc; }
+.yui-skin-sam .yui-navset .yui-content { 
+    background-image:url('$IMAGES_DIR/fancy_deboss.png'); 
+}
 END_css
 
     push @{ $self->{_css_src_yui} }, ('tabview/assets/skins/sam/tabview.css');

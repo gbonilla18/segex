@@ -12,6 +12,7 @@ use File::Temp;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car all_match trim min bind_csv_handle distinct/;
 use SGX::Debug;
+use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
@@ -76,15 +77,34 @@ sub init {
 #===============================================================================
 sub default_head {
     my $self = shift;
-    my ( $js_src_yui, $js_src_code, $css_src_yui ) =
-      @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
+    my ( $js_src_yui, $js_src_code, $css_src_yui, $css_src_code ) =
+      @$self{qw{_js_src_yui _js_src_code _css_src_yui _css_src_code}};
 
-    push @$css_src_yui, 'button/assets/skins/sam/button.css';
+    push @$css_src_yui,
+      (
+        'button/assets/skins/sam/button.css',
+        'tabview/assets/skins/sam/tabview.css'
+      );
+
+    # background image from: http://subtlepatterns.com/?p=703
+    push @$css_src_code, +{ -code => <<END_css};
+.yui-skin-sam .yui-navset .yui-content { 
+    background-image:url('$IMAGES_DIR/fancy_deboss.png'); 
+}
+END_css
+
     push @$js_src_yui,
       (
-        'yahoo-dom-event/yahoo-dom-event.js',
-        'element/element-min.js', 'button/button-min.js'
+        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
+        'button/button-min.js',               'tabview/tabview-min.js'
       );
+    push @{ $self->{_js_src_code} }, +{ -code => <<"END_onload"};
+var tabView = new YAHOO.widget.TabView('property_editor');
+YAHOO.util.Event.addListener(window, 'load', function() {
+    selectTabFromHash(tabView);
+});
+END_onload
+
     $self->getSessionOverrideCGI();
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -src => 'FormFindProbes.js' } );
@@ -484,7 +504,7 @@ sub loadProbeData {
     my $dbh         = $self->{_dbh};
     my $searchItems = $self->{_SearchTerms};
     my $filterItems = $self->{_FilterItems};
-    my $sth = $dbh->prepare( $self->{_XTableQuery} );
+    my $sth         = $dbh->prepare( $self->{_XTableQuery} );
     my $rc =
       $sth->execute( @$searchItems,
         ( ( $self->{_scope} eq 'Probe IDs' ) ? @$searchItems : () ),
@@ -882,140 +902,162 @@ sub default_body {
     my $q         = $self->{_cgi};
     my $curr_proj = $self->{_WorkingProject};
 
-    return $q->start_form(
+    return
+      $q->h2('Find Probes'),
+
+      $q->p(<<"END_H2P_TEXT"),
+You can enter here a list of probes, accession numbers, or gene names. 
+The results will contain probes that are related to the search terms.
+END_H2P_TEXT
+      $q->start_form(
         -id      => 'main_form',
         -method  => 'POST',
         -action  => $q->url( absolute => 1 ) . '?a=findProbes',
         -enctype => 'application/x-www-form-urlencoded'
       ),
-      $q->h2('Find Probes'),
-      $q->p(<<"END_H2P_TEXT"),
-You can enter here a list of probes, accession numbers, or gene names. 
-The results will contain probes that are related to the search terms.
-END_H2P_TEXT
       $q->dl(
         $q->dt( $q->label( { -for => 'q' }, 'Search Term(s):' ) ),
         $q->dd(
-            $q->p(
-                $q->textarea(
-                    -name    => 'q',
-                    -id      => 'q',
-                    -rows    => 10,
-                    -columns => 50,
-                    -title   => <<"END_terms_title"
-Enter list of terms to search. Multiple entries have to be separated by commas 
-or be on separate lines.
-END_terms_title
-                )
-            ),
             $q->div(
-                { -id => 'scope_container', -class => 'input_container' },
-                $q->input(
-                    {
-                        -type  => 'radio',
-                        -name  => 'scope',
-                        -value => 'Probe IDs',
-                        -title => 'Search probe IDs'
-                    }
-                ),
-                $q->input(
-                    {
-                        -type    => 'radio',
-                        -name    => 'scope',
-                        -value   => 'Genes/Accession Nos.',
-                        -checked => 'checked',
-                        -title   => 'Search gene symbols'
-                    }
-                ),
-                $q->input(
-                    {
-                        -type  => 'radio',
-                        -name  => 'scope',
-                        -value => 'Gene Names/Desc.',
-                        -title => 'Search gene names'
-                    }
-                ),
-
-                #$q->input(
-                #    {
-                #        -type  => 'radio',
-                #        -name  => 'scope',
-                #        -value => 'Gene Names',
-                #        -title => 'Search official gene names'
-                #    }
-                #),
-                #$q->input(
-                #    {
-                #        -type  => 'radio',
-                #        -name  => 'scope',
-                #        -value => 'GO Terms',
-                #        -title => 'Search gene ontology terms'
-                #    }
-                #),
-                # preserve state of radio buttons
-                $q->input(
-                    {
-                        -type => 'hidden',
-                        -id   => 'scope_state'
-                    }
-                )
-            ),
-            $q->div(
-                { -id => 'pattern_div' },
-                $q->p(
-                    $q->a(
-                        { -id => 'patternMatcher', -class => 'pluscol' },
-                        '+ Patterns in input terms'
+                { -id => 'property_editor', -class => 'yui-navset' },
+                $q->ul(
+                    { -class => 'yui-nav' },
+                    $q->li(
+                        { -class => 'selected' },
+                        $q->a( { -href => "#terms" }, $q->em('Enter List') )
+                    ),
+                    $q->li(
+                        $q->a( { -href => "#upload" }, $q->em('Upload File') )
                     )
                 ),
                 $q->div(
-                    {
-                        -id    => 'patternMatcher_container',
-                        -class => 'dd_collapsible'
-                    },
+                    { -class => 'yui-content' },
                     $q->div(
-                        {
-                            -id    => 'pattern_container',
-                            -class => 'input_container'
-                        },
-                        $q->input(
-                            {
-                                -type    => 'radio',
-                                -name    => 'match',
-                                -value   => 'Exact',
-                                -checked => 'checked',
-                                -title   => 'Match full words'
-                            }
+                        $q->div(
+                            { -id => 'terms' },
+                            $q->p(
+                                $q->textarea(
+                                    -name    => 'q',
+                                    -id      => 'q',
+                                    -rows    => 10,
+                                    -columns => 50,
+                                    -title   => <<"END_terms_title"
+Enter list of terms to search. Multiple entries have to be separated by commas
+or be on separate lines.
+END_terms_title
+                                )
+                            )
                         ),
-                        $q->input(
+                        $q->div(
                             {
-                                -type  => 'radio',
-                                -name  => 'match',
-                                -value => 'Prefix',
-                                -title => 'Match word prefixes'
-                            }
-                        ),
-                        $q->input(
-                            {
-                                -type  => 'radio',
-                                -name  => 'match',
-                                -value => 'Partial',
-                                -title =>
-                                  'Match word fragments or regular expressions'
-                            }
-                        ),
+                                -id    => 'scope_container',
+                                -class => 'input_container'
+                            },
+                            $q->input(
+                                {
+                                    -type  => 'radio',
+                                    -name  => 'scope',
+                                    -value => 'Probe IDs',
+                                    -title => 'Search probe IDs'
+                                }
+                            ),
+                            $q->input(
+                                {
+                                    -type    => 'radio',
+                                    -name    => 'scope',
+                                    -value   => 'Genes/Accession Nos.',
+                                    -checked => 'checked',
+                                    -title   => 'Search gene symbols'
+                                }
+                            ),
+                            $q->input(
+                                {
+                                    -type  => 'radio',
+                                    -name  => 'scope',
+                                    -value => 'Gene Names/Desc.',
+                                    -title => 'Search gene names'
+                                }
+                            ),
 
-                        # preserve state of radio buttons
-                        $q->input(
-                            {
-                                -type => 'hidden',
-                                -id   => 'pattern_state'
-                            }
-                        )
-                    ),
-                    $q->p(
-                        { -class => 'hint', -id => 'pattern_part_hint' },
-                        <<"END_EXAMPLE_TEXT") ) ),
+                            #$q->input(
+                            #    {
+                            #        -type  => 'radio',
+                            #        -name  => 'scope',
+                            #        -value => 'GO Terms',
+                            #        -title => 'Search gene ontology terms'
+                            #    }
+                            #),
+
+                            # preserve state of radio buttons
+                            $q->input(
+                                {
+                                    -type => 'hidden',
+                                    -id   => 'scope_state'
+                                }
+                            )
+                        ),
+                        $q->div(
+                            { -id => 'pattern_div' },
+                            $q->p(
+                                $q->a(
+                                    {
+                                        -id    => 'patternMatcher',
+                                        -class => 'pluscol'
+                                    },
+                                    '+ Patterns in input terms'
+                                )
+                            ),
+                            $q->div(
+                                {
+                                    -id    => 'patternMatcher_container',
+                                    -class => 'dd_collapsible'
+                                },
+                                $q->div(
+                                    {
+                                        -id    => 'pattern_container',
+                                        -class => 'input_container'
+                                    },
+                                    $q->input(
+                                        {
+                                            -type    => 'radio',
+                                            -name    => 'match',
+                                            -value   => 'Exact',
+                                            -checked => 'checked',
+                                            -title   => 'Match full words'
+                                        }
+                                    ),
+                                    $q->input(
+                                        {
+                                            -type  => 'radio',
+                                            -name  => 'match',
+                                            -value => 'Prefix',
+                                            -title => 'Match word prefixes'
+                                        }
+                                    ),
+                                    $q->input(
+                                        {
+                                            -type  => 'radio',
+                                            -name  => 'match',
+                                            -value => 'Partial',
+                                            -title =>
+'Match word fragments or regular expressions'
+                                        }
+                                    ),
+
+                                    # preserve state of radio buttons
+                                    $q->input(
+                                        {
+                                            -type => 'hidden',
+                                            -id   => 'pattern_state'
+                                        }
+                                    )
+                                ),
+                                $q->p(
+                                    {
+                                        -class => 'hint',
+                                        -id    => 'pattern_part_hint'
+                                    },
+                                    <<"END_EXAMPLE_TEXT") ) ),
 Partial matching lets you search for word parts and regular expressions.
 For example, <strong>^cyp.b</strong> means "all genes starting with
 <strong>cyp.b</strong> where the fourth character (the dot) is any single letter or
@@ -1023,7 +1065,49 @@ digit."  See <a target="_blank"
 href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
 information.
 END_EXAMPLE_TEXT
-        ),
+                    ),
+                    $q->div(
+                        { -id => 'upload' },
+                        $q->filefield(
+                            -name => 'file',
+                            -title =>
+'File with probe ids, gene symbols, or accession numbers (one term per line)'
+                        ),
+                        $q->div(
+                            {
+                                -id    => 'scope2_container',
+                                -class => 'input_container'
+                            },
+                            $q->input(
+                                {
+                                    -type    => 'radio',
+                                    -name    => 'scope2',
+                                    -checked => 'checked',
+                                    -value   => 'Probe IDs',
+                                    -title   => 'Search probe IDs'
+                                }
+                            ),
+                            $q->input(
+                                {
+                                    -type  => 'radio',
+                                    -name  => 'scope2',
+                                    -value => 'Genes/Accession Nos.',
+                                    -title => 'Search gene symbols'
+                                }
+                            ),
+                            $q->input(
+                                {
+                                    -type => 'hidden',
+                                    -id   => 'scope2_state'
+                                }
+                            )
+                        )
+                    )
+                )
+            )
+        )
+      ),
+      $q->dl(
         $q->dt('Scope and Options:'),
         $q->dd(
             $q->div(
@@ -1417,7 +1501,8 @@ sub findProbes_js {
         my %type_to_column = (
             'Probe IDs'            => 'reporter',
             'Genes/Accession Nos.' => 'gsymbol',
-            'Gene Names/Desc.'     => 'gsymbol+gname+gdesc'
+            'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
+            'GO Terms'             => 'goterms'
         );
 
         my %json_probelist = (

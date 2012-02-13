@@ -374,6 +374,12 @@ td.yui-dt-resizeable .yui-dt-liner {
 	font-family:Menlo,Consolas,Monaco,"Lucida Console",monospace;
 	width: 250px;
 }
+/* -------------
+ * .yui-skin-sam .yui-navset .yui-content
+ * ------------- */
+.yui-skin-sam .yui-navset .yui-content {
+	border-color:#ccc;
+}
 
 /* ------------------------------------------------------------
  * Button
