@@ -400,28 +400,29 @@ sub build_SearchPredicate {
 sub build_location_predparam {
     my $self = shift;
     my $q    = $self->{_cgi};
-    my $query;
+    my $query = 'INNER JOIN platform ON probe.pid=platform.pid';
     my @param;
 
+    $self->{_FilterItems} = \@param;
     #---------------------------------------------------------------------------
     # Filter by chromosomal location
     #---------------------------------------------------------------------------
     my $loc_sid = car $q->param('spid');
     if ( defined $loc_sid and $loc_sid ne '' ) {
-        $query = 'locus.sid=?';
+        $query .= ' AND platform.sid=?';
         push @param, $loc_sid;
 
  # where Intersects(LineString(Point(0,93160788), Point(0,103160849)), # locus);
  # chromosome is meaningless unless species was specified.
         my $loc_chr = car $q->param('chr');
         if ( defined $loc_chr and $loc_chr ne '' ) {
-            $query .= ' AND locus.chr=?';
+            $query .= ' INNER JOIN locus ON probe.rid=locus.rid AND locus.chr=?';
             push @param, $loc_chr;
 
             # starting and ending interval positions are meaningless if no
             # chromosome was specified.
-            my $loc_end   = car $q->param('end');
             my $loc_start = car $q->param('start');
+            my $loc_end   = car $q->param('end');
             if (   ( defined $loc_start and $loc_start ne '' )
                 && ( defined $loc_end and $loc_end ne '' ) )
             {
@@ -431,7 +432,7 @@ sub build_location_predparam {
             }
         }
     }
-    return ( $query, \@param );
+    return $query;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1325,22 +1326,7 @@ END_sql_subset_by_project
     # Filter by chromosomal location (use platform table to look up species when
     # only species is specified and not an actual chromosomal location).
     #---------------------------------------------------------------------------
-    my ( $subquery, $subparam ) = $self->build_location_predparam();
-    my $location_predicate = '';
-    my $species_predicate  = '';
-    my $join_species_on    = 'platform.sid';
-    if ( @$subparam == 1 ) {
-
-        #species only
-        $species_predicate = 'AND platform.sid=?';
-        push @{ $self->{_FilterItems} }, @$subparam;
-    }
-    elsif ( @$subparam > 1 ) {
-        $location_predicate =
-          'INNER JOIN locus ON probe.rid=locus.rid AND ' . $subquery;
-        push @{ $self->{_FilterItems} }, @$subparam;
-        $join_species_on = 'locus.sid';
-    }
+    my $limit_predicate = $self->build_location_predparam();
 
     #---------------------------------------------------------------------------
     #  fields to select
@@ -1393,9 +1379,8 @@ FROM probe
 $main_subquery
 LEFT join ProbeGene ON probe.rid=ProbeGene.rid
 LEFT join gene ON gene.gid=ProbeGene.gid
-$location_predicate
-INNER JOIN platform ON probe.pid=platform.pid $species_predicate
-LEFT JOIN species ON species.sid=$join_species_on
+$limit_predicate
+LEFT JOIN species ON species.sid=platform.sid
 $sql_subset_by_project
 group by probe.rid
 END_XTableQuery
