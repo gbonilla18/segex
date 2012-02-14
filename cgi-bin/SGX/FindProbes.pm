@@ -398,12 +398,13 @@ sub build_SearchPredicate {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_location_predparam {
-    my $self = shift;
-    my $q    = $self->{_cgi};
+    my $self  = shift;
+    my $q     = $self->{_cgi};
     my $query = 'INNER JOIN platform ON probe.pid=platform.pid';
     my @param;
 
     $self->{_FilterItems} = \@param;
+
     #---------------------------------------------------------------------------
     # Filter by chromosomal location
     #---------------------------------------------------------------------------
@@ -416,7 +417,8 @@ sub build_location_predparam {
  # chromosome is meaningless unless species was specified.
         my $loc_chr = car $q->param('chr');
         if ( defined $loc_chr and $loc_chr ne '' ) {
-            $query .= ' INNER JOIN locus ON probe.rid=locus.rid AND locus.chr=?';
+            $query .=
+              ' INNER JOIN locus ON probe.rid=locus.rid AND locus.chr=?';
             push @param, $loc_chr;
 
             # starting and ending interval positions are meaningless if no
@@ -544,10 +546,10 @@ sub loadExperimentData {
     my $self                 = shift;
     my $experimentDataString = '';
 
-    $self->{_ProbeExperimentHash}     = {};
-    $self->{_ExperimentListHash}      = {};
-    $self->{_ExperimentStudyListHash} = [];
-    $self->{_ExperimentNameListHash}  = {};
+    $self->{_ProbeExperimentHash}    = {};
+    $self->{_ExperimentListHash}     = {};
+    $self->{_eid_stid_tuples}        = [];
+    $self->{_ExperimentNameListHash} = {};
 
 #Grab the format for the output from the form.
 #$transform = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : '';
@@ -586,7 +588,7 @@ sub loadExperimentData {
             $self->{_ExperimentListHash}->{ $_->[0] } = $_->[8];
 
             # [EID, STID] => 1
-            push @{ $self->{_ExperimentStudyListHash} }, [ $_->[0], $_->[7] ];
+            push @{ $self->{_eid_stid_tuples} }, [ $_->[0], $_->[7] ];
 
             # EID => Name
             $self->{_ExperimentNameListHash}->{ $_->[0] } = $_->[6];
@@ -795,35 +797,35 @@ sub getProbeList {
 sub getFullExperimentData {
     my $self = shift;
 
-    my $dbh = $self->{_dbh};
+    my $dbh             = $self->{_dbh};
+    my $eid_stid_tuples = $self->{_eid_stid_tuples};
+    my $curr_proj       = $self->{_WorkingProject};
+
     my @eid_list;
     my @stid_list;
 
-    foreach ( @{ $self->{_ExperimentStudyListHash} } ) {
+    foreach (@$eid_stid_tuples) {
         my ( $eid, $stid ) = @$_;
         push @eid_list,  $eid;
         push @stid_list, $stid;
     }
 
-    my $eid_string  = ( @eid_list > 0 ) ? join( ',', @eid_list )  : 'NULL';
-    my $stid_string = ( @eid_list > 0 ) ? join( ',', @stid_list ) : 'NULL';
+    my $eid_sql =
+      ( @eid_list > 0 ) ? join( ',', map { '?' } @eid_list ) : 'NULL';
+    my $stid_sql =
+      ( @stid_list > 0 ) ? join( ',', map { '?' } @stid_list ) : 'NULL';
+    my @params = ( @eid_list, @stid_list );
 
-    my $whereSQL;
-    my $curr_proj = $self->{_WorkingProject};
+    my @where_conditions = ( "eid IN ($eid_sql)", "study.stid IN ($stid_sql)" );
     if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $curr_proj = $dbh->quote($curr_proj);
-        $whereSQL  = <<"END_whereTitlesSQL";
-INNER JOIN ProjectStudy USING(stid)
-WHERE prid=$curr_proj AND eid IN ($eid_string) AND study.stid IN ($stid_string)
-END_whereTitlesSQL
+        unshift @params,           $curr_proj;
+        unshift @where_conditions, 'prid=?';
     }
-    else {
-        $whereSQL =
-          "WHERE eid IN ($eid_string) AND study.stid IN ($stid_string)";
-    }
+    my $where_sql = 'WHERE ' . join( ' AND ', @where_conditions );
 
-    my $query_titles = <<"END_query_titles_element";
-SELECT experiment.eid, 
+    my $sth = $dbh->prepare(<<"END_query_titles_element");
+SELECT
+    experiment.eid, 
     CONCAT(study.description, ': ', experiment.sample2, ' / ', experiment.sample1) AS title, 
     CONCAT(experiment.sample2, ' / ', experiment.sample1) AS experimentHeading,
     study.description,
@@ -831,16 +833,15 @@ SELECT experiment.eid,
 FROM experiment 
 INNER JOIN StudyExperiment USING(eid)
 INNER JOIN study USING(stid)
-$whereSQL
+$where_sql
 ORDER BY study.stid ASC, experiment.eid ASC
 END_query_titles_element
 
-    my $sth = $dbh->prepare($query_titles);
-    my $rc  = $sth->execute();
+    my $rc = $sth->execute(@params);
     $self->{_FullExperimentData} = $sth->fetchall_hashref('eid');
 
     $sth->finish;
-    return;
+    return 1;
 }
 
 #===  FUNCTION  ================================================================
