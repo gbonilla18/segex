@@ -214,98 +214,113 @@ sub FindProbes_init {
     $self->{_graph} = car $q->param('graph');
     $self->{_opts}  = car $q->param('opts');
 
-    require SGX::CSV;
-    my ( $outputFileNames, $recordsValid ) =
-      SGX::CSV::sanitizeUploadWithMessages(
-        $self, 'file',
-        csv_in_opts => { quote_char => undef },
-        parser      => [
-            ( $scope eq 'Probe IDs' )
-
-            #------------------------------------------------------------------
-            #   Probe IDs
-            #------------------------------------------------------------------
-            ? sub {
-
-        # Regular expression for the first column (probe/reporter id) reads as
-        # follows: from beginning to end, match any character other than [space,
-        # forward/back slash, comma, equal or pound sign, opening or closing
-        # parentheses, double quotation mark] from 1 to 18 times.
-                if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-                    return $1;
-                }
-                else {
-                    SGX::Exception::User->throw(
-                        error => 'Cannot parse probe ID on line ' . shift );
-                }
-              }
-
-            #-------------------------------------------------------------------
-            #  Gene symbols
-            #-------------------------------------------------------------------
-            : sub {
-                if ( shift =~ /^([^\+\s]+)$/ ) {
-                    return $1;
-                }
-                else {
-                    SGX::Exception::User->throw(
-                        error => 'Invalid gene symbol format on line '
-                          . shift );
-                }
-              }
-        ]
-      );
-
-    my ($outputFileName) = @$outputFileNames;
-
-    my $ug         = Data::UUID->new();
-    my $temp_table = $ug->to_string( $ug->create() );
-    $temp_table =~ s/-/_/g;
-    $temp_table = "tmp$temp_table";
-    $self->{_TempTable} = $temp_table;
+    my $temp_table;
 
     my @sth;
     my @param;
     my @check;
 
-    #---------------------------------------------------------------------------
-    #  now load into temporary table
-    #---------------------------------------------------------------------------
-    my $symbol_type =
-      ( $scope eq 'Probe IDs' ) ? 'char(18) NOT NULL' : 'char(32) NOT NULL';
-    push @sth, <<"END_createTable";
+    if ( ( $scope eq 'Probe IDs' or $scope eq 'Genes/Accession Nos.' )
+        and $match eq 'Full Word' )
+    {
+
+        #----------------------------------------------------------------------
+        #  Try to load file
+        #----------------------------------------------------------------------
+        my $outputFileName;
+
+        require SGX::CSV;
+        if ($upload_file) {
+            my ( $outputFileNames, $recordsValid ) =
+              SGX::CSV::sanitizeUploadWithMessages(
+                $self, 'file',
+                csv_in_opts => { quote_char => undef },
+                parser      => [
+                    ( $scope eq 'Probe IDs' )
+
+                    #------------------------------------------------------
+                    #   Probe IDs
+                    #------------------------------------------------------
+                    ? sub {
+
+        # Regular expression for the first column (probe/reporter id) reads as
+        # follows: from beginning to end, match any character other than [space,
+        # forward/back slash, comma, equal or pound sign, opening or closing
+        # parentheses, double quotation mark] from 1 to 18 times.
+                        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+                            return $1;
+                        }
+                        else {
+                            SGX::Exception::User->throw(
+                                error => 'Cannot parse probe ID on line '
+                                  . shift );
+                        }
+                      }
+
+                      #-------------------------------------------------------
+                      #  Gene symbols
+                      #-------------------------------------------------------
+                    : sub {
+                        if ( shift =~ /^([^\+\s]+)$/ ) {
+                            return $1;
+                        }
+                        else {
+                            SGX::Exception::User->throw(
+                                error => 'Invalid gene symbol format on line '
+                                  . shift );
+                        }
+                      }
+                ]
+              );
+            ($outputFileName) = @$outputFileNames;
+        }
+
+        #----------------------------------------------------------------------
+        #  Set up temporary table
+        #----------------------------------------------------------------------
+        my $ug = Data::UUID->new();
+        $temp_table = $ug->to_string( $ug->create() );
+        $temp_table =~ s/-/_/g;
+        $temp_table = "tmp$temp_table";
+        $self->{_TempTable} = $temp_table;
+
+        #----------------------------------------------------------------------
+        #  now load into temporary table
+        #----------------------------------------------------------------------
+        my $symbol_type =
+          ( $scope eq 'Probe IDs' ) ? 'char(18) NOT NULL' : 'char(32) NOT NULL';
+        push @sth, <<"END_createTable";
 CREATE TEMPORARY TABLE $temp_table (
     symbol $symbol_type, 
     UNIQUE KEY symbol (symbol)
 ) ENGINE=MEMORY
 END_createTable
-    push @param, [];
-    push @check, undef;
-
-    #-----------------------------------------------------------------------
-    #  load symbols into temporary table
-    #-----------------------------------------------------------------------
-    if ( defined $outputFileName ) {
+        push @param, [];
+        push @check, undef;
 
         #-----------------------------------------------------------------------
-        #  file is uploaded -- slurp data
+        #  load symbols into temporary table
         #-----------------------------------------------------------------------
-        push @sth, <<"END_loadData";
+        if ( defined $outputFileName ) {
+
+            #-----------------------------------------------------------------
+            #  file is uploaded -- slurp data
+            #-----------------------------------------------------------------
+            push @sth, <<"END_loadData";
 LOAD DATA LOCAL INFILE ?
 INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n' STARTING BY '' (symbol)
 END_loadData
-        push @param, [$outputFileName];
-        push @check, undef;
-    }
-    else {
+            push @param, [$outputFileName];
+            push @check, undef;
+        }
+        else {
 
-        #-----------------------------------------------------------------------
-        #  file is not uploaded -- multiple insert statements
-        #-----------------------------------------------------------------------
-        my $text = car $q->param('q');
-        if ( $scope eq 'Probe IDs' or $scope eq 'Genes/Accession Nos.' ) {
+            #------------------------------------------------------------------
+            #  file is not uploaded -- multiple insert statements
+            #------------------------------------------------------------------
+            my $text = car $q->param('q');
 
             # split on spaces or commas
             my @textSplit = split( /[,\s]+/, trim($text) );
@@ -316,20 +331,20 @@ END_loadData
                 push @check, undef;
             }
         }
-        else {
-            $self->{_TempTable}   = undef;
-            $self->{_SearchTerms} = [$text];
-            return 1;
-        }
+        return SGX::CSV::delegate_fileUpload(
+            delegate   => $self,
+            statements => \@sth,
+            parameters => \@param,
+            validators => \@check,
+            filename   => $outputFileName
+        );
+    }
+    else {
+        my $text = car $q->param('q');
+        $self->{_SearchTerms} = [$text];
+        return 1;
     }
 
-    return SGX::CSV::delegate_fileUpload(
-        delegate   => $self,
-        statements => \@sth,
-        parameters => \@param,
-        validators => \@check,
-        filename   => $outputFileName
-    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1473,10 +1488,10 @@ SELECT
 $selectFieldsSQL
 FROM probe
 INNER JOIN (
-    SELECT DISTINCT COALESCE(ProbeGene.rid, D1.rid) AS rid
-    FROM ($innerSQL) AS D1
+    SELECT DISTINCT COALESCE(ProbeGene.rid, d2.rid) AS rid
+    FROM ($innerSQL) AS d2
     LEFT join ProbeGene USING(gid)
-) AS d2 on probe.rid=d2.rid
+) AS d3 on probe.rid=d3.rid
 LEFT join ProbeGene ON probe.rid=ProbeGene.rid
 LEFT join gene ON gene.gid=ProbeGene.gid
 $limit_predicate
