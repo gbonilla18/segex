@@ -44,11 +44,13 @@ sub delegate_fileUpload {
             my @proc_param =
               map { ( ref($_) eq 'CODE' ) ? $_->() : $_ } @$param;
             push @return_codes, 0 + $sth->execute(@proc_param);
+            $sth->finish();
             if ( defined $validators ) {
                 my $validator = shift @$validators;
                 $validator->( \@return_codes ) if defined $validator;
             }
         }
+
         1;
     } or do {
         my $exception = $@;

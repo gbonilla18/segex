@@ -4,9 +4,10 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
     // remove white space from the left and from the right, then replace each
     // internal group of spaces with a comma
     var terms = document.getElementById("q");
-    terms.value = terms.value.replace(/^\s+/, "").replace(/\s+$/, "").replace(/[,\s]+/g, ",");
+    terms.value = terms.value.replace(/^\s+/, "").replace(/\s+$/, "");
     return true;
 });
+
 YAHOO.util.Event.addListener(window, 'load', function() {
     setupToggles('change',
         { 'spid': { 'defined' : ['chr_div' ] } }, 
@@ -14,14 +15,15 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     );
 
     // scope
-    var scope_state = document.getElementById("scope_state");
     var pattern_div = document.getElementById('pattern_div');
-    var scope = new YAHOO.widget.ButtonGroup("scope_container");
-    var scope = new YAHOO.widget.ButtonGroup("scope2_container");
+    var scope_list_state = document.getElementById("scope_list_state");
+    var scope_file_state = document.getElementById("scope_file_state");
+    var scope_list = new YAHOO.widget.ButtonGroup("scope_list_container");
+    var scope_file = new YAHOO.widget.ButtonGroup("scope_file_container");
     var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
-    scope.addListener("checkedButtonChange", function(ev) {
+    scope_list.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;
-        scope_state.value = selectedIndex;
+        scope_list_state.value = selectedIndex;
         switch (selectedIndex) {
         case 0:
             patterns.check(0);
@@ -32,13 +34,21 @@ YAHOO.util.Event.addListener(window, 'load', function() {
             pattern_div.style.display = 'block';
             break;
         case 2:
-            patterns.check(2);
+        case 3:
+            patterns.check(1);
             pattern_div.style.display = 'block';
             break;
         }
     });
-    if (scope_state.value !== '') {
-        scope.check(scope_state.value);
+    if (scope_list_state.value !== '') {
+        scope_list.check(scope_list_state.value);
+    }
+    scope_file.addListener("checkedButtonChange", function(ev) {
+        var selectedIndex = ev.newValue.index;
+        scope_file_state.value = selectedIndex;
+    });
+    if (scope_file_state.value !== '') {
+        scope_file.check(scope_file_state.value);
     }
 
     // pattern/match
@@ -47,7 +57,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     patterns.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;
         pattern_state.value = selectedIndex;
-        if (selectedIndex === 2) {
+        if (selectedIndex === 1) {
             pattern_part_hint.style.display = 'block';
         } else {
             pattern_part_hint.style.display = 'none';

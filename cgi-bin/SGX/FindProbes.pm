@@ -10,9 +10,10 @@ use File::Basename;
 use JSON qw/encode_json/;
 use File::Temp;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car all_match trim min bind_csv_handle distinct/;
+use SGX::Util qw/car trim min bind_csv_handle distinct file_opts_html/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
+use Data::UUID;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
@@ -193,58 +194,142 @@ sub Search_head {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub FindProbes_init {
-    my ( $self, $fh ) = @_;
-    my $q = $self->{_cgi};
+    my $self = shift;
+    my $q    = $self->{_cgi};
 
-    my $scope = car $q->param('scope');
+    my $filefield_val = car $q->param('file');
+    my $upload_file = defined($filefield_val) && ( $filefield_val ne '' );
+    my $scope =
+      ($upload_file)
+      ? car( $q->param('scope_file') )
+      : car( $q->param('scope_list') );
     my $match = car $q->param('match');
-    $match = 'Exact'
-      if ( not defined $match )
-      or $scope eq 'Probe IDs';
+    $match = 'Full Word'
+      if $upload_file
+          || !defined($match)
+          || ( $scope eq 'Probe IDs' );
+
     $self->{_scope} = $scope;
     $self->{_match} = $match;
     $self->{_graph} = car $q->param('graph');
     $self->{_opts}  = car $q->param('opts');
 
-    my @textSplit;
+    require SGX::CSV;
+    my ( $outputFileNames, $recordsValid ) =
+      SGX::CSV::sanitizeUploadWithMessages(
+        $self, 'file',
+        csv_in_opts => { quote_char => undef },
+        parser      => [
+            ( $scope eq 'Probe IDs' )
 
-    if ( defined $fh ) {
-        my @lines = split(
-            /\r\n|\n|\r/,
-            do { local $/ = <$fh> }
-        );
-        require Text::CSV;
-        my $csv_in =
-          Text::CSV->new( { sep_char => "\t", allow_whitespace => 1 } );
+            #------------------------------------------------------------------
+            #   Probe IDs
+            #------------------------------------------------------------------
+            ? sub {
 
-        # Generate a custom function that matches all members of an array to see
-        # if they all are empty strings.
-        my $is_empty = all_match( qr/^$/, ignore_undef => 1 );
-        while ( $csv_in->parse( shift @lines ) ) {
+        # Regular expression for the first column (probe/reporter id) reads as
+        # follows: from beginning to end, match any character other than [space,
+        # forward/back slash, comma, equal or pound sign, opening or closing
+        # parentheses, double quotation mark] from 1 to 18 times.
+                if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+                    return $1;
+                }
+                else {
+                    SGX::Exception::User->throw(
+                        error => 'Cannot parse probe ID on line ' . shift );
+                }
+              }
 
-            # grab first field of each row
-            my @fields = $csv_in->fields();
-            my $term   = shift @fields;
-            next if $is_empty->($term);
-            push @textSplit, $term;
-        }
+            #-------------------------------------------------------------------
+            #  Gene symbols
+            #-------------------------------------------------------------------
+            : sub {
+                if ( shift =~ /^([^\+\s]+)$/ ) {
+                    return $1;
+                }
+                else {
+                    SGX::Exception::User->throw(
+                        error => 'Invalid gene symbol format on line '
+                          . shift );
+                }
+              }
+        ]
+      );
 
-        # check for errors
-        if ( my $error = $csv_in->error_diag() ) {
-            SGX::Exception::User->throw( error => $error );
-        }
+    my ($outputFileName) = @$outputFileNames;
+
+    my $ug         = Data::UUID->new();
+    my $temp_table = $ug->to_string( $ug->create() );
+    $temp_table =~ s/-/_/g;
+    $temp_table = "tmp$temp_table";
+    $self->{_TempTable} = $temp_table;
+
+    my @sth;
+    my @param;
+    my @check;
+
+    #---------------------------------------------------------------------------
+    #  now load into temporary table
+    #---------------------------------------------------------------------------
+    my $symbol_type =
+      ( $scope eq 'Probe IDs' ) ? 'char(18) NOT NULL' : 'char(32) NOT NULL';
+    push @sth, <<"END_createTable";
+CREATE TEMPORARY TABLE $temp_table (
+    symbol $symbol_type, 
+    UNIQUE KEY symbol (symbol)
+) ENGINE=MEMORY
+END_createTable
+    push @param, [];
+    push @check, undef;
+
+    #-----------------------------------------------------------------------
+    #  load symbols into temporary table
+    #-----------------------------------------------------------------------
+    if ( defined $outputFileName ) {
+
+        #-----------------------------------------------------------------------
+        #  file is uploaded -- slurp data
+        #-----------------------------------------------------------------------
+        push @sth, <<"END_loadData";
+LOAD DATA LOCAL INFILE ?
+INTO TABLE $temp_table
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n' STARTING BY '' (symbol)
+END_loadData
+        push @param, [$outputFileName];
+        push @check, undef;
     }
     else {
 
-        #Split the input on commas and spaces
+        #-----------------------------------------------------------------------
+        #  file is not uploaded -- multiple insert statements
+        #-----------------------------------------------------------------------
         my $text = car $q->param('q');
-        @textSplit = split( /[,\s]+/, trim($text) );
+        if ( $scope eq 'Probe IDs' or $scope eq 'Genes/Accession Nos.' ) {
+
+            # split on spaces or commas
+            my @textSplit = split( /[,\s]+/, trim($text) );
+            $self->{_SearchTerms} = \@textSplit;
+            foreach my $term (@textSplit) {
+                push @sth, "INSERT IGNORE INTO $temp_table (symbol) VALUES (?)";
+                push @param, [$term];
+                push @check, undef;
+            }
+        }
+        else {
+            $self->{_TempTable}   = undef;
+            $self->{_SearchTerms} = [$text];
+            return 1;
+        }
     }
 
-    $self->{_match}       = $match;
-    $self->{_SearchTerms} = \@textSplit;
-
-    return 1;
+    return SGX::CSV::delegate_fileUpload(
+        delegate   => $self,
+        statements => \@sth,
+        parameters => \@param,
+        validators => \@check,
+        filename   => $outputFileName
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -337,10 +422,12 @@ sub build_SearchPredicate {
     my %translate_fields = (
         'Probe IDs'            => ['reporter'],
         'Genes/Accession Nos.' => ['gsymbol'],
-        'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ]
+        'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ],
+        'GO Terms'             => []
     );
     my $type = $translate_fields{ $self->{_scope} };
-    if ( $match eq 'Exact' ) {
+
+    if ( $match eq 'Full Word' ) {
         ( $predicate => $qtext ) = @$items
           ? (
             [
@@ -382,7 +469,7 @@ sub build_SearchPredicate {
         push @$predicate, map { "$_ IN (NULL)" } @$type;
     }
     $self->{_Predicate} = 'WHERE ' . join( ' AND ', @$predicate );
-    $self->{_SearchTerms} = $qtext;
+    $self->{_SearchTermsProc} = $qtext;
 
     return 1;
 }
@@ -504,13 +591,13 @@ END_ExperimentDataQuery
 sub loadProbeData {
     my $self = shift;
 
-    my $dbh         = $self->{_dbh};
-    my $searchItems = $self->{_SearchTerms};
-    my $filterItems = $self->{_FilterItems};
-    my $sth         = $dbh->prepare( $self->{_XTableQuery} );
-    my $rc =
-      $sth->execute( @$searchItems,
-        ( ( $self->{_scope} eq 'Probe IDs' ) ? @$searchItems : () ),
+    my $dbh             = $self->{_dbh};
+    my $searchItems     = $self->{_SearchTerms};
+    my $searchItemsProc = $self->{_SearchTermsProc};
+    my $filterItems     = $self->{_FilterItems};
+    my $sth             = $dbh->prepare( $self->{_XTableQuery} );
+    my $rc              = $sth->execute(
+        ( ( $self->{_scope} ne 'Probe IDs' ) ? @$searchItemsProc : () ),
         @$filterItems );
     $self->{_ProbeCount} = $rc;
 
@@ -786,8 +873,8 @@ sub getProbeList {
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
 #       METHOD:  getFullExperimentData
-#   PARAMETERS:  ????
-#      RETURNS:  ????
+#   PARAMETERS:  _eid_stid_tuples, _WorkingProject
+#      RETURNS:  _FullExperimentData
 #  DESCRIPTION:  Loop through the list of experiments we are displaying and get
 #  the information on each. We need eid and stid for each.
 #       THROWS:  no exceptions
@@ -952,13 +1039,13 @@ END_terms_title
                         ),
                         $q->div(
                             {
-                                -id    => 'scope_container',
+                                -id    => 'scope_list_container',
                                 -class => 'input_container'
                             },
                             $q->input(
                                 {
                                     -type  => 'radio',
-                                    -name  => 'scope',
+                                    -name  => 'scope_list',
                                     -value => 'Probe IDs',
                                     -title => 'Search probe IDs'
                                 }
@@ -966,7 +1053,7 @@ END_terms_title
                             $q->input(
                                 {
                                     -type    => 'radio',
-                                    -name    => 'scope',
+                                    -name    => 'scope_list',
                                     -value   => 'Genes/Accession Nos.',
                                     -checked => 'checked',
                                     -title   => 'Search gene symbols'
@@ -975,26 +1062,25 @@ END_terms_title
                             $q->input(
                                 {
                                     -type  => 'radio',
-                                    -name  => 'scope',
+                                    -name  => 'scope_list',
                                     -value => 'Gene Names/Desc.',
                                     -title => 'Search gene names'
                                 }
                             ),
-
-                            #$q->input(
-                            #    {
-                            #        -type  => 'radio',
-                            #        -name  => 'scope',
-                            #        -value => 'GO Terms',
-                            #        -title => 'Search gene ontology terms'
-                            #    }
-                            #),
+                            $q->input(
+                                {
+                                    -type  => 'radio',
+                                    -name  => 'scope_list',
+                                    -value => 'GO Terms',
+                                    -title => 'Search gene ontology terms'
+                                }
+                            ),
 
                             # preserve state of radio buttons
                             $q->input(
                                 {
                                     -type => 'hidden',
-                                    -id   => 'scope_state'
+                                    -id   => 'scope_list_state'
                                 }
                             )
                         ),
@@ -1023,7 +1109,7 @@ END_terms_title
                                         {
                                             -type    => 'radio',
                                             -name    => 'match',
-                                            -value   => 'Exact',
+                                            -value   => 'Full Word',
                                             -checked => 'checked',
                                             -title   => 'Match full words'
                                         }
@@ -1032,17 +1118,18 @@ END_terms_title
                                         {
                                             -type  => 'radio',
                                             -name  => 'match',
-                                            -value => 'Prefix',
-                                            -title => 'Match word prefixes'
+                                            -value => 'Partial',
+                                            -title =>
+'Match word parts, regular expressions'
                                         }
                                     ),
                                     $q->input(
                                         {
+                                            -id    => 'prefix',
                                             -type  => 'radio',
                                             -name  => 'match',
-                                            -value => 'Partial',
-                                            -title =>
-'Match word fragments or regular expressions'
+                                            -value => 'Prefix',
+                                            -title => 'Match word prefixes'
                                         }
                                     ),
 
@@ -1075,15 +1162,16 @@ END_EXAMPLE_TEXT
                             -title =>
 'File with probe ids, gene symbols, or accession numbers (one term per line)'
                         ),
+                        file_opts_html( $q, 'fileOpts' ),
                         $q->div(
                             {
-                                -id    => 'scope2_container',
+                                -id    => 'scope_file_container',
                                 -class => 'input_container'
                             },
                             $q->input(
                                 {
                                     -type    => 'radio',
-                                    -name    => 'scope2',
+                                    -name    => 'scope_file',
                                     -checked => 'checked',
                                     -value   => 'Probe IDs',
                                     -title   => 'Search probe IDs'
@@ -1092,7 +1180,7 @@ END_EXAMPLE_TEXT
                             $q->input(
                                 {
                                     -type  => 'radio',
-                                    -name  => 'scope2',
+                                    -name  => 'scope_file',
                                     -value => 'Genes/Accession Nos.',
                                     -title => 'Search gene symbols'
                                 }
@@ -1100,7 +1188,7 @@ END_EXAMPLE_TEXT
                             $q->input(
                                 {
                                     -type => 'hidden',
-                                    -id   => 'scope2_state'
+                                    -id   => 'scope_file_state'
                                 }
                             )
                         )
@@ -1295,18 +1383,42 @@ END_EXAMPLE_TEXT
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_XTableQuery {
+
     my $self      = shift;
-    my $predicate = $self->{_Predicate};
+    my $dbh       = $self->{_dbh};
+    my $tmp_table = $self->{_TempTable};
 
     #---------------------------------------------------------------------------
     #  innermost SELECT statement differs depending on whether we are searching
     #  the probe table or the gene table
     #---------------------------------------------------------------------------
-    my $innerSQL =
-      ( $self->{_scope} eq 'Probe IDs' )
-      ? "select rid from probe $predicate"
-      : "select rid from gene inner join ProbeGene USING(gid) inner join probe USING(rid) $predicate";
-    my $extraSQL = ( $self->{_scope} eq 'Probe IDs' ) ? "UNION $innerSQL" : '';
+    my $innerSQL;
+    if ( defined($tmp_table) and $tmp_table ne '' ) {
+        $innerSQL =
+          ( $self->{_scope} eq 'Probe IDs' )
+          ? "SELECT rid, gid FROM probe INNER JOIN $tmp_table AS tmp ON probe.reporter=tmp.symbol LEFT JOIN ProbeGene USING(rid)"
+          : <<"END_table_gene";
+SELECT rid, gid
+FROM ProbeGene
+INNER JOIN (
+    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) INNER JOIN $tmp_table AS tmp ON gene.gsymbol=tmp.symbol
+) AS d1 USING(rid)
+END_table_gene
+    }
+    else {
+        $self->build_SearchPredicate();
+        my $predicate = $self->{_Predicate};
+        $innerSQL =
+          ( $self->{_scope} eq 'Probe IDs' )
+          ? "SELECT rid, gid FROM probe LEFT JOIN ProbeGene USING(rid) $predicate"
+          : <<"END_no_table_gene";
+SELECT rid, gid
+FROM ProbeGene
+INNER join (
+    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) $predicate
+) AS d1 USING(rid)
+END_no_table_gene
+    }
 
     #---------------------------------------------------------------------------
     # only return results for platforms that belong to the current working
@@ -1316,7 +1428,7 @@ sub build_XTableQuery {
     my $curr_proj             = $self->{_WorkingProject};
     my $sql_subset_by_project = '';
     if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $curr_proj             = $self->{_dbh}->quote($curr_proj);
+        $curr_proj             = $dbh->quote($curr_proj);
         $sql_subset_by_project = <<"END_sql_subset_by_project"
 INNER JOIN study ON study.pid=platform.pid
 INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
@@ -1347,7 +1459,7 @@ END_sql_subset_by_project
         # extra fields
         push @select_fields,
           (
-            "probe.probe_sequence                    AS 'Probe Sequence'",
+            "probe.probe_sequence AS 'Probe Sequence'",
 "group_concat(concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
           );
     }
@@ -1356,28 +1468,15 @@ END_sql_subset_by_project
     #---------------------------------------------------------------------------
     #  main query
     #---------------------------------------------------------------------------
-    my $main_subquery =
-      ( @{ $self->{_SearchTerms} } == 0 )
-      ? ''
-      : <<"END_mainSubQuery";
-INNER JOIN (
-        select rid
-        from ProbeGene
-        inner join (
-                select distinct gid
-                from ProbeGene
-                inner join ($innerSQL) as d1 USING(rid)
-        ) as d2 USING(gid)
-        $extraSQL
-        group by rid
-) as d3 on probe.rid=d3.rid
-END_mainSubQuery
-
     $self->{_XTableQuery} = <<"END_XTableQuery";
 SELECT
 $selectFieldsSQL
 FROM probe
-$main_subquery
+INNER JOIN (
+    SELECT DISTINCT COALESCE(ProbeGene.rid, D1.rid) AS rid
+    FROM ($innerSQL) AS D1
+    LEFT join ProbeGene USING(gid)
+) AS d2 on probe.rid=d2.rid
 LEFT join ProbeGene ON probe.rid=ProbeGene.rid
 LEFT join gene ON gene.gid=ProbeGene.gid
 $limit_predicate
@@ -1442,7 +1541,6 @@ END_ProbeQuery
 sub findProbes_js {
     my $self = shift;
 
-    $self->build_SearchPredicate();
     $self->build_XTableQuery();
 
     #$self->build_ProbeQuery( extra_fields => ( $self->{_opts} ne 'Basic' ) );
@@ -1510,7 +1608,7 @@ var project_id = "%s";
 END_JSON_DATA
             $type_to_column{$type},
             encode_json(
-                ( $match eq 'Exact' )
+                ( $match eq 'Full Word' )
                 ? +{ map { lc($_) => undef } @{ $self->{_SearchTerms} } }
                 : [ distinct( @{ $self->{_SearchTerms} } ) ]
             ),
