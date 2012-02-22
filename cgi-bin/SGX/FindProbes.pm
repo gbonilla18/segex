@@ -272,7 +272,7 @@ sub FindProbes_init {
                       }
                 ]
               );
-            ($outputFileName) = @$outputFileNames;
+            $outputFileName = $outputFileNames->[0];
         }
 
         #----------------------------------------------------------------------
@@ -1017,7 +1017,7 @@ END_H2P_TEXT
         -id      => 'main_form',
         -method  => 'POST',
         -action  => $q->url( absolute => 1 ) . '?a=findProbes',
-        -enctype => 'application/x-www-form-urlencoded'
+        -enctype => 'multipart/form-data'
       ),
       $q->dl(
         $q->dt( $q->label( { -for => 'q' }, 'Search Term(s):' ) ),
