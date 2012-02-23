@@ -28,6 +28,8 @@ sub delegate_fileUpload {
     my $parameters      = $args{parameters};
     my $index_for_count = $args{index_for_count};
     my $filename        = $args{filename};
+    my $success_message =
+      exists( $args{success_message} ) ? $args{success_message} : 1;
 
     my $dbh = $self->{_dbh};
     my @statements = map { $dbh->prepare($_) } @$sql;
@@ -94,9 +96,11 @@ END_dbi_sth_exception
 
     my $records_added = $return_codes[$#return_codes];
     my $time_diff = timestr( timediff( $t1, $t0 ) );
-    my $msg =
+    if ($success_message) {
+        my $msg =
 "Success! Added $records_added entries to the database. The operation took $time_diff.";
-    $self->add_message( { -class => 'success' }, $msg );
+        $self->add_message( { -class => 'success' }, $msg );
+    }
     return 1;
 }
 

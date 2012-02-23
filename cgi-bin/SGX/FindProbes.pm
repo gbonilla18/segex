@@ -197,8 +197,23 @@ sub FindProbes_init {
     my $self = shift;
     my $q    = $self->{_cgi};
 
+    my $loc_sid       = car $q->param('spid');
+    my $text          = car $q->param('q');
     my $filefield_val = car $q->param('file');
-    my $upload_file = defined($filefield_val) && ( $filefield_val ne '' );
+    my $upload_file   = defined($filefield_val) && ( $filefield_val ne '' );
+
+    if (   $text =~ /^\s*$/
+        && !$upload_file
+        && !( defined($loc_sid) and $loc_sid ne '' ) )
+    {
+        $self->add_message( { -class => 'error' },
+            'No search criteria specified' );
+        return;
+    }
+
+    # split on spaces or commas
+    my @textSplit = split( /[,\s]+/, trim($text) );
+
     my $scope =
       ($upload_file)
       ? car( $q->param('scope_file') )
@@ -220,131 +235,125 @@ sub FindProbes_init {
     my @param;
     my @check;
 
-    if ( ( $scope eq 'Probe IDs' or $scope eq 'Genes/Accession Nos.' )
-        and $match eq 'Full Word' )
+    if (   !$upload_file and (@textSplit < 2
+        or !( $scope eq 'Probe IDs' or $scope eq 'Genes/Accession Nos.' )
+        or $match ne 'Full Word' ))
     {
+        $self->{_SearchTerms} = \@textSplit;
+        return 1;
+    }
 
-        #----------------------------------------------------------------------
-        #  Try to load file
-        #----------------------------------------------------------------------
-        my $outputFileName;
+    #----------------------------------------------------------------------
+    #  More than one terms entered and matching is exact.
+    #  Try to load file if uploading a file.
+    #----------------------------------------------------------------------
+    my $outputFileName;
 
-        require SGX::CSV;
-        if ($upload_file) {
-            my ( $outputFileNames, $recordsValid ) =
-              SGX::CSV::sanitizeUploadWithMessages(
-                $self, 'file',
-                csv_in_opts => { quote_char => undef },
-                parser      => [
-                    ( $scope eq 'Probe IDs' )
+    require SGX::CSV;
+    if ($upload_file) {
+        my ( $outputFileNames, $recordsValid ) =
+          SGX::CSV::sanitizeUploadWithMessages(
+            $self, 'file',
+            csv_in_opts => { quote_char => undef },
+            parser      => [
+                ( $scope eq 'Probe IDs' )
 
-                    #------------------------------------------------------
-                    #   Probe IDs
-                    #------------------------------------------------------
-                    ? sub {
+                #------------------------------------------------------
+                #   Probe IDs
+                #------------------------------------------------------
+                ? sub {
 
         # Regular expression for the first column (probe/reporter id) reads as
         # follows: from beginning to end, match any character other than [space,
         # forward/back slash, comma, equal or pound sign, opening or closing
         # parentheses, double quotation mark] from 1 to 18 times.
-                        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-                            return $1;
-                        }
-                        else {
-                            SGX::Exception::User->throw(
-                                error => 'Cannot parse probe ID on line '
-                                  . shift );
-                        }
-                      }
+                    if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+                        return $1;
+                    }
+                    else {
+                        SGX::Exception::User->throw(
+                            error => 'Cannot parse probe ID on line ' . shift );
+                    }
+                  }
 
-                      #-------------------------------------------------------
-                      #  Gene symbols
-                      #-------------------------------------------------------
-                    : sub {
-                        if ( shift =~ /^([^\+\s]+)$/ ) {
-                            return $1;
-                        }
-                        else {
-                            SGX::Exception::User->throw(
-                                error => 'Invalid gene symbol format on line '
-                                  . shift );
-                        }
-                      }
-                ]
-              );
-            $outputFileName = $outputFileNames->[0];
-        }
+                  #-------------------------------------------------------
+                  #  Gene symbols
+                  #-------------------------------------------------------
+                : sub {
+                    if ( shift =~ /^([^\+\s]+)$/ ) {
+                        return $1;
+                    }
+                    else {
+                        SGX::Exception::User->throw(
+                            error => 'Invalid gene symbol format on line '
+                              . shift );
+                    }
+                  }
+            ]
+          );
+        $outputFileName = $outputFileNames->[0];
+    }
 
-        #----------------------------------------------------------------------
-        #  Set up temporary table
-        #----------------------------------------------------------------------
-        my $ug = Data::UUID->new();
-        $temp_table = $ug->to_string( $ug->create() );
-        $temp_table =~ s/-/_/g;
-        $temp_table = "tmp$temp_table";
-        $self->{_TempTable} = $temp_table;
+    #----------------------------------------------------------------------
+    #  Set up temporary table
+    #----------------------------------------------------------------------
+    my $ug = Data::UUID->new();
+    $temp_table = $ug->to_string( $ug->create() );
+    $temp_table =~ s/-/_/g;
+    $temp_table = "tmp$temp_table";
+    $self->{_TempTable} = $temp_table;
 
-        #----------------------------------------------------------------------
-        #  now load into temporary table
-        #----------------------------------------------------------------------
-        my $symbol_type =
-          ( $scope eq 'Probe IDs' ) ? 'char(18) NOT NULL' : 'char(32) NOT NULL';
-        push @sth, <<"END_createTable";
+    #----------------------------------------------------------------------
+    #  now load into temporary table
+    #----------------------------------------------------------------------
+    my $symbol_type =
+      ( $scope eq 'Probe IDs' ) ? 'char(18) NOT NULL' : 'char(32) NOT NULL';
+    push @sth, <<"END_createTable";
 CREATE TEMPORARY TABLE $temp_table (
     symbol $symbol_type, 
     UNIQUE KEY symbol (symbol)
 ) ENGINE=MEMORY
 END_createTable
-        push @param, [];
-        push @check, undef;
+    push @param, [];
+    push @check, undef;
 
-        #-----------------------------------------------------------------------
-        #  load symbols into temporary table
-        #-----------------------------------------------------------------------
-        if ( defined $outputFileName ) {
+    #-----------------------------------------------------------------------
+    #  load symbols into temporary table
+    #-----------------------------------------------------------------------
+    if ( defined $outputFileName ) {
 
-            #-----------------------------------------------------------------
-            #  file is uploaded -- slurp data
-            #-----------------------------------------------------------------
-            push @sth, <<"END_loadData";
+        #-----------------------------------------------------------------
+        #  file is uploaded -- slurp data
+        #-----------------------------------------------------------------
+        push @sth, <<"END_loadData";
 LOAD DATA LOCAL INFILE ?
 INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n' STARTING BY '' (symbol)
 END_loadData
-            push @param, [$outputFileName];
-            push @check, undef;
-        }
-        else {
-
-            #------------------------------------------------------------------
-            #  file is not uploaded -- multiple insert statements
-            #------------------------------------------------------------------
-            my $text = car $q->param('q');
-
-            # split on spaces or commas
-            my @textSplit = split( /[,\s]+/, trim($text) );
-            $self->{_SearchTerms} = \@textSplit;
-            foreach my $term (@textSplit) {
-                push @sth, "INSERT IGNORE INTO $temp_table (symbol) VALUES (?)";
-                push @param, [$term];
-                push @check, undef;
-            }
-        }
-        return SGX::CSV::delegate_fileUpload(
-            delegate   => $self,
-            statements => \@sth,
-            parameters => \@param,
-            validators => \@check,
-            filename   => $outputFileName
-        );
+        push @param, [$outputFileName];
+        push @check, undef;
     }
     else {
-        my $text = car $q->param('q');
-        $self->{_SearchTerms} = [$text];
-        return 1;
-    }
 
+        #------------------------------------------------------------------
+        #  file is not uploaded -- multiple insert statements
+        #------------------------------------------------------------------
+        $self->{_SearchTerms} = \@textSplit;
+        foreach my $term (@textSplit) {
+            push @sth, "INSERT IGNORE INTO $temp_table (symbol) VALUES (?)";
+            push @param, [$term];
+            push @check, undef;
+        }
+    }
+    return SGX::CSV::delegate_fileUpload(
+        success_message => 0,
+        delegate        => $self,
+        statements      => \@sth,
+        parameters      => \@param,
+        validators      => \@check,
+        filename        => $outputFileName
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1402,13 +1411,15 @@ sub build_XTableQuery {
     my $self      = shift;
     my $dbh       = $self->{_dbh};
     my $tmp_table = $self->{_TempTable};
+    my $haveTable = (defined($tmp_table) and ($tmp_table ne ''));
 
     #---------------------------------------------------------------------------
     #  innermost SELECT statement differs depending on whether we are searching
     #  the probe table or the gene table
     #---------------------------------------------------------------------------
     my $innerSQL;
-    if ( defined($tmp_table) and $tmp_table ne '' ) {
+
+    if ($haveTable) {
         $innerSQL =
           ( $self->{_scope} eq 'Probe IDs' )
           ? "SELECT rid, gid FROM probe INNER JOIN $tmp_table AS tmp ON probe.reporter=tmp.symbol LEFT JOIN ProbeGene USING(rid)"
@@ -1481,17 +1492,32 @@ END_sql_subset_by_project
     my $selectFieldsSQL = join( ',', @select_fields );
 
     #---------------------------------------------------------------------------
+    #  inner query -- allow for plain dump if location is specified but no
+    #  search terms entered.
+    #
+    #  TODO: if uploading a file, only return info for probes uploaded?
+    #---------------------------------------------------------------------------
+
+    my $searchTerms = $self->{_SearchTerms};
+    $innerSQL =
+      ( !$haveTable and ( defined $searchTerms && @$searchTerms == 0 ) )
+      ? ''
+      : <<"END_innerSQL";
+INNER JOIN (
+    SELECT DISTINCT COALESCE(ProbeGene.rid, d2.rid) AS rid
+    FROM ($innerSQL) AS d2
+    LEFT join ProbeGene USING(gid)
+) AS d3 on probe.rid=d3.rid
+END_innerSQL
+
+    #---------------------------------------------------------------------------
     #  main query
     #---------------------------------------------------------------------------
     $self->{_XTableQuery} = <<"END_XTableQuery";
 SELECT
 $selectFieldsSQL
 FROM probe
-INNER JOIN (
-    SELECT DISTINCT COALESCE(ProbeGene.rid, d2.rid) AS rid
-    FROM ($innerSQL) AS d2
-    LEFT join ProbeGene USING(gid)
-) AS d3 on probe.rid=d3.rid
+$innerSQL
 LEFT join ProbeGene ON probe.rid=ProbeGene.rid
 LEFT join gene ON gene.gid=ProbeGene.gid
 $limit_predicate
