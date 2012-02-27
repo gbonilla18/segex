@@ -291,10 +291,10 @@ sub getGOTerms {
     my $sql = <<"END_query1";
 select
     go_acc              AS 'GO Accession No.',
-    count(distinct rid) AS probe_count,
-    go_term_type        AS 'Term Type',
     go_name             AS 'Term Name and Description',
-    go_term_definition  AS 'Go Term Def.'
+    go_term_definition  AS 'Go Term Def.',
+    go_term_type        AS 'Term Type',
+    count(distinct rid) AS probe_count
 from go_term
 INNER join GeneGO    USING(go_acc) 
 INNER join ProbeGene USING(gid)
@@ -307,7 +307,7 @@ END_query1
 
     my $rc    = $sth->execute(@param);
     my @names = @{ $sth->{NAME} };
-    $names[1] = 'Probe Count';
+    $names[4] = 'Probes';
     my $data = $sth->fetchall_arrayref();
     $sth->finish();
     $self->{_GoTerms}       = $data;
