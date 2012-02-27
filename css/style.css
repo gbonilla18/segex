@@ -461,3 +461,6 @@ p.radio_heading {
 .visible {
 	display:block;
 }
+.fadeout {
+	color:#777;
+}

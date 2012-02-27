@@ -6,7 +6,7 @@
 */
 
 var dom = YAHOO.util.Dom;
-YAHOO.util.Event.addListener("probetable_astext", "click", export_table, probelist, true);
+YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
 YAHOO.util.Event.addListener(window, "load", function() {
     var graph_ul;
     var graph_content = '';
@@ -59,7 +59,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         graph_ul = dom.get("graphs");
     }
 
-    dom.get("caption").innerHTML = probelist.caption;
+    dom.get("caption").innerHTML = data.caption;
 
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
         var hClass = (searchColumn === 'reporter' && matchesQuery(oData))
@@ -131,29 +131,29 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("5") + "\" title=\"Search for this sequence using BLAT in " + oRecord.getData("5") + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
     };
 
-    var myDataSource = new YAHOO.util.DataSource(probelist.records);
+    var myDataSource = new YAHOO.util.DataSource(data.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
 
     var myColumnList = ["0","1","2","3","4","5"];
     var myColumnDefs = [
         {key:"1", sortable:true, resizeable:true, 
-            label:probelist.headers[0], formatter:"formatProbe"},
+            label:data.headers[0], formatter:"formatProbe"},
         {key:"2", sortable:true, resizeable:true, 
-            label:probelist.headers[1]},
+            label:data.headers[1]},
         {key:"3", sortable:true, resizeable:true, 
-            label:probelist.headers[2], formatter:"formatAccNum"}, 
+            label:data.headers[2], formatter:"formatAccNum"}, 
         {key:"4", sortable:true, resizeable:true, 
-            label:probelist.headers[3], formatter:"formatGene"},
+            label:data.headers[3], formatter:"formatGene"},
         {key:"5", sortable:true, resizeable:true, 
-            label:probelist.headers[4]}
+            label:data.headers[4]}
     ];
     if (extra_fields !== 'Basic') {
         myColumnList.push("6","7");
         myColumnDefs.push(
             {key:"6", sortable:true, resizeable:true, 
-                label:probelist.headers[5], formatter:"formatSequence"},
+                label:data.headers[5], formatter:"formatSequence"},
             {key:"7", sortable:true, resizeable:true, 
-                label:probelist.headers[6], formatter:"formatGeneName"}
+                label:data.headers[6], formatter:"formatGeneName"}
         );
     }
     myDataSource.responseSchema = {
@@ -166,7 +166,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
 
     var myDataTable = new YAHOO.widget.DataTable(
-    "probetable", myColumnDefs, myDataSource, myData_config);
+    "resulttable", myColumnDefs, myDataSource, myData_config);
 
     // Set up editing flow 
     var highlightEditableCell = function(oArgs) { 
@@ -182,7 +182,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     // TODO: fix this -- no need to know anything about actual data
     // representation
-    var nodes = YAHOO.util.Selector.query("#probetable tr td.yui-dt-col-1 a");
+    var nodes = YAHOO.util.Selector.query("#resulttable tr td.yui-dt-col-1 a");
     var nl = nodes.length;
 
     // Ideally, would want to use a "pre-formatter" event to clear graph_content

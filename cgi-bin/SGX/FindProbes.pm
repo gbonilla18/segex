@@ -154,7 +154,8 @@ sub get_species {
 sub Search_head {
     my $self = shift;
 
-    if ( !$self->FindProbes_init() ) {
+    my $next_action = $self->FindProbes_init();
+    if ( !$next_action ) {
         $self->set_action('');
         $self->default_head();
         return 1;
@@ -178,9 +179,144 @@ sub Search_head {
       );
 
     $self->getSessionOverrideCGI();
-    push @$js_src_code, { -code => $self->findProbes_js($s) };
-    push @$js_src_code, { -src  => 'FindProbes.js' };
+    if ( $next_action == 1 ) {
+        push @$js_src_code,
+          ( { -code => $self->findProbes_js($s) },
+            { -src => 'FindProbes.js' } );
+    }
+    elsif ( $next_action == 2 ) {
+        push @$js_src_code,
+          ( { -code => $self->goTerms_js($s) }, { -src => 'GoTerms.js' } );
+    }
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  goTerms_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub goTerms_js {
+    my $self = shift;
+    my $data = $self->{_GoTerms};
+
+    my $rowcount  = scalar(@$data);
+    my $caption   = sprintf(
+        'Found %d GO term%s',
+        $rowcount, ( $rowcount == 1 ) ? '' : 's',
+    );
+
+    my %type_to_column = (
+        'Probe IDs'            => 'reporter',
+        'Genes/Accession Nos.' => 'gsymbol',
+        'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
+        'GO Term Defs.'        => 'goterms'
+    );
+
+    my %json_probelist = (
+        caption => $caption,
+        records => $data,
+        headers => $self->{_GoTerms_Names}
+    );
+
+    my ( $type, $match ) = @$self{qw/_scope _match/};
+    my $out = sprintf(
+        <<"END_JSON_DATA",
+var queriedItems = %s;
+var data = %s;
+var url_prefix = "%s";
+var project_id = "%s";
+END_JSON_DATA
+        encode_json(
+            ( $match eq 'Full Word' )
+            ? +{ map { lc($_) => undef } @{ $self->{_SearchTerms} } }
+            : [ distinct( @{ $self->{_SearchTerms} } ) ]
+        ),
+        encode_json( \%json_probelist ),
+        $self->{_cgi}->url( -absolute => 1 ),
+        $self->{_WorkingProject}
+    );
+
+    return $out;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  getGOTerms
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getGOTerms {
+    my $self = shift;
+    my $dbh  = $self->{_dbh};
+    my $q    = $self->{_cgi};
+
+    my $text  = car $q->param('q');
+    my $match = car $q->param('match');
+
+    my $predicate =
+      ( $match eq 'Full Word' )
+      ? 'where match (go_name, go_term_definition) against (?)'
+      : 'where go_name regexp ? or go_term_definition regexp ?';
+    my @param = ( $match eq 'Full Word' ) ? ($text) : ( $text, $text );
+
+    #---------------------------------------------------------------------------
+    # only return results for platforms that belong to the current working
+    # project (as determined through looking up studies linked to the current
+    # project).
+    #---------------------------------------------------------------------------
+    my $curr_proj             = $self->{_WorkingProject};
+    my $sql_subset_by_project = '';
+    if ( defined($curr_proj) && $curr_proj ne '' ) {
+        $curr_proj             = $dbh->quote($curr_proj);
+        $sql_subset_by_project = <<"END_sql_subset_by_project"
+INNER JOIN probe    USING(rid)
+INNER JOIN platform USING(rid)
+INNER JOIN study    USING(pid)
+INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
+END_sql_subset_by_project
+    }
+
+#---------------------------------------------------------------------------
+#  query itself
+#---------------------------------------------------------------------------
+    my $sql = <<"END_query1";
+select
+    go_acc              AS 'GO Accession No.',
+    count(distinct rid) AS probe_count,
+    go_term_type        AS 'Term Type',
+    go_name             AS 'Term Name',
+    go_term_definition  AS 'Go Term Def.'
+from go_term
+INNER join GeneGO    USING(go_acc) 
+INNER join ProbeGene USING(gid)
+$sql_subset_by_project
+$predicate
+group by go_acc
+ORDER BY probe_count DESC
+END_query1
+
+    warn $sql;
+    my $sth = $dbh->prepare($sql);
+
+    my $rc   = $sth->execute(@param);
+    my @names = @{ $sth->{NAME}};
+    $names[1] = 'Probe Count';
+    my $data = $sth->fetchall_arrayref();
+    $sth->finish();
+    $self->{_GoTerms} = $data;
+    $self->{_GoTerms_Names} = \@names;
+
+    return 2;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -229,15 +365,23 @@ sub FindProbes_init {
     $self->{_graph} = car $q->param('graph');
     $self->{_opts}  = car $q->param('opts');
 
+    if ( $scope eq 'GO Term Defs.' ) {
+        $self->{_SearchTerms} = [ $text ];
+        return $self->getGOTerms();
+    }
+
     my $temp_table;
 
     my @sth;
     my @param;
     my @check;
 
-    if (   !$upload_file and (@textSplit < 2
-        or !( $scope eq 'Probe IDs' or $scope eq 'Genes/Accession Nos.' )
-        or $match ne 'Full Word' ))
+    if (
+        !$upload_file
+        and (  @textSplit < 2
+            or !( $scope eq 'Probe IDs' or $scope eq 'Genes/Accession Nos.' )
+            or $match ne 'Full Word' )
+      )
     {
         $self->{_SearchTerms} = \@textSplit;
         return 1;
@@ -447,7 +591,7 @@ sub build_SearchPredicate {
         'Probe IDs'            => ['reporter'],
         'Genes/Accession Nos.' => ['gsymbol'],
         'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ],
-        'GO Terms'             => []
+        'GO Term Defs.'        => []
     );
     my $type = $translate_fields{ $self->{_scope} };
 
@@ -984,9 +1128,9 @@ sub Search_body {
             )
         ),
         $q->div(
-            $q->a( { -id => 'probetable_astext' }, 'View as plain text' )
+            $q->a( { -id => 'resulttable_astext' }, 'View as plain text' )
         ),
-        $q->div( { -id => 'probetable' }, '' )
+        $q->div( { -id => 'resulttable' }, '' )
     );
 
     if ( defined $self->{_graph} and $self->{_graph} ne 'No Graphs' ) {
@@ -1095,7 +1239,7 @@ END_terms_title
                                 {
                                     -type  => 'radio',
                                     -name  => 'scope_list',
-                                    -value => 'GO Terms',
+                                    -value => 'GO Term Defs.',
                                     -title => 'Search gene ontology terms'
                                 }
                             ),
@@ -1411,7 +1555,7 @@ sub build_XTableQuery {
     my $self      = shift;
     my $dbh       = $self->{_dbh};
     my $tmp_table = $self->{_TempTable};
-    my $haveTable = (defined($tmp_table) and ($tmp_table ne ''));
+    my $haveTable = ( defined($tmp_table) and ( $tmp_table ne '' ) );
 
     #---------------------------------------------------------------------------
     #  innermost SELECT statement differs depending on whether we are searching
@@ -1584,8 +1728,6 @@ sub findProbes_js {
 
     $self->build_XTableQuery();
 
-    #$self->build_ProbeQuery( extra_fields => ( $self->{_opts} ne 'Basic' ) );
-
     if ( $self->{_opts} eq 'Complete (CSV)' ) {
 
     #---------------------------------------------------------------------------
@@ -1627,7 +1769,7 @@ sub findProbes_js {
             'Probe IDs'            => 'reporter',
             'Genes/Accession Nos.' => 'gsymbol',
             'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
-            'GO Terms'             => 'goterms'
+            'GO Term Defs.'        => 'goterms'
         );
 
         my %json_probelist = (
@@ -1641,7 +1783,7 @@ sub findProbes_js {
             <<"END_JSON_DATA",
 var searchColumn = "%s";
 var queriedItems = %s;
-var probelist = %s;
+var data = %s;
 var url_prefix = "%s";
 var show_graphs = "%s";
 var extra_fields = "%s";
