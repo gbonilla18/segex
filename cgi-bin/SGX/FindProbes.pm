@@ -154,6 +154,8 @@ sub get_species {
 sub Search_head {
     my $self = shift;
 
+    $self->getSessionOverrideCGI();
+
     my $next_action = $self->FindProbes_init();
     if ( !$next_action ) {
         $self->set_action('');
@@ -178,7 +180,6 @@ sub Search_head {
         'selector/selector-min.js'
       );
 
-    $self->getSessionOverrideCGI();
     if ( $next_action == 1 ) {
         push @$js_src_code,
           ( { -code => $self->findProbes_js($s) },
@@ -205,11 +206,10 @@ sub goTerms_js {
     my $self = shift;
     my $data = $self->{_GoTerms};
 
-    my $rowcount  = scalar(@$data);
-    my $caption   = sprintf(
-        'Found %d GO term%s',
-        $rowcount, ( $rowcount == 1 ) ? '' : 's',
-    );
+    my $rowcount = scalar(@$data);
+    my $caption =
+      sprintf( 'Found %d GO term%s', $rowcount, ( $rowcount == 1 ) ? '' : 's',
+      );
 
     my %type_to_column = (
         'Probe IDs'            => 'reporter',
@@ -274,46 +274,43 @@ sub getGOTerms {
     # project (as determined through looking up studies linked to the current
     # project).
     #---------------------------------------------------------------------------
-    my $curr_proj             = $self->{_WorkingProject};
-    my $sql_subset_by_project = '';
-    if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $curr_proj             = $dbh->quote($curr_proj);
-        $sql_subset_by_project = <<"END_sql_subset_by_project"
-INNER JOIN probe    USING(rid)
-INNER JOIN platform USING(rid)
-INNER JOIN study    USING(pid)
-INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
-END_sql_subset_by_project
-    }
+#    my $curr_proj             = $self->{_WorkingProject};
+#    my $sql_subset_by_project = '';
+#    if ( defined($curr_proj) && $curr_proj ne '' ) {
+#        $curr_proj             = $dbh->quote($curr_proj);
+#        $sql_subset_by_project = <<"END_sql_subset_by_project"
+#INNER JOIN probe    ON ProbeGene.rid=probe.rid
+#INNER JOIN study    ON study.pid=probe.pid
+#INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
+#END_sql_subset_by_project
+#    }
 
-#---------------------------------------------------------------------------
-#  query itself
-#---------------------------------------------------------------------------
+    #---------------------------------------------------------------------------
+    #  query itself
+    #---------------------------------------------------------------------------
     my $sql = <<"END_query1";
 select
     go_acc              AS 'GO Accession No.',
     count(distinct rid) AS probe_count,
     go_term_type        AS 'Term Type',
-    go_name             AS 'Term Name',
+    go_name             AS 'Term Name and Description',
     go_term_definition  AS 'Go Term Def.'
 from go_term
 INNER join GeneGO    USING(go_acc) 
 INNER join ProbeGene USING(gid)
-$sql_subset_by_project
 $predicate
 group by go_acc
 ORDER BY probe_count DESC
 END_query1
 
-    warn $sql;
     my $sth = $dbh->prepare($sql);
 
-    my $rc   = $sth->execute(@param);
-    my @names = @{ $sth->{NAME}};
+    my $rc    = $sth->execute(@param);
+    my @names = @{ $sth->{NAME} };
     $names[1] = 'Probe Count';
     my $data = $sth->fetchall_arrayref();
     $sth->finish();
-    $self->{_GoTerms} = $data;
+    $self->{_GoTerms}       = $data;
     $self->{_GoTerms_Names} = \@names;
 
     return 2;
@@ -366,7 +363,7 @@ sub FindProbes_init {
     $self->{_opts}  = car $q->param('opts');
 
     if ( $scope eq 'GO Term Defs.' ) {
-        $self->{_SearchTerms} = [ $text ];
+        $self->{_SearchTerms} = [$text];
         return $self->getGOTerms();
     }
 
@@ -764,9 +761,11 @@ sub loadProbeData {
     my $searchItemsProc = $self->{_SearchTermsProc};
     my $filterItems     = $self->{_FilterItems};
     my $sth             = $dbh->prepare( $self->{_XTableQuery} );
-    my $rc              = $sth->execute(
+    my @param           = (
         ( ( $self->{_scope} ne 'Probe IDs' ) ? @$searchItemsProc : () ),
-        @$filterItems );
+        @$filterItems
+    );
+    my $rc = $sth->execute(@param);
     $self->{_ProbeCount} = $rc;
 
     # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
