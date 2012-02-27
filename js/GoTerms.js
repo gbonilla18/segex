@@ -6,9 +6,10 @@ function zeroPad(num, places) {
 }
 
 var dom = YAHOO.util.Dom;
+YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
 YAHOO.util.Event.addListener(window, "load", function() {
     YAHOO.widget.DataTable.Formatter.formatGOCheck = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = '<label><input type="checkbox" name="q" value="' + oData + '"/>' 
+        elCell.innerHTML = '<label class="nowrap"><input type="checkbox" name="q" value="' + oData + '"/>' 
                             + 'GO:' + zeroPad(oData, 7) + '</label>';
     };
     YAHOO.widget.DataTable.Formatter.formatGOType = function(elCell, oRecord, oColumn, oData) {

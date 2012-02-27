@@ -290,7 +290,7 @@ sub getGOTerms {
     #---------------------------------------------------------------------------
     my $sql = <<"END_query1";
 select
-    go_acc              AS 'GO Accession No.',
+    go_acc              AS 'GO Acc. No.',
     go_name             AS 'Term Name and Description',
     go_term_definition  AS 'Go Term Def.',
     go_term_type        AS 'Term Type',

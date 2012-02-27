@@ -464,3 +464,6 @@ p.radio_heading {
 .fadeout {
 	color:#777;
 }
+.nowrap {
+	white-space:nowrap;
+}
