@@ -212,6 +212,7 @@ sub goTerms_js {
       );
 
     my %type_to_column = (
+        'GO IDs'               => 'go_acc',
         'Probe IDs'            => 'reporter',
         'Genes/Accession Nos.' => 'gsymbol',
         'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
@@ -355,7 +356,7 @@ sub FindProbes_init {
     $match = 'Full Word'
       if $upload_file
           || !defined($match)
-          || ( $scope eq 'Probe IDs' );
+          || ( $scope eq 'Probe IDs' or $scope eq 'GO IDs' );
 
     $self->{_scope} = $scope;
     $self->{_match} = $match;
@@ -375,9 +376,15 @@ sub FindProbes_init {
 
     if (
         !$upload_file
-        and (  @textSplit < 2
-            or !( $scope eq 'Probe IDs' or $scope eq 'Genes/Accession Nos.' )
-            or $match ne 'Full Word' )
+        and (
+            @textSplit < 2
+            or !(
+                   $scope eq 'Probe IDs'
+                or $scope eq 'Genes/Accession Nos.'
+                or $scope eq 'GO IDs'
+            )
+            or $match ne 'Full Word'
+        )
       )
     {
         $self->{_SearchTerms} = \@textSplit;
@@ -391,46 +398,46 @@ sub FindProbes_init {
     my $outputFileName;
 
     require SGX::CSV;
-    if ($upload_file) {
-        my ( $outputFileNames, $recordsValid ) =
-          SGX::CSV::sanitizeUploadWithMessages(
-            $self, 'file',
-            csv_in_opts => { quote_char => undef },
-            parser      => [
-                ( $scope eq 'Probe IDs' )
-
-                #------------------------------------------------------
-                #   Probe IDs
-                #------------------------------------------------------
-                ? sub {
+    my %parser = (
+        'Probe IDs' => sub {
 
         # Regular expression for the first column (probe/reporter id) reads as
         # follows: from beginning to end, match any character other than [space,
         # forward/back slash, comma, equal or pound sign, opening or closing
         # parentheses, double quotation mark] from 1 to 18 times.
-                    if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-                        return $1;
-                    }
-                    else {
-                        SGX::Exception::User->throw(
-                            error => 'Cannot parse probe ID on line ' . shift );
-                    }
-                  }
-
-                  #-------------------------------------------------------
-                  #  Gene symbols
-                  #-------------------------------------------------------
-                : sub {
-                    if ( shift =~ /^([^\+\s]+)$/ ) {
-                        return $1;
-                    }
-                    else {
-                        SGX::Exception::User->throw(
-                            error => 'Invalid gene symbol format on line '
-                              . shift );
-                    }
-                  }
-            ]
+            if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+                return $1;
+            }
+            else {
+                SGX::Exception::User->throw(
+                    error => 'Cannot parse probe ID on line ' . shift );
+            }
+        },
+        'Genes/Accession Nos.' => sub {
+            if ( shift =~ /^([^\+\s]+)$/ ) {
+                return $1;
+            }
+            else {
+                SGX::Exception::User->throw(
+                    error => 'Invalid gene symbol format on line ' . shift );
+            }
+        },
+        'GO IDs' => sub {
+            if ( shift =~ /^(?:GO\:|)(\d+)$/ ) {
+                return $1;
+            }
+            else {
+                SGX::Exception::User->throw(
+                    error => 'Invalid GO accession number on line ' . shift );
+            }
+          }
+    );
+    if ($upload_file) {
+        my ( $outputFileNames, $recordsValid ) =
+          SGX::CSV::sanitizeUploadWithMessages(
+            $self, 'file',
+            csv_in_opts => { quote_char => undef },
+            parser      => [ $parser{$scope} ]
           );
         $outputFileName = $outputFileNames->[0];
     }
@@ -447,8 +454,20 @@ sub FindProbes_init {
     #----------------------------------------------------------------------
     #  now load into temporary table
     #----------------------------------------------------------------------
-    my $symbol_type =
-      ( $scope eq 'Probe IDs' ) ? 'char(18) NOT NULL' : 'char(32) NOT NULL';
+    my $symbol_type;
+    if ( $scope eq 'Probe IDs' ) {
+        $symbol_type = 'char(18) NOT NULL';
+    }
+    elsif ( $scope eq 'Genes/Accession Nos.' ) {
+        $symbol_type = 'char(32) NOT NULL';
+    }
+    elsif ( $scope eq 'GO IDs' ) {
+        $symbol_type = 'int(10) unsigned';
+    }
+    else {
+        die "Invalid scope $scope";
+    }
+
     push @sth, <<"END_createTable";
 CREATE TEMPORARY TABLE $temp_table (
     symbol $symbol_type, 
@@ -585,6 +604,7 @@ sub build_SearchPredicate {
     my $qtext;
     my $predicate        = [];
     my %translate_fields = (
+        'GO IDs'               => ['go_acc'],
         'Probe IDs'            => ['reporter'],
         'Genes/Accession Nos.' => ['gsymbol'],
         'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ],
@@ -758,7 +778,7 @@ sub loadProbeData {
 
     my $dbh             = $self->{_dbh};
     my $searchItems     = $self->{_SearchTerms};
-    my $searchItemsProc = $self->{_SearchTermsProc};
+    my $searchItemsProc = $self->{_SearchTermsProc} || [];
     my $filterItems     = $self->{_FilterItems};
     my $sth             = $dbh->prepare( $self->{_XTableQuery} );
     my @param           = (
@@ -1139,6 +1159,66 @@ sub Search_body {
                 lc( $self->{_match} ),
                 join( ', ', distinct( @{ $self->{_SearchTerms} } ) )
             )
+        ),
+        (
+            ( $type eq 'GO Term Defs.' )
+            ? (
+                $q->start_form(
+                    -id      => 'main_form',
+                    -method  => 'POST',
+                    -action  => $q->url( absolute => 1 ) . '?a=findProbes',
+                    -enctype => 'application/x-www-form-urlencoded'
+                ),
+                $q->dl(
+                    $q->dt('Get probes for selected GO terms below:'),
+                    $q->dd(
+                        $q->hidden(
+                            -id   => 'q',
+                            -name => 'q'
+                        ),
+                        $q->hidden(
+                            -name  => 'scope_list',
+                            -value => 'GO IDs'
+                        ),
+                        $q->hidden(
+                            -name  => 'match',
+                            -value => 'Full Word'
+                        ),
+                        $q->hidden(
+                            -name  => 'spid',
+                            -value => ''
+                        ),
+                        $q->hidden(
+                            -name  => 'chr',
+                            -value => ''
+                        ),
+                        $q->hidden(
+                            -name  => 'start',
+                            -value => ''
+                        ),
+                        $q->hidden(
+                            -name  => 'end',
+                            -value => ''
+                        ),
+                        $q->hidden(
+                            -name  => 'opts',
+                            -value => ''
+                        ),
+                        $q->hidden(
+                            -name  => 'graph',
+                            -value => ''
+                        ),
+                        $q->submit(
+                            -class => 'button black bigrounded',
+                            -name  => 'b',
+                            -value => 'Search',
+                            -title => 'Get probes relating to these GO terms'
+                        )
+                    )
+                ),
+                $q->endform
+              )
+            : ()
         ),
         $q->div(
             join( $q->span( { -class => 'separator' }, ' / ' ), @actions )
@@ -1576,31 +1656,59 @@ sub build_XTableQuery {
     #---------------------------------------------------------------------------
     my $innerSQL;
 
+    my $scope = $self->{_scope};
     if ($haveTable) {
-        $innerSQL =
-          ( $self->{_scope} eq 'Probe IDs' )
-          ? "SELECT rid, gid FROM probe INNER JOIN $tmp_table AS tmp ON probe.reporter=tmp.symbol LEFT JOIN ProbeGene USING(rid)"
-          : <<"END_table_gene";
+        if ( $scope eq 'Probe IDs' ) {
+            $innerSQL =
+"SELECT rid, gid FROM probe INNER JOIN $tmp_table AS tmp ON probe.reporter=tmp.symbol LEFT JOIN ProbeGene USING(rid)";
+        }
+        elsif ( $scope eq 'Genes/Accession Nos.' ) {
+            $innerSQL = <<"END_table_gene";
 SELECT rid, gid
 FROM ProbeGene
 INNER JOIN (
     SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) INNER JOIN $tmp_table AS tmp ON gene.gsymbol=tmp.symbol
 ) AS d1 USING(rid)
 END_table_gene
+        }
+        elsif ( $scope eq 'GO IDs' ) {
+            $innerSQL = <<"END_table_go";
+SELECT rid, gid
+FROM ProbeGene
+INNER JOIN (
+    SELECT DISTINCT rid FROM ProbeGene INNER JOIN GeneGO USING(gid) INNER JOIN $tmp_table AS tmp ON GeneGO.go_acc=tmp.symbol
+) AS d1 USING(rid)
+END_table_go
+        }
+        else {
+            die "Unknown scope $scope";
+        }
     }
     else {
         $self->build_SearchPredicate();
         my $predicate = $self->{_Predicate};
-        $innerSQL =
-          ( $self->{_scope} eq 'Probe IDs' )
-          ? "SELECT rid, gid FROM probe LEFT JOIN ProbeGene USING(rid) $predicate"
-          : <<"END_no_table_gene";
+        if ( $scope eq 'Probe IDs' ) {
+            $innerSQL =
+"SELECT rid, gid FROM probe LEFT JOIN ProbeGene USING(rid) $predicate";
+        }
+        elsif ( $scope eq 'Genes/Accession Nos.' ) {
+            $innerSQL = <<"END_no_table_gene";
 SELECT rid, gid
 FROM ProbeGene
 INNER join (
     SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) $predicate
 ) AS d1 USING(rid)
 END_no_table_gene
+        }
+        elsif ( $scope eq 'GO IDs' ) {
+            $innerSQL = <<"END_no_table_go";
+SELECT rid, gid
+FROM ProbeGene
+INNER join (
+    SELECT DISTINCT rid FROM ProbeGene INNER JOIN GeneGO USING(gid) $predicate
+) AS d1 USING(rid)
+END_no_table_go
+        }
     }
 
     #---------------------------------------------------------------------------
@@ -1779,6 +1887,7 @@ sub findProbes_js {
         }
 
         my %type_to_column = (
+            'GO IDs'               => 'go_acc',
             'Probe IDs'            => 'reporter',
             'Genes/Accession Nos.' => 'gsymbol',
             'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',

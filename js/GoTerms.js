@@ -1,16 +1,42 @@
 "use strict";
 
+// BEGIN generic functions (to move to another module)
 function zeroPad(num, places) {
     var zero = places - num.toString().length + 1;
     return Array(+(zero > 0 && zero)).join("0") + num;
 }
+function object_length(obj) {
+    var size = 0, key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) size++;
+    }
+    return size;
+}
+function object_keys(obj) {
+    var ret = [];
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            ret.push(key);
+        }
+    }
+    return ret;
+}
+function object_clear(obj) {
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            delete obj[key];
+        }
+    }
+    return obj;
+}
+// END generic functions
+
 
 var dom = YAHOO.util.Dom;
 YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
 
 // MODEL
 var buf = {};
-var state = 0; // zero means nothing selected
 
 // VIEW
 var myDataTable;
@@ -23,26 +49,30 @@ YAHOO.util.Event.addListener("resulttable_selectall", "click", function(o) {
     var len = rec.length;
     var text = this.innerHTML;
     if (text === SELECT_ALL) {
+
+        // select all rows
         for (var i = 0; i < len; i++) {
             buf[rec[i][0]] = null;
-            state++;
         }
         this.innerHTML = UNSELECT_ALL;
     } else {
-        //if (state === len) {
-        // clear everything (unselect)
-        for (var go in buf) {
-            delete buf[go];
-            state--;
-        }
+
+        // unselect all rows
+        object_clear(buf);
         this.innerHTML = SELECT_ALL;
     }
     myDataTable.render();
-    //myDataTable.getDataSource().sendRequest('',{ success: myDataTable.onDataReturnInitializeTable,scope: myDataTable});
+}, null, false);
+
+YAHOO.util.Event.addListener("main_form", "submit", function(o) {
+    dom.get("q").value = object_keys(buf).join(',');
+    return true;
 }, null, false);
 
 YAHOO.util.Event.addListener(window, "load", function() {
     var selectAll = dom.get("resulttable_selectall");
+
+    dom.get("caption").innerHTML = data.caption;
 
     // checkbox formatter
     YAHOO.widget.DataTable.Formatter.formatGOCheck = function(elCell, oRecord, oColumn, oData) {
@@ -61,15 +91,13 @@ YAHOO.util.Event.addListener(window, "load", function() {
             if (this.checked) {
                 // add to buffer object
                 buf[oData] = null;
-                state++;
-                if (state === data.records.length) {
+                if (object_length(buf) === data.records.length) {
                     selectAll.innerHTML = UNSELECT_ALL;
                 }
             } else {
                 // remove from buffer object
                 delete buf[oData];
-                state--;
-                if (state === 0) {
+                if (object_length(buf) === 0) {
                     selectAll.innerHTML = SELECT_ALL;
                 }
             }
@@ -78,7 +106,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
         label.appendChild(document.createTextNode('GO:' + zeroPad(oData, 7)));
         elCell.appendChild(label);
     };
-
 
     // label formatter
     YAHOO.widget.DataTable.Formatter.formatGOName = function(elCell, oRecord, oColumn, oData) {
