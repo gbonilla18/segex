@@ -274,16 +274,16 @@ sub getGOTerms {
     # project (as determined through looking up studies linked to the current
     # project).
     #---------------------------------------------------------------------------
-#    my $curr_proj             = $self->{_WorkingProject};
-#    my $sql_subset_by_project = '';
-#    if ( defined($curr_proj) && $curr_proj ne '' ) {
-#        $curr_proj             = $dbh->quote($curr_proj);
-#        $sql_subset_by_project = <<"END_sql_subset_by_project"
-#INNER JOIN probe    ON ProbeGene.rid=probe.rid
-#INNER JOIN study    ON study.pid=probe.pid
-#INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
-#END_sql_subset_by_project
-#    }
+    #    my $curr_proj             = $self->{_WorkingProject};
+    #    my $sql_subset_by_project = '';
+    #    if ( defined($curr_proj) && $curr_proj ne '' ) {
+    #        $curr_proj             = $dbh->quote($curr_proj);
+    #        $sql_subset_by_project = <<"END_sql_subset_by_project"
+    #INNER JOIN probe    ON ProbeGene.rid=probe.rid
+    #INNER JOIN study    ON study.pid=probe.pid
+    #INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
+    #END_sql_subset_by_project
+    #    }
 
     #---------------------------------------------------------------------------
     #  query itself
@@ -1115,6 +1115,20 @@ sub Search_body {
     my $type  = $self->{_scope} || '';
     my $match = $self->{_match} || '';
 
+    my @actions;
+    if ( $type eq 'GO Term Defs.' ) {
+        push @actions,
+          $q->a(
+            {
+                -id    => 'resulttable_selectall',
+                -title => 'Get probes for all GO accession numbers below'
+            },
+            'Select all'
+          );
+    }
+    push @actions,
+      $q->a( { -id => 'resulttable_astext' }, 'View as plain text' );
+
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
         $q->p(
@@ -1127,7 +1141,7 @@ sub Search_body {
             )
         ),
         $q->div(
-            $q->a( { -id => 'resulttable_astext' }, 'View as plain text' )
+            join( $q->span( { -class => 'separator' }, ' / ' ), @actions )
         ),
         $q->div( { -id => 'resulttable' }, '' )
     );
