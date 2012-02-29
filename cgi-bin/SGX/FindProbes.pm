@@ -1091,13 +1091,15 @@ sub getFullExperimentData {
     my @params = ( @eid_list, @stid_list );
 
     my @where_conditions = ( "eid IN ($eid_sql)", "study.stid IN ($stid_sql)" );
+    my $innerSQL = '';
     if ( defined($curr_proj) && $curr_proj ne '' ) {
         unshift @params,           $curr_proj;
         unshift @where_conditions, 'prid=?';
+        $innerSQL = 'INNER JOIN ProjectStudy USING(stid)';
     }
     my $where_sql = 'WHERE ' . join( ' AND ', @where_conditions );
 
-    my $sth = $dbh->prepare(<<"END_query_titles_element");
+    my $sql = <<"END_query_titles_element";
 SELECT
     experiment.eid, 
     CONCAT(study.description, ': ', experiment.sample2, ' / ', experiment.sample1) AS title, 
@@ -1107,10 +1109,12 @@ SELECT
 FROM experiment 
 INNER JOIN StudyExperiment USING(eid)
 INNER JOIN study USING(stid)
+$innerSQL
 $where_sql
 ORDER BY study.stid ASC, experiment.eid ASC
 END_query_titles_element
 
+    my $sth = $dbh->prepare($sql);
     my $rc = $sth->execute(@params);
     $self->{_FullExperimentData} = $sth->fetchall_hashref('eid');
 
