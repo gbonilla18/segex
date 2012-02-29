@@ -430,7 +430,7 @@ sub FindProbes_init {
                 SGX::Exception::User->throw(
                     error => 'Invalid GO accession number on line ' . shift );
             }
-          }
+        }
     );
     if ($upload_file) {
         my ( $outputFileNames, $recordsValid ) =
@@ -1320,6 +1320,7 @@ END_terms_title
                                     -title   => 'Search gene symbols'
                                 }
                             ),
+                            $q->br(),
                             $q->input(
                                 {
                                     -type  => 'radio',
@@ -1377,15 +1378,6 @@ END_terms_title
                                     ),
                                     $q->input(
                                         {
-                                            -type  => 'radio',
-                                            -name  => 'match',
-                                            -value => 'Partial',
-                                            -title =>
-'Match word parts, regular expressions'
-                                        }
-                                    ),
-                                    $q->input(
-                                        {
                                             -id    => 'prefix',
                                             -type  => 'radio',
                                             -name  => 'match',
@@ -1393,7 +1385,15 @@ END_terms_title
                                             -title => 'Match word prefixes'
                                         }
                                     ),
-
+                                    $q->input(
+                                        {
+                                            -type  => 'radio',
+                                            -name  => 'match',
+                                            -value => 'Partial',
+                                            -title =>
+'Match word parts, regular expressions'
+                                        }
+                                    ),
                                     # preserve state of radio buttons
                                     $q->input(
                                         {
@@ -1662,15 +1662,6 @@ sub build_XTableQuery {
             $innerSQL =
 "SELECT rid, gid FROM probe INNER JOIN $tmp_table AS tmp ON probe.reporter=tmp.symbol LEFT JOIN ProbeGene USING(rid)";
         }
-        elsif ( $scope eq 'Genes/Accession Nos.' ) {
-            $innerSQL = <<"END_table_gene";
-SELECT rid, gid
-FROM ProbeGene
-INNER JOIN (
-    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) INNER JOIN $tmp_table AS tmp ON gene.gsymbol=tmp.symbol
-) AS d1 USING(rid)
-END_table_gene
-        }
         elsif ( $scope eq 'GO IDs' ) {
             $innerSQL = <<"END_table_go";
 SELECT rid, gid
@@ -1681,7 +1672,13 @@ INNER JOIN (
 END_table_go
         }
         else {
-            die "Unknown scope $scope";
+            $innerSQL = <<"END_table_gene";
+SELECT rid, gid
+FROM ProbeGene
+INNER JOIN (
+    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) INNER JOIN $tmp_table AS tmp ON gene.gsymbol=tmp.symbol
+) AS d1 USING(rid)
+END_table_gene
         }
     }
     else {
@@ -1691,15 +1688,6 @@ END_table_go
             $innerSQL =
 "SELECT rid, gid FROM probe LEFT JOIN ProbeGene USING(rid) $predicate";
         }
-        elsif ( $scope eq 'Genes/Accession Nos.' ) {
-            $innerSQL = <<"END_no_table_gene";
-SELECT rid, gid
-FROM ProbeGene
-INNER join (
-    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) $predicate
-) AS d1 USING(rid)
-END_no_table_gene
-        }
         elsif ( $scope eq 'GO IDs' ) {
             $innerSQL = <<"END_no_table_go";
 SELECT rid, gid
@@ -1708,6 +1696,15 @@ INNER join (
     SELECT DISTINCT rid FROM ProbeGene INNER JOIN GeneGO USING(gid) $predicate
 ) AS d1 USING(rid)
 END_no_table_go
+        }
+        else {
+            $innerSQL = <<"END_no_table_gene";
+SELECT rid, gid
+FROM ProbeGene
+INNER join (
+    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) $predicate
+) AS d1 USING(rid)
+END_no_table_gene
         }
     }
 
@@ -1740,8 +1737,8 @@ END_sql_subset_by_project
         'platform.pid',
         "probe.reporter  AS 'Probe ID'",
         "platform.pname  AS 'Platform'",
-"group_concat(if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.'",
-"group_concat(if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
+"group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.'",
+"group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
         "species.sname   AS 'Species'"
     );
 
@@ -1751,7 +1748,7 @@ END_sql_subset_by_project
         push @select_fields,
           (
             "probe.probe_sequence AS 'Probe Sequence'",
-"group_concat(concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
+"group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
           );
     }
     my $selectFieldsSQL = join( ',', @select_fields );
@@ -1790,6 +1787,8 @@ LEFT JOIN species ON species.sid=platform.sid
 $sql_subset_by_project
 group by probe.rid
 END_XTableQuery
+
+#warn $self->{_XTableQuery};
 
     return 1;
 }
