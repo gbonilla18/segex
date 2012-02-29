@@ -1736,10 +1736,10 @@ END_sql_subset_by_project
         'probe.rid',
         'platform.pid',
         "probe.reporter  AS 'Probe ID'",
+        "species.sname   AS 'Species'",
         "platform.pname  AS 'Platform'",
 "group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.'",
 "group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
-        "species.sname   AS 'Species'"
     );
 
     if ( $self->{_opts} ne 'Basic' ) {

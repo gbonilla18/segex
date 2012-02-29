@@ -135,12 +135,12 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var myColumnDefs = [
         {key:"0", sortable:true, resizeable:true,
             parser:'number', label:data.headers[0], formatter:"formatGOCheck"},
-            {key:"1", sortable:true, resizeable:true, 
-                label:data.headers[1], formatter:"formatGOName"} ,
-                {key:"3", sortable:true, resizeable:true, 
-                    label:data.headers[3], formatter:"formatGOType"},
-                    {key:"4", sortable:true, resizeable:true,
-                        parser:'number', label:data.headers[4]},
+        {key:"1", sortable:true, resizeable:true, 
+            label:data.headers[1], formatter:"formatGOName"} ,
+        {key:"3", sortable:true, resizeable:true, 
+            label:data.headers[3], formatter:"formatGOType"},
+        {key:"4", sortable:true, resizeable:true,
+            parser:'number', label:data.headers[4]},
     ];
 
     var myData_config = {

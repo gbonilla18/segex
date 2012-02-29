@@ -52,7 +52,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
         var resourceURI = "./?a=graph&" + uriFromKeyVal(obj);
         var width = 1200;
         var height = 600;
-        return "<object type=\"image/svg+xml\" width=\"" + width + "\" height=\"" + height + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
+        return "<object type=\"image/svg+xml\" width=\"" 
+            + width + "\" height=\"" + height + "\" data=\"" 
+            + resourceURI + "\"><embed src=\"" + resourceURI 
+            + "\" width=\"" + width + "\" height=\"" + height 
+            + "\" /></object>";
     }
 
     if (show_graphs !== 'No Graphs') {
@@ -68,10 +72,16 @@ YAHOO.util.Event.addListener(window, "load", function() {
         var i = oRecord.getCount();
         if (show_graphs !== 'No Graphs') {
             var this_rid = oRecord.getData("0");
-            graph_content += "<li id=\"reporter_" + i + "\">" + buildSVGElement({proj: project_id, rid: this_rid, reporter: oData, trans: show_graphs}) + "</li>";
-            elCell.innerHTML = "<div id=\"container" + i + "\"><a " + hClass + " title=\"Show differental expression graph\" href=\"#reporter_" + i + "\">" + oData + "</a></div>";
+            graph_content += "<li id=\"reporter_" + i + "\">" 
+                + buildSVGElement({proj: project_id, rid: this_rid, reporter: oData, trans: show_graphs}) 
+                + "</li>";
+            elCell.innerHTML = "<div id=\"container" + i + "\"><a " 
+                + hClass + " title=\"Show differental expression graph\" href=\"#reporter_" 
+                + i + "\">" + oData + "</a></div>";
         } else {
-            elCell.innerHTML = "<div id=\"container" + i + "\"><a " + hClass + " title=\"Show differental expression graph\" id=\"show" + i + "\">" + oData + "</a></div>";
+            elCell.innerHTML = "<div id=\"container" + i + "\"><a " 
+                + hClass + " title=\"Show differental expression graph\" id=\"show" 
+                + i + "\">" + oData + "</a></div>";
         }
     };
 
@@ -85,9 +95,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     ? 'class="highlight"' 
                     : '';
                 if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
-                    out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
+                    out.push("<a " + hClass + " title=\"Search Ensembl for " + b 
+                        + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" 
+                        + b + "\">" + b + "</a>");
                 } else {
-                    out.push("<a " + hClass + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>");
+                    var species = oRecord.getData("2");
+                    out.push("<a " + hClass + " title=\"Search NCBI Nucleotide for " + b 
+                        + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" 
+                        + species + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>");
                 }
             }
             elCell.innerHTML = out.join(', ');
@@ -103,13 +118,20 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     ? 'class="highlight"' 
                     : '';
                 if (b.match(/^ENS[A-Z]{0,4}\d{11}/i)) {
-                    out.push("<a " + hClass + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>");
+                    out.push("<a " + hClass + " title=\"Search Ensembl for " + b 
+                        + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" 
+                        + b + "\">" + b + "</a>");
                 } else if (b.match(/^\d+$/)) {
-                    out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/gene?term=" + b + "[uid]\">" + b + "</a>");
+                    out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b 
+                        + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/gene?term=" 
+                        + b + "[uid]\">" + b + "</a>");
                 } else if (b.match(/-similar_to/)) {
                     out.push(b);
                 } else {
-                    out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + oRecord.getData("5") + "[ORGN]+AND+" + b + "[GENE]\">" + b + "</a>");
+                    var species = oRecord.getData("2");
+                    out.push("<a " + hClass + " title=\"Search NCBI Gene for " + b 
+                        + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" 
+                        + species + "[ORGN]+AND+" + b + "[GENE]\">" + b + "</a>");
                 }
             }
             elCell.innerHTML = out.join(', ');
@@ -124,31 +146,50 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }
     }
     YAHOO.widget.DataTable.Formatter.formatExperiment = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" + oRecord.getData("7") + "&rev=0&fc=" + oRecord.getData("10") + "&pval=" + oRecord.getData("9") + "&opts=2\">" + oData + "</a>";
+        elCell.innerHTML = "<a title=\"View Experiment Data\" target=\"_blank\" href=\"?a=getTFS&eid=" 
+            + oRecord.getData("7") + "&rev=0&fc=" + oRecord.getData("10") 
+            + "&pval=" + oRecord.getData("9") + "&opts=2\">" + oData + "</a>";
+    };
+    YAHOO.widget.DataTable.Formatter.formatPlatform = function(elCell, oRecord, oColumn, oData) {
+        var species = oRecord.getData("2");
+        elCell.innerHTML = (oData.match(new RegExp('^' + species))) 
+                         ? oData
+                         : species + ' / ' + oData;
     };
     YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
         dom.addClass(elCell, 'sgx-dt-sequence');
-        elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + oRecord.getData("5") + "\" title=\"Search for this sequence using BLAT in " + oRecord.getData("5") + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
+        var species = oRecord.getData("2");
+        elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData 
+            + "&type=DNA&org=" + species + "\" title=\"Search for this sequence using BLAT in " 
+            + species + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
     };
 
     var myDataSource = new YAHOO.util.DataSource(data.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
 
-    var myColumnList = ["0","1","2","3","4","5"];
+    var myColumnList = [
+        {key:"0", parser:"number"},
+        {key:"1"},
+        {key:"2"},
+        {key:"3"},
+        {key:"4"},
+        {key:"5"}
+    ];
     var myColumnDefs = [
         {key:"1", sortable:true, resizeable:true, 
             label:data.headers[0], formatter:"formatProbe"},
-        {key:"2", sortable:true, resizeable:true, 
-            label:data.headers[1]},
         {key:"3", sortable:true, resizeable:true, 
-            label:data.headers[2], formatter:"formatAccNum"}, 
+            label:data.headers[1] + ' / ' + data.headers[2], formatter:"formatPlatform"},
         {key:"4", sortable:true, resizeable:true, 
-            label:data.headers[3], formatter:"formatGene"},
+            label:data.headers[3], formatter:"formatAccNum"}, 
         {key:"5", sortable:true, resizeable:true, 
-            label:data.headers[4]}
+            label:data.headers[4], formatter:"formatGene"},
     ];
     if (extra_fields !== 'Basic') {
-        myColumnList.push("6","7");
+        myColumnList.push(
+            {key:"6"},
+            {key:"7"}
+        );
         myColumnDefs.push(
             {key:"6", sortable:true, resizeable:true, 
                 label:data.headers[5], formatter:"formatSequence"},
