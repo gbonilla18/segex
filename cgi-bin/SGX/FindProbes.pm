@@ -819,10 +819,11 @@ sub loadProbeData {
 sub loadExperimentData {
     my $self                 = shift;
     my $experimentDataString = '';
+    my $eid_list             = {};
 
     $self->{_ProbeExperimentHash}    = {};
     $self->{_ExperimentListHash}     = {};
-    $self->{_eid_stid_tuples}        = [];
+    $self->{_eid_list}               = $eid_list;
     $self->{_ExperimentNameListHash} = {};
 
 #Grab the format for the output from the form.
@@ -845,6 +846,7 @@ sub loadExperimentData {
     $self->build_ExperimentDataQuery();
     my $sth = $self->{_dbh}->prepare( $self->{_ExperimentDataQuery} );
 
+    warn Dumper( $self->{_ProbeHash} );
     foreach my $key ( keys %{ $self->{_ProbeHash} } ) {
         my $rc  = $sth->execute($key);
         my $tmp = $sth->fetchall_arrayref;
@@ -862,7 +864,7 @@ sub loadExperimentData {
             $self->{_ExperimentListHash}->{ $_->[0] } = $_->[8];
 
             # [EID, STID] => 1
-            push @{ $self->{_eid_stid_tuples} }, [ $_->[0], $_->[7] ];
+            $eid_list->{ $_->[0] } = undef;
 
             # EID => Name
             $self->{_ExperimentNameListHash}->{ $_->[0] } = $_->[6];
@@ -976,17 +978,10 @@ sub printFindProbeCSV {
             {
                 if ( $ExperimentListHash->{$value} == $currentPID ) {
 
-                    #Experiment Number, Study Description, Experiment
-                    #Heading, Experiment Description
+                    # Experiment Number, Study Description, Experiment Heading,
+                    # Experiment Description
                     my $fullExperimentDataValue = $FullExperimentData->{$value};
-                    $print->(
-                        [
-                            $value,
-                            $fullExperimentDataValue->{description},
-                            $fullExperimentDataValue->{experimentHeading},
-                            $fullExperimentDataValue->{ExperimentDescription}
-                        ]
-                    );
+                    $print->( [ $value, @$fullExperimentDataValue ] );
 
                     # The list of experiments goes with the Ratio line for each
                     # block of 5 columns.
@@ -1071,27 +1066,13 @@ sub getProbeList {
 sub getFullExperimentData {
     my $self = shift;
 
-    my $dbh             = $self->{_dbh};
-    my $eid_stid_tuples = $self->{_eid_stid_tuples};
-    my $curr_proj       = $self->{_WorkingProject};
+    my @params = keys %{ $self->{_eid_list} };
 
-    my @eid_list;
-    my @stid_list;
+    my $eid_sql = ( @params > 0 ) ? join( ',', map { '?' } @params ) : 'NULL';
 
-    foreach (@$eid_stid_tuples) {
-        my ( $eid, $stid ) = @$_;
-        push @eid_list,  $eid;
-        push @stid_list, $stid;
-    }
-
-    my $eid_sql =
-      ( @eid_list > 0 ) ? join( ',', map { '?' } @eid_list ) : 'NULL';
-    my $stid_sql =
-      ( @stid_list > 0 ) ? join( ',', map { '?' } @stid_list ) : 'NULL';
-    my @params = ( @eid_list, @stid_list );
-
-    my @where_conditions = ( "eid IN ($eid_sql)", "study.stid IN ($stid_sql)" );
-    my $innerSQL = '';
+    my @where_conditions = ("eid IN ($eid_sql)");
+    my $innerSQL         = '';
+    my $curr_proj        = $self->{_WorkingProject};
     if ( defined($curr_proj) && $curr_proj ne '' ) {
         unshift @params,           $curr_proj;
         unshift @where_conditions, 'prid=?';
@@ -1102,23 +1083,27 @@ sub getFullExperimentData {
     my $sql = <<"END_query_titles_element";
 SELECT
     experiment.eid, 
-    CONCAT(study.description, ': ', experiment.sample2, ' / ', experiment.sample1) AS title, 
+    GROUP_CONCAT(study.description SEPARATOR ',') AS studyDescription, 
     CONCAT(experiment.sample2, ' / ', experiment.sample1) AS experimentHeading,
-    study.description,
     experiment.ExperimentDescription 
 FROM experiment 
 INNER JOIN StudyExperiment USING(eid)
 INNER JOIN study USING(stid)
 $innerSQL
 $where_sql
+GROUP BY experiment.eid
 ORDER BY study.stid ASC, experiment.eid ASC
 END_query_titles_element
 
-    my $sth = $dbh->prepare($sql);
-    my $rc = $sth->execute(@params);
-    $self->{_FullExperimentData} = $sth->fetchall_hashref('eid');
-
+    my $dbh      = $self->{_dbh};
+    my $sth      = $dbh->prepare($sql);
+    my $rc       = $sth->execute(@params);
+    my $arrayref = $sth->fetchall_arrayref();
     $sth->finish;
+
+    $self->{_FullExperimentData} =
+      +{ map { my $eid = shift(@$_); $eid => $_ } @$arrayref };
+
     return 1;
 }
 
@@ -1398,6 +1383,7 @@ END_terms_title
 'Match word parts, regular expressions'
                                         }
                                     ),
+
                                     # preserve state of radio buttons
                                     $q->input(
                                         {
@@ -1792,7 +1778,7 @@ $sql_subset_by_project
 group by probe.rid
 END_XTableQuery
 
-#warn $self->{_XTableQuery};
+    #warn $self->{_XTableQuery};
 
     return 1;
 }
