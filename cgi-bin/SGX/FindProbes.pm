@@ -31,13 +31,12 @@ sub new {
     my $self = $class->SUPER::new(@param);
 
     $self->set_attributes(
-        _title               => 'Find Probes',
-        _ProbeHash           => undef,
-        _Names               => undef,
-        _ProbeCount          => undef,
-        _ExperimentDataQuery => undef,
-        _SearchTerms         => [],
-        _FilterItems         => [],
+        _title       => 'Find Probes',
+        _ProbeHash   => undef,
+        _Names       => undef,
+        _ProbeCount  => undef,
+        _SearchTerms => [],
+        _FilterItems => [],
 
         _scope => undef,
         _graph => undef,
@@ -62,7 +61,9 @@ sub init {
     $self->SUPER::init();
 
     $self->register_actions(
-        Search => { head => 'Search_head', body => 'Search_body' } );
+        Search    => { head => 'Search_head', body => 'Search_body' },
+        'Get CSV' => { head => 'GetCSV_head' }
+    );
     return $self;
 }
 
@@ -143,6 +144,36 @@ sub get_species {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
+#       METHOD:  GetCSV_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub GetCSV_head {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+    $self->getSessionOverrideCGI();
+
+    $self->{_SearchTerms} =
+      [ split( /[,\s]+/, trim( car( $q->param('q') ) ) ) ];
+
+    #$self->build_XTableQuery();
+    $self->{_UserSession}->commit();
+
+    my $search_terms = $self->{_SearchTerms};
+    my $exp_hash     = $self->getReportExperiments($search_terms);
+    my $data_hash    = $self->getReportData($search_terms);
+    $self->{_DataForCSV} = [ $exp_hash, $data_hash ];
+
+    $self->printFindProbeCSV();
+    exit;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
 #       METHOD:  Search_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -153,10 +184,11 @@ sub get_species {
 #===============================================================================
 sub Search_head {
     my $self = shift;
+    my $q    = $self->{_cgi};
 
     $self->getSessionOverrideCGI();
-
     my $next_action = $self->FindProbes_init();
+
     if ( !$next_action ) {
         $self->set_action('');
         $self->default_head();
@@ -165,6 +197,7 @@ sub Search_head {
 
     my ( $s, $js_src_yui, $js_src_code ) =
       @$self{qw{_UserSession _js_src_yui _js_src_code}};
+
     push @{ $self->{_css_src_yui} },
       (
         'paginator/assets/skins/sam/paginator.css',
@@ -181,6 +214,7 @@ sub Search_head {
       );
 
     if ( $next_action == 1 ) {
+        $self->build_XTableQuery();
         push @$js_src_code,
           ( { -code => $self->findProbes_js($s) },
             { -src => 'FindProbes.js' } );
@@ -331,6 +365,7 @@ sub FindProbes_init {
     my $self = shift;
     my $q    = $self->{_cgi};
 
+    my $action        = car $q->param('b');
     my $loc_sid       = car $q->param('spid');
     my $text          = car $q->param('q');
     my $filefield_val = car $q->param('file');
@@ -349,6 +384,7 @@ sub FindProbes_init {
     my @textSplit = split( /[,\s]+/, trim($text) );
 
     my $scope =
+
       ($upload_file)
       ? car( $q->param('scope_file') )
       : car( $q->param('scope_list') );
@@ -367,8 +403,6 @@ sub FindProbes_init {
         $self->{_SearchTerms} = [$text];
         return $self->getGOTerms();
     }
-
-    my $temp_table;
 
     my @sth;
     my @param;
@@ -443,15 +477,6 @@ sub FindProbes_init {
     }
 
     #----------------------------------------------------------------------
-    #  Set up temporary table
-    #----------------------------------------------------------------------
-    my $ug = Data::UUID->new();
-    $temp_table = $ug->to_string( $ug->create() );
-    $temp_table =~ s/-/_/g;
-    $temp_table = "tmp$temp_table";
-    $self->{_TempTable} = $temp_table;
-
-    #----------------------------------------------------------------------
     #  now load into temporary table
     #----------------------------------------------------------------------
     my $symbol_type;
@@ -468,52 +493,166 @@ sub FindProbes_init {
         die "Invalid scope $scope";
     }
 
-    push @sth, <<"END_createTable";
+    if ( defined $outputFileName ) {
+        $self->{_TempTable} = $self->uploadFileToTemp(
+            filename => $outputFileName,
+            type     => $symbol_type
+        );
+    }
+    else {
+        $self->{_TempTable} = $self->createTempList(
+            items => $self->{_SearchTerms},
+            type  => $symbol_type
+        );
+    }
+
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  createTempTable
+#   PARAMETERS:  n/a
+#      RETURNS:  name of the temporary table
+#  DESCRIPTION:  Set up temporary table
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub createTempTable {
+    my $self        = shift;
+    my $symbol_type = shift;
+    my $dbh         = $self->{_dbh};
+
+    my $ug         = Data::UUID->new();
+    my $temp_table = $ug->to_string( $ug->create() );
+    $temp_table =~ s/-/_/g;
+    $temp_table = "tmp$temp_table";
+
+    my $rc = $dbh->do(<<"END_createTable");
 CREATE TEMPORARY TABLE $temp_table (
     symbol $symbol_type, 
     UNIQUE KEY symbol (symbol)
 ) ENGINE=MEMORY
 END_createTable
-    push @param, [];
-    push @check, undef;
 
-    #-----------------------------------------------------------------------
-    #  load symbols into temporary table
-    #-----------------------------------------------------------------------
-    if ( defined $outputFileName ) {
+    return $temp_table;
+}
 
-        #-----------------------------------------------------------------
-        #  file is uploaded -- slurp data
-        #-----------------------------------------------------------------
-        push @sth, <<"END_loadData";
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  createTempList
+#   PARAMETERS:  items => [1,2,3...],
+#                type  => 'int(10) unsigned'
+#      RETURNS:  Name of the temporary table created
+#  DESCRIPTION:  Create a list in the database represented as a table with a
+#                single column.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub createTempList {
+    my $self = shift;
+    my %args = @_;
+    my $dbh  = $self->{_dbh};
+
+    my $items = $args{items};
+    my $type  = $args{type};
+
+    #---------------------------------------------------------------------------
+    #  batch-insert using DBI execute_array() for high speed
+    #---------------------------------------------------------------------------
+    my $temp_table = $self->createTempTable($type);
+    my $sth =
+      $dbh->prepare("INSERT IGNORE INTO $temp_table (symbol) VALUES (?)");
+    my $tuples =
+      $sth->execute_array( { ArrayTupleStatus => \my @tuple_status }, $items );
+
+    $sth->finish();
+    if ( !$tuples ) {
+        for my $tuple ( 0 .. $#$items ) {
+            my $status = $tuple_status[$tuple];
+            $status = [ 0, "Skipped" ] unless defined $status;
+            next unless ref $status;
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    "There were errors. Failed to insert (%s): %s\n",
+                    $items->[$tuple], $status->[1]
+                )
+            );
+            return $temp_table;
+        }
+    }
+    return $temp_table;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  uploadFileToTemp
+#   PARAMETERS:  filename => 'string'
+#                type  => 'int(10) unsigned'
+#      RETURNS:  Name of the temporary table created
+#  DESCRIPTION:  Create a list in the database represented as a table with a
+#                single column.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub uploadFileToTemp {
+    my $self = shift;
+    my %args = @_;
+    my $dbh  = $self->{_dbh};
+
+    my $filename = $args{filename};
+    my $type     = $args{type};
+
+    #---------------------------------------------------------------------------
+    #  batch-insert using LOAD
+    #---------------------------------------------------------------------------
+    my $temp_table = $self->createTempTable();
+
+    my $sth = $dbh->prepare(<<"END_loadData");
 LOAD DATA LOCAL INFILE ?
 INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n' STARTING BY '' (symbol)
 END_loadData
-        push @param, [$outputFileName];
-        push @check, undef;
-    }
-    else {
 
-        #------------------------------------------------------------------
-        #  file is not uploaded -- multiple insert statements
-        #------------------------------------------------------------------
-        $self->{_SearchTerms} = \@textSplit;
-        foreach my $term (@textSplit) {
-            push @sth, "INSERT IGNORE INTO $temp_table (symbol) VALUES (?)";
-            push @param, [$term];
-            push @check, undef;
+    my $rc = eval { $sth->execute($filename) } or do {
+        my $exception = $@;
+        $sth->finish();
+        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+
+            # Note: this block catches duplicate key record exceptions among
+            # others
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+"Error loading data into the database. The database response was: %s",
+                    $exception->error )
+            );
         }
-    }
-    return SGX::CSV::delegate_fileUpload(
-        success_message => 0,
-        delegate        => $self,
-        statements      => \@sth,
-        parameters      => \@param,
-        validators      => \@check,
-        filename        => $outputFileName
-    );
+        elsif ($exception) {
+
+            # Other types of exceptions
+            $self->add_message(
+                { -class => 'error' },
+                sprintf( "Unknown error. The database response was: %s",
+                    $exception->error )
+            );
+        }
+        else {
+
+            # no exceptions but no records loaded
+            $self->add_message( { -class => 'error' }, 'No records loaded' );
+        }
+        unlink $filename;
+        return $temp_table;
+    };
+    $sth->finish;
+    unlink $filename;
+    return $temp_table;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -711,59 +850,6 @@ sub build_location_predparam {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  build_ExperimentDataQuery
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub build_ExperimentDataQuery {
-
-    # :TODO:07/24/2011 10:56:30:es: Move this function to a separate
-    # class in SGX::Model namespace.
-    my $self = shift;
-    my $whereSQL;
-    my $curr_proj = $self->{_WorkingProject};
-    if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $curr_proj = $self->{_dbh}->quote($curr_proj);
-        $whereSQL  = <<"END_whereSQL";
-INNER JOIN ProjectStudy USING(stid)
-WHERE prid=$curr_proj AND rid=?
-END_whereSQL
-    }
-    else {
-        $whereSQL = 'WHERE rid=?';
-    }
-    $self->{_ExperimentDataQuery} = <<"END_ExperimentDataQuery";
-SELECT
-    experiment.eid, 
-    microarray.ratio,
-    microarray.foldchange,
-    microarray.pvalue,
-    microarray.intensity1,
-    microarray.intensity2,
-    CONCAT(
-        GROUP_CONCAT(study.description SEPARATOR ','), ': ', 
-        experiment.sample2, '/', experiment.sample1
-    ) AS 'Name',
-    GROUP_CONCAT(study.stid SEPARATOR ','),
-    study.pid
-FROM microarray 
-INNER JOIN experiment USING(eid)
-INNER JOIN StudyExperiment USING(eid)
-INNER JOIN study USING(stid)
-$whereSQL
-GROUP BY experiment.eid
-ORDER BY experiment.eid ASC
-END_ExperimentDataQuery
-
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
 #       METHOD:  loadProbeData
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -808,74 +894,238 @@ sub loadProbeData {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  loadExperimentData
+#       METHOD:  getReportExperiments
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  For each probe in the list get all the experiment data.
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub loadExperimentData {
-    my $self                 = shift;
-    my $experimentDataString = '';
-    my $eid_list             = {};
+sub getReportExperiments {
+    my $self         = shift;
+    my $search_terms = shift;
+    my $dbh          = $self->{_dbh};
 
-    $self->{_ProbeExperimentHash}    = {};
-    $self->{_ExperimentListHash}     = {};
-    $self->{_eid_list}               = $eid_list;
-    $self->{_ExperimentNameListHash} = {};
-
-#Grab the format for the output from the form.
-#$transform = (defined($self->{_cgi}->param('trans'))) ? $self->{_cgi}->param('trans') : '';
-#Build SQL statement based on desired output type.
-#my $sql_trans                    = '';
-#switch ($transform)
-#{
-#    case 'fold' {
-#        $sql_trans = 'if(foldchange>0,foldchange-1,foldchange+1)';
-#    }
-#    case 'ln' {
-#        $sql_trans = 'if(foldchange>0, log2(foldchange), log2(-1/foldchange))';
-#    }
-#    else  {
-#        $sql_trans = '';
-#    }
-#}
-
-    $self->build_ExperimentDataQuery();
-    my $sth = $self->{_dbh}->prepare( $self->{_ExperimentDataQuery} );
-
-    warn Dumper( $self->{_ProbeHash} );
-    foreach my $key ( keys %{ $self->{_ProbeHash} } ) {
-        my $rc  = $sth->execute($key);
-        my $tmp = $sth->fetchall_arrayref;
-
-        #We use a temp hash that gets added to the _ProbeExperimentHash.
-        my %tempHash;
-
-        #For each experiment
-        foreach (@$tmp) {
-
-            # EID => [ratio, foldchange, pvalue, intensity1, intensity2]
-            $tempHash{ $_->[0] } = [ @$_[ 1 .. 5 ] ];
-
-            # EID => PID
-            $self->{_ExperimentListHash}->{ $_->[0] } = $_->[8];
-
-            # [EID, STID] => 1
-            $eid_list->{ $_->[0] } = undef;
-
-            # EID => Name
-            $self->{_ExperimentNameListHash}->{ $_->[0] } = $_->[6];
-        }
-
-        #Add the hash of experiment data to the hash of reporters.
-        $self->{_ProbeExperimentHash}->{$key} = \%tempHash;
+    #---------------------------------------------------------------------------
+    #  in one query, get all platforms
+    #---------------------------------------------------------------------------
+    my $platform_sql =
+      'SELECT pid, pname, sname from platform LEFT JOIN species using(sid)';
+    my $platform_sth = $dbh->prepare($platform_sql);
+    $platform_sth->execute();
+    my %platform_hash;
+    while ( my @row = $platform_sth->fetchrow_array() ) {
+        my $pid = shift @row;
+        $platform_hash{$pid} = { attr => \@row };
     }
+    $platform_sth->finish();
 
-    $sth->finish;
-    return;
+    #---------------------------------------------------------------------------
+    # in another query, get attributes for all experiments in which the probes
+    # are found
+    #---------------------------------------------------------------------------
+    my $exp_temp_table = $self->createTempList(
+        items => $search_terms,
+        type  => 'int(10) unsigned'
+    );
+    my $exp_sql = <<"END_ExperimentDataQuery";
+SELECT
+    study.pid,
+    experiment.eid, 
+    GROUP_CONCAT(study.description SEPARATOR ',') AS 'Study(ies)',
+    CONCAT(experiment.sample2, '/', experiment.sample1) AS 'Experiment',
+    experiment.ExperimentDescription AS 'Exp. Desc.',
+    PValFlag
+FROM $exp_temp_table AS tmp
+INNER JOIN microarray ON microarray.rid=tmp.symbol
+INNER JOIN experiment USING(eid)
+INNER JOIN StudyExperiment USING(eid)
+INNER JOIN study USING(stid)
+GROUP BY experiment.eid
+ORDER BY experiment.eid ASC
+END_ExperimentDataQuery
+    my $exp_sth = $dbh->prepare($exp_sql);
+    $exp_sth->execute();
+
+    #---------------------------------------------------------------------------
+    #  Once we have platforms, add platform/species info to experiment hash
+    #  At this point, the experiment hash values will look like this:
+    #
+    #  pid => {
+    #   attr => [
+    #     0) pname
+    #     1) sname
+    #   ],
+    #   exp => [[
+    #      0) eid
+    #      1) study_desc
+    #      2) exp_name
+    #      3) exp_desc
+    #      4) pvalflag
+    #      5) platform name
+    #      6) species name
+    #   ]]
+    #  };
+    #---------------------------------------------------------------------------
+    while ( my @row = $exp_sth->fetchrow_array() ) {
+        my $pid      = shift @row;
+        my $platform = $platform_hash{$pid};
+        if ( my $experiments = $platform->{exp} ) {
+            push @$experiments, \@row;
+        }
+        else {
+            $platform->{exp} = [ \@row ];
+        }
+    }
+    $exp_sth->finish();
+
+    # delete those platform ids for which no experiments were found
+    my @pids_no_eids =
+      grep { !defined( $platform_hash{$_}->{exp} ) } keys %platform_hash;
+    delete @platform_hash{@pids_no_eids};
+
+    return \%platform_hash;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  getReportData
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getReportData {
+    my $self         = shift;
+    my $search_terms = shift;
+    my $dbh          = $self->{_dbh};
+
+    #---------------------------------------------------------------------------
+    #  in another, get all annotation
+    #---------------------------------------------------------------------------
+    my $annot_temp_table = $self->createTempList(
+        items => $search_terms,
+        type  => 'int(10) unsigned'
+    );
+    my $annot_sql = <<"END_ExperimentDataQuery";
+SELECT
+    probe.rid,
+    probe.pid,
+    probe.reporter,
+    group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
+    group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
+    probe.probe_sequence AS 'Probe Sequence',
+    group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
+
+FROM $annot_temp_table AS tmp
+INNER JOIN probe ON probe.rid=tmp.symbol
+INNER JOIN ProbeGene USING(rid)
+INNER JOIN gene USING(gid)
+GROUP BY probe.rid
+END_ExperimentDataQuery
+
+    my $annot_sth = $dbh->prepare($annot_sql);
+    $annot_sth->execute();
+    my %annot_hash;
+    while ( my @row = $annot_sth->fetchrow_array() ) {
+        my $rid = shift @row;
+        $annot_hash{$rid} = { annot => \@row };
+    }
+    $annot_sth->finish();
+
+    #---------------------------------------------------------------------------
+    #  in yet another, get data
+    #---------------------------------------------------------------------------
+    my $data_temp_table = $self->createTempList(
+        items => $search_terms,
+        type  => 'int(10) unsigned'
+    );
+    my $data_sql = <<"END_ExperimentDataQuery";
+SELECT
+    rid,
+    eid,
+    ratio,
+    foldchange,
+    intensity1,
+    intensity2,
+    pvalue,
+    pvalue2,
+    pvalue3
+FROM $data_temp_table AS tmp
+INNER JOIN microarray ON microarray.rid=tmp.symbol
+END_ExperimentDataQuery
+    my $data_sth = $dbh->prepare($data_sql);
+    $data_sth->execute();
+
+    #---------------------------------------------------------------------------
+    # rid => {
+    #   annot => [
+    #       pid,
+    #       reporter,
+    #       acc_num,
+    #       gene,
+    #       probe_seq,
+    #       gene_name
+    #   ],
+    #   exp=> [[
+    #      eid,
+    #      ratio,
+    #      foldchange,
+    #      intensity1,
+    #      intensity2,
+    #      pvalue,
+    #      pvalue2,
+    #      pvalue3
+    #   ]]
+    # };
+    #---------------------------------------------------------------------------
+    while ( my @row = $data_sth->fetchrow_array ) {
+        my $rid        = shift @row;
+        my $probe_info = $annot_hash{$rid};
+        if ( my $experiments = $probe_info->{exp} ) {
+            push @$experiments, \@row;
+        }
+        else {
+            $probe_info->{exp} = [ \@row ];
+        }
+    }
+    $data_sth->finish();
+
+    #---------------------------------------------------------------------------
+    # pid => [{
+    #    annot => [
+    #       reporter,
+    #       acc_num,
+    #       gene,
+    #       probe_seq,
+    #       gene_name
+    #    ],
+    #    exp => [[
+    #       eid,
+    #       ratio,
+    #       foldchange,
+    #       intensity1,
+    #       intensity2,
+    #       pvalue,
+    #       pvalue2,
+    #       pvalue3
+    #    ]]
+    # }]
+    #---------------------------------------------------------------------------
+    my %reconf_hash;
+    foreach my $val ( values %annot_hash ) {
+        my $pid = shift @{ $val->{annot} };
+        if ( my $reconf_memb = $reconf_hash{$pid} ) {
+            push @$reconf_memb, $val;
+        }
+        else {
+            $reconf_hash{$pid} = [$val];
+        }
+    }
+    return \%reconf_hash;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -892,7 +1142,9 @@ sub printFindProbeCSV {
     my $self = shift;
 
     #Clear our headers so all we get back is the CSV file.
-    my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
+    my ( $q,        $s )         = @$self{qw/_cgi _UserSession/};
+    my ( $exp_hash, $data_hash ) = @{ $self->{_DataForCSV} };
+
     $s->commit() if defined $s;
     print $q->header(
         -type       => 'text/csv',
@@ -908,131 +1160,18 @@ sub printFindProbeCSV {
     $print->( [ 'Working Project',    $self->{_WorkingProjectName} ] );
     $print->();
 
-    # initialize platform model
-    require SGX::Model::PlatformStudyExperiment;
-    my $platforms =
-      SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} );
-    $platforms->init( platforms => 1 );
-
-    my $currentPID;
-
-    my $ProbeHash              = $self->{_ProbeHash};
-    my $ExperimentListHash     = $self->{_ExperimentListHash};
-    my $ProbeExperimentHash    = $self->{_ProbeExperimentHash};
-    my $FullExperimentData     = $self->{_FullExperimentData};
-    my $ExperimentNameListHash = $self->{_ExperimentNameListHash};
-
-    # Sort the hash so the PID's are together.
-    foreach my $key (
-        sort { $ProbeHash->{$a}->[0] cmp $ProbeHash->{$b}->[0] }
-        keys %{$ProbeHash}
-      )
-    {
-
-        # This lets us know if we should print the headers.
-        my $printHeaders = 0;
-
-        # Extract the PID from the string in the hash.
-        my $row = $ProbeHash->{$key};
-
-        if ( not defined $currentPID ) {
-
-            # grab first PID from the hash
-            $currentPID   = $row->[0];
-            $printHeaders = 1;
+    while ( my ( $pid, $obj ) = each %$exp_hash ) {
+        $print->( $obj->{attr} );
+        my $experiments = $obj->{exp} || [];
+        $print->($_) for sort { $a->[0] <=> $b->[0] } @$experiments;
+        my $data = $data_hash->{$pid};
+        foreach my $row ( @{ $data_hash->{$pid} } ) {
+            my @prepared_row = @{ $row->{annot} };
+            push( @prepared_row, @$_ ) for @{ $row->{exp} };
+            $print->( \@prepared_row );
         }
-        elsif ( $row->[0] != $currentPID ) {
-
-            # if different from the current one, print a seperator
-            $print->();
-            $print->();
-            $currentPID   = $row->[0];
-            $printHeaders = 1;
-        }
-
-        if ( $printHeaders == 1 ) {
-
-            # Print the name of the current platform.
-            $print->( [ $platforms->getPlatformNameFromPID($currentPID) ] );
-            $print->();
-            $print->(
-                [
-                    'Experiment Number',
-                    'Study Description',
-                    'Experiment Heading',
-                    'Experiment Description'
-                ]
-            );
-
-            # String representing the list of experiment names.
-            my @experimentList = (undef) x 6;
-
-            my @outLine;
-
-            # Loop through the list of experiments and print out the ones for
-            # this platform.
-            foreach my $value (
-                sort { $a <=> $b }
-                keys %$ExperimentListHash
-              )
-            {
-                if ( $ExperimentListHash->{$value} == $currentPID ) {
-
-                    # Experiment Number, Study Description, Experiment Heading,
-                    # Experiment Description
-                    my $fullExperimentDataValue = $FullExperimentData->{$value};
-                    $print->( [ $value, @$fullExperimentDataValue ] );
-
-                    # The list of experiments goes with the Ratio line for each
-                    # block of 5 columns.
-                    push @experimentList,
-                      $value . ':' . $ExperimentNameListHash->{$value},
-                      (undef) x 4;
-
-                    # Form the line that goes above the data. Each experiment
-                    # gets a set of 5 columns.
-                    push @outLine,
-                      "$value:Ratio", "$value:FC", "$value:P-Val",
-                      "$value:Intensity1", "$value:Intensity2";
-                }
-            }
-
-            #Print list of experiments.
-            $print->( \@experimentList );
-
-            #Print header line for probe rows.
-            $print->(
-                [
-                    'Probe ID',
-                    'Accession Number',
-                    'Gene',
-                    'Probe Sequence',
-                    'Official Gene Name',
-                    'Gene Ontology',
-                    @outLine
-                ]
-            );
-        }
-
-        # Print the probe info: Probe ID, Accession, Gene Name, Probe
-        # Sequence, Gene description, Gene Ontology
-        my @outRow = @$row[ 1, 3, 4, 6, 7, 8 ];
-
-        # For this reporter we print out a column for all the experiments that
-        # we have data for.
-        foreach my $eid (
-            sort { $a <=> $b }
-            keys %$ExperimentListHash
-          )
-        {
-
-            # Only try to see the EID's for platform $currentPID.  Add all the
-            # experiment data to the output string.
-            push( @outRow,
-                @{ $ProbeExperimentHash->{$key}->{$eid} || [ (undef) x 5 ] } )
-              if $ExperimentListHash->{$eid} == $currentPID;
-        }
-        $print->( \@outRow );
+        $print->( $_->{annot} ) for @$data;
+        $print->();
     }
     return 1;
 }
@@ -1052,61 +1191,6 @@ sub getProbeList {
     return [ keys %{ shift->{_ProbeHash} } ];
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  getFullExperimentData
-#   PARAMETERS:  _eid_stid_tuples, _WorkingProject
-#      RETURNS:  _FullExperimentData
-#  DESCRIPTION:  Loop through the list of experiments we are displaying and get
-#  the information on each. We need eid and stid for each.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getFullExperimentData {
-    my $self = shift;
-
-    my @params = keys %{ $self->{_eid_list} };
-
-    my $eid_sql = ( @params > 0 ) ? join( ',', map { '?' } @params ) : 'NULL';
-
-    my @where_conditions = ("eid IN ($eid_sql)");
-    my $innerSQL         = '';
-    my $curr_proj        = $self->{_WorkingProject};
-    if ( defined($curr_proj) && $curr_proj ne '' ) {
-        unshift @params,           $curr_proj;
-        unshift @where_conditions, 'prid=?';
-        $innerSQL = 'INNER JOIN ProjectStudy USING(stid)';
-    }
-    my $where_sql = 'WHERE ' . join( ' AND ', @where_conditions );
-
-    my $sql = <<"END_query_titles_element";
-SELECT
-    experiment.eid, 
-    GROUP_CONCAT(study.description SEPARATOR ',') AS studyDescription, 
-    CONCAT(experiment.sample2, ' / ', experiment.sample1) AS experimentHeading,
-    experiment.ExperimentDescription 
-FROM experiment 
-INNER JOIN StudyExperiment USING(eid)
-INNER JOIN study USING(stid)
-$innerSQL
-$where_sql
-GROUP BY experiment.eid
-ORDER BY study.stid ASC, experiment.eid ASC
-END_query_titles_element
-
-    my $dbh      = $self->{_dbh};
-    my $sth      = $dbh->prepare($sql);
-    my $rc       = $sth->execute(@params);
-    my $arrayref = $sth->fetchall_arrayref();
-    $sth->finish;
-
-    $self->{_FullExperimentData} =
-      +{ map { my $eid = shift(@$_); $eid => $_ } @$arrayref };
-
-    return 1;
-}
-
 #===  FUNCTION  ================================================================
 #         NAME:  Search_body
 #      PURPOSE:  display results table for Find Probes
@@ -1124,7 +1208,15 @@ sub Search_body {
     my $type  = $self->{_scope} || '';
     my $match = $self->{_match} || '';
 
-    my @actions;
+    my @actions = (
+        $q->a(
+            {
+                -id    => 'resulttable_astext',
+                -title => 'Present data in this table in tab-delimited format'
+            },
+            'View as plain text'
+        )
+    );
     if ( $type eq 'GO Term Defs.' ) {
         push @actions,
           $q->a(
@@ -1135,8 +1227,24 @@ sub Search_body {
             'Select all'
           );
     }
-    push @actions,
-      $q->a( { -id => 'resulttable_astext' }, 'View as plain text' );
+    else {
+        if ( $type ne 'GO Term Defs.' ) {
+            push @actions,
+              $q->span(
+                $q->hidden(
+                    -id    => 'q',
+                    -name  => 'q',
+                    -value => ''
+                ),
+                $q->submit(
+                    -class => 'plaintext',
+                    -name  => 'b',
+                    -value => 'Get CSV',
+                    -title => 'Get CSV report for these probes'
+                )
+              );
+        }
+    }
 
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
@@ -1209,9 +1317,14 @@ sub Search_body {
               )
             : ()
         ),
-        $q->div(
-            join( $q->span( { -class => 'separator' }, ' / ' ), @actions )
+        $q->start_form(
+            -id      => 'get_csv',
+            -method  => 'POST',
+            -action  => $q->url( absolute => 1 ) . '?a=findProbes',
+            -enctype => 'application/x-www-form-urlencoded'
         ),
+        join( $q->span( { -class => 'separator' }, ' / ' ), @actions ),
+        $q->endform,
         $q->div( { -id => 'resulttable' }, '' )
     );
 
@@ -1836,62 +1949,45 @@ END_ProbeQuery
 sub findProbes_js {
     my $self = shift;
 
-    $self->build_XTableQuery();
-
-    if ( $self->{_opts} eq 'Complete (CSV)' ) {
-
-    #---------------------------------------------------------------------------
-    #  CSV output
-    #---------------------------------------------------------------------------
-        $self->{_UserSession}->commit();
-        $self->loadProbeData();
-        $self->loadExperimentData();
-        $self->getFullExperimentData();
-        $self->printFindProbeCSV();
-        exit;
-    }
-    else {
-
     #---------------------------------------------------------------------------
     #  HTML output
     #---------------------------------------------------------------------------
-        $self->loadProbeData();
-        my $rowcount  = $self->{_ProbeCount};
-        my $proj_name = $self->{_WorkingProjectName};
-        my $caption   = sprintf(
-            '%sFound %d probe%s',
-            ( defined($proj_name) and $proj_name ne '' )
-            ? "$proj_name: "
-            : '',
-            $rowcount,
-            ( $rowcount == 1 ) ? '' : 's',
-        );
+    $self->loadProbeData();
+    my $rowcount  = $self->{_ProbeCount};
+    my $proj_name = $self->{_WorkingProjectName};
+    my $caption   = sprintf(
+        '%sFound %d probe%s',
+        ( defined($proj_name) and $proj_name ne '' )
+        ? "$proj_name: "
+        : '',
+        $rowcount, ( $rowcount == 1 ) ? '' : 's',
+    );
 
-        my @json_records;
-        while ( my ( $rid, $row ) = each %{ $self->{_ProbeHash} } ) {
+    my @json_records;
+    while ( my ( $rid, $row ) = each %{ $self->{_ProbeHash} } ) {
 
-            # Skipping the first value in the array (it's platform ID)
-            push @json_records,
-              +{ 0 => $rid, map { $_ => $row->[$_] } 1 .. $#$row };
-        }
+        # Skipping the first value in the array (it's platform ID)
+        push @json_records,
+          +{ 0 => $rid, map { $_ => $row->[$_] } 1 .. $#$row };
+    }
 
-        my %type_to_column = (
-            'GO IDs'               => 'go_acc',
-            'Probe IDs'            => 'reporter',
-            'Genes/Accession Nos.' => 'gsymbol',
-            'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
-            'GO Term Defs.'        => 'goterms'
-        );
+    my %type_to_column = (
+        'GO IDs'               => 'go_acc',
+        'Probe IDs'            => 'reporter',
+        'Genes/Accession Nos.' => 'gsymbol',
+        'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
+        'GO Term Defs.'        => 'goterms'
+    );
 
-        my %json_probelist = (
-            caption => $caption,
-            records => \@json_records,
-            headers => $self->{_Names}
-        );
+    my %json_probelist = (
+        caption => $caption,
+        records => \@json_records,
+        headers => $self->{_Names}
+    );
 
-        my ( $type, $match ) = @$self{qw/_scope _match/};
-        my $out = sprintf(
-            <<"END_JSON_DATA",
+    my ( $type, $match ) = @$self{qw/_scope _match/};
+    my $out = sprintf(
+        <<"END_JSON_DATA",
 var searchColumn = "%s";
 var queriedItems = %s;
 var data = %s;
@@ -1900,21 +1996,20 @@ var show_graphs = "%s";
 var extra_fields = "%s";
 var project_id = "%s";
 END_JSON_DATA
-            $type_to_column{$type},
-            encode_json(
-                ( $match eq 'Full Word' )
-                ? +{ map { lc($_) => undef } @{ $self->{_SearchTerms} } }
-                : [ distinct( @{ $self->{_SearchTerms} } ) ]
-            ),
-            encode_json( \%json_probelist ),
-            $self->{_cgi}->url( -absolute => 1 ),
-            $self->{_graph},
-            $self->{_opts},
-            $self->{_WorkingProject}
-        );
+        $type_to_column{$type},
+        encode_json(
+            ( $match eq 'Full Word' )
+            ? +{ map { lc($_) => undef } @{ $self->{_SearchTerms} } }
+            : [ distinct( @{ $self->{_SearchTerms} } ) ]
+        ),
+        encode_json( \%json_probelist ),
+        $self->{_cgi}->url( -absolute => 1 ),
+        $self->{_graph},
+        $self->{_opts},
+        $self->{_WorkingProject}
+    );
 
-        return $out;
-    }
+    return $out;
 }
 
 1;

@@ -7,6 +7,18 @@
 
 var dom = YAHOO.util.Dom;
 YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
+YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
+    var inputEl = dom.get("q");
+    var rec = data.records;
+    var len = rec.length;
+    var array = new Array(len);
+    for (var i = 0; i < len; i++) {
+        array[i] = rec[i][0];
+    }
+    inputEl.value = array.join(',');
+    return true;
+}, null, false);
+
 YAHOO.util.Event.addListener(window, "load", function() {
     var graph_ul;
     var graph_content = '';
