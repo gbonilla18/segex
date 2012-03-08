@@ -1679,15 +1679,6 @@ END_EXAMPLE_TEXT
                             -value => 'With Annotation',
                         }
                     ),
-                    $q->input(
-                        {
-                            -type => 'radio',
-                            -name => 'opts',
-                            -title =>
-'Get results in CSV format, including experimental data',
-                            -value => 'Complete (CSV)',
-                        }
-                    ),
 
                     # preserve state of radio buttons
                     $q->input(
