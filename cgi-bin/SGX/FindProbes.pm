@@ -1018,9 +1018,9 @@ SELECT
     probe.rid,
     probe.pid,
     probe.reporter AS 'Probe ID',
+    probe.probe_sequence AS 'Probe Sequence',
     group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
     group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
-    probe.probe_sequence AS 'Probe Sequence',
     group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
 
 FROM $annot_temp_table AS tmp
@@ -1170,23 +1170,18 @@ sub printFindProbeCSV {
 
         # print experiments sorted by ID
         my $experiments = $obj->{exp} || {};
-        $print->($_)
-          for map { [ $_, @{ $experiments->{$_} } ] }
-          sort { $a <=> $b } keys %$experiments;
-
-        my $data             = $data_hash->{$pid};
-        my $platform_data    = $data_hash->{$pid};
-        my $first_probe_data = $platform_data->[0]->{exp} || [];
+        my @sorted_eids = sort { $a <=> $b } keys %$experiments;
+        $print->($_) for map { [ $_, @{ $experiments->{$_} } ] } @sorted_eids;
 
         # now print experiment headers horizontally
         $print->(
             [
                 ( map { '' } @$annot_headers ),
                 map {
-                    my $eid      = $_->[0];
-                    my $this_exp = $experiments->{$eid};
-                    ( $this_exp->[1], map { '' } cdr( cdr(@$exp_headers) ) )
-                  } @$first_probe_data
+                    $experiments->{$_}->[1],
+                      map { '' }
+                      cdr( cdr(@$exp_headers) )
+                  } @sorted_eids
             ]
         );
 
@@ -1195,17 +1190,22 @@ sub printFindProbeCSV {
             [
                 @$annot_headers,
                 map {
-                    my $eid = $_->[0];
+                    my $eid = $_;
                     map { "$eid: $_" } cdr(@$exp_headers)
-                  } @$first_probe_data
+                  } @sorted_eids
             ]
         );
 
         # print annotation + experiment data per probe
+        my $platform_data = $data_hash->{$pid};
         foreach my $row (@$platform_data) {
             my $annot = $row->{annot};
             my $exp   = $row->{exp};
-            $print->( [ @$annot, map { cdr(@$_) } @$exp ] );
+            $print->(
+                [
+                    @$annot, map { cdr(@$_) } sort { $a->[0] <=> $b->[0] } @$exp
+                ]
+            );
         }
         $print->();
     }
