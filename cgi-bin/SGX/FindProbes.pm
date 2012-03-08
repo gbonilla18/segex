@@ -10,7 +10,7 @@ use File::Basename;
 use JSON qw/encode_json/;
 use File::Temp;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car trim min bind_csv_handle distinct file_opts_html/;
+use SGX::Util qw/car cdr trim min bind_csv_handle distinct file_opts_html/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 use Data::UUID;
@@ -911,7 +911,7 @@ sub getReportExperiments {
     #  in one query, get all platforms
     #---------------------------------------------------------------------------
     my $platform_sql =
-      'SELECT pid, pname, sname from platform LEFT JOIN species using(sid)';
+      'SELECT pid, sname, pname from platform LEFT JOIN species using(sid)';
     my $platform_sth = $dbh->prepare($platform_sql);
     $platform_sth->execute();
     my %platform_hash;
@@ -932,10 +932,10 @@ sub getReportExperiments {
     my $exp_sql = <<"END_ExperimentDataQuery";
 SELECT
     study.pid,
-    experiment.eid, 
-    GROUP_CONCAT(study.description SEPARATOR ',') AS 'Study(ies)',
-    CONCAT(experiment.sample2, '/', experiment.sample1) AS 'Experiment',
-    experiment.ExperimentDescription AS 'Exp. Desc.',
+    experiment.eid                                        AS 'Exp. ID', 
+    GROUP_CONCAT(study.description SEPARATOR ',')         AS 'Study(ies)',
+    CONCAT(experiment.sample2, ' / ', experiment.sample1) AS 'Exp. Name',
+    experiment.ExperimentDescription                      AS 'Exp. Desc.',
     PValFlag
 FROM $exp_temp_table AS tmp
 INNER JOIN microarray ON microarray.rid=tmp.symbol
@@ -947,6 +947,8 @@ ORDER BY experiment.eid ASC
 END_ExperimentDataQuery
     my $exp_sth = $dbh->prepare($exp_sql);
     $exp_sth->execute();
+    my @exp_names = @{ $exp_sth->{NAME} };
+    shift @exp_names;
 
     #---------------------------------------------------------------------------
     #  Once we have platforms, add platform/species info to experiment hash
@@ -970,12 +972,13 @@ END_ExperimentDataQuery
     #---------------------------------------------------------------------------
     while ( my @row = $exp_sth->fetchrow_array() ) {
         my $pid      = shift @row;
+        my $eid      = shift @row;
         my $platform = $platform_hash{$pid};
         if ( my $experiments = $platform->{exp} ) {
-            push @$experiments, \@row;
+            $experiments->{$eid} = \@row;
         }
         else {
-            $platform->{exp} = [ \@row ];
+            $platform->{exp} = { $eid => \@row };
         }
     }
     $exp_sth->finish();
@@ -985,7 +988,7 @@ END_ExperimentDataQuery
       grep { !defined( $platform_hash{$_}->{exp} ) } keys %platform_hash;
     delete @platform_hash{@pids_no_eids};
 
-    return \%platform_hash;
+    return { data => \%platform_hash, headers => { exp => \@exp_names } };
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1014,7 +1017,7 @@ sub getReportData {
 SELECT
     probe.rid,
     probe.pid,
-    probe.reporter,
+    probe.reporter AS 'Probe ID',
     group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
     group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
     probe.probe_sequence AS 'Probe Sequence',
@@ -1029,6 +1032,10 @@ END_ExperimentDataQuery
 
     my $annot_sth = $dbh->prepare($annot_sql);
     $annot_sth->execute();
+    my @annot_names = @{ $annot_sth->{NAME} };
+    shift @annot_names;
+    shift @annot_names;
+
     my %annot_hash;
     while ( my @row = $annot_sth->fetchrow_array() ) {
         my $rid = shift @row;
@@ -1047,41 +1054,21 @@ END_ExperimentDataQuery
 SELECT
     rid,
     eid,
-    ratio,
-    foldchange,
-    intensity1,
-    intensity2,
-    pvalue,
-    pvalue2,
-    pvalue3
+    ratio       AS 'Ratio',
+    foldchange  AS 'Fold Change',
+    intensity1  AS 'Intensity-1',
+    intensity2  AS 'Intensity-2',
+    pvalue      AS 'P-Value 1',
+    pvalue2     AS 'P-Value 2',
+    pvalue3     AS 'P-Value 3'
 FROM $data_temp_table AS tmp
 INNER JOIN microarray ON microarray.rid=tmp.symbol
 END_ExperimentDataQuery
     my $data_sth = $dbh->prepare($data_sql);
     $data_sth->execute();
+    my @data_names = @{ $data_sth->{NAME} };
+    shift @data_names;
 
-    #---------------------------------------------------------------------------
-    # rid => {
-    #   annot => [
-    #       pid,
-    #       reporter,
-    #       acc_num,
-    #       gene,
-    #       probe_seq,
-    #       gene_name
-    #   ],
-    #   exp=> [[
-    #      eid,
-    #      ratio,
-    #      foldchange,
-    #      intensity1,
-    #      intensity2,
-    #      pvalue,
-    #      pvalue2,
-    #      pvalue3
-    #   ]]
-    # };
-    #---------------------------------------------------------------------------
     while ( my @row = $data_sth->fetchrow_array ) {
         my $rid        = shift @row;
         my $probe_info = $annot_hash{$rid};
@@ -1125,7 +1112,13 @@ END_ExperimentDataQuery
             $reconf_hash{$pid} = [$val];
         }
     }
-    return \%reconf_hash;
+    return {
+        data    => \%reconf_hash,
+        headers => {
+            annot => \@annot_names,
+            exp   => \@data_names
+        }
+    };
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1142,8 +1135,10 @@ sub printFindProbeCSV {
     my $self = shift;
 
     #Clear our headers so all we get back is the CSV file.
-    my ( $q,        $s )         = @$self{qw/_cgi _UserSession/};
-    my ( $exp_hash, $data_hash ) = @{ $self->{_DataForCSV} };
+    my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
+    my ( $exp_hash_base, $data_hash_base ) = @{ $self->{_DataForCSV} };
+    my $exp_hash  = $exp_hash_base->{data};
+    my $data_hash = $data_hash_base->{data};
 
     $s->commit() if defined $s;
     print $q->header(
@@ -1160,17 +1155,58 @@ sub printFindProbeCSV {
     $print->( [ 'Working Project',    $self->{_WorkingProjectName} ] );
     $print->();
 
+    my $exp_head_headers = $exp_hash_base->{headers}->{exp}    || [];
+    my $annot_headers    = $data_hash_base->{headers}->{annot} || [];
+    my $exp_headers      = $data_hash_base->{headers}->{exp}   || [];
+
     while ( my ( $pid, $obj ) = each %$exp_hash ) {
+
+        # print platform header
         $print->( $obj->{attr} );
-        my $experiments = $obj->{exp} || [];
-        $print->($_) for sort { $a->[0] <=> $b->[0] } @$experiments;
-        my $data = $data_hash->{$pid};
-        foreach my $row ( @{ $data_hash->{$pid} } ) {
-            my @prepared_row = @{ $row->{annot} };
-            push( @prepared_row, @$_ ) for @{ $row->{exp} };
-            $print->( \@prepared_row );
+        $print->();
+
+        # print headers for experiment head
+        $print->($exp_head_headers);
+
+        # print experiments sorted by ID
+        my $experiments = $obj->{exp} || {};
+        $print->($_)
+          for map { [ $_, @{ $experiments->{$_} } ] }
+          sort { $a <=> $b } keys %$experiments;
+
+        my $data             = $data_hash->{$pid};
+        my $platform_data    = $data_hash->{$pid};
+        my $first_probe_data = $platform_data->[0]->{exp} || [];
+
+        # now print experiment headers horizontally
+        $print->(
+            [
+                ( map { '' } @$annot_headers ),
+                map {
+                    my $eid      = $_->[0];
+                    my $this_exp = $experiments->{$eid};
+                    ( $this_exp->[1], map { '' } cdr( cdr(@$exp_headers) ) )
+                  } @$first_probe_data
+            ]
+        );
+
+        # print headers for annotation + experiments data
+        $print->(
+            [
+                @$annot_headers,
+                map {
+                    my $eid = $_->[0];
+                    map { "$eid: $_" } cdr(@$exp_headers)
+                  } @$first_probe_data
+            ]
+        );
+
+        # print annotation + experiment data per probe
+        foreach my $row (@$platform_data) {
+            my $annot = $row->{annot};
+            my $exp   = $row->{exp};
+            $print->( [ @$annot, map { cdr(@$_) } @$exp ] );
         }
-        $print->( $_->{annot} ) for @$data;
         $print->();
     }
     return 1;
