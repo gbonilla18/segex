@@ -16,6 +16,53 @@ use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 use Data::UUID;
 
+#---------------------------------------------------------------------------
+#  Parsers for lists of IDs/symbols
+#---------------------------------------------------------------------------
+my %parser = (
+    'Probe IDs' => sub {
+
+        # Regular expression for the first column (probe/reporter id) reads as
+        # follows: from beginning to end, match any character other than [space,
+        # forward/back slash, comma, equal or pound sign, opening or closing
+        # parentheses, double quotation mark] from 1 to 18 times.
+        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+            return $1;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Cannot parse probe ID on line ' . shift );
+        }
+    },
+    'Genes/Accession Nos.' => sub {
+        if ( shift =~ /^([^\+\s]+)$/ ) {
+            return $1;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Invalid gene symbol format on line ' . shift );
+        }
+    },
+    'GO IDs' => sub {
+        if ( shift =~ /^(?:GO\:|)(\d+)$/ ) {
+            return $1;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Invalid GO accession number on line ' . shift );
+        }
+    }
+);
+
+#---------------------------------------------------------------------------
+#  When creating temporary lists in MySQL, use the types below
+#---------------------------------------------------------------------------
+my %sqlTypes = (
+    'Probe IDs'            => 'char(18) NOT NULL',
+    'Genes/Accession Nos.' => 'char(32) NOT NULL',
+    'GO IDs'               => 'int(10) unsigned'
+);
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
 #       METHOD:  new
@@ -432,42 +479,8 @@ sub FindProbes_init {
     #----------------------------------------------------------------------
     my $outputFileName;
 
-    require SGX::CSV;
-    my %parser = (
-        'Probe IDs' => sub {
-
-        # Regular expression for the first column (probe/reporter id) reads as
-        # follows: from beginning to end, match any character other than [space,
-        # forward/back slash, comma, equal or pound sign, opening or closing
-        # parentheses, double quotation mark] from 1 to 18 times.
-            if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
-                return $1;
-            }
-            else {
-                SGX::Exception::User->throw(
-                    error => 'Cannot parse probe ID on line ' . shift );
-            }
-        },
-        'Genes/Accession Nos.' => sub {
-            if ( shift =~ /^([^\+\s]+)$/ ) {
-                return $1;
-            }
-            else {
-                SGX::Exception::User->throw(
-                    error => 'Invalid gene symbol format on line ' . shift );
-            }
-        },
-        'GO IDs' => sub {
-            if ( shift =~ /^(?:GO\:|)(\d+)$/ ) {
-                return $1;
-            }
-            else {
-                SGX::Exception::User->throw(
-                    error => 'Invalid GO accession number on line ' . shift );
-            }
-        }
-    );
     if ($upload_file) {
+        require SGX::CSV;
         my ( $outputFileNames, $recordsValid ) =
           SGX::CSV::sanitizeUploadWithMessages(
             $self, 'file',
@@ -480,32 +493,20 @@ sub FindProbes_init {
     #----------------------------------------------------------------------
     #  now load into temporary table
     #----------------------------------------------------------------------
-    my $symbol_type;
-    if ( $scope eq 'Probe IDs' ) {
-        $symbol_type = 'char(18) NOT NULL';
-    }
-    elsif ( $scope eq 'Genes/Accession Nos.' ) {
-        $symbol_type = 'char(32) NOT NULL';
-    }
-    elsif ( $scope eq 'GO IDs' ) {
-        $symbol_type = 'int(10) unsigned';
-    }
-    else {
-        die "Invalid scope $scope";
+    if ( !defined($outputFileName) ) {
+        $self->{_SearchTerms} = \@textSplit;
     }
 
-    if ( defined $outputFileName ) {
-        $self->{_TempTable} = $self->uploadFileToTemp(
-            filename => $outputFileName,
-            type     => $symbol_type
-        );
-    }
-    else {
-        $self->{_TempTable} = $self->createTempList(
-            items => $self->{_SearchTerms},
-            type  => $symbol_type
-        );
-    }
+    $self->{_TempTable} =
+      ( defined $outputFileName )
+      ? $self->uploadFileToTemp(
+        filename => $outputFileName,
+        type     => $sqlTypes{$scope}
+      )
+      : $self->createTempList(
+        items => \@textSplit,
+        type  => $sqlTypes{$scope}
+      );
 
     return 1;
 }
@@ -566,11 +567,20 @@ sub createTempList {
     my $temp_table = $self->createTempTable($type);
     my $sth =
       $dbh->prepare("INSERT IGNORE INTO $temp_table (symbol) VALUES (?)");
-    my $tuples =
-      $sth->execute_array( { ArrayTupleStatus => \my @tuple_status }, $items );
-
+    my @tuple_status;
+    my $rc = eval {
+        $sth->execute_array( { ArrayTupleStatus => \@tuple_status }, $items ) +
+          0;
+    } or do {
+        my $exception = $@;
+        if ($exception) {
+            $self->add_message( { -class => 'error' },
+                sprintf( "Encountered error: %s\n", $exception->error ) );
+            return $temp_table;
+        }
+    };
     $sth->finish();
-    if ( !$tuples ) {
+    if ( !$rc ) {
         for my $tuple ( 0 .. $#$items ) {
             my $status = $tuple_status[$tuple];
             $status = [ 0, "Skipped" ] unless defined $status;
@@ -935,7 +945,7 @@ SELECT
     study.pid,
     experiment.eid                                        AS 'Exp. ID', 
     PValFlag,
-    GROUP_CONCAT(study.description SEPARATOR ',')         AS 'Study(ies)',
+    GROUP_CONCAT(DISTINCT study.description SEPARATOR ',')         AS 'Study(ies)',
     CONCAT(experiment.sample2, ' / ', experiment.sample1) AS 'Exp. Name',
     experiment.ExperimentDescription                      AS 'Exp. Description'
 FROM $exp_temp_table AS tmp
@@ -1185,7 +1195,7 @@ sub printFindProbeCSV {
             $_ => [
                 @always_show,
                 map { $offset + $_ }
-                  dec2indexes32( shift( @{ $experiments->{$_} } ) + 0 )
+                  dec2indexes32( shift @{ $experiments->{$_} } )
               ]
         } @sorted_eids;
 

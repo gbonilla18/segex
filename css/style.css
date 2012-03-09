@@ -362,6 +362,10 @@ dl, table, div.table_cont {
 .hint pre, .hint p {
 	margin-bottom:0.75em;
 }
+.TicketName {
+	font-weight: bold;
+	font-size:1.1em;
+}
 /* word-wrap: break-word -- breaks long words such as DNA sequences */
 td.yui-dt-resizeable .yui-dt-liner {
 	white-space: pre-wrap;

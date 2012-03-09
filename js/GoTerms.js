@@ -109,8 +109,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     // label formatter
     YAHOO.widget.DataTable.Formatter.formatGOName = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = '<strong>' + oData + '</strong><br/><span class="fadeout">' 
-        + oRecord.getData('2') + '</span>';
+        elCell.innerHTML = '<span class="TicketName">' + oData + 
+                            '</span><br/><span class="fadeout">' 
+                            + oRecord.getData('2') + '</span>';
     };
 
     // type formatter
