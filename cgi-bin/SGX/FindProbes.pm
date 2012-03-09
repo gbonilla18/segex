@@ -10,7 +10,8 @@ use File::Basename;
 use JSON qw/encode_json/;
 use File::Temp;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car cdr trim min bind_csv_handle distinct file_opts_html/;
+use SGX::Util
+  qw/car cdr trim min bind_csv_handle distinct file_opts_html dec2indexes32/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 use Data::UUID;
@@ -933,10 +934,10 @@ sub getReportExperiments {
 SELECT
     study.pid,
     experiment.eid                                        AS 'Exp. ID', 
+    PValFlag,
     GROUP_CONCAT(study.description SEPARATOR ',')         AS 'Study(ies)',
     CONCAT(experiment.sample2, ' / ', experiment.sample1) AS 'Exp. Name',
-    experiment.ExperimentDescription                      AS 'Exp. Desc.',
-    PValFlag
+    experiment.ExperimentDescription                      AS 'Exp. Description'
 FROM $exp_temp_table AS tmp
 INNER JOIN microarray ON microarray.rid=tmp.symbol
 INNER JOIN experiment USING(eid)
@@ -948,6 +949,8 @@ END_ExperimentDataQuery
     my $exp_sth = $dbh->prepare($exp_sql);
     $exp_sth->execute();
     my @exp_names = @{ $exp_sth->{NAME} };
+    shift @exp_names;
+    shift @exp_names;
     shift @exp_names;
 
     #---------------------------------------------------------------------------
@@ -1155,9 +1158,15 @@ sub printFindProbeCSV {
     $print->( [ 'Working Project',    $self->{_WorkingProjectName} ] );
     $print->();
 
-    my $exp_head_headers = $exp_hash_base->{headers}->{exp}    || [];
-    my $annot_headers    = $data_hash_base->{headers}->{annot} || [];
-    my $exp_headers      = $data_hash_base->{headers}->{exp}   || [];
+    my $exp_head_headers =
+      [ 'Exp. ID', @{ $exp_hash_base->{headers}->{exp} || [] } ];
+    my $annot_headers = $data_hash_base->{headers}->{annot} || [];
+    my $exp_headers   = $data_hash_base->{headers}->{exp}   || [];
+
+    # always show these data fields:
+    # 1: ratio, 2: foldchange, 3: intensity1, 4: intensity2
+    my @always_show = 1 .. 4;
+    my $offset      = $always_show[$#always_show] + 1;
 
     while ( my ( $pid, $obj ) = each %$exp_hash ) {
 
@@ -1168,10 +1177,20 @@ sub printFindProbeCSV {
         # print headers for experiment head
         $print->($exp_head_headers);
 
-        # print experiments sorted by ID
+        # Indexes:
+        # 1: ratio, 2: foldchange, 3: intensity1, 4: intensity2, 5: p-value1...
         my $experiments = $obj->{exp} || {};
         my @sorted_eids = sort { $a <=> $b } keys %$experiments;
-        $print->($_) for map { [ $_, @{ $experiments->{$_} } ] } @sorted_eids;
+        my %eid2array = map {
+            $_ => [
+                @always_show,
+                map { $offset + $_ }
+                  dec2indexes32( shift( @{ $experiments->{$_} } ) + 0 )
+              ]
+        } @sorted_eids;
+
+        # print experiments sorted by ID
+        $print->( [ $_, @{ $experiments->{$_} } ] ) for @sorted_eids;
 
         # now print experiment headers horizontally
         $print->(
@@ -1180,7 +1199,7 @@ sub printFindProbeCSV {
                 map {
                     $experiments->{$_}->[1],
                       map { '' }
-                      cdr( cdr(@$exp_headers) )
+                      @$exp_headers[ cdr( @{ $eid2array{$_} } ) ]
                   } @sorted_eids
             ]
         );
@@ -1191,7 +1210,7 @@ sub printFindProbeCSV {
                 @$annot_headers,
                 map {
                     my $eid = $_;
-                    map { "$eid: $_" } cdr(@$exp_headers)
+                    map { "$eid: $_" } @$exp_headers[ @{ $eid2array{$eid} } ]
                   } @sorted_eids
             ]
         );
@@ -1203,7 +1222,9 @@ sub printFindProbeCSV {
             my $exp   = $row->{exp};
             $print->(
                 [
-                    @$annot, map { cdr(@$_) } sort { $a->[0] <=> $b->[0] } @$exp
+                    @$annot,
+                    map { my $eid = $_->[0]; @$_[ @{ $eid2array{$eid} } ] }
+                      sort { $a->[0] <=> $b->[0] } @$exp
                 ]
             );
         }
