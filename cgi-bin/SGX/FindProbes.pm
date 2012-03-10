@@ -1530,66 +1530,53 @@ END_terms_title
                         $q->div(
                             { -id => 'pattern_div' },
                             $q->p(
-                                $q->a(
-                                    {
-                                        -id    => 'patternMatcher',
-                                        -class => 'pluscol'
-                                    },
-                                    '+ Patterns in input terms'
-                                )
-                            ),
-                            $q->div(
-                                {
-                                    -id    => 'patternMatcher_container',
-                                    -class => 'dd_collapsible'
-                                },
-                                $q->div(
-                                    {
-                                        -id    => 'pattern_container',
-                                        -class => 'input_container'
-                                    },
+                                $q->label(
+                                    { -title => 'Match full words' },
                                     $q->input(
                                         {
+                                            -id      => 'full_word',
                                             -type    => 'radio',
                                             -name    => 'match',
                                             -value   => 'Full Word',
                                             -checked => 'checked',
-                                            -title   => 'Match full words'
                                         }
                                     ),
+                                    'Full Word'
+                                ),
+                                $q->label(
+                                    { -title => 'Match word prefixes' },
                                     $q->input(
                                         {
                                             -id    => 'prefix',
                                             -type  => 'radio',
                                             -name  => 'match',
                                             -value => 'Prefix',
-                                            -title => 'Match word prefixes'
                                         }
                                     ),
+                                    'Prefix'
+                                ),
+                                $q->label(
+                                    {
+                                        -title =>
+'Match word parts, regular expressions'
+                                    },
                                     $q->input(
                                         {
+                                            -id    => 'partial',
                                             -type  => 'radio',
                                             -name  => 'match',
                                             -value => 'Partial',
-                                            -title =>
-'Match word parts, regular expressions'
                                         }
                                     ),
-
-                                    # preserve state of radio buttons
-                                    $q->input(
-                                        {
-                                            -type => 'hidden',
-                                            -id   => 'pattern_state'
-                                        }
-                                    )
-                                ),
-                                $q->p(
-                                    {
-                                        -class => 'hint',
-                                        -id    => 'pattern_part_hint'
-                                    },
-                                    <<"END_EXAMPLE_TEXT") ) ),
+                                    'Partial'
+                                )
+                            ),
+                            $q->p(
+                                {
+                                    -class => 'hint',
+                                    -id    => 'pattern_part_hint'
+                                },
+                                <<"END_EXAMPLE_TEXT"),
 Partial matching lets you search for word parts and regular expressions.
 For example, <strong>^cyp.b</strong> means "all genes starting with
 <strong>cyp.b</strong> where the fourth character (the dot) is any single letter or
@@ -1597,6 +1584,7 @@ digit."  See <a target="_blank"
 href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
 information.
 END_EXAMPLE_TEXT
+                        )
                     ),
                     $q->div(
                         { -id => 'upload' },

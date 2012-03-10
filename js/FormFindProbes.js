@@ -13,6 +13,16 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         { 'spid': { 'defined' : ['chr_div' ] } }, 
         isDefinedSelection
     );
+    var pattern_part_hint = document.getElementById('pattern_part_hint');
+    YAHOO.util.Event.addListener('full_word', 'change', function() {
+        pattern_part_hint.style.display = (this.checked) ? 'none' : 'block';
+    });
+    YAHOO.util.Event.addListener('prefix', 'change', function() {
+        pattern_part_hint.style.display = (this.checked) ? 'none' : 'block';
+    });
+    YAHOO.util.Event.addListener('partial', 'change', function() {
+        pattern_part_hint.style.display = (this.checked) ? 'block' : 'none';
+    });
 
     // scope
     var pattern_div = document.getElementById('pattern_div');
@@ -20,22 +30,18 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     var scope_file_state = document.getElementById("scope_file_state");
     var scope_list = new YAHOO.widget.ButtonGroup("scope_list_container");
     var scope_file = new YAHOO.widget.ButtonGroup("scope_file_container");
-    var patterns = new YAHOO.widget.ButtonGroup("pattern_container");
     scope_list.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;
         scope_list_state.value = selectedIndex;
         switch (selectedIndex) {
         case 0:
-            //patterns.check(0);
             pattern_div.style.display = 'none';
             break;
         case 1:
-            //patterns.check(0);
             pattern_div.style.display = 'block';
             break;
         case 2:
         case 3:
-            //patterns.check(1);
             pattern_div.style.display = 'block';
             break;
         }
@@ -53,19 +59,6 @@ YAHOO.util.Event.addListener(window, 'load', function() {
 
     // pattern/match
     var pattern_state = document.getElementById("pattern_state");
-    var pattern_part_hint = document.getElementById('pattern_part_hint');
-    patterns.addListener("checkedButtonChange", function(ev) {
-        var selectedIndex = ev.newValue.index;
-        pattern_state.value = selectedIndex;
-        if (selectedIndex === 1) {
-            pattern_part_hint.style.display = 'block';
-        } else {
-            pattern_part_hint.style.display = 'none';
-        }
-    });
-    if (pattern_state.value !== '') {
-        patterns.check(pattern_state.value);
-    }
 
     // graphs
     var graph_container = document.getElementById("graph_everything_container");
