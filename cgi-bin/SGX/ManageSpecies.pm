@@ -207,6 +207,43 @@ sub ajax_clear_annot {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageSpecies
+#       METHOD:  _delete_command
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::_delete_command
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub _delete_command {
+    my $self = shift;
+    my $dbh  = $self->{_dbh};
+
+    # TODO in addition to species table row, also delete:
+    # 1) GeneGo entries
+    # 2) ProbeGene entries
+    # 3) gene entries
+
+    my $species_id = $self->{_id};
+
+    # prepare block
+    my @sth = map { $dbh->prepare($_) } (
+'DELETE GeneGO FROM GeneGO INNER JOIN gene ON gene.sid=? AND gene.gid=GeneGO.gid',
+'DELETE ProbeGene FROM ProbeGene INNER JOIN gene ON gene.sid=? AND gene.gid=ProbeGene.gid',
+        'DELETE gene WHERE sid=?'
+    );
+
+    my $default_behavior = $self->SUPER::_delete_command();
+    return sub {
+
+        # atomic transaction for execute()
+        my @rc = map { $_->execute($species_id) } @sth;
+        return $default_behavior->();    # ends atomic
+    };
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageSpecies
 #       METHOD:  UploadAnnot_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????

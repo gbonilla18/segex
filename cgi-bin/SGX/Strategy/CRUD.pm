@@ -859,7 +859,7 @@ sub get_last_insert_id {
 #===============================================================================
 sub ajax_delete {
     my $self = shift;
-    return $self->_ajax_process_request( \&_delete_command );
+    return $self->_ajax_process_request('_delete_command');
 }
 
 #===  CLASS METHOD  ============================================================
@@ -874,7 +874,7 @@ sub ajax_delete {
 #===============================================================================
 sub ajax_update {
     my $self = shift;
-    return $self->_ajax_process_request( \&_update_command );
+    return $self->_ajax_process_request('_update_command');
 }
 
 #===  CLASS METHOD  ============================================================
@@ -889,7 +889,7 @@ sub ajax_update {
 #===============================================================================
 sub ajax_create {
     my $self = shift;
-    return $self->_ajax_process_request( \&_create_command );
+    return $self->_ajax_process_request('_create_command');
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1707,15 +1707,29 @@ sub _delete_command {
     my $query     = "DELETE FROM $table WHERE $predicate";
     my @params    = ( $self->{_id}, ( map { $q->param($_) } cdr @key ) );
 
-    #SGX::Exception::User->throw( error => "$query\n" . Dumper( \@params ) );
-
     my $sth = $dbh->prepare($query);
+
+    my $old_AutoCommit = $dbh->{AutoCommit};
+    $dbh->{AutoCommit} = 0;
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
     return sub {
-        my $rc = $sth->execute(@params);
+        my $rc = eval { $sth->execute(@params) } or do {
+            my $exception = $@;
+            $dbh->rollback;
+            $sth->finish;
+            $dbh->{AutoCommit} = $old_AutoCommit;
+            if ($exception) {
+                $exception->throw();
+            }
+            else {
+                return 0;
+            }
+        };
+        $dbh->commit;
         $sth->finish;
+        $dbh->{AutoCommit} = $old_AutoCommit;
         return $rc;
     };
 }
@@ -2134,7 +2148,9 @@ sub _update_command {
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  _ajax_process_request
-#   PARAMETERS:  ????
+#   PARAMETERS:  $command_factory can be either name of a method (string) or a
+#                reference to a subroutine.
+#
 #      RETURNS:  ????
 #  DESCRIPTION:  This is a generic method for handling AJAX requests
 #       THROWS:  no exceptions
@@ -2150,9 +2166,14 @@ sub _ajax_process_request {
       ? $args{success_code}
       : 204;    # 204 No Content unless specified otherwise
 
-    # :TODO:10/05/2011 02:06:01:es: attempt more specific error capture using
-    # exceptions
-    my $command = eval { $command_factory->($self) } or do {
+    #---------------------------------------------------------------------------
+    #  prepare statement
+    #---------------------------------------------------------------------------
+    my $command = eval {
+        ( ref $command_factory eq 'CODE' )
+          ? $command_factory->($self)
+          : $self->$command_factory();
+    } or do {
         my $exception = $@;
         $self->add_message( { -class => 'error' }, "$exception" )
           if $exception
@@ -2164,8 +2185,11 @@ sub _ajax_process_request {
         return 1;
     };
 
+    #---------------------------------------------------------------------------
+    #  execute statement
+    #---------------------------------------------------------------------------
     my $rows_affected = 0;
-    eval { ( $rows_affected = $command->() ) == 1; } or do {
+    eval { ( $rows_affected = ( $command->() || 0 ) ) == 1; } or do {
         my $exception = $@;
         if ( $exception or $rows_affected != 0 ) {
 

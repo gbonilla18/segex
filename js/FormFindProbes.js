@@ -26,16 +26,16 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         scope_list_state.value = selectedIndex;
         switch (selectedIndex) {
         case 0:
-            patterns.check(0);
+            //patterns.check(0);
             pattern_div.style.display = 'none';
             break;
         case 1:
-            patterns.check(0);
+            //patterns.check(0);
             pattern_div.style.display = 'block';
             break;
         case 2:
         case 3:
-            patterns.check(1);
+            //patterns.check(1);
             pattern_div.style.display = 'block';
             break;
         }

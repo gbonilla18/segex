@@ -27,8 +27,7 @@ CREATE TABLE `GeneGO` (
   `go_acc` int(10) unsigned NOT NULL,
   PRIMARY KEY (`gid`,`go_acc`),
   KEY `gid` (`gid`),
-  KEY `go_acc` (`go_acc`),
-  CONSTRAINT `GeneGo_ibfk_1` FOREIGN KEY (`gid`) REFERENCES `gene` (`gid`) ON DELETE CASCADE
+  KEY `go_acc` (`go_acc`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -45,8 +44,7 @@ CREATE TABLE `ProbeGene` (
   PRIMARY KEY (`rid`,`gid`),
   KEY `rid` (`rid`),
   KEY `gid` (`gid`),
-  CONSTRAINT `ProbeGene_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE,
-  CONSTRAINT `ProbeGene_ibfk_2` FOREIGN KEY (`gid`) REFERENCES `gene` (`gid`) ON DELETE CASCADE
+  CONSTRAINT `ProbeGene_ibfk_1` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -101,6 +99,7 @@ CREATE TABLE `experiment` (
   `ExperimentDescription` varchar(1023) NOT NULL DEFAULT '',
   `AdditionalInformation` varchar(1023) NOT NULL DEFAULT '',
   `pid` int(10) unsigned NOT NULL,
+  `PValFlag` tinyint(1) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
@@ -124,8 +123,8 @@ CREATE TABLE `gene` (
   PRIMARY KEY (`gid`),
   UNIQUE KEY `sid_gsymbol` (`sid`,`gsymbol`),
   KEY `sid` (`sid`),
-  CONSTRAINT `gene_ibfk_1` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=534869 DEFAULT CHARSET=latin1;
+  FULLTEXT KEY `full` (`gsymbol`,`gname`,`gdesc`)
+) ENGINE=MyISAM AUTO_INCREMENT=174422 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -205,7 +204,7 @@ CREATE TABLE `platform` (
   UNIQUE KEY `pname` (`pname`),
   KEY `sid` (`sid`),
   CONSTRAINT `platform_ibfk_1` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`)
-) ENGINE=InnoDB AUTO_INCREMENT=48 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -225,7 +224,7 @@ CREATE TABLE `probe` (
   UNIQUE KEY `pid_reporter` (`pid`,`reporter`),
   KEY `pid` (`pid`),
   CONSTRAINT `probe_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1193029 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=316999 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -272,7 +271,7 @@ CREATE TABLE `species` (
   `sid` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `sname` varchar(120) NOT NULL,
   PRIMARY KEY (`sid`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -326,4 +325,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-02-02 15:45:48
+-- Dump completed on 2012-03-10  5:03:39
