@@ -140,7 +140,8 @@ CREATE TABLE `go_term` (
   `go_name` varchar(255) NOT NULL DEFAULT '',
   `go_term_definition` text,
   PRIMARY KEY (`go_acc`),
-  FULLTEXT KEY `full` (`go_name`,`go_term_definition`)
+  FULLTEXT KEY `full` (`go_name`,`go_term_definition`),
+  FULLTEXT KEY `names` (`go_name`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -325,4 +326,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-03-10  5:03:39
+-- Dump completed on 2012-03-10  8:33:16

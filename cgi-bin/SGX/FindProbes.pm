@@ -298,7 +298,8 @@ sub goTerms_js {
         'Probe IDs'            => 'reporter',
         'Genes/Accession Nos.' => 'gsymbol',
         'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
-        'GO Term Defs.'        => 'goterms'
+        'GO Names'             => 'gonames',
+        'GO Names/Desc.'       => 'gonames+godesc'
     );
 
     my %json_probelist = (
@@ -343,14 +344,24 @@ sub getGOTerms {
     my $dbh  = $self->{_dbh};
     my $q    = $self->{_cgi};
 
-    my $text  = car $q->param('q');
-    my $match = car $q->param('match');
+    my ($text) = @{ $self->{_SearchTerms} };
+    my $scope  = $self->{_scope};
+    my $match  = $self->{_match};
 
+    my @fields =
+        ( $scope eq 'GO Names' )
+      ? ('go_name')
+      : ( 'go_name', 'go_term_definition' );
     my $predicate =
       ( $match eq 'Full Word' )
-      ? 'where match (go_name, go_term_definition) against (?)'
-      : 'where go_name regexp ? or go_term_definition regexp ?';
-    my @param = ( $match eq 'Full Word' ) ? ($text) : ( $text, $text );
+      ? sprintf( 'WHERE MATCH (%s) AGAINST (?)', join( ',', @fields ) )
+      : sprintf( 'WHERE %s', join( ' OR ', map { "$_ REGEXP ?" } @fields ) );
+    my @param =
+      ( $match eq 'Full Word' ) ? ($text)
+      : (
+          ( $match eq 'Prefix' ) ? ( "[[:<:]]$text", "[[:<:]]$text" )
+        : ( $text, $text )
+      );
 
     #---------------------------------------------------------------------------
     # only return results for platforms that belong to the current working
@@ -447,14 +458,10 @@ sub FindProbes_init {
     $self->{_graph} = car $q->param('graph');
     $self->{_opts}  = car $q->param('opts');
 
-    if ( $scope eq 'GO Term Defs.' ) {
+    if ( $scope eq 'GO Names' or $scope eq 'GO Names/Desc.' ) {
         $self->{_SearchTerms} = [$text];
         return $self->getGOTerms();
     }
-
-    my @sth;
-    my @param;
-    my @check;
 
     if (
         !$upload_file
@@ -757,10 +764,11 @@ sub build_SearchPredicate {
         'GO IDs'               => ['go_acc'],
         'Probe IDs'            => ['reporter'],
         'Genes/Accession Nos.' => ['gsymbol'],
-        'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ],
-        'GO Term Defs.'        => []
+        'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ]
     );
     my $type = $translate_fields{ $self->{_scope} };
+    SGX::Exception::Internal->throw("Unknown match type\n")
+      if not defined $type;
 
     if ( $match eq 'Full Word' ) {
         ( $predicate => $qtext ) = @$items
@@ -782,7 +790,7 @@ sub build_SearchPredicate {
           ? (
             [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] => [
                 map {
-                    join( '|', map { "^$_" } @$items )
+                    join( '|', map { "[[:<:]]$_" } @$items )
                   } @$type
             ]
           )
@@ -1276,28 +1284,16 @@ sub Search_body {
     my $match = $self->{_match} || '';
 
     my @actions = (
-        $q->a(
-            {
-                -id    => 'resulttable_astext',
-                -title => 'Present data in this table in tab-delimited format'
-            },
-            'View as plain text'
-        )
-    );
-    if ( $type eq 'GO Term Defs.' ) {
-        push @actions,
-          $q->a(
-            {
-                -id    => 'resulttable_selectall',
-                -title => 'Get probes for all GO accession numbers below'
-            },
-            'Select all'
-          );
-    }
-    else {
-        if ( $type ne 'GO Term Defs.' ) {
-            push @actions,
-              $q->span(
+        (
+            ( $type eq 'GO Names' or $type eq 'GO Names/Desc.' )
+            ? $q->a(
+                {
+                    -id    => 'resulttable_selectall',
+                    -title => 'Get probes for all GO accession numbers below'
+                },
+                'Select all'
+              )
+            : $q->span(
                 $q->hidden(
                     -id    => 'q',
                     -name  => 'q',
@@ -1309,9 +1305,16 @@ sub Search_body {
                     -value => 'Get CSV',
                     -title => 'Get CSV report for these probes'
                 )
-              );
-        }
-    }
+            )
+        ),
+        $q->a(
+            {
+                -id    => 'resulttable_astext',
+                -title => 'Present data in this table in tab-delimited format'
+            },
+            'View as plain text'
+        )
+    );
 
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
@@ -1325,7 +1328,7 @@ sub Search_body {
             )
         ),
         (
-            ( $type eq 'GO Term Defs.' )
+            ( $type eq 'GO Names' or $type eq 'GO Names/Desc.' )
             ? (
                 $q->start_form(
                     -id      => 'main_form',
@@ -1502,8 +1505,17 @@ END_terms_title
                                 {
                                     -type  => 'radio',
                                     -name  => 'scope_list',
-                                    -value => 'GO Term Defs.',
-                                    -title => 'Search gene ontology terms'
+                                    -value => 'GO Names',
+                                    -title => 'Search gene ontology term names'
+                                }
+                            ),
+                            $q->input(
+                                {
+                                    -type  => 'radio',
+                                    -name  => 'scope_list',
+                                    -value => 'GO Names/Desc.',
+                                    -title =>
+'Search gene ontology term names + descriptions'
                                 }
                             ),
 
@@ -1684,7 +1696,10 @@ END_EXAMPLE_TEXT
                 )
             ),
             $q->div(
-                { -id => 'outputOpts_container', -class => 'dd_collapsible' },
+                {
+                    -id    => 'outputOpts_container',
+                    -class => 'dd_collapsible'
+                },
                 $q->p( { -class => 'radio_heading' }, 'Format:' ),
                 $q->div(
                     {
@@ -2034,7 +2049,8 @@ sub findProbes_js {
         'Probe IDs'            => 'reporter',
         'Genes/Accession Nos.' => 'gsymbol',
         'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
-        'GO Term Defs.'        => 'goterms'
+        'GO Names'             => 'gonames',
+        'GO Names/Desc.'       => 'gonames+godesc'
     );
 
     my %json_probelist = (
