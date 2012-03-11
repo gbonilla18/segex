@@ -80,14 +80,8 @@ sub new {
 
     $self->set_attributes(
         _title       => 'Find Probes',
-        _ProbeHash   => undef,
-        _Names       => undef,
-        _ProbeCount  => undef,
         _SearchTerms => [],
         _FilterItems => [],
-
-        _scope => undef,
-        _graph => undef,
     );
 
     bless $self, $class;
@@ -453,10 +447,16 @@ sub FindProbes_init {
           || !defined($match)
           || ( $scope eq 'Probe IDs' or $scope eq 'GO IDs' );
 
-    $self->{_scope} = $scope;
-    $self->{_match} = $match;
-    $self->{_graph} = car $q->param('graph');
-    $self->{_opts}  = defined( $q->param('opts') );
+    #---------------------------------------------------------------------------
+    #  Translate CGI parameters to object properties
+    #---------------------------------------------------------------------------
+    $self->{_scope}        = $scope;
+    $self->{_match}        = $match;
+    $self->{_extra_fields} = defined( $q->param('extra_fields') );
+    $self->{_graphs} =
+      defined( $q->param('show_graphs') )
+      ? car( $q->param('graph_type') )
+      : '';
 
     if ( $scope eq 'GO Names' or $scope eq 'GO Names/Desc.' ) {
         $self->{_SearchTerms} = [$text];
@@ -891,24 +891,14 @@ sub loadProbeData {
         @$filterItems
     );
     my $rc = $sth->execute(@param);
-    $self->{_ProbeCount} = $rc;
 
     # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
-    # after any data were fetched. The line below splices off all
-    # elements of the NAME array but the first two.
-
-    $self->{_Names} =
-      [ splice( @{ $sth->{NAME} }, min( 2, scalar( @{ $sth->{NAME} } ) ) ) ];
-    my $result = $sth->fetchall_arrayref;
-
+    # after any data were fetched.
+    my @headers = @{ $sth->{NAME} };
+    my $data    = $sth->fetchall_arrayref;
     $sth->finish;
 
-    # From each row in the result, create a key-value pair such that the first
-    # column becomes the key and the rest of the columns are sliced off into an
-    # anonymous array.
-    $self->{_ProbeHash} = +{ map { ( shift @$_ ) => $_ } @$result };
-
-    return 1;
+    return { records => $data, headers => \@headers };
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1251,21 +1241,6 @@ sub printFindProbeCSV {
     return 1;
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  getProbeList
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Loop through the list of probes we are filtering on and create
-#                a list.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getProbeList {
-    return [ keys %{ shift->{_ProbeHash} } ];
-}
-
 #===  FUNCTION  ================================================================
 #         NAME:  Search_body
 #      PURPOSE:  display results table for Find Probes
@@ -1368,11 +1343,11 @@ sub Search_body {
                             -value => ''
                         ),
                         $q->hidden(
-                            -name  => 'opts',
+                            -name  => 'extra_fields',
                             -value => ''
                         ),
                         $q->hidden(
-                            -name  => 'graph',
+                            -name  => 'graph_type',
                             -value => ''
                         ),
                         $q->submit(
@@ -1398,7 +1373,7 @@ sub Search_body {
         $q->div( { -id => 'resulttable' }, '' )
     );
 
-    if ( defined $self->{_graph} and $self->{_graph} ne 'No Graphs' ) {
+    if ( $self->{_graphs} ) {
         push @ret, $q->p(<<"END_LEGEND");
 <strong>Dark bars</strong>: values meething the P threshold. 
 <strong>Light bars</strong>: values above the P threshold. 
@@ -1629,54 +1604,8 @@ END_EXAMPLE_TEXT
         )
       ),
       $q->dl(
-        $q->dt('Scope and Options:'),
+        $q->dt('Limits and Options:'),
         $q->dd(
-            $q->div(
-                $q->div(
-                    { -class => 'input_container' },
-                    $q->popup_menu(
-                        -name   => 'spid',
-                        -id     => 'spid',
-                        -title  => 'Choose species to search',
-                        -values => [ keys %{ $self->{_species_data} } ],
-                        -labels => $self->{_species_data}
-                    )
-                ),
-                $q->div(
-                    {
-                        -id    => 'chr_div',
-                        -style => 'display:none;'
-                    },
-                    $q->div(
-                        { -class => 'input_container' },
-                        $q->label( { -for => 'chr' }, 'chr' ),
-                        $q->textfield(
-                            -name  => 'chr',
-                            -id    => 'chr',
-                            -title => 'Type chromosome name',
-                            -size  => 3
-                        ),
-                        $q->label( { -for => 'start' }, ':' ),
-                        $q->textfield(
-                            -name  => 'start',
-                            -id    => 'start',
-                            -title => 'Enter start position on the chromosome',
-                            -size  => 14
-                        ),
-                        $q->label( { -for => 'end' }, '-' ),
-                        $q->textfield(
-                            -name  => 'end',
-                            -id    => 'end',
-                            -title => 'Enter end position on the chromosome',
-                            -size  => 14
-                        )
-                    ),
-                    $q->p(
-                        { -class => 'hint', -style => 'display:block;' },
-'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X. Leave these fields blank to search all chromosomes.'
-                    ),
-                ),
-            ),
             $q->p(
                 $q->a(
                     { -id => 'outputOpts', -class => 'pluscol' },
@@ -1688,67 +1617,104 @@ END_EXAMPLE_TEXT
                     -id    => 'outputOpts_container',
                     -class => 'dd_collapsible'
                 },
-                $q->p( { -class => 'radio_heading' }, 'Format:' ),
                 $q->div(
-                    {
-                        -id    => 'opts_container',
-                        -class => 'input_container'
-                    },
+                    $q->div(
+                        { -class => 'input_container' },
+                        'Limit output to: ',
+                        $q->popup_menu(
+                            -name   => 'spid',
+                            -id     => 'spid',
+                            -title  => 'Choose species to search',
+                            -values => [ keys %{ $self->{_species_data} } ],
+                            -labels => $self->{_species_data}
+                        )
+                    ),
+                    $q->div(
+                        {
+                            -id    => 'chr_div',
+                            -class => 'dd_collapsible',
+                            -style => 'display:none;'
+                        },
+                        $q->div(
+                            { -class => 'input_container' },
+                            $q->label( { -for => 'chr' }, 'chr' ),
+                            $q->textfield(
+                                -name  => 'chr',
+                                -id    => 'chr',
+                                -title => 'Type chromosome name',
+                                -size  => 3
+                            ),
+                            $q->label( { -for => 'start' }, ':' ),
+                            $q->textfield(
+                                -name => 'start',
+                                -id   => 'start',
+                                -title =>
+                                  'Enter start position on the chromosome',
+                                -size => 14
+                            ),
+                            $q->label( { -for => 'end' }, '-' ),
+                            $q->textfield(
+                                -name => 'end',
+                                -id   => 'end',
+                                -title =>
+                                  'Enter end position on the chromosome',
+                                -size => 14
+                            )
+                        ),
+                        $q->p(
+                            { -class => 'hint', -style => 'display:block;' },
+'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X. Leave these fields blank to search all chromosomes.'
+                        ),
+                    ),
+                ),
+                $q->div(
+                    { -class => 'input_container' },
                     $q->checkbox(
-                        -name => 'opts',
+                        -name => 'extra_fields',
                         -title =>
-'Also display genomic annotation including gene symbols and accession numbers',
-                        -label => 'Genomic Annotation'
+'Show extra annotation including gene names and probe sequences',
+                        -label => 'Show Extra Annotation'
                     )
                 ),
                 $q->div(
-                    {
-                        -id    => 'graph_everything_container',
-                        -class => 'input_container'
-                    },
-                    $q->p( { -class => 'radio_heading' }, 'Graphs:' ),
+                    { -class => 'input_container' },
+                    $q->checkbox(
+                        -id    => 'show_graphs',
+                        -name  => 'show_graphs',
+                        -title => 'Show response graph for each probe',
+                        -label => 'Show Response Graphs'
+                    )
+                ),
+                $q->div(
+                    { -id => 'graph_hint_container', },
                     $q->div(
-                        { -id => 'graph_hint_container' },
-                        $q->div(
-                            {
-                                -id    => 'graph_container',
-                                -class => 'input_container'
-                            },
-                            $q->input(
-                                {
-                                    -type    => 'radio',
-                                    -name    => 'graph',
-                                    -value   => 'No Graphs',
-                                    -title   => 'Do not display graphs',
-                                    -checked => 'checked'
-                                }
-                            ),
-                            $q->input(
-                                {
-                                    -type => 'radio',
-                                    -name => 'graph',
-                                    -title =>
+                        { -class => 'dd_collapsible' },
+                        $q->p(
+                            $q->label(
+                                $q->input(
+                                    {
+                                        -type => 'radio',
+                                        -name => 'graph_type',
+                                        -title =>
 'Plot intensity ratios as fold change for each experiment',
-                                    -value => 'Fold Change',
-                                }
+                                        -value   => 'Fold Change',
+                                        -checked => 'checked'
+                                    }
+                                ),
+                                'Fold Change'
                             ),
-                            $q->input(
-                                {
-                                    -type => 'radio',
-                                    -name => 'graph',
-                                    -title =>
+                            $q->label(
+                                $q->input(
+                                    {
+                                        -type => 'radio',
+                                        -name => 'graph_type',
+                                        -title =>
 'Plot intensity ratios as base 2 logarithm for each experiment',
-                                    -value => 'Log Ratio',
-                                }
+                                        -value => 'Log Ratio',
+                                    }
+                                ),
+                                'Log Ratio'
                             ),
-
-                            # preserve state of radio buttons
-                            $q->input(
-                                {
-                                    -type => 'hidden',
-                                    -id   => 'graph_state'
-                                }
-                            )
                         ),
                         $q->p(
                             { -id => 'graph_hint', -class => 'hint' },
@@ -1756,7 +1722,7 @@ END_EXAMPLE_TEXT
                         )
                     )
                 )
-            ),
+            )
         ),
 
         # END GRAPH STUFF
@@ -1885,7 +1851,7 @@ END_sql_subset_by_project
 "group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
     );
 
-    if ( $self->{_opts} ) {
+    if ( $self->{_extra_fields} ) {
 
         # extra fields
         push @select_fields,
@@ -1992,8 +1958,11 @@ sub findProbes_js {
     #---------------------------------------------------------------------------
     #  HTML output
     #---------------------------------------------------------------------------
-    $self->loadProbeData();
-    my $rowcount  = $self->{_ProbeCount};
+    my $data     = $self->loadProbeData();
+    my $records  = $data->{records};
+    my $headers  = $data->{headers};
+    my $rowcount = @$records;
+
     my $proj_name = $self->{_WorkingProjectName};
     my $caption   = sprintf(
         '%sFound %d probe%s',
@@ -2002,14 +1971,6 @@ sub findProbes_js {
         : '',
         $rowcount, ( $rowcount == 1 ) ? '' : 's',
     );
-
-    my @json_records;
-    while ( my ( $rid, $row ) = each %{ $self->{_ProbeHash} } ) {
-
-        # Skipping the first value in the array (it's platform ID)
-        push @json_records,
-          +{ 0 => $rid, map { $_ => $row->[$_] } 1 .. $#$row };
-    }
 
     my %type_to_column = (
         'GO IDs'               => 'go_acc',
@@ -2022,10 +1983,11 @@ sub findProbes_js {
 
     my %json_probelist = (
         caption => $caption,
-        records => \@json_records,
-        headers => $self->{_Names}
+        records => $records,
+        headers => $headers
     );
 
+    my @distinct_search_terms = distinct( @{ $self->{_SearchTerms} } );
     my ( $type, $match ) = @$self{qw/_scope _match/};
     my $out = sprintf(
         <<"END_JSON_DATA",
@@ -2040,13 +2002,13 @@ END_JSON_DATA
         $type_to_column{$type},
         encode_json(
             ( $match eq 'Full Word' )
-            ? +{ map { lc($_) => undef } @{ $self->{_SearchTerms} } }
-            : [ distinct( @{ $self->{_SearchTerms} } ) ]
+            ? +{ map { lc($_) => undef } @distinct_search_terms }
+            : \@distinct_search_terms
         ),
         encode_json( \%json_probelist ),
         $self->{_cgi}->url( -absolute => 1 ),
-        $self->{_graph},
-        $self->{_opts},
+        $self->{_graphs},
+        $self->{_extra_fields},
         $self->{_WorkingProject}
     );
 

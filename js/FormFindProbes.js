@@ -13,6 +13,10 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         { 'spid': { 'defined' : ['chr_div' ] } }, 
         isDefinedSelection
     );
+    setupToggles('change',
+        { 'show_graphs': { 'checked' : [ 'graph_hint_container', 'graph_hint' ] }},
+        function(el) { return (el.checked) ? 'checked' : ''; }
+    );
     var pattern_part_hint = document.getElementById('pattern_part_hint');
     YAHOO.util.Event.addListener('full_word', 'change', function() {
         pattern_part_hint.style.display = (this.checked) ? 'none' : 'block';
@@ -56,42 +60,4 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     if (scope_file_state.value !== '') {
         scope_file.check(scope_file_state.value);
     }
-
-    // pattern/match
-    var pattern_state = document.getElementById("pattern_state");
-
-    // graphs
-    var graph_container = document.getElementById("graph_everything_container");
-    var graph_hint = document.getElementById('graph_hint');
-    var graphs = new YAHOO.widget.ButtonGroup('graph_container');
-    var graphs_state = document.getElementById('graph_state');
-    graphs.addListener("checkedButtonChange", function(ev) {
-        var selectedIndex = ev.newValue.index;
-        graphs_state.value = selectedIndex;
-        if (selectedIndex !== 0) {
-            graph_hint.style.display = 'block';
-        } else {
-            graph_hint.style.display = 'none';
-        }
-    });
-    if (graphs_state.value !== '') {
-        graphs.check(graphs_state.value);
-    }
-
-    // Output options
-    var opts = new YAHOO.widget.ButtonGroup("opts_container");
-    var opts_state = document.getElementById('opts_state');
-    opts.addListener("checkedButtonChange", function(ev) {
-        var selectedIndex = ev.newValue.index;
-        opts_state.value = selectedIndex;
-        if (selectedIndex !== 2) {
-            graph_container.style.display = 'block';
-        } else {
-            graph_container.style.display = 'none';
-        }
-    });
-    if (opts_state.value !== '') {
-        opts.check(opts_state.value);
-    }
-
 });
