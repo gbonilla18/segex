@@ -456,7 +456,7 @@ sub FindProbes_init {
     $self->{_scope} = $scope;
     $self->{_match} = $match;
     $self->{_graph} = car $q->param('graph');
-    $self->{_opts}  = car $q->param('opts');
+    $self->{_opts}  = defined( $q->param('opts') );
 
     if ( $scope eq 'GO Names' or $scope eq 'GO Names/Desc.' ) {
         $self->{_SearchTerms} = [$text];
@@ -1694,32 +1694,11 @@ END_EXAMPLE_TEXT
                         -id    => 'opts_container',
                         -class => 'input_container'
                     },
-                    $q->input(
-                        {
-                            -type  => 'radio',
-                            -name  => 'opts',
-                            -value => 'Basic',
-                            -title =>
-                              'Only list gene symbols and accession numbers',
-                            -checked => 'checked'
-                        }
-                    ),
-                    $q->input(
-                        {
-                            -type => 'radio',
-                            -name => 'opts',
-                            -title =>
-                              'Also include probe annotation and GO terms',
-                            -value => 'With Annotation',
-                        }
-                    ),
-
-                    # preserve state of radio buttons
-                    $q->input(
-                        {
-                            -type => 'hidden',
-                            -id   => 'opts_state'
-                        }
+                    $q->checkbox(
+                        -name => 'opts',
+                        -title =>
+'Also display genomic annotation including gene symbols and accession numbers',
+                        -label => 'Genomic Annotation'
                     )
                 ),
                 $q->div(
@@ -1906,7 +1885,7 @@ END_sql_subset_by_project
 "group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
     );
 
-    if ( $self->{_opts} ne 'Basic' ) {
+    if ( $self->{_opts} ) {
 
         # extra fields
         push @select_fields,

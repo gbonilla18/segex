@@ -197,7 +197,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"5", sortable:true, resizeable:true, 
             label:data.headers[4], formatter:"formatGene"},
     ];
-    if (extra_fields !== 'Basic') {
+    if (extra_fields !== '') {
         myColumnList.push(
             {key:"6"},
             {key:"7"}
