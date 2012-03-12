@@ -1612,19 +1612,19 @@ END_EXAMPLE_TEXT
                             },
                             $q->input(
                                 {
-                                    -type    => 'radio',
-                                    -name    => 'scope_file',
-                                    -checked => 'checked',
-                                    -value   => 'Probe IDs',
-                                    -title   => 'Search probe IDs'
+                                    -type  => 'radio',
+                                    -name  => 'scope_file',
+                                    -value => 'Probe IDs',
+                                    -title => 'Search probe IDs'
                                 }
                             ),
                             $q->input(
                                 {
-                                    -type  => 'radio',
-                                    -name  => 'scope_file',
-                                    -value => 'Genes/Accession Nos.',
-                                    -title => 'Search gene symbols'
+                                    -type    => 'radio',
+                                    -name    => 'scope_file',
+                                    -checked => 'checked',
+                                    -value   => 'Genes/Accession Nos.',
+                                    -title   => 'Search gene symbols'
                                 }
                             ),
                             $q->input(
