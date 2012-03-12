@@ -224,7 +224,6 @@ sub GetCSV_head {
 #===============================================================================
 sub Search_head {
     my $self = shift;
-    my $q    = $self->{_cgi};
 
     $self->getSessionOverrideCGI();
     my $next_action = $self->FindProbes_init();
@@ -333,7 +332,6 @@ END_JSON_DATA
 sub getGOTerms {
     my $self = shift;
     my $dbh  = $self->{_dbh};
-    my $q    = $self->{_cgi};
 
     my ($text) = @{ $self->{_SearchTerms} };
     my $scope  = $self->{_scope};
@@ -416,60 +414,76 @@ sub FindProbes_init {
     my $q    = $self->{_cgi};
 
     my $action        = car $q->param('b');
-    my $loc_sid       = car $q->param('spid');
     my $text          = car $q->param('q');
     my $filefield_val = car $q->param('file');
     my $upload_file   = defined($filefield_val) && ( $filefield_val ne '' );
 
+    #---------------------------------------------------------------------------
+    #  scope to search and chromosomal range if any
+    #---------------------------------------------------------------------------
+    my ( $loc_spid, $loc_chr, $loc_start, $loc_end );
+    if ($upload_file) {
+        $self->{_scope} = car $q->param('scope_file');
+    }
+    else {
+        $self->{_scope}     = car $q->param('scope_list');
+        $self->{_loc_spid}  = car $q->param('spid');
+        $self->{_loc_chr}   = car $q->param('chr');
+        $self->{_loc_start} = car $q->param('start');
+        $self->{_loc_end}   = car $q->param('end');
+    }
     if (   $text =~ /^\s*$/
         && !$upload_file
-        && !( defined($loc_sid) and $loc_sid ne '' ) )
+        && !( defined( $self->{_loc_spid} ) and $self->{_loc_spid} ne '' ) )
     {
         $self->add_message( { -class => 'error' },
             'No search criteria specified' );
         return;
     }
 
-    # split on spaces or commas
+    #---------------------------------------------------------------------------
+    #  main query: split on spaces or commas
+    #---------------------------------------------------------------------------
     my @textSplit = split( /[,\s]+/, trim($text) );
 
-    my $scope =
-
-      ($upload_file)
-      ? car( $q->param('scope_file') )
-      : car( $q->param('scope_list') );
+    #---------------------------------------------------------------------------
+    #  pattern match type
+    #---------------------------------------------------------------------------
     my $match = car $q->param('match');
     $match = 'Full Word'
       if $upload_file
           || !defined($match)
-          || ( $scope eq 'Probe IDs' or $scope eq 'GO IDs' );
+          || ( $self->{_scope} eq 'Probe IDs' or $self->{_scope} eq 'GO IDs' );
+    $self->{_match} = $match;
 
-    #---------------------------------------------------------------------------
-    #  Translate CGI parameters to object properties
-    #---------------------------------------------------------------------------
-    $self->{_scope}        = $scope;
-    $self->{_match}        = $match;
     $self->{_extra_fields} = defined( $q->param('extra_fields') );
     $self->{_graphs} =
       defined( $q->param('show_graphs') )
       ? car( $q->param('graph_type') )
       : '';
 
-    if ( $scope eq 'GO Names' or $scope eq 'GO Names/Desc.' ) {
+    #---------------------------------------------------------------------------
+    #  special action for GO terms
+    #---------------------------------------------------------------------------
+    if ( $self->{_scope} eq 'GO Names' or $self->{_scope} eq 'GO Names/Desc.' )
+    {
         $self->{_SearchTerms} = [$text];
         return $self->getGOTerms();
     }
 
+    #---------------------------------------------------------------------------
+    #  assign split main query if searching for symbols/ids
+    #---------------------------------------------------------------------------
     if (
         !$upload_file
         and (
             @textSplit < 2
             or !(
-                   $scope eq 'Probe IDs'
-                or $scope eq 'Genes/Accession Nos.'
-                or $scope eq 'GO IDs'
+                   $self->{_scope} eq 'Probe IDs'
+                or $self->{_scope} eq 'Genes/Accession Nos.'
+                or $self->{_scope} eq 'GO IDs'
             )
-            or $match ne 'Full Word'
+            or $self->{_match} ne 'Full Word'
         )
       )
     {
@@ -489,7 +503,7 @@ sub FindProbes_init {
           SGX::CSV::sanitizeUploadWithMessages(
             $self, 'file',
             csv_in_opts => { quote_char => undef },
-            parser      => [ $parser{$scope} ]
+            parser      => [ $parser{ $self->{_scope} } ]
           );
         $outputFileName = $outputFileNames->[0];
     }
@@ -505,11 +519,11 @@ sub FindProbes_init {
       ( defined $outputFileName )
       ? $self->uploadFileToTemp(
         filename => $outputFileName,
-        type     => $sqlTypes{$scope}
+        type     => $sqlTypes{ $self->{_scope} }
       )
       : $self->createTempList(
         items => \@textSplit,
-        type  => $sqlTypes{$scope}
+        type  => $sqlTypes{ $self->{_scope} }
       );
 
     return 1;
@@ -826,8 +840,7 @@ sub build_SearchPredicate {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub build_location_predparam {
-    my $self  = shift;
-    my $q     = $self->{_cgi};
+    my $self = shift;
 
     my $query = 'INNER JOIN platform ON probe.pid=platform.pid';
     my @param;
@@ -835,14 +848,14 @@ sub build_location_predparam {
     #---------------------------------------------------------------------------
     # Filter by chromosomal location
     #---------------------------------------------------------------------------
-    my $loc_sid = car $q->param('spid');
-    if ( defined $loc_sid and $loc_sid ne '' ) {
+    my $loc_spid = $self->{_loc_spid};
+    if ( defined $loc_spid and $loc_spid ne '' ) {
         $query .= ' AND platform.sid=?';
-        push @param, $loc_sid;
+        push @param, $loc_spid;
 
  # where Intersects(LineString(Point(0,93160788), Point(0,103160849)), # locus);
  # chromosome is meaningless unless species was specified.
-        my $loc_chr = car $q->param('chr');
+        my $loc_chr = $self->{_loc_chr};
         if ( defined $loc_chr and $loc_chr ne '' ) {
             $query .=
               ' INNER JOIN locus ON probe.rid=locus.rid AND locus.chr=?';
@@ -850,8 +863,8 @@ sub build_location_predparam {
 
             # starting and ending interval positions are meaningless if no
             # chromosome was specified.
-            my $loc_start = car $q->param('start');
-            my $loc_end   = car $q->param('end');
+            my $loc_start = $self->{_loc_start};
+            my $loc_end   = $self->{_loc_end};
             if (   ( defined $loc_start and $loc_start ne '' )
                 && ( defined $loc_end and $loc_end ne '' ) )
             {
@@ -861,7 +874,7 @@ sub build_location_predparam {
             }
         }
     }
-    return ($query, \@param);
+    return ( $query, \@param );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1522,6 +1535,60 @@ digit."  See <a target="_blank"
 href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
 information.
 END_EXAMPLE_TEXT
+                        ),
+                        $q->div(
+                            $q->div(
+                                { -class => 'input_container' },
+                                'Limit output to: ',
+                                $q->popup_menu(
+                                    -name  => 'spid',
+                                    -id    => 'spid',
+                                    -title => 'Choose species to search',
+                                    -values =>
+                                      [ keys %{ $self->{_species_data} } ],
+                                    -labels => $self->{_species_data}
+                                )
+                            ),
+                            $q->div(
+                                {
+                                    -id    => 'chr_div',
+                                    -class => 'dd_collapsible',
+                                    -style => 'display:none;'
+                                },
+                                $q->div(
+                                    { -class => 'input_container' },
+                                    $q->label( { -for => 'chr' }, 'chr' ),
+                                    $q->textfield(
+                                        -name  => 'chr',
+                                        -id    => 'chr',
+                                        -title => 'Type chromosome name',
+                                        -size  => 3
+                                    ),
+                                    $q->label( { -for => 'start' }, ':' ),
+                                    $q->textfield(
+                                        -name => 'start',
+                                        -id   => 'start',
+                                        -title =>
+'Enter start position on the chromosome',
+                                        -size => 14
+                                    ),
+                                    $q->label( { -for => 'end' }, '-' ),
+                                    $q->textfield(
+                                        -name => 'end',
+                                        -id   => 'end',
+                                        -title =>
+'Enter end position on the chromosome',
+                                        -size => 14
+                                    )
+                                ),
+                                $q->p(
+                                    {
+                                        -class => 'hint',
+                                        -style => 'display:block;'
+                                    },
+'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X. Leave these fields blank to search all chromosomes.'
+                                )
+                            )
                         )
                     ),
                     $q->div(
@@ -1567,7 +1634,7 @@ END_EXAMPLE_TEXT
         )
       ),
       $q->dl(
-        $q->dt('Limits and Options:'),
+        $q->dt('Output:'),
         $q->dd(
             $q->p(
                 $q->a(
@@ -1580,56 +1647,6 @@ END_EXAMPLE_TEXT
                     -id    => 'outputOpts_container',
                     -class => 'dd_collapsible'
                 },
-                $q->div(
-                    $q->div(
-                        { -class => 'input_container' },
-                        'Limit output to: ',
-                        $q->popup_menu(
-                            -name   => 'spid',
-                            -id     => 'spid',
-                            -title  => 'Choose species to search',
-                            -values => [ keys %{ $self->{_species_data} } ],
-                            -labels => $self->{_species_data}
-                        )
-                    ),
-                    $q->div(
-                        {
-                            -id    => 'chr_div',
-                            -class => 'dd_collapsible',
-                            -style => 'display:none;'
-                        },
-                        $q->div(
-                            { -class => 'input_container' },
-                            $q->label( { -for => 'chr' }, 'chr' ),
-                            $q->textfield(
-                                -name  => 'chr',
-                                -id    => 'chr',
-                                -title => 'Type chromosome name',
-                                -size  => 3
-                            ),
-                            $q->label( { -for => 'start' }, ':' ),
-                            $q->textfield(
-                                -name => 'start',
-                                -id   => 'start',
-                                -title =>
-                                  'Enter start position on the chromosome',
-                                -size => 14
-                            ),
-                            $q->label( { -for => 'end' }, '-' ),
-                            $q->textfield(
-                                -name => 'end',
-                                -id   => 'end',
-                                -title =>
-                                  'Enter end position on the chromosome',
-                                -size => 14
-                            )
-                        ),
-                        $q->p(
-                            { -class => 'hint', -style => 'display:block;' },
-'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X. Leave these fields blank to search all chromosomes.'
-                        ),
-                    ),
-                ),
                 $q->div(
                     { -class => 'input_container' },
                     $q->checkbox(
@@ -1688,8 +1705,6 @@ END_EXAMPLE_TEXT
             )
         ),
 
-        # END GRAPH STUFF
-
         $q->dt('&nbsp;'),
         $q->dd(
             $q->hidden( -name => 'proj', -value => $curr_proj ),
@@ -1723,6 +1738,7 @@ sub build_XTableQuery {
     my $haveTable = ( defined($tmp_table) and ( $tmp_table ne '' ) );
 
     my @param;
+
     #---------------------------------------------------------------------------
     #  innermost SELECT statement differs depending on whether we are searching
     #  the probe table or the gene table
@@ -1755,7 +1771,7 @@ END_table_gene
         }
     }
     else {
-        my ( $pred_sql, $pred_param) = $self->build_SearchPredicate();
+        my ( $pred_sql, $pred_param ) = $self->build_SearchPredicate();
         push @param, @$pred_param;
         if ( $scope eq 'Probe IDs' ) {
             $innerSQL = <<"END_no_table_probe";
@@ -1788,7 +1804,7 @@ END_no_table_gene
     # Filter by chromosomal location (use platform table to look up species when
     # only species is specified and not an actual chromosomal location).
     #---------------------------------------------------------------------------
-    my ($limit_sql, $limit_param) = $self->build_location_predparam();
+    my ( $limit_sql, $limit_param ) = $self->build_location_predparam();
     push @param, @$limit_param;
 
     #---------------------------------------------------------------------------
@@ -1866,15 +1882,15 @@ group by probe.rid
 END_XTableQuery
 
     my $sth = $dbh->prepare($sql);
-    my $rc = $sth->execute(@param);
+    my $rc  = $sth->execute(@param);
 
     # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
     # after any data were fetched.
     my @headers = @{ $sth->{NAME} };
-    my $data = $sth->fetchall_arrayref;
+    my $data    = $sth->fetchall_arrayref;
 
     # return tuple of headers + data array reference
-    return (\@headers, $data);
+    return ( \@headers, $data );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1893,7 +1909,7 @@ sub findProbes_js {
     #---------------------------------------------------------------------------
     #  HTML output
     #---------------------------------------------------------------------------
-    my ($headers, $records) = $self->build_XTableQuery();
+    my ( $headers, $records ) = $self->build_XTableQuery();
     my $rowcount = @$records;
 
     my $proj_name = $self->{_WorkingProjectName};
