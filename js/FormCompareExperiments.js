@@ -274,23 +274,11 @@ function toggleFilterOptions(selectedRadio)
 //================================================================
 YAHOO.util.Event.addListener('platform', 'change', updatePlatform);
 YAHOO.util.Event.addListener('add_experiment', 'click', addExperiment);
-var oButtonGroupFilter = new YAHOO.widget.ButtonGroup({
-    id: 'buttongroupFilter', 
-    name: 'radiofieldFilter', 
-    container:  'geneFilter', 
-    usearia: true
-});
-oButtonGroupFilter.addButtons([
-    { id: 'none', value: 'none', label: 'No Filter', checked: true },
-    { id: 'list', value: 'list', label: 'List of Terms' }, 
-    { id: 'file', value: 'file', label: 'Upload File' }
-]);
-oButtonGroupFilter.on('checkedButtonChange', function (p_oEvent) {
-    // drop "-button" suffix from button id
-    var btnValue = p_oEvent.newValue._button.id.replace(/-button$/i, '');
-    toggleFilterOptions(btnValue);
-});
 YAHOO.util.Event.addListener(window, 'load', function() {
+    setupToggles('change',
+        { 'specialFilter': { 'checked' : [ 'specialFilterForm' ] }},
+        function(el) { return (el !== null && el.checked) ? 'checked' : ''; }
+    );
     populatePlatforms("platform");
     addExperiment();
 });

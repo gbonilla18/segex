@@ -81,8 +81,11 @@ function setupToggles(event, attr, getValue, callBack) {
             // need to hide all objects not referenced by sel
             // and show all objects that are.
             for (var dep_id in dependents) {
-                dependents[dep_id].style.display = 
-                (sel in inv_prop[dep_id]) ? 'block' : 'none';
+                var dep_obj = dependents[dep_id];
+                if (dep_obj !== null) {
+                    dep_obj.style.display = 
+                    (sel in inv_prop[dep_id]) ? 'block' : 'none';
+                }
             }
             return true;
         }

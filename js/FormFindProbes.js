@@ -15,7 +15,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     );
     setupToggles('change',
         { 'show_graphs': { 'checked' : [ 'graph_hint_container', 'graph_hint' ] }},
-        function(el) { return (el.checked) ? 'checked' : ''; }
+        function(el) { return (el !== null && el.checked) ? 'checked' : ''; }
     );
     var pattern_part_hint = document.getElementById('pattern_part_hint');
     YAHOO.util.Event.addListener('full_word', 'change', function() {

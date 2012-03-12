@@ -14,6 +14,8 @@ require SGX::FindProbes;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car count_gtzero max/;
+use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
+use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments
@@ -85,21 +87,55 @@ sub Compare_head {
 #===============================================================================
 sub default_head {
     my $self = shift;
-    my ( $s, $js_src_yui, $js_src_code ) =
-      @$self{qw{_UserSession _js_src_yui _js_src_code}};
+    my ( $js_src_yui, $js_src_code, $css_src_yui, $css_src_code ) =
+      @$self{qw{_js_src_yui _js_src_code _css_src_yui _css_src_code}};
 
-    # show form
-    push @{ $self->{_css_src_yui} }, 'button/assets/skins/sam/button.css';
+    #---------------------------------------------------------------------------
+    #  CSS
+    #---------------------------------------------------------------------------
+    push @$css_src_yui,
+      (
+        'button/assets/skins/sam/button.css',
+        'tabview/assets/skins/sam/tabview.css'
+      );
+
+    # background image from: http://subtlepatterns.com/?p=703
+    push @$css_src_code, +{ -code => <<END_css};
+.yui-skin-sam .yui-navset .yui-content { 
+    background-image:url('$IMAGES_DIR/fancy_deboss.png'); 
+}
+END_css
+
+    #---------------------------------------------------------------------------
+    #  Javascript
+    #---------------------------------------------------------------------------
     push @$js_src_yui,
       (
-        'yahoo-dom-event/yahoo-dom-event.js',
-        'element/element-min.js', 'button/button-min.js'
+        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
+        'button/button-min.js',               'tabview/tabview-min.js'
       );
+    push @$js_src_code, +{ -code => <<"END_onload"};
+var tabView = new YAHOO.widget.TabView('property_editor');
+YAHOO.util.Event.addListener(window, 'load', function() {
+    selectTabFromHash(tabView);
+});
+END_onload
+
     push @$js_src_code,
       (
         +{ -code => $self->getFormJS() },
+        +{ -src  => 'collapsible.js' },
+        +{ -src  => 'FormFindProbes.js' },
         +{ -src  => 'FormCompareExperiments.js' }
       );
+
+    my $findProbes = SGX::FindProbes->new(
+        _dbh         => $self->{_dbh},
+        _cgi         => $self->{_cgi},
+        _UserSession => $self->{_UserSession}
+    );
+    $self->{_species_data} = $findProbes->get_species();
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -248,9 +284,14 @@ END_form_compareExperiments_js
 #===============================================================================
 sub default_body {
 
-    #my ( $q, $form_action, $submit_action ) = @_;
     my ($self) = @_;
     my $q = $self->{_cgi};
+
+    my $findProbes = SGX::FindProbes->new(
+        _dbh         => $self->{_dbh},
+        _cgi         => $q,
+        _UserSession => $self->{_UserSession}
+    );
 
     return
       $q->h2('Compare Experiments'),
@@ -273,71 +314,35 @@ sub default_body {
         -action  => $q->url( absolute => 1 ) . '?a=compareExperiments'
       ),
       $q->dl(
-        $q->dt('Include not significant probes:'),
+        $q->dt('Filter(s):'),
         $q->dd(
-            $q->checkbox(
-                -name  => 'chkAllProbes',
-                -id    => 'chkAllProbes',
-                -value => '1',
-                -label =>
-'(probes not significant in all experiments labeled \'TFS 0\')'
-            )
-        ),
-        $q->dt('Filter on:'),
-        $q->dd( { -id => 'geneFilter' }, '' )
-      ),
-      $q->div(
-        { -id => 'filterList', -style => 'display:none;' },
-        $q->h3('Filter on the following terms:'),
-        $q->dl(
-            $q->dt( $q->label( { -for => 'q' }, 'Search term(s):' ) ),
-            $q->dd(
-                $q->textarea(
-                    -rows     => 10,
-                    -columns  => 50,
-                    -tabindex => 1,
-                    -name     => 'q',
-                    -id       => 'q'
-                )
-            ),
-        )
-      ),
-      $q->div(
-        { -id => 'filterUpload', -style => 'display:none;' },
-        $q->h3('Filter on uploaded file:'),
-        $q->dl(
-            $q->dt( $q->label( { -for => 'upload_file' }, 'Upload File:' ) ),
-            $q->dd(
-                $q->filefield(
-                    -name => 'upload_file',
-                    -id   => 'upload_file',
+            $q->p(
+                $q->checkbox(
+                    -name  => 'chkAllProbes',
+                    -id    => 'chkAllProbes',
+                    -value => '1',
                     -title =>
-'File must be in tab-delimited format, without a header, and with search terms in the first column.'
+'Include probes not significant in all experiments labeled \'TFS 0\'',
+                    -label => 'Include not significant probes'
                 ),
+                $q->p(
+                    $q->checkbox(
+                        -id    => 'specialFilter',
+                        -name  => 'specialFilter',
+                        -value => '1',
+                        -title => 'Special filter on probes',
+                        -label => 'Special filter'
+                    )
+                ),
+                $q->div(
+                    { -id => 'specialFilterForm', -class => 'dd_collapsible' },
+                    $findProbes->mainFormDD( $self->{_species_data} )
+                )
             )
         )
       ),
-      $q->dl(
-        { -id => 'filterAny', -style => 'display:none;' },
-        $q->dt('Terms are:'),
-        $q->dd(
-            $q->popup_menu(
-                -name   => 'scope',
-                -values => [ 'Gene Symbols', 'Accession Numbers', 'Probe IDs' ],
-                -default => 'Gene Symbols',
-            )
-        ),
-        $q->dt('Patterns to match:'),
-        $q->dd(
-            $q->radio_group(
-                -tabindex  => 2,
-                -name      => 'match',
-                -values    => [ 'Full Word', 'Prefix', 'Partial' ],
-                -default   => 'Full Word',
-                -linebreak => 'true',
-            )
-        )
-      ),
+
+      # END filters
       $q->dl(
         $q->dt('&nbsp;'),
         $q->dd(
