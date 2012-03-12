@@ -81,7 +81,6 @@ sub new {
     $self->set_attributes(
         _title       => 'Find Probes',
         _SearchTerms => [],
-        _FilterItems => [],
     );
 
     bless $self, $class;
@@ -202,7 +201,6 @@ sub GetCSV_head {
     $self->{_SearchTerms} =
       [ split( /[,\s]+/, trim( car( $q->param('q') ) ) ) ];
 
-    #$self->build_XTableQuery();
     $self->{_UserSession}->commit();
 
     my $search_terms = $self->{_SearchTerms};
@@ -256,7 +254,6 @@ sub Search_head {
       );
 
     if ( $next_action == 1 ) {
-        $self->build_XTableQuery();
         push @$js_src_code,
           ( { -code => $self->findProbes_js($s) },
             { -src => 'FindProbes.js' } );
@@ -538,13 +535,14 @@ sub createTempTable {
     $temp_table =~ s/-/_/g;
     $temp_table = "tmp$temp_table";
 
-    my $rc = $dbh->do(<<"END_createTable");
+    my $sql = <<"END_createTable";
 CREATE TEMPORARY TABLE $temp_table (
     symbol $symbol_type, 
     UNIQUE KEY symbol (symbol)
 ) ENGINE=MEMORY
 END_createTable
 
+    my $rc = $dbh->do($sql);
     return $temp_table;
 }
 
@@ -628,7 +626,7 @@ sub uploadFileToTemp {
     #---------------------------------------------------------------------------
     #  batch-insert using LOAD
     #---------------------------------------------------------------------------
-    my $temp_table = $self->createTempTable();
+    my $temp_table = $self->createTempTable($type);
 
     my $sth = $dbh->prepare(<<"END_loadData");
 LOAD DATA LOCAL INFILE ?
@@ -758,7 +756,7 @@ sub build_SearchPredicate {
     my $match = $self->{_match};
     my $items = $self->{_SearchTerms};
 
-    my $qtext;
+    my $params           = [];
     my $predicate        = [];
     my %translate_fields = (
         'GO IDs'               => ['go_acc'],
@@ -771,7 +769,7 @@ sub build_SearchPredicate {
       if not defined $type;
 
     if ( $match eq 'Full Word' ) {
-        ( $predicate => $qtext ) = @$items
+        ( $predicate => $params ) = @$items
           ? (
             [
                 join(
@@ -786,7 +784,7 @@ sub build_SearchPredicate {
           : ( [] => [] );
     }
     elsif ( $match eq 'Prefix' ) {
-        ( $predicate => $qtext ) = @$items
+        ( $predicate => $params ) = @$items
           ? (
             [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] => [
                 map {
@@ -797,7 +795,7 @@ sub build_SearchPredicate {
           : ( [] => [] );
     }
     elsif ( $match eq 'Partial' ) {
-        ( $predicate => $qtext ) =
+        ( $predicate => $params ) =
           @$items
           ? ( [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] =>
               [ map { join( '|', @$items ) } @$type ] )
@@ -811,10 +809,10 @@ sub build_SearchPredicate {
     if ( @$predicate == 0 ) {
         push @$predicate, map { "$_ IN (NULL)" } @$type;
     }
-    $self->{_Predicate} = 'WHERE ' . join( ' AND ', @$predicate );
-    $self->{_SearchTermsProc} = $qtext;
+    my $predicate_sql = 'WHERE ' . join( ' AND ', @$predicate );
 
-    return 1;
+    # returns tuple of SQL string + reference to query parameters
+    return ( $predicate_sql, $params );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -830,10 +828,9 @@ sub build_SearchPredicate {
 sub build_location_predparam {
     my $self  = shift;
     my $q     = $self->{_cgi};
+
     my $query = 'INNER JOIN platform ON probe.pid=platform.pid';
     my @param;
-
-    $self->{_FilterItems} = \@param;
 
     #---------------------------------------------------------------------------
     # Filter by chromosomal location
@@ -864,41 +861,7 @@ sub build_location_predparam {
             }
         }
     }
-    return $query;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  loadProbeData
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Get a list of the probes here so that we can get all experiment
-#                data for each probe in another query.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub loadProbeData {
-    my $self = shift;
-
-    my $dbh             = $self->{_dbh};
-    my $searchItems     = $self->{_SearchTerms};
-    my $searchItemsProc = $self->{_SearchTermsProc} || [];
-    my $filterItems     = $self->{_FilterItems};
-    my $sth             = $dbh->prepare( $self->{_XTableQuery} );
-    my @param           = (
-        ( ( $self->{_scope} ne 'Probe IDs' ) ? @$searchItemsProc : () ),
-        @$filterItems
-    );
-    my $rc = $sth->execute(@param);
-
-    # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
-    # after any data were fetched.
-    my @headers = @{ $sth->{NAME} };
-    my $data    = $sth->fetchall_arrayref;
-    $sth->finish;
-
-    return { records => $data, headers => \@headers };
+    return ($query, \@param);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1759,6 +1722,7 @@ sub build_XTableQuery {
     my $tmp_table = $self->{_TempTable};
     my $haveTable = ( defined($tmp_table) and ( $tmp_table ne '' ) );
 
+    my @param;
     #---------------------------------------------------------------------------
     #  innermost SELECT statement differs depending on whether we are searching
     #  the probe table or the gene table
@@ -1791,18 +1755,21 @@ END_table_gene
         }
     }
     else {
-        $self->build_SearchPredicate();
-        my $predicate = $self->{_Predicate};
+        my ( $pred_sql, $pred_param) = $self->build_SearchPredicate();
+        push @param, @$pred_param;
         if ( $scope eq 'Probe IDs' ) {
-            $innerSQL =
-"SELECT rid, gid FROM probe LEFT JOIN ProbeGene USING(rid) $predicate";
+            $innerSQL = <<"END_no_table_probe";
+SELECT rid, gid 
+FROM probe 
+LEFT JOIN ProbeGene USING(rid) $pred_sql
+END_no_table_probe
         }
         elsif ( $scope eq 'GO IDs' ) {
             $innerSQL = <<"END_no_table_go";
 SELECT rid, gid
 FROM ProbeGene
 INNER join (
-    SELECT DISTINCT rid FROM ProbeGene INNER JOIN GeneGO USING(gid) $predicate
+    SELECT DISTINCT rid FROM ProbeGene INNER JOIN GeneGO USING(gid) $pred_sql
 ) AS d1 USING(rid)
 END_no_table_go
         }
@@ -1811,32 +1778,33 @@ END_no_table_go
 SELECT rid, gid
 FROM ProbeGene
 INNER join (
-    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) $predicate
+    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) $pred_sql
 ) AS d1 USING(rid)
 END_no_table_gene
         }
     }
 
     #---------------------------------------------------------------------------
+    # Filter by chromosomal location (use platform table to look up species when
+    # only species is specified and not an actual chromosomal location).
+    #---------------------------------------------------------------------------
+    my ($limit_sql, $limit_param) = $self->build_location_predparam();
+    push @param, @$limit_param;
+
+    #---------------------------------------------------------------------------
     # only return results for platforms that belong to the current working
     # project (as determined through looking up studies linked to the current
     # project).
     #---------------------------------------------------------------------------
-    my $curr_proj             = $self->{_WorkingProject};
     my $sql_subset_by_project = '';
+    my $curr_proj             = $self->{_WorkingProject};
     if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $curr_proj             = $dbh->quote($curr_proj);
-        $sql_subset_by_project = <<"END_sql_subset_by_project"
+        $sql_subset_by_project = <<"END_sql_subset_by_project";
 INNER JOIN study ON study.pid=platform.pid
-INNER JOIN ProjectStudy ON prid=$curr_proj AND ProjectStudy.stid=study.stid
+INNER JOIN ProjectStudy ON prid=? AND ProjectStudy.stid=study.stid
 END_sql_subset_by_project
+        push @param, $curr_proj;
     }
-
-    #---------------------------------------------------------------------------
-    # Filter by chromosomal location (use platform table to look up species when
-    # only species is specified and not an actual chromosomal location).
-    #---------------------------------------------------------------------------
-    my $limit_predicate = $self->build_location_predparam();
 
     #---------------------------------------------------------------------------
     #  fields to select
@@ -1884,62 +1852,29 @@ END_innerSQL
     #---------------------------------------------------------------------------
     #  main query
     #---------------------------------------------------------------------------
-    $self->{_XTableQuery} = <<"END_XTableQuery";
+    my $sql = <<"END_XTableQuery";
 SELECT
 $selectFieldsSQL
 FROM probe
 $innerSQL
 LEFT join ProbeGene ON probe.rid=ProbeGene.rid
 LEFT join gene ON gene.gid=ProbeGene.gid
-$limit_predicate
+$limit_sql
 LEFT JOIN species ON species.sid=platform.sid
 $sql_subset_by_project
 group by probe.rid
 END_XTableQuery
 
-    #warn $self->{_XTableQuery};
+    my $sth = $dbh->prepare($sql);
+    my $rc = $sth->execute(@param);
 
-    return 1;
-}
+    # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
+    # after any data were fetched.
+    my @headers = @{ $sth->{NAME} };
+    my $data = $sth->fetchall_arrayref;
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  build_SimpleProbeQuery
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  Currently only used by SGX::CompareExperiments
-#     SEE ALSO:  n/a
-#===============================================================================
-sub build_SimpleProbeQuery {
-    my ($self) = @_;
-
-    my $InsideTableQuery = $self->{_InsideTableQuery};
-
-    # only return results for platforms that belong to the current working
-    # project (as determined through looking up studies linked to the current
-    # project).
-    my $curr_proj             = $self->{_WorkingProject};
-    my $sql_subset_by_project = '';
-    if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $curr_proj             = $self->{_dbh}->quote($curr_proj);
-        $sql_subset_by_project = <<"END_sql_subset_by_project"
-INNER JOIN study ON study.pid=probe.pid
-INNER JOIN ProjectStudy USING(stid) 
-WHERE prid=$curr_proj 
-END_sql_subset_by_project
-    }
-
-    $self->{_ProbeQuery} = <<"END_ProbeQuery";
-SELECT DISTINCT probe.rid
-FROM ( $InsideTableQuery ) as g0
-LEFT JOIN ProbeGene USING(gid)
-INNER JOIN probe ON probe.rid=COALESCE(ProbeGene.rid, g0.rid)
-$sql_subset_by_project
-END_ProbeQuery
-
-    return 1;
+    # return tuple of headers + data array reference
+    return (\@headers, $data);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1958,9 +1893,7 @@ sub findProbes_js {
     #---------------------------------------------------------------------------
     #  HTML output
     #---------------------------------------------------------------------------
-    my $data     = $self->loadProbeData();
-    my $records  = $data->{records};
-    my $headers  = $data->{headers};
+    my ($headers, $records) = $self->build_XTableQuery();
     my $rowcount = @$records;
 
     my $proj_name = $self->{_WorkingProjectName};
