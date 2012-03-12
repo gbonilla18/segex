@@ -1302,29 +1302,49 @@ sub Search_body {
                             -name  => 'match',
                             -value => 'Full Word'
                         ),
-                        $q->hidden(
-                            -name  => 'spid',
-                            -value => ''
+                        (
+                            $self->{_loc_spid}
+                            ? (
+                                $q->hidden(
+                                    -name  => 'spid',
+                                    -value => $self->{_loc_spid}
+                                ),
+                                $q->hidden(
+                                    -name  => 'chr',
+                                    -value => $self->{_loc_chr}
+                                ),
+                                $q->hidden(
+                                    -name  => 'start',
+                                    -value => $self->{_loc_start}
+                                ),
+                                $q->hidden(
+                                    -name  => 'end',
+                                    -value => $self->{_loc_end}
+                                )
+                              )
+                            : ()
                         ),
-                        $q->hidden(
-                            -name  => 'chr',
-                            -value => ''
+                        (
+                            $self->{_extra_fields}
+                            ? $q->hidden(
+                                -name  => 'extra_fields',
+                                -value => '1'
+                              )
+                            : ()
                         ),
-                        $q->hidden(
-                            -name  => 'start',
-                            -value => ''
-                        ),
-                        $q->hidden(
-                            -name  => 'end',
-                            -value => ''
-                        ),
-                        $q->hidden(
-                            -name  => 'extra_fields',
-                            -value => ''
-                        ),
-                        $q->hidden(
-                            -name  => 'graph_type',
-                            -value => ''
+                        (
+                            $self->{_graphs}
+                            ? (
+                                $q->hidden(
+                                    -name  => 'show_graphs',
+                                    -value => '1'
+                                ),
+                                $q->hidden(
+                                    -name  => 'graph_type',
+                                    -value => $self->{_graphs}
+                                )
+                              )
+                            : ()
                         ),
                         $q->submit(
                             -class => 'button black bigrounded',
@@ -1362,7 +1382,7 @@ END_LEGEND
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  default_body
+#       METHOD:  mainFormDL
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -1370,25 +1390,11 @@ END_LEGEND
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub default_body {
-    my $self      = shift;
-    my $q         = $self->{_cgi};
-    my $curr_proj = $self->{_WorkingProject};
+sub mainFormDL {
+    my $self = shift;
+    my $q    = $self->{_cgi};
 
-    return
-      $q->h2('Find Probes'),
-
-      $q->p(<<"END_H2P_TEXT"),
-You can enter here a list of probes, accession numbers, or gene names. 
-The results will contain probes that are related to the search terms.
-END_H2P_TEXT
-      $q->start_form(
-        -id      => 'main_form',
-        -method  => 'POST',
-        -action  => $q->url( absolute => 1 ) . '?a=findProbes',
-        -enctype => 'multipart/form-data'
-      ),
-      $q->dl(
+    return $q->dl(
         $q->dt( $q->label( { -for => 'q' }, 'Search Term(s):' ) ),
         $q->dd(
             $q->div(
@@ -1539,7 +1545,7 @@ END_EXAMPLE_TEXT
                         $q->div(
                             $q->div(
                                 { -class => 'input_container' },
-                                'Limit output to: ',
+                                'Limit results to: ',
                                 $q->popup_menu(
                                     -name  => 'spid',
                                     -id    => 'spid',
@@ -1632,14 +1638,49 @@ END_EXAMPLE_TEXT
                 )
             )
         )
+    );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  default_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_body {
+    my $self      = shift;
+    my $q         = $self->{_cgi};
+    my $curr_proj = $self->{_WorkingProject};
+
+    return
+      $q->h2('Find Probes'),
+
+      $q->p(<<"END_H2P_TEXT"),
+You can enter here a list of probes, accession numbers, or gene names. 
+The results will contain probes that are related to the search terms.
+END_H2P_TEXT
+      $q->start_form(
+        -id      => 'main_form',
+        -method  => 'POST',
+        -action  => $q->url( absolute => 1 ) . '?a=findProbes',
+        -enctype => 'multipart/form-data'
       ),
+
+      # Main Form
+      $self->mainFormDL(),
+
+      # Output options
       $q->dl(
-        $q->dt('Output:'),
+        $q->dt('Output options:'),
         $q->dd(
             $q->p(
                 $q->a(
                     { -id => 'outputOpts', -class => 'pluscol' },
-                    '+ Output options'
+                    '+ Display Options / Graphs'
                 )
             ),
             $q->div(
