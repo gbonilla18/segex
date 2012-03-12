@@ -253,13 +253,14 @@ sub Search_head {
       );
 
     if ( $next_action == 1 ) {
+        my ( $headers, $records ) = $self->xTableQuery();
         push @$js_src_code,
-          ( { -code => $self->findProbes_js($s) },
+          ( { -code => $self->findProbes_js($headers, $records) },
             { -src => 'FindProbes.js' } );
     }
     elsif ( $next_action == 2 ) {
         push @$js_src_code,
-          ( { -code => $self->goTerms_js($s) }, { -src => 'GoTerms.js' } );
+          ( { -code => $self->goTerms_js() }, { -src => 'GoTerms.js' } );
     }
     return 1;
 }
@@ -1759,7 +1760,7 @@ END_H2P_TEXT
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
-#       METHOD:  build_XTableQuery
+#       METHOD:  xTableQuery
 #   PARAMETERS:  $type - query type (probe|gene)
 #                tmp_table => $tmpTable - uploaded table to join on
 #      RETURNS:  true value
@@ -1768,7 +1769,7 @@ END_H2P_TEXT
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub build_XTableQuery {
+sub xTableQuery {
 
     my $self      = shift;
     my $dbh       = $self->{_dbh};
@@ -1944,10 +1945,11 @@ END_XTableQuery
 sub findProbes_js {
     my $self = shift;
 
+    my $headers = shift;
+    my $records = shift;
     #---------------------------------------------------------------------------
     #  HTML output
     #---------------------------------------------------------------------------
-    my ( $headers, $records ) = $self->build_XTableQuery();
     my $rowcount = @$records;
 
     my $proj_name = $self->{_WorkingProjectName};

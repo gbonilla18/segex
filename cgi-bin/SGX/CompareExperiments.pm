@@ -170,13 +170,16 @@ sub getFormJS {
         # current project is set
         push @query_params, $curr_proj;
         $query_text = <<"END_PLATFORM_QUERY"
-SELECT pid, pname, def_p_cutoff, def_f_cutoff 
+SELECT 
+    pid, 
+    pname, 
+    def_p_cutoff, 
+    def_f_cutoff 
 FROM platform 
 RIGHT JOIN study USING(pid) 
 RIGHT JOIN ProjectStudy USING(stid)
 WHERE prid=? 
 GROUP BY pid
-
 END_PLATFORM_QUERY
     }
     my $sth      = $dbh->prepare($query_text);
@@ -206,9 +209,16 @@ END_PLATFORM_QUERY
     else {
 
         # current project is set
-        $sth = $dbh->prepare(
-qq{select stid, description, pid from study RIGHT JOIN ProjectStudy USING(stid) WHERE prid=? group by stid}
-        );
+        $sth = $dbh->prepare( <<"END_proj_query");
+select 
+    stid, 
+    description, 
+    pid 
+from study 
+RIGHT JOIN ProjectStudy USING(stid) 
+WHERE prid=?
+group by stid
+END_proj_query
         $rowcount = $sth->execute($curr_proj);
     }
 
@@ -230,25 +240,31 @@ qq{select stid, description, pid from study RIGHT JOIN ProjectStudy USING(stid) 
     # get a list of all experiments
     if ( !defined($curr_proj) || $curr_proj eq '' ) {
         $sth = $dbh->prepare(<<"END_EXP_QUERY");
-select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc 
+select 
+    stid, 
+    eid, 
+    experiment.sample2 as s2_desc, 
+    experiment.sample1 as s1_desc 
 from study 
 inner join StudyExperiment USING(stid)
 inner join experiment using(eid)
 GROUP BY eid
-
 END_EXP_QUERY
         $rowcount = $sth->execute();
     }
     else {
         $sth = $dbh->prepare(<<"END_EXP_QUERY");
-select stid, eid, experiment.sample2 as s2_desc, experiment.sample1 as s1_desc 
+select 
+    stid, 
+    eid, 
+    experiment.sample2 as s2_desc, 
+    experiment.sample1 as s1_desc 
 from experiment
 inner join StudyExperiment USING(eid)
 inner join study using(stid)
 inner join ProjectStudy USING(stid)
 WHERE prid = ?
 GROUP BY eid
-
 END_EXP_QUERY
         $rowcount = $sth->execute($curr_proj);
     }
@@ -335,7 +351,10 @@ sub default_body {
                     )
                 ),
                 $q->div(
-                    { -id => 'specialFilterForm', -class => 'dd_collapsible' },
+                    {
+                        -id    => 'specialFilterForm',
+                        -class => 'dd_collapsible'
+                    },
                     $findProbes->mainFormDD( $self->{_species_data} )
                 )
             )
@@ -387,7 +406,7 @@ sub get_eids {
 #       METHOD:  getResultsJS
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:
+#  DESCRIPTION:  This is called when experiments are compared.
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -402,64 +421,18 @@ sub getResultsJS {
     my $allProbes = $q->param('chkAllProbes');
 
     my $probeListPredicate = '';
-    my $probeList          = '';
+    my $probeList          = [];
 
-    if ( $q->param('upload_file') ) {
-
-       # if $q->param('upload_file') is not set, all other fields in Upload File
-       # subsection don't matter
-       #assert( !$q->param('q') );
-        my $findProbes = SGX::FindProbes->new(
-            _dbh         => $dbh,
-            _cgi         => $q,
-            _UserSession => $s
-        );
-
-        # parse uploaded file (highly likely to fail!)
-        my $fh = $q->upload('upload_file')
-          or SGX::Exception::User->throw( error => "Failed to upload file.\n" );
-
-        my $ok = eval { $findProbes->FindProbes_init($fh) } || 0;
-
-        # :TODO:07/29/2011 16:59:31:es: test zero-length upload files here
-        if ( ( my $exception = $@ ) || !$ok ) {
-            close $fh;
-            $exception->throw() if $exception;
-        }
-        close $fh;
-
-        $findProbes->getSessionOverrideCGI();
-        $findProbes->build_SearchPredicate();
-        $findProbes->build_InsideTableQuery();
-        $findProbes->build_SimpleProbeQuery();
-        $findProbes->loadProbeData();
-
-        # get list of probe record ids (rid)
-        $probeList          = $findProbes->getProbeList();
-        $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
-            ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
-    }
-    elsif ( $q->param('q') ) {
-
-        # if $q->param('q') is not set, all other fields in Filter List
-        # subsection don't matter
-        my $findProbes = SGX::FindProbes->new(
-            _dbh         => $dbh,
-            _cgi         => $q,
-            _UserSession => $s
-        );
-
-        my $ok = eval { $findProbes->FindProbes_init() } || 0;
-        $findProbes->getSessionOverrideCGI();
-
-        $findProbes->build_SearchPredicate();
-
-        $findProbes->build_InsideTableQuery();
-        $findProbes->build_SimpleProbeQuery();
-        $findProbes->loadProbeData();
-
-        # get list of probe record ids (rid)
-        $probeList          = $findProbes->getProbeList();
+    my $findProbes = SGX::FindProbes->new(
+        _dbh         => $dbh,
+        _cgi         => $q,
+        _UserSession => $s
+    );
+    $findProbes->getSessionOverrideCGI();
+    my $next_action = $findProbes->FindProbes_init();
+    if ($next_action) {
+        my ( $headers, $records ) = $findProbes->xTableQuery();
+        $probeList = [ map { $_->[0] } @$records ];
         $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
             ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
     }
