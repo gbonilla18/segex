@@ -451,7 +451,7 @@ sub getResults {
     #If we are filtering, generate the SQL statement for the rid's.
     my @query_titles;
     my @query_fs_body;
-    my ( @eids, @reverses, @fcs, @pvals, @true_eids );
+    my ( @stid_eid, @reverses, @fcs, @pvals );
 
     my $i = 0;
     foreach ( @{ $self->{_xExpList} } ) {
@@ -461,14 +461,12 @@ sub getResults {
         my $reverse = ( defined( $q->param("reverse_$i") ) ) ? 1 : 0;
 
         #Prepare the four arrays that will be used to display data
-        push @eids,     $eid;
+        push @stid_eid, $eid;
         push @reverses, $reverse;
         push @fcs,      $fc;
         push @pvals,    $pval;
 
         my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
-
-        push @true_eids, $currentEID;
 
         #Flagsum breakdown query
         my $flag = 1 << $i - 1;
@@ -546,11 +544,10 @@ END_query_fs
     }
 
     return {
-        eids            => \@eids,
+        stid_eid        => \@stid_eid,
         reverses        => \@reverses,
         fcs             => \@fcs,
         pvals           => \@pvals,
-        true_eids       => \@true_eids,
         hc              => \@hc,
         ht              => $ht,
         h               => $h,
@@ -582,7 +579,7 @@ sub getVennURI {
     my $h               = $args{h};
     my $ht              = $args{ht};
     my $hc              = $args{hc};
-    my $eids            = $args{eids};
+    my $stid_eid        = $args{stid_eid};
 
     my $qstring = '';
     if ( $rowcount_titles == 2 ) {
@@ -610,7 +607,8 @@ sub getVennURI {
           . $scale
           . '&amp;chs=750x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='
           . join( '|',
-            map { uri_escape("$_. $ht->{$_}->{title}") } @$eids[ 0 .. 1 ] );
+            map { uri_escape("$_. $ht->{$_}->{title}") }
+            map { [ split( /\|/, $_ ) ]->[1] } @$stid_eid[ 0 .. 1 ] );
     }
     elsif ( $rowcount_titles == 3 ) {
 
@@ -646,7 +644,8 @@ sub getVennURI {
           . $scale
           . "&amp;chs=750x300&chtt=$chart_title&amp;chco=ff0000,00ff00,0000ff&amp;chdl="
           . join( '|',
-            map { uri_escape("$_. $ht->{$_}->{title}") } @$eids[ 0 .. 2 ] );
+            map { uri_escape("$_. $ht->{$_}->{title}") }
+            map { [ split( /\|/, $_ ) ]->[1] } @$stid_eid[ 0 .. 2 ] );
     }
     return $qstring;
 }
@@ -672,14 +671,13 @@ sub getResultsJS {
     my $probeList       = $obj->{probeList};
 
     # references
-    my $reverses  = $obj->{reverses};
-    my $eids      = $obj->{eids};
-    my $hc        = $obj->{hc};
-    my $h         = $obj->{h};
-    my $ht        = $obj->{ht};
-    my $fcs       = $obj->{fcs};
-    my $pvals     = $obj->{pvals};
-    my $true_eids = $obj->{true_eids};
+    my $reverses = $obj->{reverses};
+    my $stid_eid = $obj->{stid_eid};
+    my $hc       = $obj->{hc};
+    my $h        = $obj->{h};
+    my $ht       = $obj->{ht};
+    my $fcs      = $obj->{fcs};
+    my $pvals    = $obj->{pvals};
 
     my $out = '';
     my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
@@ -689,7 +687,7 @@ sub getResultsJS {
         h               => $h,
         ht              => $ht,
         hc              => $hc,
-        eids            => $true_eids
+        stid_eid        => $stid_eid
     );
     $out .= $js->let(
         [
@@ -702,12 +700,12 @@ sub getResultsJS {
 
     # Summary table -------------------------------------
     my @tmpArray;
-    for ( my $i = 0 ; $i < @$eids ; $i++ ) {
-        my ( $currentSTID, $currentEID ) = split( /\|/, $eids->[$i] );
+    for ( my $i = 0 ; $i < @$stid_eid ; $i++ ) {
+        my ( $currentSTID, $currentEID ) = split( /\|/, $stid_eid->[$i] );
         push @tmpArray,
           [
             $currentEID, $ht->{$currentEID}->{title},
-            $fcs->[$i],       $pvals->[$i],
+            $fcs->[$i],  $pvals->[$i],
             $hc->[$i]
           ];
     }
@@ -715,7 +713,7 @@ sub getResultsJS {
     $out .= $js->let(
         [
             rep_count => $rep_count,
-            eid       => join( ',', @$eids ),
+            eid       => join( ',', @$stid_eid ),
             rev       => join( ',', @$reverses ),
             fc        => join( ',', @$fcs ),
             pval      => join( ',', @$pvals ),
@@ -738,17 +736,20 @@ sub getResultsJS {
 "{key:\"0\", sortable:true, resizeable:false, label:\"FS\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
     my $tfs_response_fields = "{key:\"0\", parser:\"number\"},\n";
     my $i;
-    for ( $i = 1 ; $i <= @$true_eids ; $i++ ) {
-        my $true_eid = $true_eids->[ $i - 1 ];
+    for ( $i = 1 ; $i <= @$stid_eid ; $i++ ) {
+        my ( $this_stid, $this_eid ) = split( /\|/, $stid_eid->[ $i - 1 ] );
         $tfs_defs .=
-"{key:\"$i\", sortable:true, resizeable:false, label:\"#$true_eid\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
+"{key:\"$i\", sortable:true, resizeable:false, label:\"#$this_eid\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
         $tfs_response_fields .= "{key:\"$i\"},\n";
     }
     $tfs_defs .=
 "{key:\"$i\", sortable:true, resizeable:true, label:\"Probe Count\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}}, {key:\""
       . ( $i + 1 )
       . "\", sortable:false, resizeable:true, label:\"View probes\", formatter:\"formatDownload\"}\n";
-    $tfs_response_fields .= "{key:\"$i\", parser:\"number\"}, {key:\"" . ( $i + 1 ) . "\", parser:\"number\"}\n";
+    $tfs_response_fields .=
+        "{key:\"$i\", parser:\"number\"}, {key:\""
+      . ( $i + 1 )
+      . "\", parser:\"number\"}\n";
 
     my @tfsBreakdown;
     foreach my $key ( sort { $h->{$b}->{fs} <=> $h->{$a}->{fs} } keys %$h ) {
@@ -773,8 +774,7 @@ sub getResultsJS {
             }
         ],
         declare => 1
-      )
-      . <<"END_extra_js";
+    ) . <<"END_extra_js";
 YAHOO.util.Event.addListener(window, "load", function() {
     var Dom = YAHOO.util.Dom;
     Dom.get("eid").value = eid;
