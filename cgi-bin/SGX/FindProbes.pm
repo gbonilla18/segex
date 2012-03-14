@@ -5,6 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
+require SGX::DBLists;
 require Tie::IxHash;
 use File::Basename;
 use JSON qw/encode_json/;
@@ -62,30 +63,11 @@ my %sqlTypes = (
     'Genes/Accession Nos.' => 'char(32) NOT NULL',
     'GO IDs'               => 'int(10) unsigned'
 );
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-    my ( $class, @param ) = @_;
-
-    my $self = $class->SUPER::new(@param);
-
-    $self->set_attributes(
-        _title       => 'Find Probes',
-        _SearchTerms => [],
-    );
-
-    bless $self, $class;
-    return $self;
-}
+my %sqlNames = (
+    'Probe IDs'            => 'reporter',
+    'Genes/Accession Nos.' => 'gsymbol',
+    'GO IDs'               => 'go_acc'
+);
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
@@ -101,6 +83,7 @@ sub init {
     my $self = shift;
     $self->SUPER::init();
 
+    $self->set_attributes( _title => 'Find Probes' );
     $self->register_actions(
         Search    => { head => 'Search_head', body => 'Search_body' },
         'Get CSV' => { head => 'GetCSV_head' }
@@ -255,8 +238,10 @@ sub Search_head {
     if ( $next_action == 1 ) {
         my ( $headers, $records ) = $self->xTableQuery();
         push @$js_src_code,
-          ( { -code => $self->findProbes_js($headers, $records) },
-            { -src => 'FindProbes.js' } );
+          (
+            { -code => $self->findProbes_js( $headers, $records ) },
+            { -src  => 'FindProbes.js' }
+          );
     }
     elsif ( $next_action == 2 ) {
         push @$js_src_code,
@@ -412,7 +397,16 @@ END_query1
 #===============================================================================
 sub FindProbes_init {
     my $self = shift;
-    my $q    = $self->{_cgi};
+
+    #---------------------------------------------------------------------------
+    #  initialization code (moved from new() constructor)
+    #---------------------------------------------------------------------------
+    $self->set_attributes(
+        _dbLists     => SGX::DBLists->new( delegate => $self ),
+        _SearchTerms => [],
+    );
+
+    my $q = $self->{_cgi};
 
     my $action        = car $q->param('b');
     my $text          = car $q->param('q');
@@ -457,7 +451,7 @@ sub FindProbes_init {
           || ( $self->{_scope} eq 'Probe IDs' or $self->{_scope} eq 'GO IDs' );
     $self->{_match} = $match;
 
-    $self->{_extra_fields} = defined( $q->param('extra_fields') );
+    $self->{_extra_fields} = defined( $q->param('extra_fields') ) ? 2 : 1;
     $self->{_graphs} =
       defined( $q->param('show_graphs') )
       ? car( $q->param('graph_type') )
@@ -516,174 +510,20 @@ sub FindProbes_init {
         $self->{_SearchTerms} = \@textSplit;
     }
 
+    my $dbLists = $self->{_dbLists};
+    my $scope   = $self->{_scope};
     $self->{_TempTable} =
       ( defined $outputFileName )
-      ? $self->uploadFileToTemp(
-        filename => $outputFileName,
-        type     => $sqlTypes{ $self->{_scope} }
+      ? $dbLists->uploadFileToTemp(
+        filename  => $outputFileName,
+        name_type => [ $sqlNames{$scope}, $sqlTypes{$scope} ]
       )
-      : $self->createTempList(
-        items => \@textSplit,
-        type  => $sqlTypes{ $self->{_scope} }
+      : $dbLists->createTempList(
+        items     => \@textSplit,
+        name_type => [ $sqlNames{$scope}, $sqlTypes{$scope} ]
       );
 
     return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  createTempTable
-#   PARAMETERS:  n/a
-#      RETURNS:  name of the temporary table
-#  DESCRIPTION:  Set up temporary table
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub createTempTable {
-    my $self        = shift;
-    my $symbol_type = shift;
-    my $dbh         = $self->{_dbh};
-
-    my $ug         = Data::UUID->new();
-    my $temp_table = $ug->to_string( $ug->create() );
-    $temp_table =~ s/-/_/g;
-    $temp_table = "tmp$temp_table";
-
-    my $sql = <<"END_createTable";
-CREATE TEMPORARY TABLE $temp_table (
-    symbol $symbol_type, 
-    UNIQUE KEY symbol (symbol)
-) ENGINE=MEMORY
-END_createTable
-
-    my $rc = $dbh->do($sql);
-    return $temp_table;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  createTempList
-#   PARAMETERS:  items => [1,2,3...],
-#                type  => 'int(10) unsigned'
-#      RETURNS:  Name of the temporary table created
-#  DESCRIPTION:  Create a list in the database represented as a table with a
-#                single column.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub createTempList {
-    my $self = shift;
-    my %args = @_;
-    my $dbh  = $self->{_dbh};
-
-    my $items = $args{items};
-    my $type  = $args{type};
-
-    #---------------------------------------------------------------------------
-    #  batch-insert using DBI execute_array() for high speed
-    #---------------------------------------------------------------------------
-    my $temp_table = $self->createTempTable($type);
-    my $sth =
-      $dbh->prepare("INSERT IGNORE INTO $temp_table (symbol) VALUES (?)");
-    my @tuple_status;
-    my $rc = eval {
-        $sth->execute_array( { ArrayTupleStatus => \@tuple_status }, $items ) +
-          0;
-    } or do {
-        my $exception = $@;
-        if ($exception) {
-            $self->add_message( { -class => 'error' },
-                sprintf( "Encountered error: %s\n", $exception->error ) );
-            return $temp_table;
-        }
-    };
-    $sth->finish();
-    if ( !$rc ) {
-        for my $tuple ( 0 .. $#$items ) {
-            my $status = $tuple_status[$tuple];
-            $status = [ 0, "Skipped" ] unless defined $status;
-            next unless ref $status;
-            $self->add_message(
-                { -class => 'error' },
-                sprintf(
-                    "There were errors. Failed to insert (%s): %s\n",
-                    $items->[$tuple], $status->[1]
-                )
-            );
-            return $temp_table;
-        }
-    }
-    return $temp_table;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  uploadFileToTemp
-#   PARAMETERS:  filename => 'string'
-#                type  => 'int(10) unsigned'
-#      RETURNS:  Name of the temporary table created
-#  DESCRIPTION:  Create a list in the database represented as a table with a
-#                single column.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub uploadFileToTemp {
-    my $self = shift;
-    my %args = @_;
-    my $dbh  = $self->{_dbh};
-
-    my $filename = $args{filename};
-    my $type     = $args{type};
-
-    #---------------------------------------------------------------------------
-    #  batch-insert using LOAD
-    #---------------------------------------------------------------------------
-    my $temp_table = $self->createTempTable($type);
-
-    my $sth = $dbh->prepare(<<"END_loadData");
-LOAD DATA LOCAL INFILE ?
-INTO TABLE $temp_table
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n' STARTING BY '' (symbol)
-END_loadData
-
-    my $rc = eval { $sth->execute($filename) } or do {
-        my $exception = $@;
-        $sth->finish();
-        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
-
-            # Note: this block catches duplicate key record exceptions among
-            # others
-            $self->add_message(
-                { -class => 'error' },
-                sprintf(
-"Error loading data into the database. The database response was: %s",
-                    $exception->error )
-            );
-        }
-        elsif ($exception) {
-
-            # Other types of exceptions
-            $self->add_message(
-                { -class => 'error' },
-                sprintf( "Unknown error. The database response was: %s",
-                    $exception->error )
-            );
-        }
-        else {
-
-            # no exceptions but no records loaded
-            $self->add_message( { -class => 'error' }, 'No records loaded' );
-        }
-        unlink $filename;
-        return $temp_table;
-    };
-    $sth->finish;
-    unlink $filename;
-    return $temp_table;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -911,9 +751,10 @@ sub getReportExperiments {
     # in another query, get attributes for all experiments in which the probes
     # are found
     #---------------------------------------------------------------------------
-    my $exp_temp_table = $self->createTempList(
-        items => $search_terms,
-        type  => 'int(10) unsigned'
+    my $dbLists        = $self->{_dbLists};
+    my $exp_temp_table = $dbLists->createTempList(
+        items     => $search_terms,
+        name_type => [ 'rid', 'int(10) unsigned' ]
     );
     my $exp_sql = <<"END_ExperimentDataQuery";
 SELECT
@@ -924,7 +765,7 @@ SELECT
     CONCAT(experiment.sample2, ' / ', experiment.sample1) AS 'Exp. Name',
     experiment.ExperimentDescription                      AS 'Exp. Description'
 FROM $exp_temp_table AS tmp
-INNER JOIN microarray ON microarray.rid=tmp.symbol
+INNER JOIN microarray USING(rid)
 INNER JOIN experiment USING(eid)
 INNER JOIN StudyExperiment USING(eid)
 INNER JOIN study USING(stid)
@@ -993,13 +834,14 @@ sub getReportData {
     my $self         = shift;
     my $search_terms = shift;
     my $dbh          = $self->{_dbh};
+    my $dbLists      = $self->{_dbLists};
 
     #---------------------------------------------------------------------------
     #  in another, get all annotation
     #---------------------------------------------------------------------------
-    my $annot_temp_table = $self->createTempList(
-        items => $search_terms,
-        type  => 'int(10) unsigned'
+    my $annot_temp_table = $dbLists->createTempList(
+        items     => $search_terms,
+        name_type => [ 'rid', 'int(10) unsigned' ]
     );
     my $annot_sql = <<"END_ExperimentDataQuery";
 SELECT
@@ -1012,7 +854,7 @@ SELECT
     group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
 
 FROM $annot_temp_table AS tmp
-INNER JOIN probe ON probe.rid=tmp.symbol
+INNER JOIN probe USING(rid)
 INNER JOIN ProbeGene USING(rid)
 INNER JOIN gene USING(gid)
 GROUP BY probe.rid
@@ -1034,9 +876,9 @@ END_ExperimentDataQuery
     #---------------------------------------------------------------------------
     #  in yet another, get data
     #---------------------------------------------------------------------------
-    my $data_temp_table = $self->createTempList(
-        items => $search_terms,
-        type  => 'int(10) unsigned'
+    my $data_temp_table = $dbLists->createTempList(
+        items     => $search_terms,
+        name_type => [ 'rid', 'int(10) unsigned' ]
     );
     my $data_sql = <<"END_ExperimentDataQuery";
 SELECT
@@ -1050,7 +892,7 @@ SELECT
     pvalue2     AS 'P-Value 2',
     pvalue3     AS 'P-Value 3'
 FROM $data_temp_table AS tmp
-INNER JOIN microarray ON microarray.rid=tmp.symbol
+INNER JOIN microarray USING(rid)
 END_ExperimentDataQuery
     my $data_sth = $dbh->prepare($data_sql);
     $data_sth->execute();
@@ -1370,7 +1212,9 @@ sub Search_body {
         $q->div( { -id => 'resulttable' }, '' )
     );
 
-    if ( $self->{_graphs} ) {
+    if ( $self->{_graphs}
+        and !( $type eq 'GO Names' or $type eq 'GO Names/Desc.' ) )
+    {
         push @ret, $q->p(<<"END_LEGEND");
 <strong>Dark bars</strong>: values meething the P threshold. 
 <strong>Light bars</strong>: values above the P threshold. 
@@ -1392,9 +1236,9 @@ END_LEGEND
 #     SEE ALSO:  n/a
 #===============================================================================
 sub mainFormDD {
-    my $self = shift;
+    my $self         = shift;
     my $species_data = shift;
-    my $q    = $self->{_cgi};
+    my $q            = $self->{_cgi};
 
     return $q->div(
         { -id => 'property_editor', -class => 'yui-navset' },
@@ -1668,7 +1512,7 @@ END_H2P_TEXT
 
         # Main Form
         $q->dt( $q->label( { -for => 'q' }, 'Search Term(s):' ) ),
-        $q->dd( $self->mainFormDD($self->{_species_data}) )
+        $q->dd( $self->mainFormDD( $self->{_species_data} ) )
       ),
 
       # Output options
@@ -1770,7 +1614,6 @@ END_H2P_TEXT
 #     SEE ALSO:  n/a
 #===============================================================================
 sub xTableQuery {
-
     my $self      = shift;
     my $dbh       = $self->{_dbh};
     my $tmp_table = $self->{_TempTable};
@@ -1787,15 +1630,20 @@ sub xTableQuery {
     my $scope = $self->{_scope};
     if ($haveTable) {
         if ( $scope eq 'Probe IDs' ) {
-            $innerSQL =
-"SELECT rid, gid FROM probe INNER JOIN $tmp_table AS tmp ON probe.reporter=tmp.symbol LEFT JOIN ProbeGene USING(rid)";
+            $innerSQL = <<"END_table_probe";
+SELECT rid, gid FROM probe 
+INNER JOIN $tmp_table USING(reporter)
+LEFT JOIN ProbeGene USING(rid)
+END_table_probe
         }
         elsif ( $scope eq 'GO IDs' ) {
             $innerSQL = <<"END_table_go";
 SELECT rid, gid
 FROM ProbeGene
 INNER JOIN (
-    SELECT DISTINCT rid FROM ProbeGene INNER JOIN GeneGO USING(gid) INNER JOIN $tmp_table AS tmp ON GeneGO.go_acc=tmp.symbol
+    SELECT DISTINCT rid FROM ProbeGene 
+    INNER JOIN GeneGO USING(gid) 
+    INNER JOIN $tmp_table USING(go_acc)
 ) AS d1 USING(rid)
 END_table_go
         }
@@ -1804,7 +1652,9 @@ END_table_go
 SELECT rid, gid
 FROM ProbeGene
 INNER JOIN (
-    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) INNER JOIN $tmp_table AS tmp ON gene.gsymbol=tmp.symbol
+    SELECT DISTINCT rid FROM ProbeGene 
+    INNER JOIN gene USING(gid) 
+    INNER JOIN $tmp_table USING(gsymbol) 
 ) AS d1 USING(rid)
 END_table_gene
         }
@@ -1862,21 +1712,26 @@ END_sql_subset_by_project
     }
 
     #---------------------------------------------------------------------------
-    #  fields to select
+    #  fields to select:
+    #  $extra_fields == 0: rid
+    #  $extra_fields == 1: rid, pid, reporter, sname, pname, accnum, gene
+    #  $extra_fields == 2: rid, pid, reporter, sname, pname, accnum, gene,
+    #                      probe_seq, gene_name
     #---------------------------------------------------------------------------
-    my @select_fields = (
-        'probe.rid',
-        'platform.pid',
-        "probe.reporter  AS 'Probe ID'",
-        "species.sname   AS 'Species'",
-        "platform.pname  AS 'Platform'",
+    my $extra_fields  = $self->{_extra_fields};
+    my @select_fields = ('probe.rid');
+    if ( $extra_fields > 0 ) {
+        push @select_fields,
+          (
+            'platform.pid',
+            "probe.reporter  AS 'Probe ID'",
+            "species.sname   AS 'Species'",
+            "platform.pname  AS 'Platform'",
 "group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.'",
 "group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
-    );
-
-    if ( $self->{_extra_fields} ) {
-
-        # extra fields
+          );
+    }
+    if ( $extra_fields > 1 ) {
         push @select_fields,
           (
             "probe.probe_sequence AS 'Probe Sequence'",
@@ -1947,6 +1802,7 @@ sub findProbes_js {
 
     my $headers = shift;
     my $records = shift;
+
     #---------------------------------------------------------------------------
     #  HTML output
     #---------------------------------------------------------------------------

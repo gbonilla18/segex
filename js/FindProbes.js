@@ -81,26 +81,29 @@ YAHOO.util.Event.addListener(window, "load", function() {
         rid: "0",
         species: "3",
     };
-    var myColumnList = [
-        {key:"0", parser:"number"},
-        {key:"1", parser:"number"},
-        {key:"2"},
-        {key:"3"},
-        {key:"4"},
-        {key:"5"},
-        {key:"6"}
-    ];
-    var myColumnDefs = [
-        {key:"2", sortable:true, resizeable:true, 
-            label:data.headers[2], formatter:"formatProbe"},
-        {key:"4", sortable:true, resizeable:true, 
-            label:data.headers[3] + ' / ' + data.headers[4], formatter:"formatPlatform"},
-        {key:"5", sortable:true, resizeable:true, 
-            label:data.headers[5], formatter:"formatAccNum"}, 
-        {key:"6", sortable:true, resizeable:true, 
-            label:data.headers[6], formatter:"formatGene"},
-    ];
-    if (extra_fields !== '') {
+    var myColumnList = [{key:"0", parser:"number"}];
+    var myColumnDefs = [];
+    if (extra_fields > 0) {
+        myColumnList.push(
+            {key:"1", parser:"number"},
+            {key:"2"},
+            {key:"3"},
+            {key:"4"},
+            {key:"5"},
+            {key:"6"}
+        );
+        myColumnDefs.push(
+            {key:"2", sortable:true, resizeable:true, 
+                label:data.headers[2], formatter:"formatProbe"},
+            {key:"4", sortable:true, resizeable:true, 
+                label:data.headers[3] + ' / ' + data.headers[4], formatter:"formatPlatform"},
+            {key:"5", sortable:true, resizeable:true, 
+                label:data.headers[5], formatter:"formatAccNum"}, 
+            {key:"6", sortable:true, resizeable:true, 
+                label:data.headers[6], formatter:"formatGene"}
+        );
+    }
+    if (extra_fields > 1) {
         myColumnList.push(
             {key:"7"},
             {key:"8"}
@@ -112,6 +115,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 label:data.headers[8], formatter:"formatGeneName"}
         );
     }
+
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var hClass = (searchColumn === 'reporter' && matchesQuery(oData))

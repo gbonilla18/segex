@@ -12,6 +12,7 @@ use JSON qw/encode_json/;
 require Tie::IxHash;
 require SGX::FindProbes;
 require SGX::Abstract::JSEmitter;
+require SGX::DBLists;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car count_gtzero max/;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
@@ -50,6 +51,8 @@ sub init {
 #===============================================================================
 sub Compare_head {
     my $self = shift;
+
+    $self->set_attributes( _dbLists => SGX::DBLists->new(delegate => $self), );
 
     if ( !$self->get_eids() ) {
         $self->set_action('');
@@ -420,21 +423,27 @@ sub getResultsJS {
     #This flag tells us whether or not to ignore the thresholds.
     my $allProbes = $q->param('chkAllProbes');
 
-    my $probeListPredicate = '';
-    my $probeList          = [];
-
     my $findProbes = SGX::FindProbes->new(
         _dbh         => $dbh,
         _cgi         => $q,
         _UserSession => $s
     );
     $findProbes->getSessionOverrideCGI();
-    my $next_action = $findProbes->FindProbes_init();
-    if ($next_action) {
+    my $probeListPredicate = '';
+    my $probeList          = [];
+
+    if ( $findProbes->FindProbes_init() ) {
+
+        # get probe ids only
+        $findProbes->{_extra_fields} = 0;
         my ( $headers, $records ) = $findProbes->xTableQuery();
         $probeList = [ map { $_->[0] } @$records ];
-        $probeListPredicate = sprintf( ' WHERE rid IN (%s) ',
-            ( @$probeList > 0 ) ? join( ',', @$probeList ) : 'NULL' );
+        my $dbLists  = $self->{_dbLists};
+        my $tmpTable = $dbLists->createTempList(
+            items     => $probeList,
+            name_type => [ 'rid', 'int(10) unsigned' ]
+        );
+        $probeListPredicate = "INNER JOIN $tmpTable USING(rid)";
     }
 
     #If we are filtering, generate the SQL statement for the rid's.

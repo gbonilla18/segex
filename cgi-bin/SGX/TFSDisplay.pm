@@ -195,7 +195,7 @@ sub loadDataFromSubmission {
     $self->{_pvals}    = [ split( $split_on_commas, $q->param('pval') ) ];
 
     $self->{_allProbes}     = $q->param('allProbes')    || '';
-    $self->{_searchFilters} = $q->param('searchFilter') || '';
+    $self->{_searchFilter} = $q->param('searchFilter') || '';
     $self->{_fs}            = $q->param('get')          || '';
     $self->{_opts}          = $q->param('opts')         || '0';
 
@@ -305,11 +305,11 @@ sub loadTFSData {
     #If we got a list to filter on, build the string.
     #
     # :TODO:07/07/2011 12:38:40:es: SQL injection risk: no validation done
-    # one _searchFilters before being inserted into WHERE statement.
+    # one _searchFilter before being inserted into WHERE statement.
     # Fix this by using prepare/execute with placeholders.
     my $probeListQuery =
-      ( defined( $self->{_searchFilters} ) && $self->{_searchFilters} ne '' )
-      ? " WHERE rid IN (" . $self->{_searchFilters} . ") "
+      ( defined( $self->{_searchFilter} ) && $self->{_searchFilter} ne '' )
+      ? " WHERE rid IN (" . $self->{_searchFilter} . ") "
       : '';
 
     my $i = 1;
@@ -533,8 +533,8 @@ sub loadAllData {
 
     #If we got a list to filter on, build the string.
     my $probeListQuery =
-      ( defined( $self->{_searchFilters} ) && $self->{_searchFilters} ne '' )
-      ? " WHERE rid IN (" . $self->{_searchFilters} . ") "
+      ( defined( $self->{_searchFilter} ) && $self->{_searchFilter} ne '' )
+      ? " WHERE rid IN (" . $self->{_searchFilter} . ") "
       : '';
 
     my $i = 1;
