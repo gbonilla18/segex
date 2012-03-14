@@ -706,7 +706,7 @@ sub getResultsJS {
         my ( $currentSTID, $currentEID ) = split( /\|/, $eids->[$i] );
         push @tmpArray,
           [
-            $true_eids->[$i], $ht->{$currentEID}->{title},
+            $currentEID, $ht->{$currentEID}->{title},
             $fcs->[$i],       $pvals->[$i],
             $hc->[$i]
           ];
