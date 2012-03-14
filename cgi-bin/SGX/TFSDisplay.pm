@@ -419,9 +419,9 @@ qq{GROUP_CONCAT(DISTINCT IF(gene.description='', NULL, gene.description) SEPARAT
 SELECT
     abs_fs, 
     dir_fs, 
-    probe.reporter AS Probe, 
-    GROUP_CONCAT(DISTINCT accnum SEPARATOR '+') AS 'Accession Number', 
-    GROUP_CONCAT(DISTINCT seqname SEPARATOR '+') AS 'Gene', 
+    probe.reporter AS Probe,
+    GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
     $selectSQL
 FROM (
     SELECT 
@@ -434,8 +434,8 @@ FROM (
 ) AS d2
 $predicateSQL
 LEFT JOIN probe     ON d2.rid        = probe.rid
-LEFT JOIN annotates ON d2.rid        = annotates.rid
-LEFT JOIN gene      ON annotates.gid = gene.gid
+LEFT JOIN ProbeGene ON d2.rid        = ProbeGene.rid
+LEFT JOIN gene      ON ProbeGene.gid = gene.gid
 LEFT JOIN (select platform.pid, species.sname FROM platform LEFT JOIN species USING(sid)) AS platform_species USING(pid)
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
@@ -634,8 +634,8 @@ SELECT
     abs_fs, 
     dir_fs, 
     probe.reporter AS Probe, 
-    GROUP_CONCAT(DISTINCT accnum SEPARATOR '+') AS 'Accession Number', 
-    GROUP_CONCAT(DISTINCT seqname SEPARATOR '+') AS 'Gene', 
+    GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
     $selectSQL
 FROM (
     SELECT
@@ -648,8 +648,8 @@ FROM (
 ) AS d2
 $predicateSQL
 LEFT JOIN probe     ON d2.rid        = probe.rid
-LEFT JOIN annotates ON d2.rid        = annotates.rid
-LEFT JOIN gene      ON annotates.gid = gene.gid
+LEFT JOIN ProbeGene ON d2.rid        = ProbeGene.rid
+LEFT JOIN gene      ON ProbeGene.gid = gene.gid
 LEFT JOIN (select platform.pid, species.sname FROM platform LEFT JOIN species USING(sid)) AS platform_species USING(pid)
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
@@ -849,7 +849,7 @@ sub displayTFSInfo {
                 caption => 'Experiments compared',
                 headers => [
                     '&nbsp;',
-                    'Experiment Number',
+                    'No.',
                     'Study Description',
                     'Sample2/Sample1',
                     'Experiment Description',
@@ -1005,7 +1005,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     }
     var tfs_config = {
         paginator: new YAHOO.widget.Paginator({
-            rowsPerPage: 500 
+            rowsPerPage: 15 
         })
     };
     var tfs_data = new YAHOO.util.DataSource(tfs.records);

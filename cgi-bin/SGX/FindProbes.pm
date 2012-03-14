@@ -849,9 +849,9 @@ SELECT
     probe.pid,
     probe.reporter AS 'Probe ID',
     probe.probe_sequence AS 'Probe Sequence',
-    group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
-    group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
-    group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
+    GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
+    GROUP_CONCAT(DISTINCT concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
 
 FROM $annot_temp_table AS tmp
 INNER JOIN probe USING(rid)
