@@ -52,7 +52,8 @@ sub init {
 sub Compare_head {
     my $self = shift;
 
-    $self->set_attributes( _dbLists => SGX::DBLists->new(delegate => $self), );
+    $self->set_attributes( _dbLists => SGX::DBLists->new( delegate => $self ),
+    );
 
     if ( !$self->get_eids() ) {
         $self->set_action('');
@@ -76,6 +77,7 @@ sub Compare_head {
         'datatable/datatable-min.js'
       );
     push @$js_src_code, { -code => $self->getResultsJS() };
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -103,7 +105,7 @@ sub default_head {
       );
 
     # background image from: http://subtlepatterns.com/?p=703
-    push @$css_src_code, +{ -code => <<END_css};
+    push @$css_src_code, +{ -code => <<"END_css"};
 .yui-skin-sam .yui-navset .yui-content { 
     background-image:url('$IMAGES_DIR/fancy_deboss.png'); 
 }
@@ -406,15 +408,15 @@ sub get_eids {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments
-#       METHOD:  getResultsJS
+#       METHOD:  getResults
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  This is called when experiments are compared.
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getResultsJS {
+sub getResults {
     my $self = shift;
     my $q    = $self->{_cgi};
     my $dbh  = $self->{_dbh};
@@ -529,69 +531,92 @@ END_query_fs
 
     my $rep_count = 0;
 
-    # initialize the hash
-    my %hc = map { $_ => 0 } ( 0 .. ( $rowcount_titles - 1 ) );
+    # counts mapping array
+    my @hc = ( (0) x $rowcount_titles );
     foreach my $value ( values %$h ) {
-        for ( $i = 0 ; $i < $rowcount_titles ; $i++ ) {
 
-            # use of bitwise AND operator to test for bit presence
-            $hc{$i} += $value->{c} if 1 << $i & $value->{fs};
-        }
+        #for ( $i = 0 ; $i < $rowcount_titles ; $i++ ) {
+
+        #    # use of bitwise AND operator to test for bit presence
+        #    $hc[$i] += $value->{c} if 1 << $i & $value->{fs};
+        #}
+        ( $hc[$_] += ( 1 << $_ & $value->{fs} ) ? $value->{c} : 0 )
+          for 0 .. ( $rowcount_titles - 1 );
         $rep_count += $value->{c};
     }
 
-    # Draw a 750x300 area-proportional Venn diagram using Google API if
-    # $rowcount_titles is (2,3).
-    #
-    # http://code.google.com/apis/chart/types.html#venn
-    # http://code.google.com/apis/chart/formats.html#data_scaling
-    #
-    my $out = '';
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 1 );
+    return {
+        eids            => \@eids,
+        reverses        => \@reverses,
+        fcs             => \@fcs,
+        pvals           => \@pvals,
+        true_eids       => \@true_eids,
+        hc              => \@hc,
+        ht              => $ht,
+        h               => $h,
+        rep_count       => $rep_count,
+        rowcount_titles => $rowcount_titles,
+        allProbes       => $allProbes,
+        probeList       => $probeList,
+    };
+}
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  getVennURI
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Draw a 750x300 area-proportional Venn diagram using Google API
+#                if $rowcount_titles is (2,3).
+#
+#                http://code.google.com/apis/chart/types.html#venn
+#                http://code.google.com/apis/chart/formats.html#data_scaling
+#
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getVennURI {
+    my %args            = @_;
+    my $rowcount_titles = $args{rowcount_titles};
+    my $h               = $args{h};
+    my $ht              = $args{ht};
+    my $hc              = $args{hc};
+    my $eids            = $args{eids};
+
+    my $qstring = '';
     if ( $rowcount_titles == 2 ) {
 
         # draw two circles
         my @c;
-        for ( $i = 1 ; $i < 4 ; $i++ ) {
+        for ( my $i = 1 ; $i < 4 ; $i++ ) {
 
             # replace undefined values with zeros
             push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
         }
         my $AB = $c[2];
-        my ( $A, $B ) = ( $hc{0}, $hc{1} );
+        my ( $A, $B ) = @$hc[ 0 .. 1 ];
 
         #assert( $A == $c[0] + $AB );
         #assert( $B == $c[1] + $AB );
 
-        my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
-        my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
-
         # scale must be equal to the area of the largest circle
         my $scale = max( $A, $B );
         my @nums = ( $A, $B, 0, $AB );
-        my $qstring =
-            'cht=v&amp;chd=t:'
+        $qstring =
+            'http://chart.apis.google.com/chart?cht=v&amp;chd=t:'
           . join( ',', @nums )
           . '&amp;chds=0,'
           . $scale
           . '&amp;chs=750x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='
-          . uri_escape( "$currentEID1. " . $ht->{$currentEID1}->{title} ) . '|'
-          . uri_escape( "$currentEID2. " . $ht->{$currentEID2}->{title} );
-
-        $out .= $js->let(
-            [
-                venn =>
-"<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
-            ],
-            declare => 1
-        );
+          . join( '|',
+            map { uri_escape("$_. $ht->{$_}->{title}") } @$eids[ 0 .. 1 ] );
     }
     elsif ( $rowcount_titles == 3 ) {
 
         # draw three circles
         my @c;
-        for ( $i = 1 ; $i < 8 ; $i++ ) {
+        for ( my $i = 1 ; $i < 8 ; $i++ ) {
 
             # replace undefined values with zeros
             push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
@@ -600,7 +625,7 @@ END_query_fs
         my $AB  = $c[2] + $ABC;
         my $AC  = $c[4] + $ABC;
         my $BC  = $c[5] + $ABC;
-        my ( $A, $B, $C ) = ( $hc{0}, $hc{1}, $hc{2} );
+        my ( $A, $B, $C ) = @$hc[ 0 .. 2 ];
 
         my $chart_title =
           ( count_gtzero( $A, $B, $C ) > 2 )
@@ -611,63 +636,89 @@ END_query_fs
         #assert( $B == $c[1] + $c[2] + $c[5] + $ABC );
         #assert( $C == $c[3] + $c[4] + $c[5] + $ABC );
 
-        my ( $currentSTID1, $currentEID1 ) = split( /\|/, $eids[0] );
-        my ( $currentSTID2, $currentEID2 ) = split( /\|/, $eids[1] );
-        my ( $currentSTID3, $currentEID3 ) = split( /\|/, $eids[2] );
-
         # scale must be equal to the area of the largest circle
         my $scale = max( $A, $B, $C );
         my @nums = ( $A, $B, $C, $AB, $AC, $BC, $ABC );
-        my $qstring =
-            'cht=v&amp;chd=t:'
+        $qstring =
+            'http://chart.apis.google.com/chart?cht=v&amp;chd=t:'
           . join( ',', @nums )
           . '&amp;chds=0,'
           . $scale
           . "&amp;chs=750x300&chtt=$chart_title&amp;chco=ff0000,00ff00,0000ff&amp;chdl="
-          . uri_escape(
-            sprintf( '%d. %s', $currentEID1, $ht->{$currentEID1}->{title} ) )
-          . '|'
-          . uri_escape(
-            sprintf( '%d. %s', $currentEID2, $ht->{$currentEID2}->{title} ) )
-          . '|'
-          . uri_escape(
-            sprintf( '%d. %s', $currentEID3, $ht->{$currentEID3}->{title} ) );
+          . join( '|',
+            map { uri_escape("$_. $ht->{$_}->{title}") } @$eids[ 0 .. 2 ] );
+    }
+    return $qstring;
+}
 
-        $out .= $js->let(
-            [
-                venn =>
-"<img alt=\"Venn Diagram\" src=\"http://chart.apis.google.com/chart?$qstring\" />"
-            ],
-            declare => 1
-        );
-    }
-    else {
-        $out .= $js->let( [ venn => '' ], declare => 1 );
-    }
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  getResultsJS
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is called when experiments are compared.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getResultsJS {
+    my $self = shift;
+    my $obj  = $self->getResults();
+
+    # scalars
+    my $rep_count       = $obj->{rep_count};
+    my $rowcount_titles = $obj->{rowcount_titles};
+    my $allProbes       = $obj->{allProbes};
+    my $probeList       = $obj->{probeList};
+
+    # references
+    my $reverses  = $obj->{reverses};
+    my $eids      = $obj->{eids};
+    my $hc        = $obj->{hc};
+    my $h         = $obj->{h};
+    my $ht        = $obj->{ht};
+    my $fcs       = $obj->{fcs};
+    my $pvals     = $obj->{pvals};
+    my $true_eids = $obj->{true_eids};
+
+    my $out = '';
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+
+    my $vennURI = getVennURI(
+        rowcount_titles => $rowcount_titles,
+        h               => $h,
+        ht              => $ht,
+        hc              => $hc,
+        eids            => $true_eids
+    );
+    $out .= $js->let(
+        [
+            venn => ($vennURI)
+            ? "<img alt=\"Venn Diagram\" src=\"$vennURI\" />"
+            : ''
+        ],
+        declare => 1
+    );
 
     # Summary table -------------------------------------
     my @tmpArray;
-    for ( $i = 0 ; $i < @eids ; $i++ ) {
-        my ( $currentSTID, $currentEID ) = split( /\|/, $eids[$i] );
-
-        my $j = 0;
+    for ( my $i = 0 ; $i < @$eids ; $i++ ) {
+        my ( $currentSTID, $currentEID ) = split( /\|/, $eids->[$i] );
         push @tmpArray,
-          +{
-            map { $j++ => $_ } (
-                $true_eids[$i], $ht->{$currentEID}->{title},
-                $fcs[$i],       $pvals[$i],
-                $hc{$i}
-            )
-          };
+          [
+            $true_eids->[$i], $ht->{$currentEID}->{title},
+            $fcs->[$i],       $pvals->[$i],
+            $hc->[$i]
+          ];
     }
 
     $out .= $js->let(
         [
             rep_count => $rep_count,
-            eid       => join( ',', @eids ),
-            rev       => join( ',', @reverses ),
-            fc        => join( ',', @fcs ),
-            pval      => join( ',', @pvals ),
+            eid       => join( ',', @$eids ),
+            rev       => join( ',', @$reverses ),
+            fc        => join( ',', @$fcs ),
+            pval      => join( ',', @$pvals ),
             allProbes => (
                 ( defined $allProbes )
                 ? $allProbes
@@ -686,19 +737,18 @@ END_query_fs
     my $tfs_defs =
 "{key:\"0\", sortable:true, resizeable:false, label:\"FS\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
     my $tfs_response_fields = "{key:\"0\", parser:\"number\"},\n";
-    for ( $i = 1 ; $i <= @true_eids ; $i++ ) {
-        my $true_eid = $true_eids[ $i - 1 ];
+    my $i;
+    for ( $i = 1 ; $i <= @$true_eids ; $i++ ) {
+        my $true_eid = $true_eids->[ $i - 1 ];
         $tfs_defs .=
 "{key:\"$i\", sortable:true, resizeable:false, label:\"#$true_eid\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
         $tfs_response_fields .= "{key:\"$i\"},\n";
     }
     $tfs_defs .=
-"{key:\"$i\", sortable:true, resizeable:true, label:\"Probe Count\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},
-{key:\""
+"{key:\"$i\", sortable:true, resizeable:true, label:\"Probe Count\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}}, {key:\""
       . ( $i + 1 )
       . "\", sortable:false, resizeable:true, label:\"View probes\", formatter:\"formatDownload\"}\n";
-    $tfs_response_fields .= "{key:\"$i\", parser:\"number\"},
-{key:\"" . ( $i + 1 ) . "\", parser:\"number\"}\n";
+    $tfs_response_fields .= "{key:\"$i\", parser:\"number\"}, {key:\"" . ( $i + 1 ) . "\", parser:\"number\"}\n";
 
     my @tfsBreakdown;
     foreach my $key ( sort { $h->{$b}->{fs} <=> $h->{$a}->{fs} } keys %$h ) {
@@ -724,8 +774,7 @@ END_query_fs
         ],
         declare => 1
       )
-      . '
-
+      . <<"END_extra_js";
 YAHOO.util.Event.addListener(window, "load", function() {
     var Dom = YAHOO.util.Dom;
     Dom.get("eid").value = eid;
@@ -756,15 +805,12 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     YAHOO.widget.DataTable.Formatter.formatDownload = function(elCell, oRecord, oColumn, oData) {
         var fs = oRecord.getData("0");
-        elCell.innerHTML = "<input class=\"plaintext\" type=\"submit\" name=\"get\" value=\"TFS " + fs + " (HTML)\" />&nbsp;&nbsp;&nbsp;<input class=\"plaintext\" type=\"submit\" name=\"get\" value=\"TFS " + fs + " (CSV)\" />";
+        elCell.innerHTML = "<input class=\\"plaintext\\" type=\\"submit\\" name=\\"get\\" value=\\"TFS " + fs + " (HTML)\\" />&nbsp;&nbsp;&nbsp;<input class=\\"plaintext\\" type=\\"submit\\" name=\\"get\\" value=\\"TFS " + fs + " (CSV)\\" />";
     }
     Dom.get("tfs_caption").innerHTML = tfs.caption;
-    Dom.get("tfs_all_dt").innerHTML = "View data for '
-      . $rep_count . ' probes:";
-    Dom.get("tfs_all_dd").innerHTML = "<input type=\"submit\" name=\"get\" class=\"plaintext\" value=\"TFS (HTML)\" /><span class=\"separator\"> / </span><input type=\"submit\" class=\"plaintext\" name=\"get\" value=\"TFS (CSV)\" />";
-    var tfs_table_defs = [
-' . $tfs_defs . '
-    ];
+    Dom.get("tfs_all_dt").innerHTML = "View data for $rep_count probes:";
+    Dom.get("tfs_all_dd").innerHTML = "<input type=\\"submit\\" name=\\"get\\" class=\\"plaintext\\" value=\\"TFS (HTML)\\" /><span class=\\"separator\\"> / </span><input type=\\"submit\\" class=\\"plaintext\\" name=\\"get\\" value=\\"TFS (CSV)\\" />";
+    var tfs_table_defs = [ $tfs_defs ];
     var tfs_config = {
         paginator: new YAHOO.widget.Paginator({
             rowsPerPage: 50 
@@ -773,11 +819,12 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var tfs_data = new YAHOO.util.DataSource(tfs.records);
     tfs_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
     tfs_data.responseSchema = {
-        fields: [' . $tfs_response_fields . ']
+        fields: [$tfs_response_fields]
     };
     var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
 });
-';
+END_extra_js
+
     return $out;
 }
 
