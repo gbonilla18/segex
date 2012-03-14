@@ -760,8 +760,8 @@ sub getReportExperiments {
     # in another query, get attributes for all experiments in which the probes
     # are found
     #---------------------------------------------------------------------------
-    my $dbLists        = $self->{_dbLists};
-    my $exp_temp_table = $dbLists->createTempList(
+    $self->{_dbLists} ||= SGX::DBLists->new( delegate => $self );
+    my $exp_temp_table = $self->{_dbLists}->createTempList(
         items     => $search_terms,
         name_type => [ 'rid', 'int(10) unsigned' ]
     );

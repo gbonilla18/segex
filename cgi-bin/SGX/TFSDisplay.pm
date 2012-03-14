@@ -188,7 +188,7 @@ sub loadDataFromSubmission {
     # filtered If the $self->{_fs} is zero or undefined, all data will be
     # output.
     my $split_on_commas = qr/\s*,\s*/;
-    $self->{_eids} =
+    $self->{_stid_eid} =
       [ map { [ split /\|/ ] } split( $split_on_commas, $q->param('eid') ) ];
     $self->{_reverses} = [ split( $split_on_commas, $q->param('rev') ) ];
     $self->{_fcs}      = [ split( $split_on_commas, $q->param('fc') ) ];
@@ -319,7 +319,7 @@ sub loadTFSData {
     my @query_body;
     my @query_titles;
     my $allProbes = $self->{_allProbes};
-    foreach my $eid ( @{ $self->{_eids} } ) {
+    foreach my $eid ( @{ $self->{_stid_eid} } ) {
         my ( $currentSTID, $currentEID ) = @$eid;
 
         my ( $fc, $pval ) =
@@ -462,7 +462,7 @@ sub getPlatformData {
 
     my $dbh = $self->{_dbh};
 
-    my @eidList = map { $_->[1] } @{ $self->{_eids} };
+    my @eidList = map { $_->[1] } @{ $self->{_stid_eid} };
 
     my $placeholders =
       ( @eidList > 0 )
@@ -539,7 +539,7 @@ sub loadAllData {
 
     my $i = 1;
 
-    foreach my $eid ( @{ $self->{_eids} } ) {
+    foreach my $eid ( @{ $self->{_stid_eid} } ) {
         my ( $currentSTID, $currentEID ) = @$eid;
 
         my ( $fc, $pval ) =
@@ -715,12 +715,12 @@ sub displayTFSInfoCSV {
     # This is the line with the experiment name and eid above the data columns.
     my @experimentNameHeader = (undef) x 8;
 
-    my $eid_count = @{ $self->{_eids} };
+    my $eid_count = @{ $self->{_stid_eid} };
     my @eidList;
 
     # Print Experiment info.
     for ( my $i = 0 ; $i < $eid_count ; $i++ ) {
-        my ( $currentSTID, $currentEID ) = @{ $self->{_eids}->[$i] };
+        my ( $currentSTID, $currentEID ) = @{ $self->{_stid_eid}->[$i] };
 
         push @eidList, $currentEID;
 
@@ -815,9 +815,9 @@ sub displayTFSInfo {
     my $q    = $self->{_cgi};
 
     my @tmpArrayHead;
-    my $eid_count = @{ $self->{_eids} };
+    my $eid_count = @{ $self->{_stid_eid} };
     for ( my $i = 0 ; $i < $eid_count ; $i++ ) {
-        my ( $currentSTID, $currentEID ) = @{ $self->{_eids}->[$i] };
+        my ( $currentSTID, $currentEID ) = @{ $self->{_stid_eid}->[$i] };
         my $this_eid                 = $self->{_headerRecords}->{$currentEID};
         my $currentTitle             = $this_eid->{title};
         my $currentStudyDescription  = $this_eid->{description};
