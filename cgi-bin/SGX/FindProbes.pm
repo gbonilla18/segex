@@ -355,6 +355,15 @@ sub getGOTerms {
     #    }
 
     #---------------------------------------------------------------------------
+    #  chromosomal location limits
+    #---------------------------------------------------------------------------
+    my ( $limit_sql, $limit_param ) = $self->build_location_predparam();
+    $limit_sql =
+      (@$limit_param)
+      ? "INNER JOIN probe USING(rid) $limit_sql"
+      : '';
+
+    #---------------------------------------------------------------------------
     #  query itself
     #---------------------------------------------------------------------------
     my $sql = <<"END_query1";
@@ -365,16 +374,16 @@ select
     go_term_type        AS 'Term Type',
     count(distinct rid) AS probe_count
 from go_term
-INNER join GeneGO    USING(go_acc) 
-INNER join ProbeGene USING(gid)
+INNER JOIN GeneGO    USING(go_acc) 
+INNER JOIN ProbeGene USING(gid)
+$limit_sql
 $predicate
 group by go_acc
 ORDER BY probe_count DESC
 END_query1
 
-    my $sth = $dbh->prepare($sql);
-
-    my $rc    = $sth->execute(@param);
+    my $sth   = $dbh->prepare($sql);
+    my $rc    = $sth->execute( @$limit_param, @param );
     my @names = @{ $sth->{NAME} };
     $names[4] = 'Probes';
     my $data = $sth->fetchall_arrayref();
