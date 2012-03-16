@@ -431,17 +431,19 @@ sub FindProbes_init {
     #---------------------------------------------------------------------------
     #  scope to search and chromosomal range if any
     #---------------------------------------------------------------------------
-    my ( $loc_spid, $loc_chr, $loc_start, $loc_end );
+    my $scope;
     if ($upload_file) {
-        $self->{_scope} = car $q->param('scope_file');
+        $scope = car $q->param('scope_file');
     }
     else {
-        $self->{_scope}     = car $q->param('scope_list');
+        $scope              = car $q->param('scope_list');
         $self->{_loc_spid}  = car $q->param('spid');
         $self->{_loc_chr}   = car $q->param('chr');
         $self->{_loc_start} = car $q->param('start');
         $self->{_loc_end}   = car $q->param('end');
     }
+    $self->{_scope} = $scope;
+
     if (   $text eq ''
         && !$upload_file
         && !( defined( $self->{_loc_spid} ) and $self->{_loc_spid} ne '' ) )
@@ -463,7 +465,7 @@ sub FindProbes_init {
     $match = 'Full Word'
       if $upload_file
           || !defined($match)
-          || ( $self->{_scope} eq 'Probe IDs' or $self->{_scope} eq 'GO IDs' );
+          || ( $scope eq 'Probe IDs' or $scope eq 'GO IDs' );
     $self->{_match} = $match;
 
     $self->{_extra_fields} = defined( $q->param('extra_fields') ) ? 2 : 1;
@@ -475,30 +477,20 @@ sub FindProbes_init {
     #---------------------------------------------------------------------------
     #  special action for GO terms
     #---------------------------------------------------------------------------
-    if ( $self->{_scope} eq 'GO Names' or $self->{_scope} eq 'GO Names/Desc.' )
-    {
+    if ( $scope eq 'GO Names' or $scope eq 'GO Names/Desc.' ) {
         $self->getGOTerms();
         return 2;
     }
 
     #---------------------------------------------------------------------------
-    #  assign split main query if searching for symbols/ids
+    #  do not create temporary table if no file uploaded or if <=1 term(s)
+    #  entered or if terms are not symbols or if match type is not full word.
     #---------------------------------------------------------------------------
-    if (
-        !$upload_file
-        and (
-            @textSplit < 2
-            or (    $self->{_scope} ne 'Probe IDs'
-                and $self->{_scope} ne 'Genes/Accession Nos.'
-                and $self->{_scope} ne 'GO IDs' )
-            or $self->{_match} ne 'Full Word'
-        )
-      )
-    {
-
-        # do not create temporary table
-        return 1;
-    }
+    return 1
+      if !$upload_file
+          and (  @textSplit < 2
+              or !exists $parser{$scope}
+              or $match ne 'Full Word' );
 
     #----------------------------------------------------------------------
     #  More than one terms entered and matching is exact.
@@ -512,7 +504,7 @@ sub FindProbes_init {
           SGX::CSV::sanitizeUploadWithMessages(
             $self, 'file',
             csv_in_opts => { quote_char => undef },
-            parser      => [ $parser{ $self->{_scope} } ]
+            parser      => [ $parser{$scope} ]
           );
         $outputFileName = $outputFileNames->[0];
     }
@@ -521,7 +513,6 @@ sub FindProbes_init {
     #  now load into temporary table
     #----------------------------------------------------------------------
     my $dbLists = $self->{_dbLists};
-    my $scope   = $self->{_scope};
     $self->{_TempTable} =
       ( defined $outputFileName )
       ? $dbLists->uploadFileToTemp(
@@ -634,17 +625,10 @@ sub build_SearchPredicate {
       if not defined $type;
 
     if ( $match eq 'Full Word' ) {
-        if ( $scope eq 'Gene Names/Desc.' ) {
+        if ( my $p = $parser{$scope} ) {
 
-            # MySQL full-text search
-            $predicate = [
-                sprintf( 'MATCH (%s) AGAINST (? IN BOOLEAN MODE)',
-                    join( ',', @$type ) )
-            ];
-            $params = [ $self->{_QueryText} ];
-        }
-        else {
-            my @items = split( /[,\s]+/, $self->{_QueryText} );
+            # symbols or IDs, entered whole
+            my @items = map { $p->($_) } split( /[,\s]+/, $self->{_QueryText} );
             ( $predicate => $params ) = @items
               ? (
                 [
@@ -655,16 +639,18 @@ sub build_SearchPredicate {
                               . join( ',', map { '?' } @items ) . ')'
                           } @$type
                     )
-                ] => [
-                    map {
-                        map {
-                            if   ( my $p = $parser{$scope} ) { $p->($_) }
-                            else                             { $_ }
-                          } @items
-                      } @$type
-                ]
+                ] => [ map { @items } @$type ]
               )
               : ( [] => [] );
+        }
+        else {
+
+            # MySQL full-text search
+            $predicate = [
+                sprintf( 'MATCH (%s) AGAINST (? IN BOOLEAN MODE)',
+                    join( ',', @$type ) )
+            ];
+            $params = [ $self->{_QueryText} ];
         }
     }
     elsif ( $match eq 'Prefix' ) {
@@ -1292,10 +1278,8 @@ sub mainFormDD {
                             -id      => 'q',
                             -rows    => 10,
                             -columns => 50,
-                            -title   => <<"END_terms_title"
-Enter list of terms to search. Multiple entries have to be separated by commas
-or be on separate lines.
-END_terms_title
+                            -title =>
+'Enter list of terms to search. Multiple entries have to be separated by commas or be on separate lines.'
                         )
                     )
                 ),
@@ -1370,12 +1354,12 @@ END_terms_title
                         '+ Advanced'
                     )
                 ),
-                $q->div(
+                $q->ul(
                     { -id => 'advanced_container', -class => 'dd_collapsible' },
-                    $q->div(
+                    $q->li(
                         { -id => 'pattern_div' },
                         $q->p(
-                            'Patterns: ',
+                            'Search pattern: ',
                             $q->radio_group(
                                 -name   => 'match',
                                 -values => [ 'Full Word', 'Prefix', 'Partial' ],
@@ -1408,7 +1392,8 @@ entering <strong>"brain development"</strong> will search for the entire phrase,
 typing <strong>brain -development</strong> will search for occurences of the
 word brain where the word development is not mentioned, and typing
 <strong>+brain +development</strong> will search for occurences of both words in
-any order. <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">Click here</a> 
+any order. 
+<a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">Click here</a>
 for detailed information.
 END_EXAMPLE_TEXT
                         $q->p(
@@ -1417,14 +1402,15 @@ END_EXAMPLE_TEXT
                                 -id    => 'pattern_part_hint'
                             },
                             <<"END_EXAMPLE_TEXT"),
-Partial matching lets you search for word parts and regular expressions.
-For example, <strong>^cyp.b</strong> means "all genes starting with
-<strong>cyp.b</strong> where the fourth character (the dot) is any single letter or
-digit." <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">Click here</a>
+Partial matching lets you search for word parts and regular expressions.  For
+example, <strong>^cyp.b</strong> means "all genes starting with
+<strong>cyp.b</strong> where the fourth character (the dot) is any single letter
+or digit." 
+<a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">Click here</a>
 for detailed information.
 END_EXAMPLE_TEXT
                     ),
-                    $q->div(
+                    $q->li(
                         $q->div(
                             { -class => 'input_container' },
                             'Limit results to: ',
@@ -1451,14 +1437,14 @@ END_EXAMPLE_TEXT
                                         -size  => 3
                                     )
                                 ),
-                                $q->label(':'),
+                                $q->span(':'),
                                 $q->textfield(
                                     -name => 'start',
                                     -title =>
                                       'Enter start position on the chromosome',
                                     -size => 14
                                 ),
-                                $q->label('-'),
+                                $q->span('-'),
                                 $q->textfield(
                                     -name => 'end',
                                     -title =>
@@ -1472,7 +1458,10 @@ END_EXAMPLE_TEXT
                                     -class => 'hint',
                                     -style => 'display:block;'
                                 },
-'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X. Leave these fields blank to search all chromosomes.'
+                                <<"END_chr_note"
+[Optional] Enter a numeric interval preceded by chromosome name, for example 16,
+7, M, or X. Leave these fields blank to search all chromosomes.
+END_chr_note
                             )
                         )
                     )
@@ -1630,7 +1619,12 @@ END_H2P_TEXT
                         ),
                         $q->p(
                             { -id => 'graph_hint', -class => 'hint' },
-'For graphs to display, your browser should support Scalable Vector Graphics (SVG). Internet Explorer (IE) versions earlier than v9.0 can only display SVG images via <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.'
+                            <<"END_graph_hint"
+For graphs to display, your browser should support Scalable Vector Graphics
+(SVG). Internet Explorer (IE) versions earlier than v9.0 can only display SVG
+images via 
+<a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.
+END_graph_hint
                         )
                     )
                 )
