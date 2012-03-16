@@ -417,8 +417,7 @@ sub FindProbes_init {
     #---------------------------------------------------------------------------
     #  initialization code (moved from new() constructor)
     #---------------------------------------------------------------------------
-    $self->set_attributes( _dbLists => SGX::DBLists->new( delegate => $self ),
-    );
+    $self->set_attributes( _dbLists => SGX::DBLists->new( delegate => $self ) );
 
     my $q = $self->{_cgi};
 
@@ -656,7 +655,14 @@ sub build_SearchPredicate {
                               . join( ',', map { '?' } @items ) . ')'
                           } @$type
                     )
-                ] => [ map { @items } @$type ]
+                ] => [
+                    map {
+                        map {
+                            if   ( my $p = $parser{$scope} ) { $p->($_) }
+                            else                             { $_ }
+                          } @items
+                      } @$type
+                ]
               )
               : ( [] => [] );
         }
@@ -1303,7 +1309,7 @@ END_terms_title
                             -type  => 'radio',
                             -name  => 'scope_list',
                             -value => 'Probe IDs',
-                            -title => 'Search probe IDs'
+                            -title => 'Look up probe IDs'
                         }
                     ),
                     $q->input(
@@ -1312,7 +1318,15 @@ END_terms_title
                             -name    => 'scope_list',
                             -value   => 'Genes/Accession Nos.',
                             -checked => 'checked',
-                            -title   => 'Search gene symbols'
+                            -title   => 'Look up gene symbols'
+                        }
+                    ),
+                    $q->input(
+                        {
+                            -type  => 'radio',
+                            -name  => 'scope_list',
+                            -value => 'GO IDs',
+                            -title => 'Look up GO IDs'
                         }
                     ),
                     $q->br(),
@@ -1394,7 +1408,8 @@ entering <strong>"brain development"</strong> will search for the entire phrase,
 typing <strong>brain -development</strong> will search for occurences of the
 word brain where the word development is not mentioned, and typing
 <strong>+brain +development</strong> will search for occurences of both words in
-any order.  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">this page</a> for detailed information.
+any order. <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">Click here</a> 
+for detailed information.
 END_EXAMPLE_TEXT
                         $q->p(
                             {
@@ -1405,9 +1420,8 @@ END_EXAMPLE_TEXT
 Partial matching lets you search for word parts and regular expressions.
 For example, <strong>^cyp.b</strong> means "all genes starting with
 <strong>cyp.b</strong> where the fourth character (the dot) is any single letter or
-digit."  See <a target="_blank"
-href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">this page</a> for 
-detailed information.
+digit." <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">Click here</a>
+for detailed information.
 END_EXAMPLE_TEXT
                     ),
                     $q->div(
@@ -1482,7 +1496,7 @@ END_EXAMPLE_TEXT
                             -type  => 'radio',
                             -name  => 'scope_file',
                             -value => 'Probe IDs',
-                            -title => 'Search probe IDs'
+                            -title => 'Look up probe IDs'
                         }
                     ),
                     $q->input(
@@ -1491,7 +1505,15 @@ END_EXAMPLE_TEXT
                             -name    => 'scope_file',
                             -checked => 'checked',
                             -value   => 'Genes/Accession Nos.',
-                            -title   => 'Search gene symbols'
+                            -title   => 'Look up gene symbols'
+                        }
+                    ),
+                    $q->input(
+                        {
+                            -type  => 'radio',
+                            -name  => 'scope_file',
+                            -value => 'GO IDs',
+                            -title => 'Look up GO IDs'
                         }
                     ),
                     $q->input(

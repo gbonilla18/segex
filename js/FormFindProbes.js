@@ -36,6 +36,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         var currentMatch = getSelectedFromRadioGroup(match_buttons);
         switch (currentScope) {
             case 'Probe IDs':
+            case 'GO IDs':
                 pattern_div.style.display = 'none';
                 pattern_fullword_hint.style.display = 'block';
             break;
@@ -49,11 +50,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
                 pattern_part_hint.style.display = 'none';
                 switch (currentScope) {
                     case 'Gene Names/Desc.':
-                        pattern_fullword_hint.style.display = 'block';
-                    break;
                     case 'GO Names':
-                        pattern_fullword_hint.style.display = 'block';
-                    break;
                     case 'GO Names/Desc.':
                         pattern_fullword_hint.style.display = 'block';
                     break;
