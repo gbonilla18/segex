@@ -352,6 +352,9 @@ dl, table, div.table_cont {
 	border-top:1px solid #000;
 	clear:both;
 }
+.disabled {
+	color: #999;
+}
 .hint {
 	display:none;
 	color: #777;

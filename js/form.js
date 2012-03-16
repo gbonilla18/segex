@@ -154,7 +154,9 @@ function getSelectedValue(obj)
         }
     }
 }
-
+//==============================================================================
+// getSelectedFromRadioGroup
+//==============================================================================
 function getSelectedFromRadioGroup(obj) {
     for (var i = 0, len = obj.length; i < len; i++) {
         var button = obj[i];
@@ -164,7 +166,24 @@ function getSelectedFromRadioGroup(obj) {
     }
     return null;
 }
-
+//==============================================================================
+// EnableDisable
+//==============================================================================
+function EnableDisable(el, disabled) {
+    var children = dom.getChildren(el);
+    var len = children.length;
+    for (var i = 0; i < len; i++) {
+        var child = children[i];
+        if (child.tagName === 'INPUT') {
+            child.disabled = disabled;
+        } else if (disabled !== '') {
+            dom.addClass(child, 'disabled');
+        } else {
+            dom.removeClass(child, 'disabled');
+        }
+        EnableDisable(child, disabled);
+    }
+}
 //==============================================================================
 // isDefinedSelection
 // returns 'defined' if yes, '' otherwise

@@ -5,7 +5,7 @@ var dom = YAHOO.util.Dom;
 YAHOO.util.Event.addListener('main_form', 'submit', function() {
     // remove white space from the left and from the right, then replace each
     // internal group of spaces with a comma
-    var terms = document.getElementById("q");
+    var terms = dom.get("q");
     terms.value = terms.value.replace(/^\s+/, "").replace(/\s+$/, "");
     return true;
 });
@@ -13,7 +13,11 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
 YAHOO.util.Event.addListener(window, 'load', function() {
     setupToggles('change',
         { 'spid': { 'defined' : ['chr_div' ] } }, 
-        isDefinedSelection
+        function(el) {
+            var result = isDefinedSelection(el);
+            EnableDisable('location_block', (result ? '' : 'disabled'));
+            return result;
+        }
     );
     setupToggles('change',
         { 'show_graphs': { 'checked' : [ 'graph_hint_container', 'graph_hint' ] }},
@@ -21,11 +25,11 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     );
 
     // handle changes in both pattern and scope
-    var pattern_part_hint = document.getElementById('pattern_part_hint');
-    var pattern_fullword_hint = document.getElementById('pattern_fullword_hint');
+    var pattern_part_hint = dom.get('pattern_part_hint');
+    var pattern_fullword_hint = dom.get('pattern_fullword_hint');
     var scope_list = new YAHOO.widget.ButtonGroup("scope_list_container");
     var match_buttons = dom.get(['full_word', 'prefix', 'partial']);
-    var pattern_div = document.getElementById('pattern_div');
+    var pattern_div = dom.get('pattern_div');
 
     function displayHintPanels() {
         var currentScope = scope_list.get('checkedButton').get('value');
@@ -76,7 +80,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     }
 
     // scope
-    var scope_list_state = document.getElementById("scope_list_state");
+    var scope_list_state = dom.get("scope_list_state");
     scope_list.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;
         scope_list_state.value = selectedIndex;
@@ -87,7 +91,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     }
 
     var scope_file = new YAHOO.widget.ButtonGroup("scope_file_container");
-    var scope_file_state = document.getElementById("scope_file_state");
+    var scope_file_state = dom.get("scope_file_state");
     scope_file.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;
         scope_file_state.value = selectedIndex;

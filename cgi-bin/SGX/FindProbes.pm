@@ -281,18 +281,16 @@ sub goTerms_js {
         headers => $self->{_GoTerms_Names}
     );
 
-    my $match = $self->{_match};
+    my ( $type, $match ) = @$self{qw/_scope _match/};
     my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
     return ''
       . $js->let(
         [
             queriedItems => (
-                ( $match eq 'Full Word' )
-                ? +{
+                +{
                     map { lc($_) => undef }
                       split( /[,\s]+/, $self->{_QueryText} )
-                  }
-                : $self->{_QueryText}
+                }
             ),
             data       => \%json_probelist,
             url_prefix => $self->{_cgi}->url( -absolute => 1 ),
@@ -1352,36 +1350,45 @@ END_terms_title
                         }
                     )
                 ),
+                $q->p(
+                    $q->a(
+                        { -id => 'advanced', -class => 'pluscol' },
+                        '+ Advanced'
+                    )
+                ),
                 $q->div(
-                    { -id => 'pattern_div' },
-                    $q->p(
-                        $q->radio_group(
-                            -name       => 'match',
-                            -values     => [ 'Full Word', 'Prefix', 'Partial' ],
-                            -default    => 'Full Word',
-                            -attributes => {
-                                'Full Word' => {
-                                    id    => 'full_word',
-                                    title => 'Match full words'
-                                },
-                                'Prefix' => {
-                                    id    => 'prefix',
-                                    title => 'Match word prefixes'
-                                },
-                                'Partial' => {
-                                    id => 'partial',
-                                    title =>
-                                      'Match word parts, regular expressions'
+                    { -id => 'advanced_container', -class => 'dd_collapsible' },
+                    $q->div(
+                        { -id => 'pattern_div' },
+                        $q->p(
+                            'Patterns: ',
+                            $q->radio_group(
+                                -name   => 'match',
+                                -values => [ 'Full Word', 'Prefix', 'Partial' ],
+                                -default    => 'Full Word',
+                                -attributes => {
+                                    'Full Word' => {
+                                        id    => 'full_word',
+                                        title => 'Match full words'
+                                    },
+                                    'Prefix' => {
+                                        id    => 'prefix',
+                                        title => 'Match word prefixes'
+                                    },
+                                    'Partial' => {
+                                        id => 'partial',
+                                        title =>
+'Match word parts, regular expressions'
+                                    }
                                 }
-                            }
-                        )
-                    ),
-                    $q->p(
-                        {
-                            -class => 'hint',
-                            -id    => 'pattern_fullword_hint'
-                        },
-                        <<"END_EXAMPLE_TEXT"),
+                            )
+                        ),
+                        $q->p(
+                            {
+                                -class => 'hint',
+                                -id    => 'pattern_fullword_hint'
+                            },
+                            <<"END_EXAMPLE_TEXT"),
 For full-word searches in text fields such as GO names and gene descriptions,
 entering <strong>"brain development"</strong> will search for the entire phrase,
 typing <strong>brain -development</strong> will search for occurences of the
@@ -1389,12 +1396,12 @@ word brain where the word development is not mentioned, and typing
 <strong>+brain +development</strong> will search for occurences of both words in
 any order.  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">this page</a> for detailed information.
 END_EXAMPLE_TEXT
-                    $q->p(
-                        {
-                            -class => 'hint',
-                            -id    => 'pattern_part_hint'
-                        },
-                        <<"END_EXAMPLE_TEXT"),
+                        $q->p(
+                            {
+                                -class => 'hint',
+                                -id    => 'pattern_part_hint'
+                            },
+                            <<"END_EXAMPLE_TEXT"),
 Partial matching lets you search for word parts and regular expressions.
 For example, <strong>^cyp.b</strong> means "all genes starting with
 <strong>cyp.b</strong> where the fourth character (the dot) is any single letter or
@@ -1402,57 +1409,57 @@ digit."  See <a target="_blank"
 href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">this page</a> for 
 detailed information.
 END_EXAMPLE_TEXT
-                ),
-                $q->div(
-                    $q->div(
-                        { -class => 'input_container' },
-                        'Limit results to: ',
-                        $q->popup_menu(
-                            -name   => 'spid',
-                            -id     => 'spid',
-                            -title  => 'Choose species to search',
-                            -values => [ keys %$species_data ],
-                            -labels => $species_data
-                        )
                     ),
                     $q->div(
-                        {
-                            -id    => 'chr_div',
-                            -class => 'dd_collapsible',
-                            -style => 'display:none;'
-                        },
                         $q->div(
                             { -class => 'input_container' },
-                            $q->label( { -for => 'chr' }, 'chr' ),
-                            $q->textfield(
-                                -name  => 'chr',
-                                -id    => 'chr',
-                                -title => 'Type chromosome name',
-                                -size  => 3
-                            ),
-                            $q->label( { -for => 'start' }, ':' ),
-                            $q->textfield(
-                                -name => 'start',
-                                -id   => 'start',
-                                -title =>
-                                  'Enter start position on the chromosome',
-                                -size => 14
-                            ),
-                            $q->label( { -for => 'end' }, '-' ),
-                            $q->textfield(
-                                -name => 'end',
-                                -id   => 'end',
-                                -title =>
-                                  'Enter end position on the chromosome',
-                                -size => 14
+                            'Limit results to: ',
+                            $q->popup_menu(
+                                -name   => 'spid',
+                                -id     => 'spid',
+                                -title  => 'Choose species to search',
+                                -values => [ keys %$species_data ],
+                                -labels => $species_data
                             )
                         ),
-                        $q->p(
-                            {
-                                -class => 'hint',
-                                -style => 'display:block;'
-                            },
+                        $q->div(
+                            { -class => 'dd_collapsible', },
+                            $q->div(
+                                {
+                                    -id    => 'location_block',
+                                    -class => 'input_container'
+                                },
+                                $q->label(
+                                    'chr',
+                                    $q->textfield(
+                                        -name  => 'chr',
+                                        -title => 'Type chromosome name',
+                                        -size  => 3
+                                    )
+                                ),
+                                $q->label(':'),
+                                $q->textfield(
+                                    -name => 'start',
+                                    -title =>
+                                      'Enter start position on the chromosome',
+                                    -size => 14
+                                ),
+                                $q->label('-'),
+                                $q->textfield(
+                                    -name => 'end',
+                                    -title =>
+                                      'Enter end position on the chromosome',
+                                    -size => 14
+                                )
+                            ),
+                            $q->p(
+                                {
+                                    -id    => 'chr_div',
+                                    -class => 'hint',
+                                    -style => 'display:block;'
+                                },
 'Enter a numeric interval preceded by chromosome name, for example 16, 7, M, or X. Leave these fields blank to search all chromosomes.'
+                            )
                         )
                     )
                 )
@@ -1863,12 +1870,10 @@ sub findProbes_js {
         [
             searchColumn => $type_to_column{$type},
             queriedItems => (
-                ( $match eq 'Full Word' )
-                ? +{
+                +{
                     map { lc($_) => undef }
                       split( /[,\s]+/, $self->{_QueryText} )
-                  }
-                : $self->{_QueryText}
+                }
             ),
             data         => \%json_probelist,
             url_prefix   => $self->{_cgi}->url( -absolute => 1 ),
