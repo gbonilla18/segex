@@ -154,6 +154,17 @@ function getSelectedValue(obj)
         }
     }
 }
+
+function getSelectedFromRadioGroup(obj) {
+    for (var i = 0, len = obj.length; i < len; i++) {
+        var button = obj[i];
+        if (button.checked) {
+            return button.value;
+        }
+    }
+    return null;
+}
+
 //==============================================================================
 // isDefinedSelection
 // returns 'defined' if yes, '' otherwise

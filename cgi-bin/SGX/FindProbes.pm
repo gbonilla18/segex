@@ -8,7 +8,6 @@ use base qw/SGX::Strategy::Base/;
 require SGX::DBLists;
 require Tie::IxHash;
 use File::Basename;
-use JSON qw/encode_json/;
 use File::Temp;
 use SGX::Abstract::Exception ();
 use SGX::Util
@@ -16,6 +15,7 @@ use SGX::Util
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 use Data::UUID;
+require SGX::Abstract::JSEmitter;
 
 #---------------------------------------------------------------------------
 #  Parsers for lists of IDs/symbols
@@ -181,16 +181,13 @@ sub GetCSV_head {
     my $q    = $self->{_cgi};
     $self->getSessionOverrideCGI();
 
-    $self->{_SearchTerms} =
-      [ split( /[,\s]+/, trim( car( $q->param('q') ) ) ) ];
-
+    my $search_terms =
+      [ distinct( split( /[,\s]+/, trim( car $q->param('q') ) ) ) ];
     $self->{_UserSession}->commit();
 
-    my $search_terms = $self->{_SearchTerms};
-    my $exp_hash     = $self->getReportExperiments($search_terms);
-    my $data_hash    = $self->getReportData($search_terms);
+    my $exp_hash  = $self->getReportExperiments($search_terms);
+    my $data_hash = $self->getReportData($search_terms);
     $self->{_DataForCSV} = [ $exp_hash, $data_hash ];
-
     $self->printFindProbeCSV();
     exit;
 }
@@ -284,25 +281,25 @@ sub goTerms_js {
         headers => $self->{_GoTerms_Names}
     );
 
-    my ( $type, $match ) = @$self{qw/_scope _match/};
-    my $out = sprintf(
-        <<"END_JSON_DATA",
-var queriedItems = %s;
-var data = %s;
-var url_prefix = "%s";
-var project_id = "%s";
-END_JSON_DATA
-        encode_json(
-            ( $match eq 'Full Word' )
-            ? +{ map { lc($_) => undef } @{ $self->{_SearchTerms} } }
-            : [ distinct( @{ $self->{_SearchTerms} } ) ]
-        ),
-        encode_json( \%json_probelist ),
-        $self->{_cgi}->url( -absolute => 1 ),
-        $self->{_WorkingProject}
-    );
-
-    return $out;
+    my $match = $self->{_match};
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    return ''
+      . $js->let(
+        [
+            queriedItems => (
+                ( $match eq 'Full Word' )
+                ? +{
+                    map { lc($_) => undef }
+                      split( /[,\s]+/, $self->{_QueryText} )
+                  }
+                : $self->{_QueryText}
+            ),
+            data       => \%json_probelist,
+            url_prefix => $self->{_cgi}->url( -absolute => 1 ),
+            project_id => $self->{_WorkingProject}
+        ],
+        declare => 1
+      );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -319,9 +316,9 @@ sub getGOTerms {
     my $self = shift;
     my $dbh  = $self->{_dbh};
 
-    my ($text) = @{ $self->{_SearchTerms} };
-    my $scope  = $self->{_scope};
-    my $match  = $self->{_match};
+    my $query_text = $self->{_QueryText};
+    my $scope      = $self->{_scope};
+    my $match      = $self->{_match};
 
     my @fields =
         ( $scope eq 'GO Names' )
@@ -329,13 +326,19 @@ sub getGOTerms {
       : ( 'go_name', 'go_term_definition' );
     my $predicate =
       ( $match eq 'Full Word' )
-      ? sprintf( 'WHERE MATCH (%s) AGAINST (?)', join( ',', @fields ) )
+      ? sprintf( 'WHERE MATCH (%s) AGAINST (? IN BOOLEAN MODE)',
+        join( ',', @fields ) )
       : sprintf( 'WHERE %s', join( ' OR ', map { "$_ REGEXP ?" } @fields ) );
+    my $relevance =
+      ( $match eq 'Full Word' )
+      ? sprintf( ',MATCH (%s) AGAINST (?) AS relevance', join( ',', @fields ) )
+      : '';
+    my @param_relevance = ( $match eq 'Full Word' ) ? ($query_text) : ();
     my @param =
-      ( $match eq 'Full Word' ) ? ($text)
+      ( $match eq 'Full Word' ) ? ($query_text)
       : (
-          ( $match eq 'Prefix' ) ? ( "[[:<:]]$text", "[[:<:]]$text" )
-        : ( $text, $text )
+          ( $match eq 'Prefix' ) ? ( map { "[[:<:]]$query_text" } @fields )
+        : ( map { $query_text } @fields )
       );
 
     #---------------------------------------------------------------------------
@@ -366,32 +369,38 @@ sub getGOTerms {
     #---------------------------------------------------------------------------
     #  query itself
     #---------------------------------------------------------------------------
+    my $order_by =
+      ( $match eq 'Full Word' )
+      ? 'ORDER BY relevance DESC'
+      : 'ORDER BY Probes DESC';
+
     my $sql = <<"END_query1";
-select
-    go_acc              AS 'GO Acc. No.',
-    go_name             AS 'Term Name and Description',
-    go_term_definition  AS 'Go Term Def.',
-    go_term_type        AS 'Term Type',
-    count(distinct rid) AS probe_count
-from go_term
-INNER JOIN GeneGO    USING(go_acc) 
+SELECT
+    go_acc                        AS 'GO Acc. No.',
+    go_name                       AS 'Term Name and Description',
+    go_term_definition            AS 'Go Term Def.',
+    go_term_type                  AS 'Term Type',
+    count(distinct ProbeGene.rid) AS 'Probes'
+FROM (
+    SELECT go_acc, go_name, go_term_definition, go_term_type $relevance
+    FROM go_term 
+    $predicate
+) AS search_result
+INNER JOIN GeneGO    USING(go_acc)
 INNER JOIN ProbeGene USING(gid)
 $limit_sql
-$predicate
-group by go_acc
-ORDER BY probe_count DESC
+GROUP BY go_acc
+$order_by
 END_query1
 
     my $sth   = $dbh->prepare($sql);
-    my $rc    = $sth->execute( @$limit_param, @param );
+    my $rc    = $sth->execute( @param_relevance, @param, @$limit_param );
     my @names = @{ $sth->{NAME} };
-    $names[4] = 'Probes';
-    my $data = $sth->fetchall_arrayref();
+    my $data  = $sth->fetchall_arrayref();
     $sth->finish();
     $self->{_GoTerms}       = $data;
     $self->{_GoTerms_Names} = \@names;
-
-    return 2;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -410,17 +419,17 @@ sub FindProbes_init {
     #---------------------------------------------------------------------------
     #  initialization code (moved from new() constructor)
     #---------------------------------------------------------------------------
-    $self->set_attributes(
-        _dbLists     => SGX::DBLists->new( delegate => $self ),
-        _SearchTerms => [],
+    $self->set_attributes( _dbLists => SGX::DBLists->new( delegate => $self ),
     );
 
     my $q = $self->{_cgi};
 
     my $action        = car $q->param('b');
-    my $text          = car $q->param('q');
+    my $text          = trim( car $q->param('q') );
     my $filefield_val = car $q->param('file');
     my $upload_file   = defined($filefield_val) && ( $filefield_val ne '' );
+
+    $self->{_QueryText} = $text;
 
     #---------------------------------------------------------------------------
     #  scope to search and chromosomal range if any
@@ -436,7 +445,7 @@ sub FindProbes_init {
         $self->{_loc_start} = car $q->param('start');
         $self->{_loc_end}   = car $q->param('end');
     }
-    if (   $text =~ /^\s*$/
+    if (   $text eq ''
         && !$upload_file
         && !( defined( $self->{_loc_spid} ) and $self->{_loc_spid} ne '' ) )
     {
@@ -448,7 +457,7 @@ sub FindProbes_init {
     #---------------------------------------------------------------------------
     #  main query: split on spaces or commas
     #---------------------------------------------------------------------------
-    my @textSplit = split( /[,\s]+/, trim($text) );
+    my @textSplit = split( /[,\s]+/, $text );
 
     #---------------------------------------------------------------------------
     #  pattern match type
@@ -471,8 +480,8 @@ sub FindProbes_init {
     #---------------------------------------------------------------------------
     if ( $self->{_scope} eq 'GO Names' or $self->{_scope} eq 'GO Names/Desc.' )
     {
-        $self->{_SearchTerms} = [$text];
-        return $self->getGOTerms();
+        $self->getGOTerms();
+        return 2;
     }
 
     #---------------------------------------------------------------------------
@@ -482,16 +491,15 @@ sub FindProbes_init {
         !$upload_file
         and (
             @textSplit < 2
-            or !(
-                   $self->{_scope} eq 'Probe IDs'
-                or $self->{_scope} eq 'Genes/Accession Nos.'
-                or $self->{_scope} eq 'GO IDs'
-            )
+            or (    $self->{_scope} ne 'Probe IDs'
+                and $self->{_scope} ne 'Genes/Accession Nos.'
+                and $self->{_scope} ne 'GO IDs' )
             or $self->{_match} ne 'Full Word'
         )
       )
     {
-        $self->{_SearchTerms} = \@textSplit;
+
+        # do not create temporary table
         return 1;
     }
 
@@ -515,10 +523,6 @@ sub FindProbes_init {
     #----------------------------------------------------------------------
     #  now load into temporary table
     #----------------------------------------------------------------------
-    if ( !defined($outputFileName) ) {
-        $self->{_SearchTerms} = \@textSplit;
-    }
-
     my $dbLists = $self->{_dbLists};
     my $scope   = $self->{_scope};
     $self->{_TempTable} =
@@ -618,7 +622,6 @@ sub getSessionOverrideCGI {
 sub build_SearchPredicate {
     my $self  = shift;
     my $match = $self->{_match};
-    my $items = $self->{_SearchTerms};
 
     my $params           = [];
     my $predicate        = [];
@@ -628,41 +631,56 @@ sub build_SearchPredicate {
         'Genes/Accession Nos.' => ['gsymbol'],
         'Gene Names/Desc.'     => [ 'gsymbol', 'gname', 'gdesc' ]
     );
-    my $type = $translate_fields{ $self->{_scope} };
+    my $scope = $self->{_scope};
+    my $type  = $translate_fields{$scope};
     SGX::Exception::Internal->throw("Unknown match type\n")
       if not defined $type;
 
     if ( $match eq 'Full Word' ) {
-        ( $predicate => $params ) = @$items
-          ? (
-            [
-                join(
-                    ' OR ',
-                    map {
-                        "$_ IN ("
-                          . join( ',', map { '?' } @$items ) . ')'
-                      } @$type
-                )
-            ] => [ map { @$items } @$type ]
-          )
-          : ( [] => [] );
+        if ( $scope eq 'Gene Names/Desc.' ) {
+
+            # MySQL full-text search
+            $predicate = [
+                sprintf( 'MATCH (%s) AGAINST (? IN BOOLEAN MODE)',
+                    join( ',', @$type ) )
+            ];
+            $params = [ $self->{_QueryText} ];
+        }
+        else {
+            my @items = split( /[,\s]+/, $self->{_QueryText} );
+            ( $predicate => $params ) = @items
+              ? (
+                [
+                    join(
+                        ' OR ',
+                        map {
+                            "$_ IN ("
+                              . join( ',', map { '?' } @items ) . ')'
+                          } @$type
+                    )
+                ] => [ map { @items } @$type ]
+              )
+              : ( [] => [] );
+        }
     }
     elsif ( $match eq 'Prefix' ) {
-        ( $predicate => $params ) = @$items
+        my @items = split( /[,\s]+/, $self->{_QueryText} );
+        ( $predicate => $params ) = @items
           ? (
             [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] => [
                 map {
-                    join( '|', map { "[[:<:]]$_" } @$items )
+                    join( '|', map { "[[:<:]]$_" } @items )
                   } @$type
             ]
           )
           : ( [] => [] );
     }
     elsif ( $match eq 'Partial' ) {
+        my @items = split( /[,\s]+/, $self->{_QueryText} );
         ( $predicate => $params ) =
-          @$items
+          @items
           ? ( [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] =>
-              [ map { join( '|', @$items ) } @$type ] )
+              [ map { join( '|', @items ) } @$type ] )
           : ( [] => [] );
     }
     else {
@@ -1127,7 +1145,7 @@ sub Search_body {
                 'Searched %s (%s): %s',
                 lc( $self->{_scope} ),
                 lc( $self->{_match} ),
-                join( ', ', distinct( @{ $self->{_SearchTerms} } ) )
+                $self->{_QueryText}
             )
         ),
         (
@@ -1337,47 +1355,40 @@ END_terms_title
                 $q->div(
                     { -id => 'pattern_div' },
                     $q->p(
-                        $q->label(
-                            { -title => 'Match full words' },
-                            $q->input(
-                                {
-                                    -id      => 'full_word',
-                                    -type    => 'radio',
-                                    -name    => 'match',
-                                    -value   => 'Full Word',
-                                    -checked => 'checked',
+                        $q->radio_group(
+                            -name       => 'match',
+                            -values     => [ 'Full Word', 'Prefix', 'Partial' ],
+                            -default    => 'Full Word',
+                            -attributes => {
+                                'Full Word' => {
+                                    id    => 'full_word',
+                                    title => 'Match full words'
+                                },
+                                'Prefix' => {
+                                    id    => 'prefix',
+                                    title => 'Match word prefixes'
+                                },
+                                'Partial' => {
+                                    id => 'partial',
+                                    title =>
+                                      'Match word parts, regular expressions'
                                 }
-                            ),
-                            'Full Word'
-                        ),
-                        $q->label(
-                            { -title => 'Match word prefixes' },
-                            $q->input(
-                                {
-                                    -id    => 'prefix',
-                                    -type  => 'radio',
-                                    -name  => 'match',
-                                    -value => 'Prefix',
-                                }
-                            ),
-                            'Prefix'
-                        ),
-                        $q->label(
-                            {
-                                -title =>
-                                  'Match word parts, regular expressions'
-                            },
-                            $q->input(
-                                {
-                                    -id    => 'partial',
-                                    -type  => 'radio',
-                                    -name  => 'match',
-                                    -value => 'Partial',
-                                }
-                            ),
-                            'Partial'
+                            }
                         )
                     ),
+                    $q->p(
+                        {
+                            -class => 'hint',
+                            -id    => 'pattern_fullword_hint'
+                        },
+                        <<"END_EXAMPLE_TEXT"),
+For full-word searches in text fields such as GO names and gene descriptions,
+entering <strong>"brain development"</strong> will search for the entire phrase,
+typing <strong>brain -development</strong> will search for occurences of the
+word brain where the word development is not mentioned, and typing
+<strong>+brain +development</strong> will search for occurences of both words in
+any order.  See <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">this page</a> for detailed information.
+END_EXAMPLE_TEXT
                     $q->p(
                         {
                             -class => 'hint',
@@ -1388,8 +1399,8 @@ Partial matching lets you search for word parts and regular expressions.
 For example, <strong>^cyp.b</strong> means "all genes starting with
 <strong>cyp.b</strong> where the fourth character (the dot) is any single letter or
 digit."  See <a target="_blank"
-href="http://dev.mysql.com/doc/refman/5.0/en/regexp.html">this page</a> for more
-information.
+href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">this page</a> for 
+detailed information.
 END_EXAMPLE_TEXT
                 ),
                 $q->div(
@@ -1674,8 +1685,9 @@ END_table_gene
         if ( $scope eq 'Probe IDs' ) {
             $innerSQL = <<"END_no_table_probe";
 SELECT rid, gid 
-FROM probe 
-LEFT JOIN ProbeGene USING(rid) $pred_sql
+FROM
+    (SELECT rid FROM probe $pred_sql) AS search_result
+LEFT JOIN ProbeGene USING(rid)
 END_no_table_probe
         }
         elsif ( $scope eq 'GO IDs' ) {
@@ -1683,7 +1695,9 @@ END_no_table_probe
 SELECT rid, gid
 FROM ProbeGene
 INNER join (
-    SELECT DISTINCT rid FROM ProbeGene INNER JOIN GeneGO USING(gid) $pred_sql
+    SELECT DISTINCT rid FROM
+        (SELECT DISTINCT gid from GeneGO $pred_sql) AS search_result
+    INNER JOIN ProbeGene USING(gid)
 ) AS d1 USING(rid)
 END_no_table_go
         }
@@ -1692,7 +1706,9 @@ END_no_table_go
 SELECT rid, gid
 FROM ProbeGene
 INNER join (
-    SELECT DISTINCT rid FROM ProbeGene INNER JOIN gene USING(gid) $pred_sql
+    SELECT DISTINCT rid FROM
+        (SELECT gid FROM gene $pred_sql) AS search_result
+    INNER JOIN ProbeGene USING(gid)
 ) AS d1 USING(rid)
 END_no_table_gene
         }
@@ -1756,9 +1772,8 @@ END_sql_subset_by_project
     #  TODO: if uploading a file, only return info for probes uploaded?
     #---------------------------------------------------------------------------
 
-    my $searchTerms = $self->{_SearchTerms};
     $innerSQL =
-      ( !$haveTable and ( defined $searchTerms && @$searchTerms == 0 ) )
+      ( ( !$haveTable ) and $self->{_QueryText} eq '' )
       ? ''
       : <<"END_innerSQL";
 INNER JOIN (
@@ -1841,32 +1856,28 @@ sub findProbes_js {
         headers => $headers
     );
 
-    my @distinct_search_terms = distinct( @{ $self->{_SearchTerms} } );
     my ( $type, $match ) = @$self{qw/_scope _match/};
-    my $out = sprintf(
-        <<"END_JSON_DATA",
-var searchColumn = "%s";
-var queriedItems = %s;
-var data = %s;
-var url_prefix = "%s";
-var show_graphs = "%s";
-var extra_fields = "%s";
-var project_id = "%s";
-END_JSON_DATA
-        $type_to_column{$type},
-        encode_json(
-            ( $match eq 'Full Word' )
-            ? +{ map { lc($_) => undef } @distinct_search_terms }
-            : \@distinct_search_terms
-        ),
-        encode_json( \%json_probelist ),
-        $self->{_cgi}->url( -absolute => 1 ),
-        $self->{_graphs},
-        $self->{_extra_fields},
-        $self->{_WorkingProject}
-    );
-
-    return $out;
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    return ''
+      . $js->let(
+        [
+            searchColumn => $type_to_column{$type},
+            queriedItems => (
+                ( $match eq 'Full Word' )
+                ? +{
+                    map { lc($_) => undef }
+                      split( /[,\s]+/, $self->{_QueryText} )
+                  }
+                : $self->{_QueryText}
+            ),
+            data         => \%json_probelist,
+            url_prefix   => $self->{_cgi}->url( -absolute => 1 ),
+            show_graphs  => $self->{_graphs},
+            extra_fields => $self->{_extra_fields},
+            project_id   => $self->{_WorkingProject}
+        ],
+        declare => 1
+      );
 }
 
 1;
