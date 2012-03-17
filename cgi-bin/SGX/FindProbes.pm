@@ -775,17 +775,17 @@ sub getReportExperiments {
     );
     my $exp_sql = <<"END_ExperimentDataQuery";
 SELECT
-    study.pid,
-    experiment.eid                                        AS 'Exp. ID', 
+    experiment.pid,
+    experiment.eid                                         AS 'Exp. ID', 
     PValFlag,
-    GROUP_CONCAT(DISTINCT study.description SEPARATOR ',')         AS 'Study(ies)',
-    CONCAT(experiment.sample2, ' / ', experiment.sample1) AS 'Exp. Name',
-    experiment.ExperimentDescription                      AS 'Exp. Description'
+    GROUP_CONCAT(DISTINCT study.description SEPARATOR ',') AS 'Study(ies)',
+    CONCAT(experiment.sample2, ' / ', experiment.sample1)  AS 'Exp. Name',
+    experiment.ExperimentDescription                       AS 'Exp. Description'
 FROM $exp_temp_table AS tmp
 INNER JOIN microarray USING(rid)
 INNER JOIN experiment USING(eid)
-INNER JOIN StudyExperiment USING(eid)
-INNER JOIN study USING(stid)
+LEFT JOIN StudyExperiment USING(eid)
+LEFT JOIN study USING(stid)
 GROUP BY experiment.eid
 ORDER BY experiment.eid ASC
 END_ExperimentDataQuery
@@ -866,14 +866,16 @@ SELECT
     probe.pid,
     probe.reporter AS 'Probe ID',
     probe.probe_sequence AS 'Probe Sequence',
+    GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Location',
     GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
     GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
     GROUP_CONCAT(DISTINCT concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
 
 FROM $annot_temp_table AS tmp
 INNER JOIN probe USING(rid)
-INNER JOIN ProbeGene USING(rid)
-INNER JOIN gene USING(gid)
+LEFT JOIN locus USING(rid)
+LEFT JOIN ProbeGene USING(rid)
+LEFT JOIN gene USING(gid)
 GROUP BY probe.rid
 END_ExperimentDataQuery
 
@@ -889,7 +891,6 @@ END_ExperimentDataQuery
         $annot_hash{$rid} = { annot => \@row };
     }
     $annot_sth->finish();
-
     #---------------------------------------------------------------------------
     #  in yet another, get data
     #---------------------------------------------------------------------------
@@ -1075,6 +1076,262 @@ sub printFindProbeCSV {
         $print->();
     }
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  xTableQuery
+#   PARAMETERS:  $type - query type (probe|gene)
+#                tmp_table => $tmpTable - uploaded table to join on
+#      RETURNS:  true value
+#  DESCRIPTION:  Fills _InsideTableQuery field
+#       THROWS:  SGX::Exception::User
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub xTableQuery {
+    my $self      = shift;
+    my $dbh       = $self->{_dbh};
+    my $tmp_table = $self->{_TempTable};
+    my $haveTable = ( defined($tmp_table) and ( $tmp_table ne '' ) );
+
+    my @param;
+
+    #---------------------------------------------------------------------------
+    #  innermost SELECT statement differs depending on whether we are searching
+    #  the probe table or the gene table
+    #---------------------------------------------------------------------------
+    my $innerSQL;
+
+    my $scope = $self->{_scope};
+    if ($haveTable) {
+        if ( $scope eq 'Probe IDs' ) {
+            $innerSQL = <<"END_table_probe";
+SELECT rid, gid FROM probe 
+INNER JOIN $tmp_table USING(reporter)
+LEFT JOIN ProbeGene USING(rid)
+END_table_probe
+        }
+        elsif ( $scope eq 'GO IDs' ) {
+            $innerSQL = <<"END_table_go";
+SELECT rid, gid
+FROM ProbeGene
+INNER JOIN (
+    SELECT DISTINCT rid FROM ProbeGene 
+    INNER JOIN GeneGO USING(gid) 
+    INNER JOIN $tmp_table USING(go_acc)
+) AS d1 USING(rid)
+END_table_go
+        }
+        else {
+            $innerSQL = <<"END_table_gene";
+SELECT rid, gid
+FROM ProbeGene
+INNER JOIN (
+    SELECT DISTINCT rid FROM ProbeGene 
+    INNER JOIN gene USING(gid) 
+    INNER JOIN $tmp_table USING(gsymbol) 
+) AS d1 USING(rid)
+END_table_gene
+        }
+    }
+    else {
+        my ( $pred_sql, $pred_param ) = $self->build_SearchPredicate();
+        push @param, @$pred_param;
+        if ( $scope eq 'Probe IDs' ) {
+            $innerSQL = <<"END_no_table_probe";
+SELECT rid, gid 
+FROM
+    (SELECT rid FROM probe $pred_sql) AS search_result
+LEFT JOIN ProbeGene USING(rid)
+END_no_table_probe
+        }
+        elsif ( $scope eq 'GO IDs' ) {
+            $innerSQL = <<"END_no_table_go";
+SELECT rid, gid
+FROM ProbeGene
+INNER join (
+    SELECT DISTINCT rid FROM
+        (SELECT DISTINCT gid from GeneGO $pred_sql) AS search_result
+    INNER JOIN ProbeGene USING(gid)
+) AS d1 USING(rid)
+END_no_table_go
+        }
+        else {
+            $innerSQL = <<"END_no_table_gene";
+SELECT rid, gid
+FROM ProbeGene
+INNER join (
+    SELECT DISTINCT rid FROM
+        (SELECT gid FROM gene $pred_sql) AS search_result
+    INNER JOIN ProbeGene USING(gid)
+) AS d1 USING(rid)
+END_no_table_gene
+        }
+    }
+
+    #---------------------------------------------------------------------------
+    # Filter by chromosomal location (use platform table to look up species when
+    # only species is specified and not an actual chromosomal location).
+    #---------------------------------------------------------------------------
+    my ( $limit_sql, $limit_param ) = $self->build_location_predparam();
+    push @param, @$limit_param;
+
+    #---------------------------------------------------------------------------
+    # only return results for platforms that belong to the current working
+    # project (as determined through looking up studies linked to the current
+    # project).
+    #---------------------------------------------------------------------------
+    my $sql_subset_by_project = '';
+    my $curr_proj             = $self->{_WorkingProject};
+    if ( defined($curr_proj) && $curr_proj ne '' ) {
+        $sql_subset_by_project = <<"END_sql_subset_by_project";
+INNER JOIN study ON study.pid=platform.pid
+INNER JOIN ProjectStudy ON prid=? AND ProjectStudy.stid=study.stid
+END_sql_subset_by_project
+        push @param, $curr_proj;
+    }
+
+    #---------------------------------------------------------------------------
+    #  fields to select:
+    #  $extra_fields == 0: rid
+    #  $extra_fields == 1: rid, pid, reporter, sname, pname, accnum, gene
+    #  $extra_fields == 2: rid, pid, reporter, sname, pname, accnum, gene,
+    #                      probe_seq, gene_name
+    #---------------------------------------------------------------------------
+    my $extra_fields  = $self->{_extra_fields};
+    my @select_fields = ('probe.rid');
+    if ( $extra_fields > 0 ) {
+        push @select_fields,
+          (
+            'platform.pid',
+            "probe.reporter  AS 'Probe ID'",
+            "species.sname   AS 'Species'",
+            "platform.pname  AS 'Platform'",
+"group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.'",
+"group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
+          );
+    }
+    if ( $extra_fields > 1 ) {
+        push @select_fields,
+          (
+            "probe.probe_sequence AS 'Probe Sequence'",
+"group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
+          );
+    }
+    my $selectFieldsSQL = join( ',', @select_fields );
+
+    #---------------------------------------------------------------------------
+    #  inner query -- allow for plain dump if location is specified but no
+    #  search terms entered.
+    #
+    #  TODO: if uploading a file, only return info for probes uploaded?
+    #---------------------------------------------------------------------------
+
+    $innerSQL =
+      ( ( !$haveTable ) and $self->{_QueryText} eq '' )
+      ? ''
+      : <<"END_innerSQL";
+INNER JOIN (
+    SELECT DISTINCT COALESCE(ProbeGene.rid, d2.rid) AS rid
+    FROM ($innerSQL) AS d2
+    LEFT join ProbeGene USING(gid)
+) AS d3 on probe.rid=d3.rid
+END_innerSQL
+
+    #---------------------------------------------------------------------------
+    #  main query
+    #---------------------------------------------------------------------------
+    my $sql = <<"END_XTableQuery";
+SELECT
+$selectFieldsSQL
+FROM probe
+$innerSQL
+LEFT join ProbeGene ON probe.rid=ProbeGene.rid
+LEFT join gene ON gene.gid=ProbeGene.gid
+$limit_sql
+LEFT JOIN species ON species.sid=platform.sid
+$sql_subset_by_project
+group by probe.rid
+END_XTableQuery
+
+    my $sth = $dbh->prepare($sql);
+    my $rc  = $sth->execute(@param);
+
+    # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
+    # after any data were fetched.
+    my @headers = @{ $sth->{NAME} };
+    my $data    = $sth->fetchall_arrayref;
+
+    # return tuple of headers + data array reference
+    return ( \@headers, $data );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
+#       METHOD:  findProbes_js
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub findProbes_js {
+    my $self = shift;
+
+    my $headers = shift;
+    my $records = shift;
+
+    #---------------------------------------------------------------------------
+    #  HTML output
+    #---------------------------------------------------------------------------
+    my $rowcount = @$records;
+
+    my $proj_name = $self->{_WorkingProjectName};
+    my $caption   = sprintf(
+        '%sFound %d probe%s',
+        ( defined($proj_name) and $proj_name ne '' )
+        ? "$proj_name: "
+        : '',
+        $rowcount, ( $rowcount == 1 ) ? '' : 's',
+    );
+
+    my %type_to_column = (
+        'GO IDs'               => 'go_acc',
+        'Probe IDs'            => 'reporter',
+        'Genes/Accession Nos.' => 'gsymbol',
+        'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
+        'GO Names'             => 'gonames',
+        'GO Names/Desc.'       => 'gonames+godesc'
+    );
+
+    my %json_probelist = (
+        caption => $caption,
+        records => $records,
+        headers => $headers
+    );
+
+    my ( $type, $match ) = @$self{qw/_scope _match/};
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    return ''
+      . $js->let(
+        [
+            searchColumn => $type_to_column{$type},
+            queriedItems => (
+                +{
+                    map { lc($_) => undef }
+                      split( /[,\s]+/, $self->{_QueryText} )
+                }
+            ),
+            data         => \%json_probelist,
+            url_prefix   => $self->{_cgi}->url( -absolute => 1 ),
+            show_graphs  => $self->{_graphs},
+            extra_fields => $self->{_extra_fields},
+            project_id   => $self->{_WorkingProject}
+        ],
+        declare => 1
+      );
 }
 
 #===  FUNCTION  ================================================================
@@ -1350,7 +1607,11 @@ sub mainFormDD {
                 ),
                 $q->p(
                     $q->a(
-                        { -id => 'advanced', -class => 'pluscol' },
+                        {
+                            -id    => 'advanced',
+                            -class => 'pluscol',
+                            -title => 'Click to expand for more options'
+                        },
                         '+ Advanced'
                     )
                 ),
@@ -1559,7 +1820,11 @@ END_H2P_TEXT
         $q->dd(
             $q->p(
                 $q->a(
-                    { -id => 'outputOpts', -class => 'pluscol' },
+                    {
+                        -id    => 'outputOpts',
+                        -class => 'pluscol',
+                        -title => 'Click to expand for more options'
+                    },
                     '+ Display Options / Graphs'
                 )
             ),
@@ -1643,262 +1908,6 @@ END_graph_hint
         ),
       ),
       $q->endform;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  xTableQuery
-#   PARAMETERS:  $type - query type (probe|gene)
-#                tmp_table => $tmpTable - uploaded table to join on
-#      RETURNS:  true value
-#  DESCRIPTION:  Fills _InsideTableQuery field
-#       THROWS:  SGX::Exception::User
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub xTableQuery {
-    my $self      = shift;
-    my $dbh       = $self->{_dbh};
-    my $tmp_table = $self->{_TempTable};
-    my $haveTable = ( defined($tmp_table) and ( $tmp_table ne '' ) );
-
-    my @param;
-
-    #---------------------------------------------------------------------------
-    #  innermost SELECT statement differs depending on whether we are searching
-    #  the probe table or the gene table
-    #---------------------------------------------------------------------------
-    my $innerSQL;
-
-    my $scope = $self->{_scope};
-    if ($haveTable) {
-        if ( $scope eq 'Probe IDs' ) {
-            $innerSQL = <<"END_table_probe";
-SELECT rid, gid FROM probe 
-INNER JOIN $tmp_table USING(reporter)
-LEFT JOIN ProbeGene USING(rid)
-END_table_probe
-        }
-        elsif ( $scope eq 'GO IDs' ) {
-            $innerSQL = <<"END_table_go";
-SELECT rid, gid
-FROM ProbeGene
-INNER JOIN (
-    SELECT DISTINCT rid FROM ProbeGene 
-    INNER JOIN GeneGO USING(gid) 
-    INNER JOIN $tmp_table USING(go_acc)
-) AS d1 USING(rid)
-END_table_go
-        }
-        else {
-            $innerSQL = <<"END_table_gene";
-SELECT rid, gid
-FROM ProbeGene
-INNER JOIN (
-    SELECT DISTINCT rid FROM ProbeGene 
-    INNER JOIN gene USING(gid) 
-    INNER JOIN $tmp_table USING(gsymbol) 
-) AS d1 USING(rid)
-END_table_gene
-        }
-    }
-    else {
-        my ( $pred_sql, $pred_param ) = $self->build_SearchPredicate();
-        push @param, @$pred_param;
-        if ( $scope eq 'Probe IDs' ) {
-            $innerSQL = <<"END_no_table_probe";
-SELECT rid, gid 
-FROM
-    (SELECT rid FROM probe $pred_sql) AS search_result
-LEFT JOIN ProbeGene USING(rid)
-END_no_table_probe
-        }
-        elsif ( $scope eq 'GO IDs' ) {
-            $innerSQL = <<"END_no_table_go";
-SELECT rid, gid
-FROM ProbeGene
-INNER join (
-    SELECT DISTINCT rid FROM
-        (SELECT DISTINCT gid from GeneGO $pred_sql) AS search_result
-    INNER JOIN ProbeGene USING(gid)
-) AS d1 USING(rid)
-END_no_table_go
-        }
-        else {
-            $innerSQL = <<"END_no_table_gene";
-SELECT rid, gid
-FROM ProbeGene
-INNER join (
-    SELECT DISTINCT rid FROM
-        (SELECT gid FROM gene $pred_sql) AS search_result
-    INNER JOIN ProbeGene USING(gid)
-) AS d1 USING(rid)
-END_no_table_gene
-        }
-    }
-
-    #---------------------------------------------------------------------------
-    # Filter by chromosomal location (use platform table to look up species when
-    # only species is specified and not an actual chromosomal location).
-    #---------------------------------------------------------------------------
-    my ( $limit_sql, $limit_param ) = $self->build_location_predparam();
-    push @param, @$limit_param;
-
-    #---------------------------------------------------------------------------
-    # only return results for platforms that belong to the current working
-    # project (as determined through looking up studies linked to the current
-    # project).
-    #---------------------------------------------------------------------------
-    my $sql_subset_by_project = '';
-    my $curr_proj             = $self->{_WorkingProject};
-    if ( defined($curr_proj) && $curr_proj ne '' ) {
-        $sql_subset_by_project = <<"END_sql_subset_by_project";
-INNER JOIN study ON study.pid=platform.pid
-INNER JOIN ProjectStudy ON prid=? AND ProjectStudy.stid=study.stid
-END_sql_subset_by_project
-        push @param, $curr_proj;
-    }
-
-    #---------------------------------------------------------------------------
-    #  fields to select:
-    #  $extra_fields == 0: rid
-    #  $extra_fields == 1: rid, pid, reporter, sname, pname, accnum, gene
-    #  $extra_fields == 2: rid, pid, reporter, sname, pname, accnum, gene,
-    #                      probe_seq, gene_name
-    #---------------------------------------------------------------------------
-    my $extra_fields  = $self->{_extra_fields};
-    my @select_fields = ('probe.rid');
-    if ( $extra_fields > 0 ) {
-        push @select_fields,
-          (
-            'platform.pid',
-            "probe.reporter  AS 'Probe ID'",
-            "species.sname   AS 'Species'",
-            "platform.pname  AS 'Platform'",
-"group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.'",
-"group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
-          );
-    }
-    if ( $extra_fields > 1 ) {
-        push @select_fields,
-          (
-            "probe.probe_sequence AS 'Probe Sequence'",
-"group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
-          );
-    }
-    my $selectFieldsSQL = join( ',', @select_fields );
-
-    #---------------------------------------------------------------------------
-    #  inner query -- allow for plain dump if location is specified but no
-    #  search terms entered.
-    #
-    #  TODO: if uploading a file, only return info for probes uploaded?
-    #---------------------------------------------------------------------------
-
-    $innerSQL =
-      ( ( !$haveTable ) and $self->{_QueryText} eq '' )
-      ? ''
-      : <<"END_innerSQL";
-INNER JOIN (
-    SELECT DISTINCT COALESCE(ProbeGene.rid, d2.rid) AS rid
-    FROM ($innerSQL) AS d2
-    LEFT join ProbeGene USING(gid)
-) AS d3 on probe.rid=d3.rid
-END_innerSQL
-
-    #---------------------------------------------------------------------------
-    #  main query
-    #---------------------------------------------------------------------------
-    my $sql = <<"END_XTableQuery";
-SELECT
-$selectFieldsSQL
-FROM probe
-$innerSQL
-LEFT join ProbeGene ON probe.rid=ProbeGene.rid
-LEFT join gene ON gene.gid=ProbeGene.gid
-$limit_sql
-LEFT JOIN species ON species.sid=platform.sid
-$sql_subset_by_project
-group by probe.rid
-END_XTableQuery
-
-    my $sth = $dbh->prepare($sql);
-    my $rc  = $sth->execute(@param);
-
-    # :TRICKY:07/24/2011 12:27:32:es: accessing NAME array will fail if is done
-    # after any data were fetched.
-    my @headers = @{ $sth->{NAME} };
-    my $data    = $sth->fetchall_arrayref;
-
-    # return tuple of headers + data array reference
-    return ( \@headers, $data );
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  findProbes_js
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub findProbes_js {
-    my $self = shift;
-
-    my $headers = shift;
-    my $records = shift;
-
-    #---------------------------------------------------------------------------
-    #  HTML output
-    #---------------------------------------------------------------------------
-    my $rowcount = @$records;
-
-    my $proj_name = $self->{_WorkingProjectName};
-    my $caption   = sprintf(
-        '%sFound %d probe%s',
-        ( defined($proj_name) and $proj_name ne '' )
-        ? "$proj_name: "
-        : '',
-        $rowcount, ( $rowcount == 1 ) ? '' : 's',
-    );
-
-    my %type_to_column = (
-        'GO IDs'               => 'go_acc',
-        'Probe IDs'            => 'reporter',
-        'Genes/Accession Nos.' => 'gsymbol',
-        'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
-        'GO Names'             => 'gonames',
-        'GO Names/Desc.'       => 'gonames+godesc'
-    );
-
-    my %json_probelist = (
-        caption => $caption,
-        records => $records,
-        headers => $headers
-    );
-
-    my ( $type, $match ) = @$self{qw/_scope _match/};
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
-    return ''
-      . $js->let(
-        [
-            searchColumn => $type_to_column{$type},
-            queriedItems => (
-                +{
-                    map { lc($_) => undef }
-                      split( /[,\s]+/, $self->{_QueryText} )
-                }
-            ),
-            data         => \%json_probelist,
-            url_prefix   => $self->{_cgi}->url( -absolute => 1 ),
-            show_graphs  => $self->{_graphs},
-            extra_fields => $self->{_extra_fields},
-            project_id   => $self->{_WorkingProject}
-        ],
-        declare => 1
-      );
 }
 
 1;
