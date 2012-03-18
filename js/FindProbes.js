@@ -106,13 +106,16 @@ YAHOO.util.Event.addListener(window, "load", function() {
     if (extra_fields > 1) {
         myColumnList.push(
             {key:"7"},
-            {key:"8"}
+            {key:"8"},
+            {key:"9"}
         );
         myColumnDefs.push(
             {key:"7", sortable:true, resizeable:true, 
                 label:data.headers[7], formatter:"formatSequence"},
             {key:"8", sortable:true, resizeable:true, 
-                label:data.headers[8], formatter:"formatGeneName"}
+                label:data.headers[8]},
+            {key:"9", sortable:true, resizeable:true, 
+                label:data.headers[9], formatter:"formatGeneName"}
         );
     }
 

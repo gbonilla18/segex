@@ -7,15 +7,12 @@ use base qw/SGX::Strategy::Base/;
 
 require SGX::DBLists;
 require Tie::IxHash;
-use File::Basename;
-use File::Temp;
+require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util
   qw/car cdr trim min bind_csv_handle distinct file_opts_html dec2indexes32/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
-use Data::UUID;
-require SGX::Abstract::JSEmitter;
 
 #---------------------------------------------------------------------------
 #  Parsers for lists of IDs/symbols
@@ -837,6 +834,43 @@ END_ExperimentDataQuery
     return { data => \%platform_hash, headers => { exp => \@exp_names } };
 }
 
+#===  FUNCTION  ================================================================
+#         NAME:  locationAsTextToCanon
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Converts results of MySQL AsText() function describing a
+#                location on a one-dimensional chromosome as an interval on
+#                a plane into the canonic form chrX:213434-213788. Example:
+#
+#                GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':',
+#                AsText(locus.zinterval)) separator ' ')
+#
+#                returns:
+#
+#                X:LINESTRING(0 35424740,0 35424799)
+#
+#                we transform it into:
+#
+#                chrX:35424740-35424799
+#
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub locationAsTextToCanon {
+    my $loc_data = shift;
+    return if not defined $loc_data;
+
+    my @loc_transform;
+    while ( $loc_data =~
+        m/\b([^\s]+):LINESTRING\(\d+\s+(\d+)\s*,\s*\d+\s+(\d+)\)/gi )
+    {
+        push @loc_transform, "chr$1:$2-$3";
+    }
+    return join( ' ', @loc_transform );
+}
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
 #       METHOD:  getReportData
@@ -885,12 +919,17 @@ END_ExperimentDataQuery
     shift @annot_names;
     shift @annot_names;
 
+    #---------------------------------------------------------------------------
+    #  Translate location data at column with zero-based index 3
+    #---------------------------------------------------------------------------
     my %annot_hash;
     while ( my @row = $annot_sth->fetchrow_array() ) {
         my $rid = shift @row;
+        $row[3] = locationAsTextToCanon( $row[3] );
         $annot_hash{$rid} = { annot => \@row };
     }
     $annot_sth->finish();
+
     #---------------------------------------------------------------------------
     #  in yet another, get data
     #---------------------------------------------------------------------------
@@ -1216,8 +1255,15 @@ END_sql_subset_by_project
         push @select_fields,
           (
             "probe.probe_sequence AS 'Probe Sequence'",
+"GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Location'",
 "group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
           );
+        if ( !defined( $self->{_loc_chr} ) ) {
+
+            # do a left join on locus (note that if _loc_chr is defined then
+            # we are already joining the locus table anyway
+            $limit_sql .= ' LEFT JOIN locus ON probe.rid=locus.rid';
+        }
     }
     my $selectFieldsSQL = join( ',', @select_fields );
 
@@ -1262,6 +1308,15 @@ END_XTableQuery
     # after any data were fetched.
     my @headers = @{ $sth->{NAME} };
     my $data    = $sth->fetchall_arrayref;
+
+    #---------------------------------------------------------------------------
+    #  Transform location info
+    #---------------------------------------------------------------------------
+    if ( $extra_fields > 1 ) {
+        foreach my $row (@$data) {
+            $row->[8] = locationAsTextToCanon( $row->[8] );
+        }
+    }
 
     # return tuple of headers + data array reference
     return ( \@headers, $data );
