@@ -93,30 +93,38 @@ YAHOO.util.Event.addListener(window, "load", function() {
             {key:"6"}
         );
         myColumnDefs.push(
-            {key:"2", sortable:true, resizeable:true, 
-                label:data.headers[2], formatter:"formatProbe"},
             {key:"4", sortable:true, resizeable:true, 
                 label:data.headers[3] + ' / ' + data.headers[4], formatter:"formatPlatform"},
+            {key:"2", sortable:true, resizeable:true, 
+                label:data.headers[2], formatter:"formatProbe"}
+        );
+        if (extra_fields > 1) {
+            myColumnList.push(
+                {key:"7"},
+                {key:"8"}
+            );
+            myColumnDefs.push(
+                {key:"7", sortable:true, resizeable:true,
+                    label:data.headers[7], formatter:"formatSequence"},
+                {key:"8", sortable:true, resizeable:true,
+                    label:data.headers[8]}
+            );
+        }
+        myColumnDefs.push(
             {key:"5", sortable:true, resizeable:true, 
                 label:data.headers[5], formatter:"formatAccNum"}, 
             {key:"6", sortable:true, resizeable:true, 
                 label:data.headers[6], formatter:"formatGene"}
         );
-    }
-    if (extra_fields > 1) {
-        myColumnList.push(
-            {key:"7"},
-            {key:"8"},
-            {key:"9"}
-        );
-        myColumnDefs.push(
-            {key:"7", sortable:true, resizeable:true, 
-                label:data.headers[7], formatter:"formatSequence"},
-            {key:"8", sortable:true, resizeable:true, 
-                label:data.headers[8]},
-            {key:"9", sortable:true, resizeable:true, 
-                label:data.headers[9], formatter:"formatGeneName"}
-        );
+        if (extra_fields > 1) {
+            myColumnList.push(
+                {key:"9"}
+            );
+            myColumnDefs.push(
+                {key:"9", sortable:true, resizeable:true, 
+                    label:data.headers[9], formatter:"formatGeneName"}
+            );
+        }
     }
 
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {

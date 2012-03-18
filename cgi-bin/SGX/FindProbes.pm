@@ -900,7 +900,7 @@ SELECT
     probe.pid,
     probe.reporter AS 'Probe ID',
     probe.probe_sequence AS 'Probe Sequence',
-    GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Location',
+    GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Locus',
     GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
     GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
     GROUP_CONCAT(DISTINCT concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
@@ -1255,7 +1255,7 @@ END_sql_subset_by_project
         push @select_fields,
           (
             "probe.probe_sequence AS 'Probe Sequence'",
-"GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Location'",
+"GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Locus'",
 "group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
           );
         if ( !defined( $self->{_loc_chr} ) ) {
@@ -1544,12 +1544,15 @@ sub Search_body {
     if ( $self->{_graphs}
         and !( $type eq 'GO Names' or $type eq 'GO Names/Desc.' ) )
     {
-        push @ret, $q->p(<<"END_LEGEND");
+        push @ret, (
+            $q->p(<<"END_LEGEND"),
 <strong>Dark bars</strong>: values meething the P threshold. 
 <strong>Light bars</strong>: values above the P threshold. 
 <strong>Green horizontal lines</strong>: fold-change threshold.
 END_LEGEND
-        push @ret, $q->ul( { -id => 'graphs' }, '' );
+            $q->ul( { -id => 'graphs' }, '' ),
+            $q->p( $q->a( { -href => '#' }, '^ Back to top' ) )
+        );
     }
     return @ret;
 }
