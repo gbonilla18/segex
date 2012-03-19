@@ -278,20 +278,22 @@ sub goTerms_js {
         headers => $self->{_GoTerms_Names}
     );
 
-    my ( $type, $match ) = @$self{qw/_scope _match/};
+    my ( $scope, $match ) = @$self{qw/_scope _match/};
     my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
     return ''
       . $js->let(
         [
             queriedItems => (
-                +{
+                [
                     map { lc($_) => undef }
                       split( /[,\s]+/, $self->{_QueryText} )
-                }
+                ]
             ),
-            data       => \%json_probelist,
+            match      => $match,
+            scope      => $scope,
             url_prefix => $self->{_cgi}->url( -absolute => 1 ),
-            project_id => $self->{_WorkingProject}
+            project_id => $self->{_WorkingProject},
+            data       => \%json_probelist
         ],
         declare => 1
       );
@@ -643,6 +645,11 @@ sub build_SearchPredicate {
         else {
 
             # MySQL full-text search
+            # # :TODO:03/19/2012 00:22:42:es: Have a problem here: 1- to 3-letter
+            # words are not indexed by full-text search in MySQL. A possible
+            # solution is to search for short words using REGEXP matching,
+            # however would have to deal with special situations such as
+            # quotation marks or plus and minus characters.
             $predicate = [
                 sprintf( 'MATCH (%s) AGAINST (? IN BOOLEAN MODE)',
                     join( ',', @$type ) )
@@ -901,8 +908,8 @@ SELECT
     probe.reporter AS 'Probe ID',
     probe.probe_sequence AS 'Probe Sequence',
     GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Locus',
-    GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
-    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene',
     GROUP_CONCAT(DISTINCT concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
 
 FROM $annot_temp_table AS tmp
@@ -1247,8 +1254,8 @@ END_sql_subset_by_project
             "probe.reporter  AS 'Probe ID'",
             "species.sname   AS 'Species'",
             "platform.pname  AS 'Platform'",
-"group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.'",
-"group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene'",
+"group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.'",
+"group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene'",
           );
     }
     if ( $extra_fields > 1 ) {
@@ -1352,13 +1359,13 @@ sub findProbes_js {
         $rowcount, ( $rowcount == 1 ) ? '' : 's',
     );
 
-    my %type_to_column = (
-        'GO IDs'               => 'go_acc',
-        'Probe IDs'            => 'reporter',
-        'Genes/Accession Nos.' => 'gsymbol',
-        'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
-        'GO Names'             => 'gonames',
-        'GO Names/Desc.'       => 'gonames+godesc'
+    my %scope_to_column = (
+        'GO IDs'               => { go_acc   => 1 },
+        'Probe IDs'            => { reporter => 1 },
+        'Genes/Accession Nos.' => { gsymbol  => 1 },
+        'Gene Names/Desc.'     => { gsymbol  => 1, gname_gdesc => 1 },
+        'GO Names'             => { gonames  => 1 },
+        'GO Names/Desc.' => { gonames => 1, godesc => 1 }
     );
 
     my %json_probelist = (
@@ -1367,23 +1374,24 @@ sub findProbes_js {
         headers => $headers
     );
 
-    my ( $type, $match ) = @$self{qw/_scope _match/};
+    my ( $scope, $match ) = @$self{qw/_scope _match/};
     my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
     return ''
       . $js->let(
         [
-            searchColumn => $type_to_column{$type},
+            searchColumn => $scope_to_column{$scope},
             queriedItems => (
-                +{
-                    map { lc($_) => undef }
+                [
+                    map { lc($_) }
                       split( /[,\s]+/, $self->{_QueryText} )
-                }
+                ]
             ),
-            data         => \%json_probelist,
+            match => $match,
             url_prefix   => $self->{_cgi}->url( -absolute => 1 ),
             show_graphs  => $self->{_graphs},
             extra_fields => $self->{_extra_fields},
-            project_id   => $self->{_WorkingProject}
+            project_id   => $self->{_WorkingProject},
+            data         => \%json_probelist
         ],
         declare => 1
       );

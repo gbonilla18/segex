@@ -71,8 +71,36 @@ YAHOO.util.Event.addListener("main_form", "submit", function(o) {
 
 YAHOO.util.Event.addListener(window, "load", function() {
     var selectAll = dom.get("resulttable_selectall");
-
     dom.get("caption").innerHTML = data.caption;
+
+    var regex_obj = (function() {
+        var joined = (queriedItems.length > 1) 
+            ? '(?:' + queriedItems.join('|') + ')' 
+            : queriedItems.join('|');
+        var bounds = {
+            'Prefix':    ['\\b',  '\\w*'],
+            'Full Word': ['\\b',  '\\b' ],
+            'Partial':   ['\\w*', '\\w*']
+        };
+        var regex = bounds[match][0] + joined + bounds[match][1];
+        try {
+            var regex_obj = new RegExp(regex, 'gi');
+            return regex_obj;
+        } catch(e) {
+            return null;
+        }
+    }());
+
+    var highlightWords = (regex_obj !== null) 
+        ? function(x) {
+            return x.replace(regex_obj, function(v) { 
+                return '<span class="highlight">' + v + '</span>';
+            });
+        } 
+        : function(x) {
+            return x;
+        };
+
 
     // checkbox formatter
     YAHOO.widget.DataTable.Formatter.formatGOCheck = function(elCell, oRecord, oColumn, oData) {
@@ -108,10 +136,20 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
 
     // label formatter
+    var wrapGONameDesc = (scope === 'GO Names')
+        ? function(oData, oRecord) { 
+            return '<span class="TicketName">' + highlightWords(oData) + 
+                        '</span><br/><span class="fadeout">' 
+                        + oRecord.getData('2') + '</span>' 
+            }
+        : function(oData, oRecord) { 
+            return '<span class="TicketName">' + highlightWords(oData) + 
+                        '</span><br/><span class="fadeout">' 
+                        + highlightWords(oRecord.getData('2')) + '</span>' 
+            };
+
     YAHOO.widget.DataTable.Formatter.formatGOName = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = '<span class="TicketName">' + oData + 
-                            '</span><br/><span class="fadeout">' 
-                            + oRecord.getData('2') + '</span>';
+        elCell.innerHTML = wrapGONameDesc(oData, oRecord);
     };
 
     // type formatter
