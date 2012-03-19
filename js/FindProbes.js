@@ -22,42 +22,16 @@ YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
 YAHOO.util.Event.addListener(window, "load", function() {
     var graph_ul;
     var graph_content = '';
-
-    var matchesQuery = (function() {
-
-        // queriedItems is an array
-        if (YAHOO.lang.isArray(queriedItems)) {
-            var regexes = [];
-            for (var i = 0, len = queriedItems.length; i < len; i++) {
-                regexes.push(new RegExp(queriedItems[i], 'i'));
-            }
-            // for each item in the list, check if the given argument matches
-            // formed regulat expression.
-            return function(x) {
-                for (var j = 0, len = regexes.length; j < len; j++) {
-                    if (x.match(regexes[j])) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        }
-
-        // queriedItems is an object
-        else if (YAHOO.lang.isObject(queriedItems)) {
-            return function(x) { return (x.toLowerCase() in queriedItems); };
-        }
-
-        // queriedItems is some other type
-        else {
-            throw new TypeError("Type of queriedItems must be an Object");
-        }
-    })();
-
+    var queriedPhrases = (match === 'Full Word') 
+        ? splitIntoPhrases(queryText)
+        : queryText.split(/[,\s]+/);
     var regex_obj = (function() {
-        var joined = (queriedItems.length > 1) 
-            ? '(?:' + queriedItems.join('|') + ')' 
-            : queriedItems.join('|');
+        if (queriedPhrases.length === 0) {
+            return null;
+        }
+        var joined = (queriedPhrases.length > 1) 
+            ? '(?:' + queriedPhrases.join('|') + ')' 
+            : queriedPhrases.join('|');
         var bounds = {
             'Prefix':    ['\\b',  '\\w*'],
             'Full Word': ['\\b',  '\\b' ],
@@ -157,29 +131,24 @@ YAHOO.util.Event.addListener(window, "load", function() {
             );
         }
     }
-
-    YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
-        if (oData !== null) {
-            var highlight = (('reporter' in searchColumn) && matchesQuery(oData))
-            ? 'class="highlight"' 
-            : '';
-            var i = oRecord.getCount();
-            if (show_graphs !== 'No Graphs') {
-                var this_rid = oRecord.getData(dataFields.rid);
-                graph_content += "<li id=\"reporter_" + i + "\">" 
-                + buildSVGElement({proj: project_id, rid: this_rid, reporter: oData, trans: show_graphs}) 
-                + "</li>";
-                elCell.innerHTML = "<div id=\"container" + i + "\"><a " 
-                + highlight + " title=\"Show differental expression graph\" href=\"#reporter_" 
-                + i + "\">" + oData + "</a></div>";
-            } else {
-                elCell.innerHTML = "<div id=\"container" + i + "\"><a " 
+    function wrapProbeGraphs(oData, highlight, args) {
+        var i = args[0];
+        var this_rid = args[1];
+        graph_content += "<li id=\"reporter_" + i + "\">" 
+        + buildSVGElement({proj: project_id, rid: this_rid, reporter: oData, trans: show_graphs}) 
+        + "</li>";
+        return "<div id=\"container" + i + "\"><a " 
+        + highlight + " title=\"Show differental expression graph\" href=\"#reporter_" 
+        + i + "\">" + oData + "</a></div>";       
+    }
+    function wrapProbe(oData, highlight, args) {
+        var i = args[0];
+        return "<div id=\"container" + i + "\"><a " 
                 + highlight + " title=\"Show differental expression graph\" id=\"show" 
                 + i + "\">" + oData + "</a></div>";
-            }
-        }
-    };
-    function wrapAccNum(b, species, highlight) {
+    }
+    function wrapAccNum(b, highlight, args) {
+        var species = args[0];
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
             return "<a " + highlight + " title=\"Search Ensembl for " + b 
                 + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" 
@@ -190,7 +159,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
             + species + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>";
         }
     }
-    function wrapGeneSymbol(b, species, highlight) {
+    function wrapGeneSymbol(b, highlight, args) {
+        var species = args[0];
+        var gsymbol = b;
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
             return "<a " + highlight + " title=\"Search Ensembl for " + b 
                 + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" 
@@ -199,39 +170,51 @@ YAHOO.util.Event.addListener(window, "load", function() {
             return "<a " + highlight + " title=\"Search NCBI Gene for " + b 
                 + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/gene?term=" 
             + b + "[uid]\">" + b + "</a>";
-        } else if (b.match(/^similar_to$/)) {
-            return b;
-        } else {
-            return "<a " + highlight + " title=\"Search NCBI Gene for " + b 
-                + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" 
-            + species + "[ORGN]+AND+" + b + "[GENE]\">" + b + "</a>";
+        } else if (b.match(/^\w+_similar_to/)) {
+            var match = /^(\w+)_similar_to/.exec(b);
+            var gsymbol = match[1];
         }
+        return "<a " + highlight + " title=\"Search NCBI Gene for " + gsymbol 
+                + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" 
+            + species + "[ORGN]+AND+" + gsymbol + "[GENE]\">" + b + "</a>";
     }
-    function formatSymbols(species, symbol, wrapperFun) {
-            // split into words
-            var array = symbol.replace(/^\W*/, '').replace(/\W$/, '').split(/\W+/);
+
+    function formatSymbols(symbol, wrapperFun, args) {
+            // split by commas while removing spaces
+            var array = symbol.split(/[,\s]+/);
             var len = array.length;
             var formatted = new Array(len);
             for (var i = 0; i < len; i++) {
                 var val = array[i];
-                formatted[i] = wrapperFun(val, species, 
+                formatted[i] = wrapperFun(val,
                     ((regex_obj !== null && val.match(regex_obj)) 
                     ? 'class="highlight"' 
-                    : '')
+                    : ''), args
                 );
             }
             return formatted.join(', ');
     }
+    YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
+        if (oData !== null) {
+            var i = oRecord.getCount();
+            if (show_graphs !== '') {
+                 var this_rid = oRecord.getData(dataFields.rid);
+                 elCell.innerHTML = formatSymbols(oData, wrapProbeGraphs, [i, this_rid]);
+            } else {
+                 elCell.innerHTML = formatSymbols(oData, wrapProbe, [i]);
+            }
+        }
+    };
     YAHOO.widget.DataTable.Formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = formatSymbols(species, oData, wrapAccNum);
+            elCell.innerHTML = formatSymbols(oData, wrapAccNum, [species]);
         }
     };
     YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = formatSymbols(species, oData, wrapGeneSymbol);
+            elCell.innerHTML = formatSymbols(oData, wrapGeneSymbol, [species]);
         }
     };
     YAHOO.widget.DataTable.Formatter.formatGeneName = function(elCell, oRecord, oColumn, oData) {

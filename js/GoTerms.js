@@ -73,10 +73,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var selectAll = dom.get("resulttable_selectall");
     dom.get("caption").innerHTML = data.caption;
 
+    var queriedPhrases = splitIntoPhrases(queryText);
     var regex_obj = (function() {
-        var joined = (queriedItems.length > 1) 
-            ? '(?:' + queriedItems.join('|') + ')' 
-            : queriedItems.join('|');
+        if (queriedPhrases.length === 0) {
+            return null;
+        }
+        var joined = (queriedPhrases.length > 1) 
+            ? '(?:' + queriedPhrases.join('|') + ')' 
+            : queriedPhrases.join('|');
         var bounds = {
             'Prefix':    ['\\b',  '\\w*'],
             'Full Word': ['\\b',  '\\b' ],
@@ -138,13 +142,15 @@ YAHOO.util.Event.addListener(window, "load", function() {
     // label formatter
     var wrapGONameDesc = (scope === 'GO Names')
         ? function(oData, oRecord) { 
-            return '<span class="TicketName">' + highlightWords(oData) + 
-                        '</span><br/><span class="fadeout">' 
+            var goID = 'GO:' + zeroPad(oRecord.getData('0'), 7);
+            return '<a target="_blank" title="Search EBI QuickGO database for ' + goID + '" href="http://www.ebi.ac.uk/QuickGO/GTerm?id=' + goID + '" class="TicketName">' + highlightWords(oData) + 
+                        '</a><br/><span >' 
                         + oRecord.getData('2') + '</span>' 
             }
         : function(oData, oRecord) { 
-            return '<span class="TicketName">' + highlightWords(oData) + 
-                        '</span><br/><span class="fadeout">' 
+            var goID = 'GO:' + zeroPad(oRecord.getData('0'), 7);
+            return '<a target="_blank" title="Search EBI QuickGO database for ' + goID + '" href="http://www.ebi.ac.uk/QuickGO/GTerm?id=' + goID + '" class="TicketName">' + highlightWords(oData) + 
+                        '</a><br/><span >' 
                         + highlightWords(oRecord.getData('2')) + '</span>' 
             };
 

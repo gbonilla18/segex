@@ -365,10 +365,22 @@ dl, table, div.table_cont {
 .hint pre, .hint p {
 	margin-bottom:0.75em;
 }
-.TicketName {
-	font-weight: bold;
-	font-size:1.1em;
+.highlight {
+	color:#000;
+	font-weight:bold;
 }
+.TicketName {
+	font-size:1.2em;
+}
+a.highlight {
+	color:#00f;
+	background:#ff5;
+	font-weight:normal;
+}
+a .highlight {
+	color:inherit;
+}
+
 /* word-wrap: break-word -- breaks long words such as DNA sequences */
 td.yui-dt-resizeable .yui-dt-liner {
 	white-space: pre-wrap;
@@ -450,10 +462,7 @@ td.yui-dt-resizeable .yui-dt-liner {
 /* override overly tiny font size in YUI radio buttons */
 .yui-skin-sam .yui-button button,.yui-skin-sam .yui-button a,.yui-skin-sam .yui-button a:visited{font-size:1em;}
 
-.highlight {
-	color:#a00;
-	font-weight:bold;
-}
+
 #cr_menu {
 	display:block;
 }

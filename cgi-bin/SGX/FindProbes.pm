@@ -283,12 +283,7 @@ sub goTerms_js {
     return ''
       . $js->let(
         [
-            queriedItems => (
-                [
-                    map { lc($_) => undef }
-                      split( /[,\s]+/, $self->{_QueryText} )
-                ]
-            ),
+            queryText  => $self->{_QueryText},
             match      => $match,
             scope      => $scope,
             url_prefix => $self->{_cgi}->url( -absolute => 1 ),
@@ -626,8 +621,11 @@ sub build_SearchPredicate {
     if ( $match eq 'Full Word' ) {
         if ( my $p = $parser{$scope} ) {
 
-            # symbols or IDs, entered whole
-            my @items = map { $p->($_) } split( /[,\s]+/, $self->{_QueryText} );
+            # Symbols or IDs, entered whole: split on non-word characters
+            my $queryText = $self->{_QueryText};
+            $queryText =~ s/^\W*//;
+            $queryText =~ s/\W*$//;
+            my @items = map { $p->($_) } split( /\W+/, $queryText );
             ( $predicate => $params ) = @items
               ? (
                 [
@@ -644,12 +642,12 @@ sub build_SearchPredicate {
         }
         else {
 
-            # MySQL full-text search
-            # # :TODO:03/19/2012 00:22:42:es: Have a problem here: 1- to 3-letter
-            # words are not indexed by full-text search in MySQL. A possible
-            # solution is to search for short words using REGEXP matching,
-            # however would have to deal with special situations such as
-            # quotation marks or plus and minus characters.
+           # MySQL full-text search
+           # # :TODO:03/19/2012 00:22:42:es: Have a problem here: 1- to 3-letter
+           # words are not indexed by full-text search in MySQL. A possible
+           # solution is to search for short words using REGEXP matching,
+           # however would have to deal with special situations such as
+           # quotation marks or plus and minus characters.
             $predicate = [
                 sprintf( 'MATCH (%s) AGAINST (? IN BOOLEAN MODE)',
                     join( ',', @$type ) )
@@ -1365,7 +1363,7 @@ sub findProbes_js {
         'Genes/Accession Nos.' => { gsymbol  => 1 },
         'Gene Names/Desc.'     => { gsymbol  => 1, gname_gdesc => 1 },
         'GO Names'             => { gonames  => 1 },
-        'GO Names/Desc.' => { gonames => 1, godesc => 1 }
+        'GO Names/Desc.'       => { gonames  => 1, godesc => 1 }
     );
 
     my %json_probelist = (
@@ -1380,13 +1378,8 @@ sub findProbes_js {
       . $js->let(
         [
             searchColumn => $scope_to_column{$scope},
-            queriedItems => (
-                [
-                    map { lc($_) }
-                      split( /[,\s]+/, $self->{_QueryText} )
-                ]
-            ),
-            match => $match,
+            queryText    => $self->{_QueryText},
+            match        => $match,
             url_prefix   => $self->{_cgi}->url( -absolute => 1 ),
             show_graphs  => $self->{_graphs},
             extra_fields => $self->{_extra_fields},

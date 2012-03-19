@@ -167,6 +167,46 @@ function getSelectedFromRadioGroup(obj) {
     return null;
 }
 //==============================================================================
+// splitIntoPhrases
+// Splits by words or by double-quoted phrases. Meant to emulate MySQL full-
+// text searching.
+// parameters: (1) string
+// returns   : array
+//==============================================================================
+function splitIntoPhrases(str) {
+    var extractQuoted = /^"([^"]*)"/;
+    var extractWord = /^\W*(\w*)/;
+    var phrases = [];
+    while (str.length > 0) {
+        // remove non-word non-quote characters from beginning
+        str = str.replace(/^[^\w^"]*/, '');
+        
+        var matchQuoted = extractQuoted.exec(str);
+        if (matchQuoted !== null) {
+            // extract quoted substring
+            str = str.substring(matchQuoted[0].length);
+            var matched = matchQuoted[1];
+            if (matched.length > 0) {
+                phrases.push(matched);
+            }
+        } else {
+            // extract first word ignoring quotes
+            var matchWord = extractWord.exec(str);
+            if (matchWord !== null) {
+                str = str.substring(matchWord[0].length);
+                var matched = matchWord[1];
+                if (matched.length > 0) {
+                    phrases.push(matched);
+                }
+            } else {
+                // terminate
+                str = '';
+            }
+        }
+    }
+    return phrases;
+}
+//==============================================================================
 // EnableDisable
 //==============================================================================
 function EnableDisable(el, disabled) {
