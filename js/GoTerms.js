@@ -1,37 +1,5 @@
 "use strict";
 
-// BEGIN generic functions (to move to another module)
-function zeroPad(num, places) {
-    var zero = places - num.toString().length + 1;
-    return Array(+(zero > 0 && zero)).join("0") + num;
-}
-function object_length(obj) {
-    var size = 0, key;
-    for (key in obj) {
-        if (obj.hasOwnProperty(key)) size++;
-    }
-    return size;
-}
-function object_keys(obj) {
-    var ret = [];
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            ret.push(key);
-        }
-    }
-    return ret;
-}
-function object_clear(obj) {
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            delete obj[key];
-        }
-    }
-    return obj;
-}
-// END generic functions
-
-
 var dom = YAHOO.util.Dom;
 YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
 
@@ -105,7 +73,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
             return x;
         };
 
-
     // checkbox formatter
     YAHOO.widget.DataTable.Formatter.formatGOCheck = function(elCell, oRecord, oColumn, oData) {
         // remove all children nodes if any exist
@@ -114,20 +81,30 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 elCell.removeChild( elCell.firstChild );
             } 
         }
+        var parentTR = getFirstParentOfName(elCell, 'TR');
+
         var label = document.createElement('label');
         dom.addClass(label, 'nowrap');
         var checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = (oData in buf);
+        if (oData in buf) {
+            checkbox.checked = true;
+            dom.addClass(parentTR, 'selected_row');
+        } else {
+            checkbox.checked = false;
+        }
         YAHOO.util.Event.addListener(checkbox, 'change', function() {
+            var thisParentTR = getFirstParentOfName(this, 'TR');
             if (this.checked) {
                 // add to buffer object
+                dom.addClass(parentTR, 'selected_row');
                 buf[oData] = null;
                 if (object_length(buf) === data.records.length) {
                     selectAll.innerHTML = UNSELECT_ALL;
                 }
             } else {
                 // remove from buffer object
+                dom.removeClass(parentTR, 'selected_row');
                 delete buf[oData];
                 if (object_length(buf) === 0) {
                     selectAll.innerHTML = SELECT_ALL;
@@ -139,7 +116,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.appendChild(label);
     };
 
-    // label formatter
+    // label formatter: if searching for names only, only highlight names, not
+    // descriptions.
     var wrapGONameDesc = (scope === 'GO Names')
         ? function(oData, oRecord) { 
             var goID = 'GO:' + zeroPad(oRecord.getData('0'), 7);
@@ -158,10 +136,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.innerHTML = wrapGONameDesc(oData, oRecord);
     };
 
-    // type formatter
+    // type formatter: replace all underscores with spaces
     YAHOO.widget.DataTable.Formatter.formatGOType = function(elCell, oRecord, oColumn, oData) {
-
-        // replace all underscores with spaces
         elCell.innerHTML = oData.replace(/_/, ' ');
     };
 

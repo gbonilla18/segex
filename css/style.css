@@ -260,6 +260,9 @@ img#schema {
 	margin:10px;
 }
 /************* YUI Sam skin correction ********/
+.yui-skin-sam .yui-button {
+	margin-bottom:8px;
+}
 .yui-skin-sam .yui-panel .bd {
 	padding:8px;
 }
@@ -292,21 +295,59 @@ img#schema {
 }
 .yui-skin-sam tr.yui-dt-odd:hover, .yui-skin-sam tr.yui-dt-even:hover
 {
+	background: #ddddcc; /* for non-css3 browsers */
 	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#efefe0', endColorstr='#f9f9d0'); /* for IE */
 	background: -webkit-gradient(linear, left top, left bottom, from(#efefe0), to(#f9f9d0)); /* for webkit browsers */
 	background: -moz-linear-gradient(top, #efefe0, #f9f9d0); /* for firefox 3.6+ */ 
 }
- .yui-skin-sam tr.yui-dt-odd td.yui-dt-asc,.yui-skin-sam tr.yui-dt-odd td.yui-dt-desc, .yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc
+.yui-skin-sam tr td.yui-dt-asc, .yui-skin-sam tr td.yui-dt-desc
 {
+	/* sorted columns */
 	background: #cccccc; /* for non-css3 browsers */
-	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#c6c6c6'); /* for IE */
-	background: -webkit-gradient(linear, left top, left bottom, from(#eeeeee), to(#c6c6c6)); /* for webkit browsers */
-	background: -moz-linear-gradient(top, #eeeeee, #c6c6c6); /* for firefox 3.6+ */ 
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#cfcfcf'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#eeeeee), to(#cfcfcf)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #eeeeee, #cfcfcf); /* for firefox 3.6+ */ 
 }
-.yui-skin-sam .yui-button {
-	margin-bottom:8px;
+.yui-skin-sam tr:hover td.yui-dt-asc, .yui-skin-sam tr:hover td.yui-dt-desc
+{
+	/* sorted columns : hover */
+	background: #ccccbb; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeedd', endColorstr='#cfcfbf'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#eeeedd), to(#cfcfbf)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #eeeedd, #cfcfbf); /* for firefox 3.6+ */ 
 }
-
+.yui-skin-sam tr.selected_row
+{
+	/* this row is particularly dark to emulate selected one */
+	background: #aaaaaa; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#cccccc', endColorstr='#afafaf'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#cccccc), to(#afafaf)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #cccccc, #afafaf); /* for firefox 3.6+ */
+}
+.yui-skin-sam tr.selected_row:hover
+{
+	/* this row is particularly dark to emulate selected one : hover */
+	background: #aaaa99; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ccccbb', endColorstr='#afaf9f'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#ccccbb), to(#afaf9f)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #ccccbb, #afaf9f); /* for firefox 3.6+ */
+}
+.yui-skin-sam tr.selected_row td.yui-dt-asc, .yui-skin-sam tr.selected_row td.yui-dt-desc
+{
+	/* this row is particularly dark to emulate selected one */
+	background: #999999; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#bbbbbb', endColorstr='#909090'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#bbbbbb), to(#909090)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #bbbbbb, #909090); /* for firefox 3.6+ */
+}
+.yui-skin-sam tr.selected_row:hover td.yui-dt-asc, .yui-skin-sam tr.selected_row:hover td.yui-dt-desc
+{
+	/* this row is particularly dark to emulate selected one */
+	background: #999988; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#bbbb99', endColorstr='#909080'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#bbbb99), to(#909080)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #bbbb99, #909080); /* for firefox 3.6+ */
+}
 /************* tmp drag-drop ******************/
 div.workarea {
 	float:left;

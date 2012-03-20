@@ -1,5 +1,7 @@
 "use strict"; 
 
+var dom = YAHOO.util.Dom;
+
 //==============================================================================
 // tab views
 //==============================================================================
@@ -233,11 +235,69 @@ function isDefinedSelection(el) {
     return (typeof val !== 'undefined' && val !== '') ? 'defined' : '';
 }
 //==============================================================================
+// zeroPad
+// pad number `num' with zeros to `places' places
+//==============================================================================
+function zeroPad(num, places) {
+
+    // pad number `num' with zeros to `places' places
+    var zero = places - num.toString().length + 1;
+    return Array(+(zero > 0 && zero)).join("0") + num;
+}
+//==============================================================================
+// Recurse upward in the DOM hierarchy and return the first node that matches
+// the requested node name
+//==============================================================================
+function getFirstParentOfName(id, parentName) {
+    var el = dom.get(id);
+    if (el === null) {
+        return null;
+    }
+    var elParent = el.parentNode;
+    if (elParent === null) {
+        return null;
+    }
+    return (elParent.nodeName.toUpperCase() === parentName.toUpperCase())
+        ? elParent
+        : getFirstParentOfName(elParent, parentName);
+}
+//==============================================================================
+// Object utilities
+//==============================================================================
+function object_length(obj) {
+
+    // count number of own properties in object
+    var size = 0, key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) size++;
+    }
+    return size;
+}
+function object_keys(obj) {
+
+    // return array of keys in the object
+    var ret = [];
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            ret.push(key);
+        }
+    }
+    return ret;
+}
+function object_clear(obj) {
+
+    // delete all own properties in the object
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            delete obj[key];
+        }
+    }
+    return obj;
+}
+//==============================================================================
 // validate_fields
 //==============================================================================
 function validate_fields(of,reqfields) {
-
-    var dom = YAHOO.util.Dom;
 
     // clear error messages
     var content_div = document.getElementById('content');
