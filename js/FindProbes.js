@@ -18,6 +18,7 @@ YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
     inputEl.value = array.join(',');
     dom.get("q_old").value = queryText;
     dom.get("scope_old").value = scope;
+    dom.get("match_old").value = match;
     return true;
 }, null, false);
 
