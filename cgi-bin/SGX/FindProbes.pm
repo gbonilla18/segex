@@ -24,30 +24,33 @@ my %parser = (
         # follows: from beginning to end, match any character other than [space,
         # forward/back slash, comma, equal or pound sign, opening or closing
         # parentheses, double quotation mark] from 1 to 18 times.
-        if ( shift =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
+        my $x = shift;
+        if ( $x =~ m/^([^\s,\/\\=#()"]{1,18})$/ ) {
             return $1;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Cannot parse probe ID on line ' . shift );
+                error => "Invalid probe ID $x on line " . shift );
         }
     },
     'Genes/Accession Nos.' => sub {
-        if ( shift =~ /^([^\+\s]+)$/ ) {
+        my $x = shift;
+        if ( $x =~ /^([^\+\s]+)$/ ) {
             return $1;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Invalid gene symbol format on line ' . shift );
+                error => "Invalid gene symbol $x on line " . shift );
         }
     },
     'GO IDs' => sub {
-        if ( shift =~ /^(?:GO\:|)(\d+)$/ ) {
+        my $x = shift;
+        if ( $x =~ /^(?:GO\:|)(\d+)$/ ) {
             return $1;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Invalid GO accession number on line ' . shift );
+                error => "Invalid GO accession number $x on line " . shift );
         }
     }
 );
@@ -615,10 +618,11 @@ sub build_SearchPredicate {
         if ( my $p = $parser{$scope} ) {
 
             # Symbols or IDs, entered whole: split on non-word characters
+            # excluding colons (colons are used inside GO:0001234-like IDs).
             my $queryText = $self->{_QueryText};
             $queryText =~ s/^\W*//;
             $queryText =~ s/\W*$//;
-            my @items = map { $p->($_) } split( /\W+/, $queryText );
+            my @items = map { $p->($_) } split( /[^\w^:]+/, $queryText );
             ( $predicate => $params ) = @items
               ? (
                 [
