@@ -263,15 +263,6 @@ sub goTerms_js {
       sprintf( 'Found %d GO term%s', $rowcount, ( $rowcount == 1 ) ? '' : 's',
       );
 
-    my %type_to_column = (
-        'GO IDs'               => 'go_acc',
-        'Probe IDs'            => 'reporter',
-        'Genes/Accession Nos.' => 'gsymbol',
-        'Gene Names/Desc.'     => 'gsymbol+gname+gdesc',
-        'GO Names'             => 'gonames',
-        'GO Names/Desc.'       => 'gonames+godesc'
-    );
-
     my %json_probelist = (
         caption => $caption,
         records => $data,
@@ -1357,15 +1348,6 @@ sub findProbes_js {
         $rowcount, ( $rowcount == 1 ) ? '' : 's',
     );
 
-    my %scope_to_column = (
-        'GO IDs'               => { go_acc   => 1 },
-        'Probe IDs'            => { reporter => 1 },
-        'Genes/Accession Nos.' => { gsymbol  => 1 },
-        'Gene Names/Desc.'     => { gsymbol  => 1, gname_gdesc => 1 },
-        'GO Names'             => { gonames  => 1 },
-        'GO Names/Desc.'       => { gonames  => 1, godesc => 1 }
-    );
-
     my %json_probelist = (
         caption => $caption,
         records => $records,
@@ -1377,10 +1359,9 @@ sub findProbes_js {
     return ''
       . $js->let(
         [
-            searchColumn => $scope_to_column{$scope},
             queryText    => $self->{_QueryText},
             match        => $match,
-            url_prefix   => $self->{_cgi}->url( -absolute => 1 ),
+            scope        => $scope,
             show_graphs  => $self->{_graphs},
             extra_fields => $self->{_extra_fields},
             project_id   => $self->{_WorkingProject},

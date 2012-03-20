@@ -20,6 +20,7 @@ YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
 }, null, false);
 
 YAHOO.util.Event.addListener(window, "load", function() {
+
     var graph_ul;
     var graph_content = '';
     var queriedPhrases = (match === 'Full Word') 
@@ -85,6 +86,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var dataFields = { rid: "0" };
     var myColumnList = [{key:"0", parser:"number"}];
     var myColumnDefs = [];
+
+    var columns2highlight = {
+        'GO IDs'               : { },
+        'Probe IDs'            : { '2' : 1 },
+        'Genes/Accession Nos.' : { '6'  : 1 },
+        'Gene Names/Desc.'     : { '6'  : 1, '9' : 1 },
+    };
+    var currScope = columns2highlight[scope];
 
     // extra_fields > 0
     if (extra_fields > 0) {
@@ -179,7 +188,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             + species + "[ORGN]+AND+" + gsymbol + "[GENE]\">" + b + "</a>";
     }
 
-    function formatSymbols(symbol, wrapperFun, args) {
+    function formatSymbols(symbol, colKey, wrapperFun, args) {
             // split by commas while removing spaces
             var array = symbol.split(/[,\s]+/);
             var len = array.length;
@@ -187,7 +196,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             for (var i = 0; i < len; i++) {
                 var val = array[i];
                 formatted[i] = wrapperFun(val,
-                    ((regex_obj !== null && val.match(regex_obj)) 
+                    ((colKey in currScope && regex_obj !== null && val.match(regex_obj)) 
                     ? 'class="highlight"' 
                     : ''), args
                 );
@@ -199,27 +208,27 @@ YAHOO.util.Event.addListener(window, "load", function() {
             var i = oRecord.getCount();
             if (show_graphs !== '') {
                  var this_rid = oRecord.getData(dataFields.rid);
-                 elCell.innerHTML = formatSymbols(oData, wrapProbeGraphs, [i, this_rid]);
+                 elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapProbeGraphs, [i, this_rid]);
             } else {
-                 elCell.innerHTML = formatSymbols(oData, wrapProbe, [i]);
+                 elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapProbe, [i]);
             }
         }
     };
     YAHOO.widget.DataTable.Formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = formatSymbols(oData, wrapAccNum, [species]);
+            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapAccNum, [species]);
         }
     };
     YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = formatSymbols(oData, wrapGeneSymbol, [species]);
+            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapGeneSymbol, [species]);
         }
     };
     YAHOO.widget.DataTable.Formatter.formatGeneName = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
-            elCell.innerHTML = highlightWords(oData);
+            elCell.innerHTML = (oColumn.key in currScope) ? highlightWords(oData) : oData;
         }
     }
     YAHOO.widget.DataTable.Formatter.formatPlatform = function(elCell, oRecord, oColumn, oData) {

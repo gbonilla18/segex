@@ -276,18 +276,36 @@ img#schema {
 	outline: none;
 }
 .yui-skin-sam .yui-dt-message,.yui-skin-sam tr.yui-dt-even,.yui-skin-sam .yui-dt-list tr.yui-dt-even,.yui-skin-sam .yui-dt-list tr.yui-dt-odd {
-	background-color:#f9f9f9;
+	background:#f9f9f9;
 }
 .yui-skin-sam tr.yui-dt-odd,.yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-odd td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-odd td.yui-dt-desc {
-	background-color:#e0ebff;
+	/* background:#e0ebff; */
+	background: #e0ebff; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fafafa', endColorstr='#e6e6e6'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#fafafa), to(#e6e6e6)); /* for webkit browsers */
+	background: -moz-linear-gradient(top,  #fafafa,  #e6e6e6); /* for firefox 3.6+ */ 
+}
+.yui-skin-sam tr.yui-dt-even,.yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-desc {
+	/* background:#e0ebff; */
+	background: #f9f9f9; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fafafa', endColorstr='#e6e6e6'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#fafafa), to(#e6e6e6)); /* for webkit browsers */
+	background: -moz-linear-gradient(top,  #fafafa,  #e6e6e6); /* for firefox 3.6+ */ 
 }
 .yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc
 {
-	background-color:#e0ebff;
+	/* background-color:#e0ebff; */
+	background: #e0ebff; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#c6c6c6'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#eeeeee), to(#c6c6c6)); /* for webkit browsers */
+	background: -moz-linear-gradient(top,  #eeeeee,  #c6c6c6); /* for firefox 3.6+ */ 
 }
 .yui-skin-sam tr.yui-dt-odd td.yui-dt-asc,.yui-skin-sam tr.yui-dt-odd td.yui-dt-desc
 {
-	background-color:#cbdaff;
+	background:#cbdaff;
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#c6c6c6'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#eeeeee), to(#c6c6c6)); /* for webkit browsers */
+	background: -moz-linear-gradient(top,  #eeeeee,  #c6c6c6); /* for firefox 3.6+ */ 
 }
 .yui-skin-sam .yui-button {
 	margin-bottom:8px;
@@ -374,8 +392,6 @@ dl, table, div.table_cont {
 }
 a.highlight {
 	color:#00f;
-	background:#ff5;
-	font-weight:normal;
 }
 a .highlight {
 	color:inherit;
