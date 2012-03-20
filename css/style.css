@@ -275,41 +275,38 @@ img#schema {
 .yui-skin-sam .yui-dt table tbody {
 	outline: none;
 }
-.yui-skin-sam .yui-dt-message,.yui-skin-sam tr.yui-dt-even,.yui-skin-sam .yui-dt-list tr.yui-dt-even,.yui-skin-sam .yui-dt-list tr.yui-dt-odd {
+.yui-skin-sam .yui-dt-message,.yui-skin-sam tr.yui-dt-even,.yui-skin-sam .yui-dt-list tr.yui-dt-even,.yui-skin-sam .yui-dt-list tr.yui-dt-odd
+{
 	background:#f9f9f9;
 }
-.yui-skin-sam tr.yui-dt-odd,.yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-odd td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-odd td.yui-dt-desc {
-	/* background:#e0ebff; */
-	background: #e0ebff; /* for non-css3 browsers */
-	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fafafa', endColorstr='#e6e6e6'); /* for IE */
-	background: -webkit-gradient(linear, left top, left bottom, from(#fafafa), to(#e6e6e6)); /* for webkit browsers */
-	background: -moz-linear-gradient(top,  #fafafa,  #e6e6e6); /* for firefox 3.6+ */ 
+
+.yui-skin-sam tr.yui-dt-rec td {
+	border-bottom:1px solid #eaeaea;
 }
-.yui-skin-sam tr.yui-dt-even,.yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-desc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam .yui-dt-list tr.yui-dt-even td.yui-dt-desc {
-	/* background:#e0ebff; */
+.yui-skin-sam tr.yui-dt-odd, .yui-skin-sam tr.yui-dt-even
+{
 	background: #f9f9f9; /* for non-css3 browsers */
-	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fafafa', endColorstr='#e6e6e6'); /* for IE */
-	background: -webkit-gradient(linear, left top, left bottom, from(#fafafa), to(#e6e6e6)); /* for webkit browsers */
-	background: -moz-linear-gradient(top,  #fafafa,  #e6e6e6); /* for firefox 3.6+ */ 
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fafafa', endColorstr='#eaeaea'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#fafafa), to(#eaeaea)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #fafafa, #eaeaea); /* for firefox 3.6+ */ 
 }
-.yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc
+.yui-skin-sam tr.yui-dt-odd:hover, .yui-skin-sam tr.yui-dt-even:hover
 {
-	/* background-color:#e0ebff; */
-	background: #e0ebff; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#efefe0', endColorstr='#f9f9d0'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#efefe0), to(#f9f9d0)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #efefe0, #f9f9d0); /* for firefox 3.6+ */ 
+}
+ .yui-skin-sam tr.yui-dt-odd td.yui-dt-asc,.yui-skin-sam tr.yui-dt-odd td.yui-dt-desc, .yui-skin-sam tr.yui-dt-even td.yui-dt-asc,.yui-skin-sam tr.yui-dt-even td.yui-dt-desc
+{
+	background: #cccccc; /* for non-css3 browsers */
 	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#c6c6c6'); /* for IE */
 	background: -webkit-gradient(linear, left top, left bottom, from(#eeeeee), to(#c6c6c6)); /* for webkit browsers */
-	background: -moz-linear-gradient(top,  #eeeeee,  #c6c6c6); /* for firefox 3.6+ */ 
-}
-.yui-skin-sam tr.yui-dt-odd td.yui-dt-asc,.yui-skin-sam tr.yui-dt-odd td.yui-dt-desc
-{
-	background:#cbdaff;
-	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#c6c6c6'); /* for IE */
-	background: -webkit-gradient(linear, left top, left bottom, from(#eeeeee), to(#c6c6c6)); /* for webkit browsers */
-	background: -moz-linear-gradient(top,  #eeeeee,  #c6c6c6); /* for firefox 3.6+ */ 
+	background: -moz-linear-gradient(top, #eeeeee, #c6c6c6); /* for firefox 3.6+ */ 
 }
 .yui-skin-sam .yui-button {
 	margin-bottom:8px;
 }
+
 /************* tmp drag-drop ******************/
 div.workarea {
 	float:left;
