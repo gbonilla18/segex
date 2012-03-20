@@ -3,7 +3,7 @@
 var dom = YAHOO.util.Dom;
 YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
 
-// MODEL
+// MODEL -- has to be restored from "q" element when page loads
 var buf = {};
 
 // VIEW
@@ -38,6 +38,12 @@ YAHOO.util.Event.addListener("main_form", "submit", function(o) {
 }, null, false);
 
 YAHOO.util.Event.addListener(window, "load", function() {
+    // split on words (but do not split on colons)
+    object_add(buf, 
+        dom.get("q").value.
+        replace(/^\W*/, '').
+        replace(/\W*$/, '').
+        split(/[^\w^:]+/), null);
     var selectAll = dom.get("resulttable_selectall");
     dom.get("caption").innerHTML = data.caption;
 

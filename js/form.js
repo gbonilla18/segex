@@ -294,6 +294,13 @@ function object_clear(obj) {
     }
     return obj;
 }
+function object_add(obj, keys, val) {
+    // add a single value to all keys
+    for (var i = 0, len = keys.length; i < len; i++) {
+        obj[keys[i]] = val;
+    }
+}
+
 //==============================================================================
 // validate_fields
 //==============================================================================
