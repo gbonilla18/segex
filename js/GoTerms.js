@@ -39,10 +39,10 @@ YAHOO.util.Event.addListener("main_form", "submit", function(o) {
 
 YAHOO.util.Event.addListener(window, "load", function() {
     // split on words (but do not split on colons)
-    var queryText = dom.get("q").value;
-    if (queryText !== '') {
+    var queryBuff = dom.get("q").value;
+    if (queryBuff !== '') {
         object_add(buf, 
-            dom.get("q").value.
+            queryBuff.
             replace(/^\W*/, '').
             replace(/\W*$/, '').
             split(/[^\w^:]+/), null);
@@ -52,6 +52,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     dom.get("caption").innerHTML = data.caption;
 
     var queriedPhrases = splitIntoPhrases(queryText);
+
     var regex_obj = (function() {
         if (queriedPhrases.length === 0) {
             return null;
