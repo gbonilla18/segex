@@ -6,47 +6,12 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 require Tie::IxHash;
-require Lingua::EN::Inflect;
-require Text::Autoformat;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
 use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal/;
 use SGX::Abstract::Exception ();
 use SGX::Debug;
-
-#===  FUNCTION  ================================================================
-#         NAME:  format_title
-#      PURPOSE:  Text::Autoformat::autoformat leaves blank space at the end of
-#                output which needs to be trimmed.
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  capitalize first letters of words in titles
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub format_title {
-    my $self = shift;
-    my $out = Text::Autoformat::autoformat( shift, { case => 'title' } );
-    $out =~ s/\s+$//;
-    return $out;
-}
-
-#===  FUNCTION  ================================================================
-#         NAME:  pluralize_noun
-#      PURPOSE:  pluralise English nouns and pronouns
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  PL_N('word', 2) returns 'words'.
-#     SEE ALSO:  n/a
-#===============================================================================
-sub pluralize_noun {
-    my $self = shift;
-    return Lingua::EN::Inflect::PL_N( shift, 2 );
-}
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD

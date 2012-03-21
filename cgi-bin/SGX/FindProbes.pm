@@ -267,9 +267,8 @@ sub goTerms_js {
     my $data = $self->{_GoTerms};
 
     my $rowcount = scalar(@$data);
-    my $caption =
-      sprintf( 'Found %d GO term%s', $rowcount, ( $rowcount == 1 ) ? '' : 's',
-      );
+    my $caption  = sprintf( 'Found %d GO %s',
+        $rowcount, $self->pluralize_noun( 'term', $rowcount ) );
 
     my %json_probelist = (
         caption => $caption,
@@ -1359,11 +1358,14 @@ sub findProbes_js {
 
     my $proj_name = $self->{_WorkingProjectName};
     my $caption   = sprintf(
-        '%sFound %d probe%s',
-        ( defined($proj_name) and $proj_name ne '' )
-        ? "$proj_name: "
-        : '',
-        $rowcount, ( $rowcount == 1 ) ? '' : 's',
+        '%sFound %d related %s',
+        (
+            ( defined($proj_name) && $proj_name ne '' )
+            ? "$proj_name: "
+            : ''
+        ),
+        $rowcount,
+        $self->pluralize_noun( 'probe', $rowcount )
     );
 
     my %json_probelist = (

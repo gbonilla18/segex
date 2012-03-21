@@ -39,11 +39,15 @@ YAHOO.util.Event.addListener("main_form", "submit", function(o) {
 
 YAHOO.util.Event.addListener(window, "load", function() {
     // split on words (but do not split on colons)
-    object_add(buf, 
-        dom.get("q").value.
-        replace(/^\W*/, '').
-        replace(/\W*$/, '').
-        split(/[^\w^:]+/), null);
+    var queryText = dom.get("q").value;
+    if (queryText !== '') {
+        object_add(buf, 
+            dom.get("q").value.
+            replace(/^\W*/, '').
+            replace(/\W*$/, '').
+            split(/[^\w^:]+/), null);
+    }
+
     var selectAll = dom.get("resulttable_selectall");
     dom.get("caption").innerHTML = data.caption;
 
