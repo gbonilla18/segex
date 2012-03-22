@@ -26,7 +26,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     var graph_ul;
     var graph_content = '';
-    var queriedPhrases = (match === 'Full Word') 
+    var queriedPhrases = (match === 'Full-Word') 
         ? splitIntoPhrases(queryText)
         : queryText.split(/[,\s]+/);
     var regex_obj = (function() {
@@ -38,7 +38,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             : queriedPhrases.join('|');
         var bounds = {
             'Prefix':    ['\\b',  '\\w*'],
-            'Full Word': ['\\b',  '\\b' ],
+            'Full-Word': ['\\b',  '\\b' ],
             'Partial':   ['\\w*', '\\w*']
         };
         var regex = bounds[match][0] + joined + bounds[match][1];

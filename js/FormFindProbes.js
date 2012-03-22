@@ -46,7 +46,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
             break;
         }
         switch (currentMatch) {
-            case 'Full Word':
+            case 'Full-Word':
                 pattern_part_hint.style.display = 'none';
                 switch (currentScope) {
                     case 'Gene Names/Desc.':

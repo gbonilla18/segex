@@ -294,6 +294,78 @@ sub goTerms_js {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
+#       METHOD:  build_SearchPredicateGO
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub build_SearchPredicateGO {
+    my $self  = shift;
+    my $match = $self->{_match};
+
+    my $params           = [];
+    my $predicate        = [];
+    my %translate_fields = (
+        'GO Names'       => ['go_name'],
+        'GO Names/Desc.' => [ 'go_name', 'go_term_definition' ]
+    );
+    my $scope = $self->{_scope};
+    my $type  = $translate_fields{$scope};
+    SGX::Exception::Internal->throw("Unrecognized search scope\n")
+      if not defined $type;
+
+    if ( $match eq 'Full-Word' ) {
+
+        # not searching for any symbols here so no need to check existence of
+        # parser key.
+        $predicate = [
+            sprintf( 'MATCH (%s) AGAINST (? IN BOOLEAN MODE)',
+                join( ',', @$type ) )
+        ];
+        $params = [ $self->{_QueryText} ];
+        $self->{_QueryTextProc} = $params;
+    }
+    elsif ( $match eq 'Prefix' ) {
+        my @items = split( /[,\s]+/, $self->{_QueryText} );
+        $self->{_QueryTextProc} = \@items;
+        ( $predicate => $params ) = @items
+          ? (
+            [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] => [
+                map {
+                    join( '|', map { "[[:<:]]$_" } @items )
+                  } @$type
+            ]
+          )
+          : ( [] => [] );
+    }
+    elsif ( $match eq 'Partial' ) {
+        my @items = split( /[,\s]+/, $self->{_QueryText} );
+        $self->{_QueryTextProc} = \@items;
+        ( $predicate => $params ) =
+          @items
+          ? ( [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] =>
+              [ map { join( '|', @items ) } @$type ] )
+          : ( [] => [] );
+    }
+    else {
+        SGX::Exception::Internal->throw(
+            error => "Invalid match value $match\n" );
+    }
+
+    if ( @$predicate == 0 ) {
+        push @$predicate, map { "$_ IN (NULL)" } @$type;
+    }
+    my $predicate_sql = 'WHERE ' . join( ' AND ', @$predicate );
+
+    # returns tuple of SQL string + reference to query parameters
+    return ( $predicate_sql, $params );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  FindProbes
 #       METHOD:  getGOTerms
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -314,22 +386,12 @@ sub getGOTerms {
         ( $scope eq 'GO Names' )
       ? ('go_name')
       : ( 'go_name', 'go_term_definition' );
-    my $predicate =
-      ( $match eq 'Full Word' )
-      ? sprintf( 'WHERE MATCH (%s) AGAINST (? IN BOOLEAN MODE)',
-        join( ',', @fields ) )
-      : sprintf( 'WHERE %s', join( ' OR ', map { "$_ REGEXP ?" } @fields ) );
     my $relevance =
-      ( $match eq 'Full Word' )
+      ( $match eq 'Full-Word' )
       ? sprintf( ',MATCH (%s) AGAINST (?) AS relevance', join( ',', @fields ) )
       : '';
-    my @param_relevance = ( $match eq 'Full Word' ) ? ($query_text) : ();
-    my @param =
-      ( $match eq 'Full Word' ) ? ($query_text)
-      : (
-          ( $match eq 'Prefix' ) ? ( map { "[[:<:]]$query_text" } @fields )
-        : ( map { $query_text } @fields )
-      );
+    my @param_relevance = ( $match eq 'Full-Word' ) ? ($query_text) : ();
+    my ( $predicate, $param ) = $self->build_SearchPredicateGO();
 
     #---------------------------------------------------------------------------
     # only return results for platforms that belong to the current working
@@ -360,7 +422,7 @@ sub getGOTerms {
     #  query itself
     #---------------------------------------------------------------------------
     my $order_by =
-      ( $match eq 'Full Word' )
+      ( $match eq 'Full-Word' )
       ? 'ORDER BY relevance DESC'
       : 'ORDER BY Probes DESC';
 
@@ -384,7 +446,7 @@ $order_by
 END_query1
 
     my $sth   = $dbh->prepare($sql);
-    my $rc    = $sth->execute( @param_relevance, @param, @$limit_param );
+    my $rc    = $sth->execute( @param_relevance, @$param, @$limit_param );
     my @names = @{ $sth->{NAME} };
     my $data  = $sth->fetchall_arrayref();
     $sth->finish();
@@ -454,7 +516,7 @@ sub FindProbes_init {
     #  pattern match type
     #---------------------------------------------------------------------------
     my $match = car $q->param('match');
-    $match = 'Full Word'
+    $match = 'Full-Word'
       if $upload_file
           || !defined($match)
           || ( $scope eq 'Probe IDs' or $scope eq 'GO IDs' );
@@ -482,7 +544,7 @@ sub FindProbes_init {
       if !$upload_file
           and (  @textSplit < 2
               or !exists $parser{$scope}
-              or $match ne 'Full Word' );
+              or $match ne 'Full-Word' );
 
     #----------------------------------------------------------------------
     #  More than one terms entered and matching is exact.
@@ -613,10 +675,10 @@ sub build_SearchPredicate {
     );
     my $scope = $self->{_scope};
     my $type  = $translate_fields{$scope};
-    SGX::Exception::Internal->throw("Unknown match type\n")
+    SGX::Exception::Internal->throw("Unrecognized search scope\n")
       if not defined $type;
 
-    if ( $match eq 'Full Word' ) {
+    if ( $match eq 'Full-Word' ) {
         if ( my $p = $parser{$scope} ) {
 
             # Symbols or IDs, entered whole: split on non-word characters
@@ -625,6 +687,8 @@ sub build_SearchPredicate {
             $queryText =~ s/^\W*//;
             $queryText =~ s/\W*$//;
             my @items = map { $p->($_) } split( /[^\w^:]+/, $queryText );
+            $self->{_QueryTextProc} = \@items;
+
             ( $predicate => $params ) = @items
               ? (
                 [
@@ -652,10 +716,12 @@ sub build_SearchPredicate {
                     join( ',', @$type ) )
             ];
             $params = [ $self->{_QueryText} ];
+            $self->{_QueryTextProc} = $params;
         }
     }
     elsif ( $match eq 'Prefix' ) {
         my @items = split( /[,\s]+/, $self->{_QueryText} );
+        $self->{_QueryTextProc} = \@items;
         ( $predicate => $params ) = @items
           ? (
             [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] => [
@@ -668,6 +734,7 @@ sub build_SearchPredicate {
     }
     elsif ( $match eq 'Partial' ) {
         my @items = split( /[,\s]+/, $self->{_QueryText} );
+        $self->{_QueryTextProc} = \@items;
         ( $predicate => $params ) =
           @items
           ? ( [ join( ' OR ', map { "$_ REGEXP ?" } @$type ) ] =>
@@ -1042,17 +1109,24 @@ sub printFindProbeCSV {
 
     # Report Header
     my $search_params = $self->{_SeachParams};
+    my @queryItems = split( /[,\s]+/, $search_params->{query_text} );
     $print->( [ 'Find Probes Report', scalar localtime() ] );
     $print->( [ 'Generated By',       $self->{_UserFullName} ] );
     $print->( [ 'Working Project',    $self->{_WorkingProjectName} ] );
-    $print->( [ 'Patterns Matched',   $search_params->{match} ] );
-    $print->( [ 'Scope',              $search_params->{scope} ] );
     $print->(
         [
             'Query',
-            join( ' ', split( /[,\s]+/, $search_params->{query_text} ) )
+            (
+                $search_params->{scope} eq 'GO IDs'
+                ? join(
+                    ' ', map { 'GO:' . sprintf( '%07d', $_ ) } @queryItems
+                  )
+                : join( ' ', @queryItems )
+            )
         ]
     );
+    $print->( [ 'Scope',              $search_params->{scope} ] );
+    $print->( [ 'Patterns Matched',   $search_params->{match} ] );
     $print->();
 
     my $exp_head_headers =
@@ -1186,6 +1260,7 @@ INNER JOIN (
 ) AS d1 USING(rid)
 END_table_gene
         }
+        $self->{_QueryTextProc} = [ split( /[,\s]+/, $self->{_QueryText} ) ];
     }
     else {
         my ( $pred_sql, $pred_param ) = $self->build_SearchPredicate();
@@ -1456,16 +1531,19 @@ sub Search_body {
         )
     );
 
+    my $textToShow = (
+        $self->{_scope} eq 'GO IDs'
+        ? join( ', ',
+            map { 'GO:' . sprintf( '%07d', $_ ) } @{ $self->{_QueryTextProc} } )
+        : join( ', ', @{ $self->{_QueryTextProc} } )
+    );
+
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
         $q->p(
             { -id => 'subcaption' },
-            sprintf(
-                'Searched %s (%s): %s',
-                lc( $self->{_scope} ),
-                lc( $self->{_match} ),
-                $self->{_QueryText}
-            )
+            sprintf( '%s search on %s', $self->{_match}, $self->{_scope}, )
+              . ": $textToShow"
         ),
         (
             ( $type eq 'GO Names' or $type eq 'GO Names/Desc.' )
@@ -1489,7 +1567,7 @@ sub Search_body {
                         ),
                         $q->hidden(
                             -name  => 'match',
-                            -value => 'Full Word'
+                            -value => 'Full-Word'
                         ),
                         (
                             $self->{_loc_spid}
@@ -1698,10 +1776,10 @@ sub mainFormDD {
                             'Search pattern: ',
                             $q->radio_group(
                                 -name   => 'match',
-                                -values => [ 'Full Word', 'Prefix', 'Partial' ],
-                                -default    => 'Full Word',
+                                -values => [ 'Full-Word', 'Prefix', 'Partial' ],
+                                -default    => 'Full-Word',
                                 -attributes => {
-                                    'Full Word' => {
+                                    'Full-Word' => {
                                         id    => 'full_word',
                                         title => 'Match full words'
                                     },
