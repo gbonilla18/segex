@@ -10,7 +10,8 @@ require Tie::IxHash;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util
-  qw/car cdr trim min bind_csv_handle distinct file_opts_html dec2indexes32/;
+  qw/car cdr trim min bind_csv_handle distinct file_opts_html dec2indexes32
+  locationAsTextToCanon/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
@@ -703,7 +704,7 @@ sub build_SearchPredicate {
               )
               : ( [] => [] );
         }
-        else {
+        elsif ( $self->{_QueryText} ne '' ) {
 
            # MySQL full-text search
            # # :TODO:03/19/2012 00:22:42:es: Have a problem here: 1- to 3-letter
@@ -716,6 +717,11 @@ sub build_SearchPredicate {
                     join( ',', @$type ) )
             ];
             $params = [ $self->{_QueryText} ];
+            $self->{_QueryTextProc} = $params;
+        }
+        else {
+            $predicate              = [];
+            $params                 = [];
             $self->{_QueryTextProc} = $params;
         }
     }
@@ -905,43 +911,6 @@ END_ExperimentDataQuery
     return { data => \%platform_hash, headers => { exp => \@exp_names } };
 }
 
-#===  FUNCTION  ================================================================
-#         NAME:  locationAsTextToCanon
-#      PURPOSE:
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Converts results of MySQL AsText() function describing a
-#                location on a one-dimensional chromosome as an interval on
-#                a plane into the canonic form chrX:213434-213788. Example:
-#
-#                GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':',
-#                AsText(locus.zinterval)) separator ' ')
-#
-#                returns:
-#
-#                X:LINESTRING(0 35424740,0 35424799)
-#
-#                we transform it into:
-#
-#                chrX:35424740-35424799
-#
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub locationAsTextToCanon {
-    my $loc_data = shift;
-    return if not defined $loc_data;
-
-    my @loc_transform;
-    while ( $loc_data =~
-        m/\b([^\s]+):LINESTRING\(\d+\s+(\d+)\s*,\s*\d+\s+(\d+)\)/gi )
-    {
-        push @loc_transform, "chr$1:$2-$3";
-    }
-    return join( ' ', @loc_transform );
-}
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
 #       METHOD:  getReportData
@@ -1125,8 +1094,8 @@ sub printFindProbeCSV {
             )
         ]
     );
-    $print->( [ 'Scope',              $search_params->{scope} ] );
-    $print->( [ 'Patterns Matched',   $search_params->{match} ] );
+    $print->( [ 'Scope',            $search_params->{scope} ] );
+    $print->( [ 'Patterns Matched', $search_params->{match} ] );
     $print->();
 
     my $exp_head_headers =
