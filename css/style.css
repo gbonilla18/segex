@@ -321,9 +321,9 @@ img#schema {
 {
 	/* selected */
 	background: #aaaaff; /* for non-css3 browsers */
-	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#afafaf', endColorstr='#d9d9d9'); /* for IE */
-	background: -webkit-gradient(linear, left top, left bottom, from(#afafaf), to(#d9d9d9)); /* for webkit browsers */
-	background: -moz-linear-gradient(top, #afafaf, #d9d9d9); /* for firefox 3.6+ */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#bfbfbf', endColorstr='#d9d9d9'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#bfbfbf), to(#d9d9d9)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #bfbfbf, #d9d9d9); /* for firefox 3.6+ */
 }
 .yui-skin-sam tr.selected_row:hover
 {
@@ -337,9 +337,9 @@ img#schema {
 {
 	/* selected + sorted */
 	background: #999999; /* for non-css3 browsers */
-	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#bbbbbb', endColorstr='#909090'); /* for IE */
-	background: -webkit-gradient(linear, left top, left bottom, from(#bbbbbb), to(#909090)); /* for webkit browsers */
-	background: -moz-linear-gradient(top, #bbbbbb, #909090); /* for firefox 3.6+ */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#bbbbbb', endColorstr='#999999'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#bbbbbb), to(#999999)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #bbbbbb, #999999); /* for firefox 3.6+ */
 }
 .yui-skin-sam tr.selected_row:hover td.yui-dt-asc, .yui-skin-sam tr.selected_row:hover td.yui-dt-desc
 {
