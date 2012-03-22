@@ -79,14 +79,16 @@ sub new {
                 view      => [qw/pname/],
                 names     => [qw/pname/],
                 meta      => { pname => { label => 'Platform' }, },
-                join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
+
+               #join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
             },
-            species => {
-                key   => [qw/sid/],
-                view  => [qw/sname/],
-                names => [qw/sname/],
-                meta  => { sname => { label => 'Species' } }
-            },
+
+            #species => {
+            #    key   => [qw/sid/],
+            #    view  => [qw/sname/],
+            #    names => [qw/sname/],
+            #    meta  => { sname => { label => 'Species' } }
+            #},
             'experiment' => {
                 item_name => 'experiment',
                 key       => [qw/eid/],
@@ -135,12 +137,8 @@ sub new {
                                         -checked => 'checked',
                                         -value   => 'P-Value'
                                     },
-                                    pvalue2 => {
-                                        -value   => 'P-Value (2)'
-                                    },
-                                    pvalue3 => {
-                                        -value   => 'P-Value (3)'
-                                    }
+                                    pvalue2 => { -value => 'P-Value (2)' },
+                                    pvalue3 => { -value => 'P-Value (3)' }
                                 ]
                             )
                         )
@@ -257,7 +255,7 @@ sub new {
                 meta  => {
                     probe_count => {
                         __sql__ => 'COUNT(data_count.rid)',
-                        label   => 'Probe Count',
+                        label   => 'Probes',
                         parser  => 'number'
                     },
                 },
@@ -364,8 +362,8 @@ sub form_create_head {
     push @{ $self->{_js_src_yui} },  'button/button-min.js';
 
     # add platform dropdown
-    push @{ $self->{_js_src_code} },                
-      ( { -src => 'collapsible.js' },                   
+    push @{ $self->{_js_src_code} },
+      ( { -src => 'collapsible.js' },
         { -src => 'PlatformStudyExperiment.js' } );
 
     push @{ $self->{_js_buffer} }, <<"END_SETUPTOGGLES" .
