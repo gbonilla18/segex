@@ -114,14 +114,14 @@ sub new {
                     },
                     email_confirmed => {
                         __type__        => 'checkbox',
-                        label           => 'Email Confirmed',
+                        label           => 'Confirm. Email',
                         dropdownOptions => [
                             { value => '0', label => 'No' },
                             { value => '1', label => 'Yes' }
                         ],
                         __optional__ => 1
                     },
-                    udate => { label => 'Date Created', __readonly__ => 1 }
+                    udate => { label => 'Creat. Date', __readonly__ => 1 }
                 },
             }
         },

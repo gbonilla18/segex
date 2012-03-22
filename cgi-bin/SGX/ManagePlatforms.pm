@@ -153,7 +153,7 @@ sub new {
                 meta  => {
                     id_count => {
                         __sql__ => 'COUNT(rid)',
-                        label   => 'Probe Count',
+                        label   => 'Probes',
                         parser  => 'number'
                     },
                     sequence_count => {
@@ -185,7 +185,7 @@ sub new {
                 meta  => {
                     locus_count => {
                         __sql__ => 'COUNT(locus.rid)',
-                        label   => 'Chr. Locations',
+                        label   => 'Mapp. Loci',
                         parser  => 'number'
                     },
                 },
