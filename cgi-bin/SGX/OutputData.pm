@@ -209,8 +209,8 @@ sub loadReportData {
     my $dbh  = $self->{_dbh};
 
     my $gene_info = $self->{_extraFields} ? <<"END_EXTRA" : '';
-gene.description      AS 'Gene Description',
-gene.gene_note        AS 'Gene Ontology',
+gene.gname      AS 'Gene Name',
+gene.gdesc      AS 'Gene Description',
 END_EXTRA
 
     my $experiments = $self->{_eidList};
@@ -226,8 +226,8 @@ END_experiment_info
 SELECT
     $experiment_field
     probe.reporter        AS 'Probe ID',
-    gene.accnum           AS 'Accession Number',
-    gene.seqname          AS 'Gene',
+group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
+group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene',
     $gene_info
     microarray.ratio      AS 'Ratio',
     microarray.foldchange AS 'Fold Change',
@@ -236,9 +236,9 @@ SELECT
     microarray.intensity2 AS 'Intensity 2'
 FROM experiment
 INNER JOIN microarray USING(eid)
-LEFT JOIN probe ON probe.rid = microarray.rid
-LEFT JOIN annotates ON annotates.rid = probe.rid
-LEFT JOIN gene ON gene.gid = annotates.gid
+LEFT JOIN probe USING(rid)
+LEFT JOIN ProbeGene USING(rid)
+LEFT JOIN gene USING(gid)
 WHERE experiment.eid IN (%s)
 GROUP BY experiment.eid, microarray.rid
 ORDER BY experiment.eid
@@ -316,7 +316,7 @@ sub default_body {
                 -id      => 'extra',
                 -checked => 0,
                 -name    => 'extra',
-                -label   => 'Include Gene Info and Ontology Terms',
+                -label   => 'Include Gene Annotation',
                 -title =>
                   'Check this box to obtain extra gene annotation in the report'
             )
