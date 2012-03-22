@@ -897,13 +897,13 @@ sub displayTFSInfo {
                 -target => '_blank',
                 -href   => $self->url( -absolute => 1 )
                   .
-                  '?a=findProbes&b=Search&match=Full Word&graph=No Graphs&scope=%1$s&q={0}',
+                  '?a=findProbes&b=Search&scope=%1$s&q={0}',
             },
             '{0}'
         );
         $format_template{probe}  = sprintf( $find_probes, 'Probe IDs' );
-        $format_template{accnum} = sprintf( $find_probes, 'Accession Numbers' );
-        $format_template{gene}   = sprintf( $find_probes, 'Gene Symbols' );
+        $format_template{accnum} = sprintf( $find_probes, 'Genes/Accession Nos.' );
+        $format_template{gene}   = sprintf( $find_probes, 'Genes/Accession Nos.' );
     }
 
     $table_format[0] = 'formatProbe';

@@ -2221,7 +2221,6 @@ sub _head_init {
         'datatable/assets/skins/sam/datatable.css',
         'container/assets/skins/sam/container.css'
       );
-    push @{ $self->{_css_src_code} }, +{ -src => 'CRUD.css' };
     push @{ $self->{_js_src_yui} },
       (
         'element/element-min.js',       'datasource/datasource-min.js',

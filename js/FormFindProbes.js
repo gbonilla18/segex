@@ -27,12 +27,12 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     // handle changes in both pattern and scope
     var pattern_part_hint = dom.get('pattern_part_hint');
     var pattern_fullword_hint = dom.get('pattern_fullword_hint');
-    var scope_list = new YAHOO.widget.ButtonGroup("scope_list_container");
+    var scope = new YAHOO.widget.ButtonGroup("scope_container");
     var match_buttons = dom.get(['full_word', 'prefix', 'partial']);
     var pattern_div = dom.get('pattern_div');
 
     function displayHintPanels() {
-        var currentScope = scope_list.get('checkedButton').get('value');
+        var currentScope = scope.get('checkedButton').get('value');
         var currentMatch = getSelectedFromRadioGroup(match_buttons);
         switch (currentScope) {
             case 'Probe IDs':
@@ -77,14 +77,14 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     }
 
     // scope
-    var scope_list_state = dom.get("scope_list_state");
-    scope_list.addListener("checkedButtonChange", function(ev) {
+    var scope_state = dom.get("scope_state");
+    scope.addListener("checkedButtonChange", function(ev) {
         var selectedIndex = ev.newValue.index;
-        scope_list_state.value = selectedIndex;
+        scope_state.value = selectedIndex;
         displayHintPanels();
     });
-    if (scope_list_state.value !== '') {
-        scope_list.check(scope_list_state.value);
+    if (scope_state.value !== '') {
+        scope.check(scope_state.value);
     }
 
     var scope_file = new YAHOO.widget.ButtonGroup("scope_file_container");

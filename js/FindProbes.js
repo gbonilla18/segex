@@ -93,8 +93,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var columns2highlight = {
         'GO IDs'               : { },
         'Probe IDs'            : { '2' : 1 },
-        'Genes/Accession Nos.' : { '6'  : 1 },
-        'Gene Names/Desc.'     : { '6'  : 1, '9' : 1 },
+        'Genes/Accession Nos.' : { '5' : 1, '6' : 1 },
+        'Gene Names/Desc.'     : { '6' : 1, '9' : 1 },
     };
     var currScope = columns2highlight[scope];
 

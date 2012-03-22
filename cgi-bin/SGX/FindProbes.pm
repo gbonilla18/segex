@@ -491,7 +491,7 @@ sub FindProbes_init {
         $scope = car $q->param('scope_file');
     }
     else {
-        $scope              = car $q->param('scope_list');
+        $scope              = car $q->param('scope');
         $self->{_loc_spid}  = car $q->param('spid');
         $self->{_loc_chr}   = car $q->param('chr');
         $self->{_loc_start} = car $q->param('start');
@@ -1534,7 +1534,7 @@ sub Search_body {
                             -name => 'q'
                         ),
                         $q->hidden(
-                            -name  => 'scope_list',
+                            -name  => 'scope',
                             -value => 'GO IDs'
                         ),
                         $q->hidden(
@@ -1667,13 +1667,13 @@ sub mainFormDD {
                 ),
                 $q->div(
                     {
-                        -id    => 'scope_list_container',
+                        -id    => 'scope_container',
                         -class => 'input_container'
                     },
                     $q->input(
                         {
                             -type  => 'radio',
-                            -name  => 'scope_list',
+                            -name  => 'scope',
                             -value => 'Probe IDs',
                             -title => 'Look up probe IDs'
                         }
@@ -1681,7 +1681,7 @@ sub mainFormDD {
                     $q->input(
                         {
                             -type    => 'radio',
-                            -name    => 'scope_list',
+                            -name    => 'scope',
                             -value   => 'Genes/Accession Nos.',
                             -checked => 'checked',
                             -title   => 'Look up gene symbols'
@@ -1690,7 +1690,7 @@ sub mainFormDD {
                     $q->input(
                         {
                             -type  => 'radio',
-                            -name  => 'scope_list',
+                            -name  => 'scope',
                             -value => 'GO IDs',
                             -title => 'Look up GO IDs'
                         }
@@ -1699,7 +1699,7 @@ sub mainFormDD {
                     $q->input(
                         {
                             -type  => 'radio',
-                            -name  => 'scope_list',
+                            -name  => 'scope',
                             -value => 'Gene Names/Desc.',
                             -title => 'Search gene names'
                         }
@@ -1707,7 +1707,7 @@ sub mainFormDD {
                     $q->input(
                         {
                             -type  => 'radio',
-                            -name  => 'scope_list',
+                            -name  => 'scope',
                             -value => 'GO Names',
                             -title => 'Search gene ontology term names'
                         }
@@ -1715,7 +1715,7 @@ sub mainFormDD {
                     $q->input(
                         {
                             -type  => 'radio',
-                            -name  => 'scope_list',
+                            -name  => 'scope',
                             -value => 'GO Names/Desc.',
                             -title =>
                               'Search gene ontology term names + descriptions'
@@ -1726,7 +1726,7 @@ sub mainFormDD {
                     $q->input(
                         {
                             -type => 'hidden',
-                            -id   => 'scope_list_state'
+                            -id   => 'scope_state'
                         }
                     )
                 ),

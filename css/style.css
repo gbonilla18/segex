@@ -293,6 +293,11 @@ img#schema {
 	background: -webkit-gradient(linear, left top, left bottom, from(#fafafa), to(#eaeaea)); /* for webkit browsers */
 	background: -moz-linear-gradient(top, #fafafa, #eaeaea); /* for firefox 3.6+ */ 
 }
+.yui-skin-sam td.yui-dt-editable {
+	/* editable: make background semi-transparent */
+	background: rgb(230, 240, 255); /* Fall-back for browsers that don't support rgba */
+	background: rgba(230, 240, 255, .5);
+}
 .yui-skin-sam tr.yui-dt-odd:hover, .yui-skin-sam tr.yui-dt-even:hover
 {
 	/* hover */
