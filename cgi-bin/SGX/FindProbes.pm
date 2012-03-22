@@ -523,7 +523,11 @@ sub FindProbes_init {
           || ( $scope eq 'Probe IDs' or $scope eq 'GO IDs' );
     $self->{_match} = $match;
 
-    $self->{_extra_fields} = defined( $q->param('extra_fields') ) ? 2 : 1;
+    $self->{_extra_fields} =
+      defined( $q->param('extra_fields') )
+      ? 2
+      : 1;
+
     $self->{_graphs} =
       defined( $q->param('show_graphs') )
       ? car( $q->param('graph_type') )
@@ -720,8 +724,7 @@ sub build_SearchPredicate {
             $self->{_QueryTextProc} = $params;
         }
         else {
-            $predicate              = [];
-            $params                 = [];
+            ( $predicate => $params ) = ( [] => [] );
             $self->{_QueryTextProc} = $params;
         }
     }
@@ -1561,10 +1564,10 @@ sub Search_body {
                             : ()
                         ),
                         (
-                            $self->{_extra_fields}
+                            $self->{_extra_fields} > 1
                             ? $q->hidden(
                                 -name  => 'extra_fields',
-                                -value => '1'
+                                -value => 'on'
                               )
                             : ()
                         ),
