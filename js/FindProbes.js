@@ -25,7 +25,7 @@ YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
 YAHOO.util.Event.addListener(window, "load", function() {
 
     var graph_ul;
-    var graph_content = '';
+    var graph_content = [];
     var queriedPhrases = (match === 'Full-Word') 
         ? splitIntoPhrases(queryText)
         : queryText.split(/[,\s]+/);
@@ -143,16 +143,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
             );
         }
     }
-    function wrapProbeGraphs(oData, highlight, args) {
-        var i = args[0];
-        var this_rid = args[1];
-        graph_content += "<li id=\"reporter_" + i + "\">" 
-        + buildSVGElement({proj: project_id, rid: this_rid, reporter: oData, trans: show_graphs}) 
-        + "</li>";
-        return "<div id=\"container" + i + "\"><a " 
-        + highlight + " title=\"Show differental expression graph\" href=\"#reporter_" 
-        + i + "\">" + oData + "</a></div>";       
-    }
     function wrapAccNum(b, highlight, args) {
         var species = args[0];
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
@@ -210,21 +200,22 @@ YAHOO.util.Event.addListener(window, "load", function() {
         if (oData !== null) {
             var i = oRecord.getCount();
             var this_rid = oRecord.getData(dataFields.rid);
-            if (show_graphs !== '') {
-                 elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapProbeGraphs, [i, this_rid]);
-            } else {
-                var a = document.createElement("a");
-                if (oColumn.key in currScope && regex_obj !== null && oData.match(regex_obj)) {
-                    a.setAttribute('class', 'highlight');
-                }
-                a.setAttribute('title', 'Show differental expression graph');
-                a.setAttribute('id', 'show' + i);
-                a.appendChild(document.createTextNode(oData));
 
-                var div = document.createElement('div');
-                div.setAttribute('id', 'container' + i);
-                div.appendChild(a);
-                elCell.appendChild(div);
+            var a = document.createElement("a");
+            if (oColumn.key in currScope && regex_obj !== null && oData.match(regex_obj)) {
+                a.setAttribute('class', highlightClass);
+            }
+            a.setAttribute('title', 'Show differental expression graph');
+            a.appendChild(document.createTextNode(oData));
+
+            if (show_graphs !== '') {
+                graph_content.push(
+                    "<li id=\"reporter_" + i + "\">" + buildSVGElement({proj:
+                    project_id, rid: this_rid, reporter: oData, trans: show_graphs}) +
+                    "</li>"
+                );
+                a.setAttribute('href', '#reporter_' + i);
+            } else {
 
                 // Set up SVG pop-up panel
                 var panelID = "panel" + i;
@@ -241,7 +232,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     // if not, create a new panel
                     panel = new YAHOO.widget.Panel(panelID, {
                         close:true, visible:true, draggable:true,
-                        constraintoviewport:false, context:[div, "tl", "br"]
+                        constraintoviewport:false, context:[elCell, "tl", "br"]
                     });
                     panel.setHeader(oData);
                     panel.setBody(buildSVGElement({
@@ -253,9 +244,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     // unnecessary here because visible:true has already
                     // been set during initialization.
                     manager.register(panel);
-                    panel.render(div);
+                    panel.render(elCell);
                 });
             }
+            elCell.appendChild(a);
         }
     };
     YAHOO.widget.DataTable.Formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
@@ -325,19 +317,18 @@ YAHOO.util.Event.addListener(window, "load", function() {
     myDataTable.onEventUnhighlightCell); 
     myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
 
-    // TODO: Ideally, would want to use a "pre-formatter" event to clear
-    // graph_content
+    // TODO: Ideally, use a "pre-formatter" event to clear graph_content
     myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
-        graph_content = "";
+        graph_content.length = 0;
         return true;
     };
     myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
-        graph_content = "";
+        graph_content.length = 0;
         return true;
     };
     if (show_graphs !== '') {
         myDataTable.subscribe("renderEvent",
-             function () { graph_ul.innerHTML = graph_content; }
+             function () { graph_ul.innerHTML = graph_content.join(''); }
         );
     }
 

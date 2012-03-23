@@ -180,8 +180,8 @@ sub default_body {
     my $bar_width =
       $body_width / ( @$y * ( 1 + $golden_ratio ) + $golden_ratio );
 
-    my $min_data = min( grep { defined } @$y );
-    my $max_data = max( grep { defined } @$y );
+    my $min_data = min( grep { defined } @$y ) || 0;
+    my $max_data = max( grep { defined } @$y ) || 0;
     $max_data = $cutoff  if $max_data < $cutoff;
     $min_data = -$cutoff if $min_data > -$cutoff;
 
