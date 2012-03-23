@@ -1589,7 +1589,7 @@ sub Search_body {
                             -class => 'button black bigrounded',
                             -name  => 'b',
                             -value => 'Search',
-                            -title => 'Get probes relating to these GO terms'
+                            -title => 'Get related probes for GO terms below'
                         )
                     )
                 ),
