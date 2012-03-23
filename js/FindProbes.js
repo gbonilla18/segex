@@ -153,12 +153,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
         + highlight + " title=\"Show differental expression graph\" href=\"#reporter_" 
         + i + "\">" + oData + "</a></div>";       
     }
-    function wrapProbe(oData, highlight, args) {
-        var i = args[0];
-        return "<div id=\"container" + i + "\"><a " 
-                + highlight + " title=\"Show differental expression graph\" id=\"show" 
-                + i + "\">" + oData + "</a></div>";
-    }
     function wrapAccNum(b, highlight, args) {
         var species = args[0];
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
@@ -206,14 +200,61 @@ YAHOO.util.Event.addListener(window, "load", function() {
             }
             return formatted.join(', ');
     }
+
+    var event = YAHOO.util.Event;
+    var manager = (show_graphs === '') 
+        ? new YAHOO.widget.OverlayManager()
+        : null;
+
     YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var i = oRecord.getCount();
+            var this_rid = oRecord.getData(dataFields.rid);
             if (show_graphs !== '') {
-                 var this_rid = oRecord.getData(dataFields.rid);
                  elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapProbeGraphs, [i, this_rid]);
             } else {
-                 elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapProbe, [i]);
+                var a = document.createElement("a");
+                if (oColumn.key in currScope && regex_obj !== null && oData.match(regex_obj)) {
+                    a.setAttribute('class', 'highlight');
+                }
+                a.setAttribute('title', 'Show differental expression graph');
+                a.setAttribute('id', 'show' + i);
+                a.appendChild(document.createTextNode(oData));
+
+                var div = document.createElement('div');
+                div.setAttribute('id', 'container' + i);
+                div.appendChild(a);
+                elCell.appendChild(div);
+
+                // Set up SVG pop-up panel
+                var panelID = "panel" + i;
+                manager.remove(panelID);
+                event.addListener(a, 'click', function() {
+
+                    // first see if the panel already exists
+                    var panel = manager.find(panelID);
+                    if (panel !== null) {
+                        panel.show();
+                        return;
+                    }
+
+                    // if not, create a new panel
+                    panel = new YAHOO.widget.Panel(panelID, {
+                        close:true, visible:true, draggable:true,
+                        constraintoviewport:false, context:[div, "tl", "br"]
+                    });
+                    panel.setHeader(oData);
+                    panel.setBody(buildSVGElement({
+                        proj: project_id, rid: this_rid, reporter: oData,
+                        trans: show_graphs
+                    }));
+
+                    // Call register() and render() only. Calling show() is
+                    // unnecessary here because visible:true has already
+                    // been set during initialization.
+                    manager.register(panel);
+                    panel.render(div);
+                });
             }
         }
     };
@@ -266,7 +307,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
 
     var myDataTable = new YAHOO.widget.DataTable(
-    "resulttable", myColumnDefs, myDataSource, myData_config);
+        "resulttable", 
+        myColumnDefs, 
+        myDataSource, 
+        myData_config
+    );
 
     // Set up editing flow 
     var highlightEditableCell = function(oArgs) { 
@@ -280,15 +325,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
     myDataTable.onEventUnhighlightCell); 
     myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
 
-    // TODO: fix this -- no need to know anything about actual data
-    // representation
-    var nodes = YAHOO.util.Selector.query("#resulttable tr td.yui-dt-col-1 a");
-    var nl = nodes.length;
-
-    // Ideally, would want to use a "pre-formatter" event to clear graph_content
-    // TODO: fix the fact that when cells are updated via cell editor, the
-    // graphs are rebuilt unnecessarily.
-    //
+    // TODO: Ideally, would want to use a "pre-formatter" event to clear
+    // graph_content
     myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
         graph_content = "";
         return true;
@@ -297,47 +335,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
         graph_content = "";
         return true;
     };
-
-    // TODO: why are we adding a new listener every time the table is rendered?
-    myDataTable.subscribe("renderEvent", 
-        (show_graphs !== 'No Graphs') 
-        ? function () { graph_ul.innerHTML = graph_content; }
-        : function () {
-            // if the line below is moved to window.load closure,
-            // panels will no longer show up after sorting
-            var manager = new YAHOO.widget.OverlayManager();
-            var myEvent = YAHOO.util.Event;
-            for (var i = 0; i < nl; i++) {
-                myEvent.addListener("show" + i, "click", function () {
-                    var index = this.getAttribute("id").substring(4);
-                    var panel_old = manager.find("panel" + index);
-
-                    if (panel_old === null) {
-                        // replaced ".text" with ".innerHTML" because of IE
-                        // problem
-                        var panel = new YAHOO.widget.Panel("panel" + index, { 
-                            close:true, visible:true, draggable:true, 
-                            constraintoviewport:false, 
-                            context:["container" + index, "tl", "br"] 
-                        });
-                        var this_reporter = this.innerHTML;
-                        panel.setHeader(this_reporter);
-
-                        var this_rid = myDataTable.getRecord(this).getData("0");
-                        panel.setBody(buildSVGElement({
-                            proj: project_id, rid: this_rid, reporter: this_reporter, trans: show_graphs
-                        }));
-                        manager.register(panel);
-                        panel.render("container" + index);
-                        // panel.show is unnecessary here because visible:true
-                        // is set
-                    } else {
-                        panel_old.show();
-                    }
-                }, nodes[i], true);
-            }
-        }
-    );
+    if (show_graphs !== '') {
+        myDataTable.subscribe("renderEvent",
+             function () { graph_ul.innerHTML = graph_content; }
+        );
+    }
 
     return {
         oDS: myDataSource,
