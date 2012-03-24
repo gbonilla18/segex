@@ -1,4 +1,5 @@
 "use strict";
+
 function sortNestedByColumn (tuples, column) {
     tuples.sort(function (a, b) {
         a = a[column];
@@ -12,19 +13,19 @@ function sortNestedByColumnNumeric (tuples, column) {
     }); 
 }
 /******************************************************************/
-function getSelectedValue(obj)
-{
-    try {
-        return obj.options[obj.selectedIndex].value;
-    } catch(e) {
-        if (e instanceof TypeError || e instanceof DOMException) {
-            // cannot be set because no option was selected
-        } else {
-            // other error types: rethrow exception
-            throw e;
-        }
-    }
-}
+//function getSelectedValue(obj)
+//{
+//    try {
+//        return obj.options[obj.selectedIndex].value;
+//    } catch(e) {
+//        if (e instanceof TypeError || e instanceof DOMException) {
+//            // cannot be set because no option was selected
+//        } else {
+//            // other error types: rethrow exception
+//            throw e;
+//        }
+//    }
+//}
 /******************************************************************/
 function setMinWidth(el, width, old) {
     // sets minimum width for an element with content
@@ -32,9 +33,7 @@ function setMinWidth(el, width, old) {
     // first see if scrollWidth is greater than zero. If yes, reuse offsetWidth
     // instead of setting minimum. Only when scrollWidth is zero do we set
     // style.width.
-    el.style.width = (old.scrollWidth > 0) 
-    ? old.offsetWidth + 'px' 
-    : width;
+    el.style.width = (old.scrollWidth > 0) ? old.offsetWidth + 'px' : width;
 }
 /******************************************************************/
 function buildDropDown(obj, tuples, selected, old) {
@@ -51,7 +50,7 @@ function buildDropDown(obj, tuples, selected, old) {
         var value = tuples[i][1];
         var option = document.createElement('option');
         option.setAttribute('value', key);
-        if (typeof(selected) !== 'undefined' && (key in selected)) {
+        if (typeof(selected) !== 'undefined' && selected.hasOwnProperty(key)) {
             option.selected = 'selected';
         }
         option.innerHTML = value;
@@ -79,9 +78,7 @@ function clearDropDown(obj) {
 function populateProject()
 {
     var project = this.project;
-    var projects = (project.element === null)
-    ? (project.element = document.getElementById(project.elementId))
-    : project.element;
+    var projects = (project.element === null) ? (project.element = document.getElementById(project.elementId)) : project.element;
 
     // First remove all existing option elements -- need to do this even though
     // project drop-down list is never repopulated after page loads. This is
@@ -93,9 +90,11 @@ function populateProject()
     // sort by project name
     var tuples = [];
     for (var i in ProjStudyExp) {
-        var projectNode = ProjStudyExp[i];
-        var content = projectNode.name;
-        tuples.push([i, content]);
+        if (ProjStudyExp.hasOwnProperty(i)) {
+            var projectNode = ProjStudyExp[i];
+            var content = projectNode.name;
+            tuples.push([i, content]);
+        }
     }
     sortNestedByColumn(tuples, 1);
 
@@ -107,14 +106,10 @@ function populateProject()
 function populateProjectStudy()
 {
     var project = this.project;
-    var projects = (project.element === null)
-    ? (project.element = document.getElementById(project.elementId))
-    : project.element;
+    var projects = (project.element === null) ? (project.element = document.getElementById(project.elementId)) : project.element;
 
     var study = this.study;
-    var studies = (study.element === null)
-    ? (study.element = document.getElementById(study.elementId))
-    : study.element;
+    var studies = (study.element === null) ? (study.element = document.getElementById(study.elementId)) : study.element;
 
     // first remove all existing option elements
     var oldWidth = clearDropDown(studies);
@@ -127,8 +122,10 @@ function populateProjectStudy()
         // sort by study id
         var tuples = [];
         for (var i in study_data) {
-            var content = study_data[i].name;
-            tuples.push([i, content]);
+            if (study_data.hasOwnProperty(i)) {
+                var content = study_data[i].name;
+                tuples.push([i, content]);
+            }
         }
         sortNestedByColumn(tuples, 1);
 
@@ -139,21 +136,15 @@ function populateProjectStudy()
 function populateStudyExperiment()
 {
     var project = this.project;
-    var projects = (project.element === null)
-    ? (project.element = document.getElementById(project.elementId))
-    : project.element;
+    var projects = (project.element === null) ? (project.element = document.getElementById(project.elementId)) : project.element;
     var pid = getSelectedValue(projects);
 
     var study = this.study;
-    var studies = (study.element === null)
-    ? (study.element = document.getElementById(study.elementId))
-    : study.element;
+    var studies = (study.element === null) ? (study.element = document.getElementById(study.elementId)) : study.element;
     var stid = getSelectedValue(studies);
 
     var experiment = this.experiment;
-    var experiments = (experiment.element === null)
-    ? (experiment.element = document.getElementById(experiment.elementId))
-    : experiment.element;
+    var experiments = (experiment.element === null) ? (experiment.element = document.getElementById(experiment.elementId)) : experiment.element;
 
     // first remove all existing option elements
     var oldWidth = clearDropDown(experiments);
@@ -164,24 +155,24 @@ function populateStudyExperiment()
 
         // When we need to use experiments from all studies in given project, 
         // we simply point to 'experiments' property of parent project.
-        var experiment_ids = (stid === 'all') 
-        ? projectNode.experiments 
-        : projectNode.studies[stid].experiments;
+        var experiment_ids = (stid === 'all') ? projectNode.experiments : projectNode.studies[stid].experiments;
         var experiment_data = projectNode.experiments;
 
         // sort by experiment id
         var tuples = [];
         for (var i in experiment_ids) {
-            var experimentNode = experiment_data[i];
-            var content = i + '. ';
-            if (typeof(experimentNode) !== 'undefined') {
-                // no experiment info for given eid among project data -- this
-                // typically would mean that the experiment in question has been
-                // assigned to the study but not the project -- this is not
-                // supposed to happen but we consider the possibility anyway.
-                content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
+            if (experiment_ids.hasOwnProperty(i)) {
+                var experimentNode = experiment_data[i];
+                var content = i + '. ';
+                if (typeof(experimentNode) !== 'undefined') {
+                    // no experiment info for given eid among project data -- this
+                    // typically would mean that the experiment in question has been
+                    // assigned to the study but not the project -- this is not
+                    // supposed to happen but we consider the possibility anyway.
+                    content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
+                }
+                tuples.push([i, content]);
             }
-            tuples.push([i, content]);
         }
         sortNestedByColumnNumeric(tuples, 0);
 

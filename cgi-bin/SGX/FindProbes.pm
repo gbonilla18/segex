@@ -691,7 +691,7 @@ sub build_SearchPredicate {
             my $queryText = $self->{_QueryText};
             $queryText =~ s/^\W*//;
             $queryText =~ s/\W*$//;
-            my @items = map { $p->($_) } split( /[^\w^:]+/, $queryText );
+            my @items = map { $p->($_) } split( /[^\w:]+/, $queryText );
             $self->{_QueryTextProc} = \@items;
 
             ( $predicate => $params ) = @items

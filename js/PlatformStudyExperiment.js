@@ -1,4 +1,5 @@
 "use strict";
+
 function sortNestedByColumn (tuples, column) {
     tuples.sort(function (a, b) {
         a = a[column];
@@ -12,19 +13,17 @@ function sortNestedByColumnNumeric (tuples, column) {
     }); 
 }
 /******************************************************************/
-function getSelectedValue(obj)
-{
-    try {
-        return obj.options[obj.selectedIndex].value;
-    } catch(e) {
-        if (e instanceof TypeError || e instanceof DOMException) {
-            // cannot be set because no option was selected
-        } else {
-            // other error types: rethrow exception
-            throw e;
-        }
-    }
-}
+//function getSelectedValue(obj)
+//{
+//    try {
+//        return obj.options[obj.selectedIndex].value;
+//    } catch(e) {
+//        if (!(e instanceof TypeError || e instanceof DOMException)) {
+//            // cannot be set because no option was selected
+//            throw e;
+//        }
+//    }
+//}
 /******************************************************************/
 function setMinWidth(el, width, old) {
     // sets minimum width for an element with content
@@ -32,9 +31,7 @@ function setMinWidth(el, width, old) {
     // first see if scrollWidth is greater than zero. If yes, reuse offsetWidth
     // instead of setting minimum. Only when scrollWidth is zero do we set
     // style.width.
-    el.style.width = (old.scrollWidth > 0) 
-    ? old.offsetWidth + 'px' 
-    : width;
+    el.style.width = (old.scrollWidth > 0) ? old.offsetWidth + 'px' : width;
 }
 /******************************************************************/
 function buildDropDown(obj, tuples, selected, old) {
@@ -79,9 +76,7 @@ function clearDropDown(obj) {
 function populatePlatform()
 {
     var platform = this.platform;
-    var platforms = (platform.element === null)
-    ? (platform.element = document.getElementById(platform.elementId))
-    : platform.element;
+    var platforms = (platform.element === null) ? (platform.element = document.getElementById(platform.elementId)) : platform.element;
 
     // First remove all existing option elements -- need to do this even though
     // platform drop-down list is never repopulated after page loads. This is
@@ -93,12 +88,12 @@ function populatePlatform()
     // sort by platform name
     var tuples = [];
     for (var i in PlatfStudyExp) {
-        var platformNode = PlatfStudyExp[i];
-        var species = platformNode.species;
-        var content = (typeof species !== 'undefined' && species !== null)
-        ? platformNode.name + ' \\ ' + species
-        : platformNode.name;
-        tuples.push([i, content]);
+        if (PlatfStudyExp.hasOwnProperty(i)) {
+            var platformNode = PlatfStudyExp[i];
+            var species = platformNode.species;
+            var content = (typeof species !== 'undefined' && species !== null) ? platformNode.name + ' \\ ' + species : platformNode.name;
+            tuples.push([i, content]);
+        }
     }
     sortNestedByColumn(tuples, 1);
 
@@ -110,31 +105,25 @@ function populatePlatform()
 function populatePlatformStudy()
 {
     var platform = this.platform;
-    var platforms = (platform.element === null)
-    ? (platform.element = document.getElementById(platform.elementId))
-    : platform.element;
+    var platforms = (platform.element === null) ? (platform.element = document.getElementById(platform.elementId)) : platform.element;
 
     var study = this.study;
-    var studies = (study.element === null)
-    ? (study.element = document.getElementById(study.elementId))
-    : study.element;
+    var studies = (study.element === null) ? (study.element = document.getElementById(study.elementId)) : study.element;
 
     // first remove all existing option elements
     var oldWidth = clearDropDown(studies);
 
     // now add new ones
     var pid = getSelectedValue(platforms);
-    var study_data = 
-          (typeof pid !== 'undefined' 
-        && typeof PlatfStudyExp[pid] !== 'undefined') 
-        ? PlatfStudyExp[pid].studies 
-        : {};
+    var study_data = (typeof pid !== 'undefined' && typeof PlatfStudyExp[pid] !== 'undefined') ? PlatfStudyExp[pid].studies : {};
 
     // sort by study id
     var tuples = [];
     for (var i in study_data) {
-        var content = study_data[i].name;
-        tuples.push([i, content]);
+        if (study_data.hasOwnProperty(i)) {
+            var content = study_data[i].name;
+            tuples.push([i, content]);
+        }
     }
     sortNestedByColumn(tuples, 1);
 
@@ -144,21 +133,15 @@ function populatePlatformStudy()
 function populateStudyExperiment()
 {
     var platform = this.platform;
-    var platforms = (platform.element === null)
-    ? (platform.element = document.getElementById(platform.elementId))
-    : platform.element;
+    var platforms = (platform.element === null) ? (platform.element = document.getElementById(platform.elementId)) : platform.element;
     var pid = getSelectedValue(platforms);
 
     var study = this.study;
-    var studies = (study.element === null)
-    ? (study.element = document.getElementById(study.elementId))
-    : study.element;
+    var studies = (study.element === null) ? (study.element = document.getElementById(study.elementId)) : study.element;
     var stid = getSelectedValue(studies);
 
     var experiment = this.experiment;
-    var experiments = (experiment.element === null)
-    ? (experiment.element = document.getElementById(experiment.elementId))
-    : experiment.element;
+    var experiments = (experiment.element === null) ? (experiment.element = document.getElementById(experiment.elementId)) : experiment.element;
 
     // first remove all existing option elements
     var oldWidth = clearDropDown(experiments);
@@ -169,24 +152,24 @@ function populateStudyExperiment()
 
         // When we need to use experiments from all studies in given platform, 
         // we simply point to 'experiments' property of parent platform.
-        var experiment_ids = (stid === 'all') 
-        ? platformNode.experiments 
-        : platformNode.studies[stid].experiments;
+        var experiment_ids = (stid === 'all') ? platformNode.experiments : platformNode.studies[stid].experiments;
         var experiment_data = platformNode.experiments;
 
         // sort by experiment id
         var tuples = [];
         for (var i in experiment_ids) {
-            var experimentNode = experiment_data[i];
-            var content = i + '. ';
-            if (typeof(experimentNode) !== 'undefined') {
-                // no experiment info for given eid among platform data -- this
-                // typically would mean that the experiment in question has been
-                // assigned to the study but not the platform -- this is not
-                // supposed to happen but we consider the possibility anyway.
-                content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
+            if (experiment_ids.hasOwnProperty(i)) {
+                var experimentNode = experiment_data[i];
+                var content = i + '. ';
+                if (typeof(experimentNode) !== 'undefined') {
+                    // no experiment info for given eid among platform data -- this
+                    // typically would mean that the experiment in question has been
+                    // assigned to the study but not the platform -- this is not
+                    // supposed to happen but we consider the possibility anyway.
+                    content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
+                }
+                tuples.push([i, content]);
             }
-            tuples.push([i, content]);
         }
         sortNestedByColumnNumeric(tuples, 0);
 

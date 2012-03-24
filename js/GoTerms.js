@@ -1,3 +1,5 @@
+;(function () {
+
 "use strict";
 
 var dom = YAHOO.util.Dom;
@@ -45,7 +47,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             queryBuff.
             replace(/^\W*/, '').
             replace(/\W*$/, '').
-            split(/[^\w^:]+/), null);
+            split(/[^\w:]+/), null);
     }
 
     var selectAll = dom.get("resulttable_selectall");
@@ -57,9 +59,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         if (queriedPhrases.length === 0) {
             return null;
         }
-        var joined = (queriedPhrases.length > 1) 
-            ? '(?:' + queriedPhrases.join('|') + ')' 
-            : queriedPhrases.join('|');
+        var joined = (queriedPhrases.length > 1) ? '(?:' + queriedPhrases.join('|') + ')' : queriedPhrases.join('|');
         var bounds = {
             'Prefix':    ['\\b',  '\\w*'],
             'Full-Word': ['\\b',  '\\b' ],
@@ -74,13 +74,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }
     }());
 
-    var highlightWords = (regex_obj !== null) 
-        ? function(x) {
+    var highlightWords = (regex_obj !== null) ? function(x) {
             return x.replace(regex_obj, function(v) { 
                 return '<span class="highlight">' + v + '</span>';
             });
-        } 
-        : function(x) {
+        } : function(x) {
             return x;
         };
 
@@ -129,18 +127,12 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     // label formatter: if searching for names only, only highlight names, not
     // descriptions.
-    var wrapGONameDesc = (scope === 'GO Names')
-        ? function(oData, oRecord) { 
+    var wrapGONameDesc = (scope === 'GO Names') ? function(oData, oRecord) { 
             var goID = 'GO:' + zeroPad(oRecord.getData('0'), 7);
-            return '<a target="_blank" title="Search EBI QuickGO database for ' + goID + '" href="http://www.ebi.ac.uk/QuickGO/GTerm?id=' + goID + '" class="TicketName">' + highlightWords(oData) + 
-                        '</a><br/><span >' 
-                        + oRecord.getData('2') + '</span>' 
-            }
-        : function(oData, oRecord) { 
+            return '<a target="_blank" title="Search EBI QuickGO database for ' + goID + '" href="http://www.ebi.ac.uk/QuickGO/GTerm?id=' + goID + '" class="TicketName">' + highlightWords(oData) + '</a><br/><span >' + oRecord.getData('2') + '</span>';
+            } : function(oData, oRecord) { 
             var goID = 'GO:' + zeroPad(oRecord.getData('0'), 7);
-            return '<a target="_blank" title="Search EBI QuickGO database for ' + goID + '" href="http://www.ebi.ac.uk/QuickGO/GTerm?id=' + goID + '" class="TicketName">' + highlightWords(oData) + 
-                        '</a><br/><span >' 
-                        + highlightWords(oRecord.getData('2')) + '</span>' 
+            return '<a target="_blank" title="Search EBI QuickGO database for ' + goID + '" href="http://www.ebi.ac.uk/QuickGO/GTerm?id=' + goID + '" class="TicketName">' + highlightWords(oData) + '</a><br/><span >' + highlightWords(oRecord.getData('2')) + '</span>';
             };
 
     YAHOO.widget.DataTable.Formatter.formatGOName = function(elCell, oRecord, oColumn, oData) {
@@ -172,7 +164,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"3", sortable:true, resizeable:true, 
             label:data.headers[3], formatter:"formatGOType"},
         {key:"4", sortable:true, resizeable:true,
-            parser:'number', label:data.headers[4]},
+            parser:'number', label:data.headers[4]}
     ];
 
     var myData_config = {
@@ -185,3 +177,5 @@ YAHOO.util.Event.addListener(window, "load", function() {
     "resulttable", myColumnDefs, myDataSource, myData_config);
 
 });
+
+}());

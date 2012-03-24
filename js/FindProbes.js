@@ -1,3 +1,5 @@
+;(function () {
+
 "use strict";
 
 /*
@@ -28,16 +30,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     var graph_ul;
     var graph_content = [];
-    var queriedPhrases = (match === 'Full-Word') 
-        ? splitIntoPhrases(queryText)
-        : queryText.split(/[,\s]+/);
+    var queriedPhrases = 
+        (match === 'Full-Word') ?  splitIntoPhrases(queryText) : queryText.split(/[,\s]+/);
     var regex_obj = (function() {
         if (queriedPhrases.length === 0) {
             return null;
         }
-        var joined = (queriedPhrases.length > 1) 
-            ? '(?:' + queriedPhrases.join('|') + ')' 
-            : queriedPhrases.join('|');
+        var joined = 
+            (queriedPhrases.length > 1) ? '(?:' + queriedPhrases.join('|') + ')' : queriedPhrases.join('|');
         var bounds = {
             'Prefix':    ['\\b',  '\\w*'],
             'Full-Word': ['\\b',  '\\b' ],
@@ -52,13 +52,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }
     }());
 
-    var highlightWords = (regex_obj !== null) 
-        ? function(x) {
+    var highlightWords = (regex_obj !== null) ? function(x) {
             return x.replace(regex_obj, function(v) { 
                 return '<span class="highlight">' + v + '</span>';
             });
-        } 
-        : function(x) {
+        } : function(x) {
             return x;
         };
 
@@ -66,19 +64,17 @@ YAHOO.util.Event.addListener(window, "load", function() {
         function uriFromKeyVal(obj) {
             var uri_part = [];
             for (var key in obj) {
-                var val = obj[key];
-                uri_part.push(key + '=' + val);
+                if (obj.hasOwnProperty(key)) {
+                    var val = obj[key];
+                    uri_part.push(key + '=' + val);
+                }
             }
             return uri_part.join('&');
         }
         var resourceURI = "./?a=graph&" + uriFromKeyVal(obj);
         var width = 1200;
         var height = 600;
-        return "<object type=\"image/svg+xml\" width=\"" 
-        + width + "\" data=\"" 
-        + resourceURI + "\"><embed src=\"" + resourceURI 
-        + "\" width=\"" + width + "\" height=\"" + height 
-        + "\" /></object>";
+        return "<object type=\"image/svg+xml\" width=\"" + width + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
     }
 
     if (show_graphs !== 'No Graphs') {
@@ -96,13 +92,13 @@ YAHOO.util.Event.addListener(window, "load", function() {
         'GO IDs'               : { },
         'Probe IDs'            : { '2' : 1 },
         'Genes/Accession Nos.' : { '5' : 1, '6' : 1 },
-        'Gene Names/Desc.'     : { '6' : 1, '9' : 1 },
+        'Gene Names/Desc.'     : { '6' : 1, '9' : 1 }
     };
     var currScope = columns2highlight[scope];
 
     // extra_fields > 0
     if (extra_fields > 0) {
-        dataFields['species']  = '3';
+        dataFields.species = '3';
         myColumnList.push(
             {key:"1", parser:"number"},
             {key:"2"},
@@ -148,54 +144,38 @@ YAHOO.util.Event.addListener(window, "load", function() {
     function wrapAccNum(b, highlight, args) {
         var species = args[0];
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
-            return "<a " + highlight + " title=\"Search Ensembl for " + b 
-                + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" 
-            + b + "\">" + b + "</a>";
+            return "<a " + highlight + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>";
         } else {
-            return "<a " + highlight + " title=\"Search NCBI Nucleotide for " + b 
-                + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" 
-            + species + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>";
+            return "<a " + highlight + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + species + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>";
         }
     }
     function wrapGeneSymbol(b, highlight, args) {
         var species = args[0];
         var gsymbol = b;
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
-            return "<a " + highlight + " title=\"Search Ensembl for " + b 
-                + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" 
-            + b + "\">" + b + "</a>";
+            return "<a " + highlight + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>";
         } else if (b.match(/^\d+$/)) {
-            return "<a " + highlight + " title=\"Search NCBI Gene for " + b 
-                + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/gene?term=" 
-            + b + "[uid]\">" + b + "</a>";
+            return "<a " + highlight + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/gene?term=" + b + "[uid]\">" + b + "</a>";
         } else if (b.match(/^\w+_similar_to/)) {
-            var match = /^(\w+)_similar_to/.exec(b);
-            var gsymbol = match[1];
+            gsymbol = /^(\w+)_similar_to/.exec(b)[1];
         }
-        return "<a " + highlight + " title=\"Search NCBI Gene for " + gsymbol 
-                + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" 
-            + species + "[ORGN]+AND+" + gsymbol + "[GENE]\">" + b + "</a>";
+        return "<a " + highlight + " title=\"Search NCBI Gene for " + gsymbol + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + species + "[ORGN]+AND+" + gsymbol + "[GENE]\">" + b + "</a>";
     }
 
     function formatSymbols(symbol, colKey, wrapperFun, args) {
-            // split by commas while removing spaces
-            var array = symbol.split(/[,\s]+/);
-            var len = array.length;
-            var formatted = new Array(len);
-            for (var i = 0; i < len; i++) {
-                var val = array[i];
-                formatted[i] = wrapperFun(val,
-                    ((colKey in currScope && regex_obj !== null && val.match(regex_obj)) 
-                    ? 'class="highlight"' 
-                    : ''), args
-                );
-            }
-            return formatted.join(', ');
+        // split by commas while removing spaces
+        var array = symbol.split(/[,\s]+/);
+        var len = array.length;
+        var formatted = new Array(len);
+        for (var i = 0; i < len; i++) {
+            var val = array[i];
+            var higlightString = (currScope.hasOwnProperty(colKey) && regex_obj !== null && val.match(regex_obj)) ? 'class="highlight"' : '';
+            formatted[i] = wrapperFun(val, higlightString, args);
+        }
+        return formatted.join(', ');
     }
 
-    var manager = (show_graphs === '') 
-        ? new YAHOO.widget.OverlayManager()
-        : null;
+    var manager = (show_graphs === '') ? new YAHOO.widget.OverlayManager() : null;
 
     formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
@@ -203,8 +183,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
             var this_rid = oRecord.getData(dataFields.rid);
 
             var a = document.createElement("a");
-            if (oColumn.key in currScope && regex_obj !== null && oData.match(regex_obj)) {
-                a.setAttribute('class', highlightClass);
+            if (currScope.hasOwnProperty(oColumn.key) && regex_obj !== null && oData.match(regex_obj)) {
+                a.setAttribute('class', 'highlight');
             }
             a.setAttribute('title', 'Show differental expression graph');
             a.appendChild(document.createTextNode(oData));
@@ -270,24 +250,20 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
     formatter.formatGeneName = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
-            elCell.innerHTML = (oColumn.key in currScope) ? highlightWords(oData) : oData;
+            elCell.innerHTML = currScope.hasOwnProperty(oColumn.key) ? highlightWords(oData) : oData;
         }
-    }
+    };
     formatter.formatPlatform = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = (oData.match(new RegExp('^' + species))) 
-            ? oData
-            : species + ' / ' + oData;
+            elCell.innerHTML = (oData.match(new RegExp('^' + species))) ? oData : species + ' / ' + oData;
         }
     };
     formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             dom.addClass(elCell, 'sgx-dt-sequence');
             var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData 
-            + "&type=DNA&org=" + species + "\" title=\"Search for this sequence using BLAT in " 
-            + species + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
+            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + species + "\" title=\"Search for this sequence using BLAT in " + species + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
         }
     };
 
@@ -343,3 +319,5 @@ YAHOO.util.Event.addListener(window, "load", function() {
         oDT: myDataTable
     };
 });
+
+}());

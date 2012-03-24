@@ -12,7 +12,7 @@ function selectTabFromHash(tabView) {
         var tabHash = url[1];
         var tabs = tabView.get('tabs');
         for (var i = 0, tl = tabs.length; i < tl; i++) {
-            if (tabs[i].get('href') == '#' + tabHash) {
+            if (tabs[i].get('href') === '#' + tabHash) {
                 tabView.set('activeIndex', i);
                 break;
             }
@@ -23,8 +23,9 @@ function selectTabFromHash(tabView) {
 // export_table
 //==============================================================================
 function export_table(e) {
-    var records = this.records;
-    var row_count = records.length;
+    var this_records = this.records;
+    var this_headers = this.headers;
+    var row_count = this_records.length;
 
     var win = window.open("");
     var doc = win.document.open("text/html");
@@ -33,24 +34,25 @@ function export_table(e) {
 
     // table head
     var col_count;
-    if (this.headers) {
-        col_count = this.headers.length;
-        doc.write(this.headers.join("\t"));
+    if (this_headers) {
+        col_count = this_headers.length;
+        doc.write(this_headers.join("\t"));
         doc.write("\n");
     }
 
     // table body
-    for (var i = 0; i < row_count; i++) {
-        var row_hash = records[i];
+    var i, j;
+    for (i = 0; i < row_count; i++) {
+        var row_hash = this_records[i];
         var row_array = [];
         if (col_count) {
             // fill up until col_count
-            for (var j = 0; j < col_count; j++) {
+            for (j = 0; j < col_count; j++) {
                 row_array.push(row_hash[j]);
             }
         } else {
             // fill up until the first empty element
-            for (var j = 0; row_hash[j]; j++) {
+            for (j = 0; row_hash[j]; j++) {
                 row_array.push(row_hash[j]);
             }
         }
@@ -75,7 +77,9 @@ function setupToggles(event, attr, getValue, callBack) {
         // fill out 'dependents' helper hash
         var dependents = {};
         for (var inv_id in inv_prop) {
-            dependents[inv_id] = document.getElementById(inv_id);
+            if (inv_prop.hasOwnProperty(inv_id)) {
+                dependents[inv_id] = document.getElementById(inv_id);
+            }
         }
 
         return function() {
@@ -83,49 +87,54 @@ function setupToggles(event, attr, getValue, callBack) {
             // need to hide all objects not referenced by sel
             // and show all objects that are.
             for (var dep_id in dependents) {
-                var dep_obj = dependents[dep_id];
-                if (dep_obj !== null) {
-                    dep_obj.style.display = 
-                    (sel in inv_prop[dep_id]) ? 'block' : 'none';
+                if (dependents.hasOwnProperty(dep_id)) {
+                    var dep_obj = dependents[dep_id];
+                    if (dep_obj !== null) {
+                        dep_obj.style.display = inv_prop[dep_id].hasOwnProperty(sel) ? 'block' : 'none';
+                    }
                 }
             }
             return true;
-        }
+        };
     }
 
     // inverse the inside hash
+    var id;
     var inverse_attr = {};
-    for (var id in attr) {
-        var hash = attr[id];
-        var tmp = {};
-        for (var key in hash) {
-            var idList = hash[key];
-            for (var i = 0, len = idList.length; i < len; i++) {
-                var id2 = idList[i];
-                if (id2 in tmp) {
-                    tmp[id2][key] = null;
-                } else {
-                    var tmp2 = {};
-                    tmp2[key] = null;
-                    tmp[id2] = tmp2;
+    for (id in attr) {
+        if (attr.hasOwnProperty(id)) {
+            var hash = attr[id];
+            var tmp = {};
+            for (var key in hash) {
+                if (hash.hasOwnProperty(key)) {
+                    var idList = hash[key];
+                    for (var i = 0, len = idList.length; i < len; i++) {
+                        var id2 = idList[i];
+                        if (tmp.hasOwnProperty(id2)) {
+                            tmp[id2][key] = null;
+                        } else {
+                            var tmp2 = {};
+                            tmp2[key] = null;
+                            tmp[id2] = tmp2;
+                        }
+                    }
                 }
             }
+            inverse_attr[id] = tmp;
         }
-        inverse_attr[id] = tmp;
     }
 
     // code below must be performed when DOM is loaded
-    for (var id in attr) {
-        var toggle = createToggle(id);
-        toggle();
-        var el = document.getElementById(id);
-        YAHOO.util.Event.addListener(
-            id, 
-            event, 
-            (typeof callBack !== 'undefined') 
-            ? function() { callBack(el); toggle(); } 
-            : function() { toggle();  }
-        );
+    var this_callback = (typeof callBack !== 'undefined') ? function () { callBack(this); toggle(); } : toggle;
+    for (id in attr) {
+        if (attr.hasOwnProperty(id)) {
+            var toggle = createToggle(id);
+            toggle();
+            var el = document.getElementById(id);
+            YAHOO.util.Event.addListener(
+                id, event, this_callback, el
+            );
+        }
     }
 }
 //==============================================================================
@@ -136,7 +145,7 @@ function deleteConfirmation(oArg)
     var itemName = (oArg && oArg.itemName) ? oArg.itemName : "item";
     var msg = "Are you sure you want to delete this " + itemName  + "?";
     if (oArg && oArg.childName) {
-        msg += " Deleting it will also remove any " + childName + "(s) it contains."; 
+        msg += " Deleting it will also remove any " + oArg.childName + "(s) it contains."; 
     }
     return confirm(msg);
 }
@@ -148,10 +157,8 @@ function getSelectedValue(obj)
     try {
         return obj.options[obj.selectedIndex].value;
     } catch(e) {
-        if (e instanceof TypeError || e instanceof DOMException) {
-            // cannot be set because no option was selected
-        } else {
-            // other error types: rethrow exception
+        // avoid rethrow: cannot be set because no option was selected
+        if (!(e instanceof TypeError || e instanceof DOMException)) {
             throw e;
         }
     }
@@ -179,15 +186,16 @@ function splitIntoPhrases(str) {
     var extractQuoted = /^"([^"]*)"/;
     var extractWord = /^\W*(\w*)/;
     var phrases = [];
+    var matched;
     while (str.length > 0) {
         // remove non-word non-quote characters from beginning
-        str = str.replace(/^[^\w^"]*/, '');
+        str = str.replace(/^[^\w"]*/, '');
         
         var matchQuoted = extractQuoted.exec(str);
         if (matchQuoted !== null) {
             // extract quoted substring
             str = str.substring(matchQuoted[0].length);
-            var matched = matchQuoted[1];
+            matched = matchQuoted[1];
             if (matched.length > 0) {
                 phrases.push(matched);
             }
@@ -196,7 +204,7 @@ function splitIntoPhrases(str) {
             var matchWord = extractWord.exec(str);
             if (matchWord !== null) {
                 str = str.substring(matchWord[0].length);
-                var matched = matchWord[1];
+                matched = matchWord[1];
                 if (matched.length > 0) {
                     phrases.push(matched);
                 }
@@ -242,7 +250,8 @@ function zeroPad(num, places) {
 
     // pad number `num' with zeros to `places' places
     var zero = places - num.toString().length + 1;
-    return Array(+(zero > 0 && zero)).join("0") + num;
+    var arr = new Array(+(zero > 0 && zero));
+    return arr.join("0") + num;
 }
 //==============================================================================
 // Recurse upward in the DOM hierarchy and return the first node that matches
@@ -257,9 +266,7 @@ function getFirstParentOfName(id, parentName) {
     if (elParent === null) {
         return null;
     }
-    return (elParent.nodeName.toUpperCase() === parentName.toUpperCase())
-        ? elParent
-        : getFirstParentOfName(elParent, parentName);
+    return (elParent.nodeName.toUpperCase() === parentName.toUpperCase()) ? elParent : getFirstParentOfName(elParent, parentName);
 }
 //==============================================================================
 // Object utilities
@@ -269,7 +276,9 @@ function object_length(obj) {
     // count number of own properties in object
     var size = 0, key;
     for (key in obj) {
-        if (obj.hasOwnProperty(key)) size++;
+        if (obj.hasOwnProperty(key)) {
+            size++;
+        }
     }
     return size;
 }
@@ -326,28 +335,29 @@ function validate_fields(of,reqfields) {
         dom.removeClass(f.parentNode, 'error');
         // completely strip whitespace and place field value into value 
         // test if the required field has an error, according to its type
+        var value;
         switch(f.type.toLowerCase()) {
             case "text":
-                var value = f.value.replace(/ /g,"");
+                value = f.value.replace(/ /g,"");
                 switch(f.id.toLowerCase()) {
                     case "email":
                     case "email1":
                     case "email2":
-                        if(!cf_isEmailAddr(value )) {cf_adderr(f)}
+                        if(!cf_isEmailAddr(value )) { cf_adderr(f); }
                         break;
                     default:
-                        if(value  === "") {cf_adderr(f)}
+                        if(value  === "") {cf_adderr(f); }
                 }
                 break;
             case "select-one":
-                var value = getSelectedValue(f);
-                if (value ===""){cf_adderr(f)}
+                value = getSelectedValue(f);
+                if (value ===""){ cf_adderr(f); }
                 break;
             case "file":
             case "textarea":
             case "password":
-                var value = f.value.replace(/ /g,"");
-                if(value ===""){cf_adderr(f)}
+                value = f.value.replace(/ /g,"");
+                if(value ===""){ cf_adderr(f); }
                 break;
         }
     }
@@ -364,7 +374,7 @@ function validate_fields(of,reqfields) {
             error_container.id = 'message';
             var newp=document.createElement("p");
             dom.addClass(newp, 'error');
-            newp.appendChild(document.createTextNode(errorMsg))
+            newp.appendChild(document.createTextNode(errorMsg));
             error_container.appendChild(newp);
             content_div.insertBefore(error_container, content_div.firstChild);
             window.location.hash = 'message';

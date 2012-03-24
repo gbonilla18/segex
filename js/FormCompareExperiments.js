@@ -1,4 +1,7 @@
+;(function () {
+
 "use strict";
+
 // =============================================================================
 // Experiment Comparison Page
 // =============================================================================
@@ -10,14 +13,19 @@ var experiment_count = 0; // how many experiments are displayed
 
 // Functions
 function $() {
-    var elements = new Array();
-    for (var i = 0; i < arguments.length; i++) {
-        var element = arguments[i];
-        if (typeof element == 'string')
-            element = document.getElementById(element);
-        if (arguments.length == 1)
-            return element;
-        elements.push(element);
+    var arglen = arguments.length;
+    var el;
+    if (arglen === 1) {
+        el = arguments[0];
+        return (typeof el === 'string') ? document.getElementById(el) : el;
+    }
+    var elements = new Array(arglen);
+    for (var i = 0; i < arglen; i++) {
+        el = arguments[i];
+        if (typeof el === 'string') {
+            el = document.getElementById(el);
+        }
+        elements[i] = el;
     }       
     return elements;
 }
@@ -25,22 +33,24 @@ function getSelectStudies(stid) {
     // sort by study id
     var tuples = [];
     for (var i in study) {
-        if (study[i][3] === current_platform) {
-            tuples.push([i, study[i][0]]);
+        if (study.hasOwnProperty(i)) {
+            if (study[i][3] === current_platform) {
+                tuples.push([i, study[i][0]]);
+            }
         }
     }
     // generic tuple sort (sort hash by numeric key)
     tuples.sort(function(a, b) {
-        a = parseInt(a[0]);
-        b = parseInt(b[0]);
+        a = parseInt(a[0], 10);
+        b = parseInt(b[0], 10);
         return a < b ? -1 : (a > b ? 1 : 0); 
     });
     // build dropdown box
     var option_string = '';
     first_study = tuples[0][0];
-    for (var i = 0, len = tuples.length; i < len; i++) {
-        var key = tuples[i][0];
-        var value = tuples[i][1];
+    for (var j = 0, len = tuples.length; j < len; j++) {
+        var key = tuples[j][0];
+        var value = tuples[j][1];
         var sel = (typeof stid !== 'undefined' && stid === key) ? 'selected="selected"' : '' ;
         option_string += '<option ' + sel + ' value="' + key + '">' + value + '</option>';
     }
@@ -49,21 +59,25 @@ function getSelectStudies(stid) {
 function getSelectExperiments(stid, eid) {
     // sort by experiment id
     var tuples = [];
-    for (var i in study[stid][1]) {
-        var value = study[stid][1][i] + ' / ' + study[stid][2][i];
-        tuples.push([i, value]);
+    var value;
+    var val = study[stid][1];
+    for (var i in val) {
+        if (val.hasOwnProperty(i)) {
+            value = val[i] + ' / ' + study[stid][2][i];
+            tuples.push([i, value]);
+        }
     }
     // generic tuple sort (sort hash by numeric key)
     tuples.sort(function(a, b) {
-        a = parseInt(a[0]);
-        b = parseInt(b[0]);
+        a = parseInt(a[0], 10);
+        b = parseInt(b[0], 10);
         return a < b ? -1 : (a > b ? 1 : 0); 
     });
     // build dropdown box
     var option_string = '';   
-    for (var i = 0, len = tuples.length; i < len; i++) {
-        var key = tuples[i][0];
-        var value = tuples[i][1];
+    for (var j = 0, len = tuples.length; j < len; j++) {
+        var key = tuples[j][0];
+        value = tuples[j][1];
         var sel = (typeof eid !== 'undefined' && eid === stid + '|' + key) ? 'selected="selected"' : '' ;
         option_string += '<option ' + sel + ' value="' + stid + '|' + key + '">' + value + '</option>';
     }
@@ -76,20 +90,24 @@ function populateSelectExperiments(obj, stid) {
     }
     // sort by experiment id
     var tuples = [];
-    for (var i in study[stid][1]) {
-        var value = study[stid][1][i] + ' / ' + study[stid][2][i];
-        tuples.push([i, value]);
+    var value;
+    var val = study[stid][1];
+    for (var i in val) {
+        if (val.hasOwnProperty(i)) {
+            value = val[i] + ' / ' + study[stid][2][i];
+            tuples.push([i, value]);
+        }
     }
     // generic tuple sort (sort hash by numeric key)
     tuples.sort(function(a, b) {
-        a = parseInt(a[0]);
-        b = parseInt(b[0]);
+        a = parseInt(a[0], 10);
+        b = parseInt(b[0], 10);
         return a < b ? -1 : (a > b ? 1 : 0); 
     });
     // build dropdown box
-    for (var i = 0, len = tuples.length; i < len; i++) {
-        var key = tuples[i][0];
-        var value = tuples[i][1];
+    for (var j = 0, len = tuples.length; j < len; j++) {
+        var key = tuples[j][0];
+        value = tuples[j][1];
         var new_opt = document.createElement("option");
         new_opt.setAttribute('value', stid + '|' + key);
         //new_opt.text = value; // does not work in IE
@@ -155,8 +173,8 @@ function setSampleOrder(obj) {
     var denom = (obj.checked) ? 1 : 2;
 
     // loop through all the experiment options and set sample order
-    var opt = $("eid_" + exp_index).options;
-    for (var i = 0, len = opt.length; i < len; ++i) 
+    opt = $("eid_" + exp_index).options;
+    for (i = 0, len = opt.length; i < len; ++i) 
     {
         var eid = opt[i].value.split("|")[1];
         opt[i].text = study[stid][num][eid] + ' / ' + study[stid][denom][eid];
@@ -204,7 +222,9 @@ function populatePlatforms(id) {
     // sort by platform name
     var tuples = [];
     for (var i in platform) {
-        tuples.push([i, platform[i][0]]);
+        if (platform.hasOwnProperty(i)) {
+            tuples.push([i, platform[i][0]]);
+        }
     }
     // generic tuple sort (sort hash by value)
     tuples.sort(function(a, b) {
@@ -213,9 +233,9 @@ function populatePlatforms(id) {
         return a < b ? -1 : (a > b ? 1 : 0); 
     });
     // build dropdown box
-    for (var i = 0, len = tuples.length; i < len; i++) {
-        var key = tuples[i][0];
-        var value = tuples[i][1];
+    for (var j = 0, len = tuples.length; j < len; j++) {
+        var key = tuples[j][0];
+        var value = tuples[j][1];
         var new_opt = document.createElement("option");
         new_opt.setAttribute('value', key);
         //new_opt.text = value; // does not work in IE
@@ -282,3 +302,5 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     populatePlatforms("platform");
     addExperiment();
 });
+
+}());

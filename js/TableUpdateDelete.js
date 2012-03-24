@@ -1,4 +1,5 @@
 "use strict";
+
 /* depends on the following YUI files:
 *
 * build/yahoo-dom-event/yahoo-dom-event.js
@@ -6,13 +7,10 @@
 * build/element/element-min.js
 * build/datasource/datasource-min.js
 * build/datatable/datatable-min.js
-*
 */
 
 function ajaxError(o, verb, name, resourceURI) {
-    return (o.responseText !== undefined) 
-    ? "Error encountered when attempting to " + verb + " " + name + " under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + "):\n\n" + o.responseText
-    : "Timeout on updating record (" + name + ") under " + resourceURI;
+    return (o.responseText !== undefined) ? "Error encountered when attempting to " + verb + " " + name + " under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + "):\n\n" + o.responseText : "Timeout on updating record (" + name + ") under " + resourceURI;
 }
 
 function highlightEditableCell(oArgs) { 
@@ -71,8 +69,10 @@ function createCellDropdown(resourceURIBuilder, rowNameBuilder) {
         var name_column = lookup_table.symbol2index[name_field];
         var index_column = lookup_table.symbol2index[lookup_table.key[0]];
         for (var key in lookup_records) {
-            var value = lookup_records[key];
-            transformed_data.push({ label: value[name_column], value: value[index_column]});
+            if (lookup_records.hasOwnProperty(key)) {
+                var value = lookup_records[key];
+                transformed_data.push({ label: value[name_column], value: value[index_column]});
+            }
         }
 
         return createCellDropdownCreator(transformed_data, update_field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
@@ -214,16 +214,14 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
 }
 
 function createDeleteDataBuilder(oArg) {
-    var keys = (typeof oArg !== "undefined" && typeof oArg.key !== "undefined") 
-    ? oArg.key
-    : {};
-    var tableData = (typeof oArg !== "undefined" && typeof oArg.table !== "undefined") 
-    ? "&table=" + oArg.table
-    : "";
+    var keys = (typeof oArg !== "undefined" && typeof oArg.key !== "undefined") ? oArg.key : {};
+    var tableData = (typeof oArg !== "undefined" && typeof oArg.table !== "undefined") ? "&table=" + oArg.table : "";
     return function(oRecord) {
         var data = "b=ajax_delete" + tableData;
         for (var key in keys) {
-            data += "&" + key + "=" + encodeURIComponent(oRecord.getData(keys[key]));
+            if (keys.hasOwnProperty(key)) {
+                data += "&" + key + "=" + encodeURIComponent(oRecord.getData(keys[key]));
+            }
         }
         return data;
     };
@@ -289,7 +287,7 @@ function expandJoinedFields(mainTable, lookupTables) {
             obj.lookup_by = {};
             var this_field = tuple[0];
             var other_field = tuple[1];
-            if (this_field in tmp) {
+            if (tmp.hasOwnProperty(this_field)) {
                 tmp[this_field].push([other_table, other_field, obj]);
             } else {
                 tmp[this_field] = [ [other_table, other_field, obj] ];
@@ -302,11 +300,11 @@ function expandJoinedFields(mainTable, lookupTables) {
     mainTable_meta = mainTable.meta;
     for (var k = 0, num_fields = mainTable_fields.length; k < num_fields; k++) {
         var field = mainTable_fields[k];
-        if (field in mainTable_meta) {
+        if (mainTable_meta.hasOwnProperty(field)) {
             // replace with object containing parser
             mainTable_fields[k] = { key: field, parser: mainTable_meta[field].parser };
         }
-        if (field in tmp) {
+        if (tmp.hasOwnProperty(field)) {
             var objArray = tmp[field];
             var extra_col_count = 0;
             for (var l = 0, obj_len = objArray.length; l < obj_len; l++) {
@@ -331,9 +329,7 @@ function expandJoinedFields(mainTable, lookupTables) {
                     var join_field = extra_fields[f];
                     // either plain field name or object containing parser
                     mainTable_fields.push(
-                        (join_field in extra_meta) 
-                        ? { key: join_field, parser: extra_meta[join_field].parser } 
-                        : join_field
+                        extra_meta.hasOwnProperty(join_field) ? { key: join_field, parser: extra_meta[join_field].parser } : join_field
                     );
                 }
 
@@ -345,7 +341,7 @@ function expandJoinedFields(mainTable, lookupTables) {
                     var record = lookupTable_records[r];
                     var data_slice = record.slice(extra_key_len);
                     var key_val = record[lookupIndex];
-                    if (key_val in data) {
+                    if (data.hasOwnProperty(key_val)) {
                         var this_array = data[key_val];
                         for (var c = 0, clen = this_array.length; c < clen; c++) {
                             // zip on commas
@@ -363,10 +359,10 @@ function expandJoinedFields(mainTable, lookupTables) {
             // values). Problem: how to tell that the joined field has no
             // dropdown formatter?
             for (var i = 0; i < num_records; i++) {
-                var record = mainTable_records[i];
-                var field_value = record[k];
+                var this_record = mainTable_records[i];
+                var field_value = this_record[k];
                 for (var j = 0; j < extra_col_count; j++) {
-                    record.push(field_value);
+                    this_record.push(field_value);
                 }
             }
         }
@@ -379,7 +375,9 @@ function createResourceURIBuilder(uriPrefix, columnMapping) {
         var resourceURI = uriPrefix;
         if (typeof columnMapping !== "undefined") {
             for (var key in columnMapping) {
-                resourceURI += "&" + key + "=" + encodeURIComponent(oRecord.getData(columnMapping[key]));
+                if (columnMapping.hasOwnProperty(key)) {
+                    resourceURI += "&" + key + "=" + encodeURIComponent(oRecord.getData(columnMapping[key]));
+                }
             }
         }
         return resourceURI;
@@ -402,23 +400,20 @@ function createRowNameBuilder(nameColumns, item_class) {
 
 function subscribeEnMasse(el, obj) {
     for (var event in obj) {
-        var handler = obj[event];
-        el.subscribe(event, handler);
+        if (obj.hasOwnProperty(event)) {
+            var handler = obj[event];
+            el.subscribe(event, handler);
+        }
     }
 }
 
 // helper functions
 function formatEmail(elLiner, oRecord, oColumn, oData) {
-    elLiner.innerHTML = (oData !== null) 
-    ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>"
-    : '';
+    elLiner.innerHTML = (oData !== null) ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>" : '';
 }
 
 function formatPubMed(elLiner, oRecord, oColumn, oData) {
-    elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) 
-    ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, 
-    '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>')
-    : '';
+    elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>') : '';
 }
 
 // returns a new array containing a specified subset of the old one
@@ -445,7 +440,7 @@ function populateDropdowns(lookupTables, lookup, data) {
         var this_field = fieldmap[0];
 
         // only use first lookup
-        if (!(this_field in inverseLookup)) {
+        if (!inverseLookup.hasOwnProperty(this_field)) {
             var table_info = lookupTables[table];
             if (typeof table_info !== 'undefined') {
                 var other_field = fieldmap[1];
@@ -467,8 +462,8 @@ function populateDropdowns(lookupTables, lookup, data) {
                 var records = table_info.records;
                 var records_length = records.length;
                 var id_name = [['', '@Choose ' + table_info.symbol2name[names[0]] + ':']];
-                for (var i = 0; i < records_length; i++) {
-                    var record = records[i];
+                for (var j = 0; j < records_length; j++) {
+                    var record = records[j];
                     id_name.push([record[other_index], selectFromArray(record, name_indexes).join(' / ')]);
                 }
                 // generic tuple sort (sort hash by value)
@@ -478,27 +473,29 @@ function populateDropdowns(lookupTables, lookup, data) {
         }
     });
     return function() {
-        for (key in inverseLookup) {
-            var obj = document.getElementById(key);
-            if (obj !== null) {
-                var val = inverseLookup[key];
-                var selected = val.selected;
-                var tuples = val.options;
-                var tuples_length = tuples.length;
-                // default width
-                if (tuples_length === 0) {
-                    obj.style.width = '200px';
-                }
-                for (var i = 0; i < tuples_length; i++) {
-                    var key = tuples[i][0];
-                    var value = tuples[i][1];
-                    var option = document.createElement('option');
-                    option.setAttribute('value', key);
-                    if (typeof(selected) !== 'undefined' && key === selected) {
-                        option.selected = 'selected';
+        for (var key in inverseLookup) {
+            if (inverseLookup.hasOwnProperty(key)) {
+                var obj = document.getElementById(key);
+                if (obj !== null) {
+                    var val = inverseLookup[key];
+                    var selected = val.selected;
+                    var tuples = val.options;
+                    var tuples_length = tuples.length;
+                    // default width
+                    if (tuples_length === 0) {
+                        obj.style.width = '200px';
                     }
-                    option.innerHTML = value;
-                    obj.appendChild(option);
+                    for (var i = 0; i < tuples_length; i++) {
+                        var this_key = tuples[i][0];
+                        var value = tuples[i][1];
+                        var option = document.createElement('option');
+                        option.setAttribute('value', this_key);
+                        if (typeof(selected) !== 'undefined' && this_key === selected) {
+                            option.selected = 'selected';
+                        }
+                        option.innerHTML = value;
+                        obj.appendChild(option);
+                    }
                 }
             }
         }

@@ -1,3 +1,5 @@
+;(function () {
+
 "use strict";
 
 var dom = YAHOO.util.Dom;
@@ -15,7 +17,8 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         { 'spid': { 'defined' : ['chr_div' ] } }, 
         function(el) {
             var result = isDefinedSelection(el);
-            EnableDisable('location_block', (result ? '' : 'disabled'));
+            var disabled = result ? '' : 'disabled';
+            EnableDisable('location_block', disabled);
             return result;
         }
     );
@@ -71,9 +74,9 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     }
     displayHintPanels();
     for (var i = 0, len = match_buttons.length; i < len; i++) {
-        YAHOO.util.Event.addListener(match_buttons[i], 'change', function() {
-            displayHintPanels();
-        });
+        YAHOO.util.Event.addListener(
+            match_buttons[i], 'change', displayHintPanels
+        );
     }
 
     // scope
@@ -97,3 +100,5 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         scope_file.check(scope_file_state.value);
     }
 });
+
+}());
