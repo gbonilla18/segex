@@ -126,9 +126,10 @@ END_SQL2
     $self->{_data} = [ \@exp_ids, \@labels, \@y, \@pvalues ];
     $sth->finish;
 
-# this is a hack (temporary until we put content wrapping into Strategy::Base):
-# call body to send data to the client but do not do it normal way (do not return true value).
-# normally we would just return 1 and let the default_body() be called by the main controller.
+    # this is a hack (temporary until we put content wrapping into
+    # Strategy::Base): call body to send data to the client but do not do it
+    # normal way (do not return true value).  normally we would just return 1
+    # and let the default_body() be called by the main controller.
     $s->commit();
     print $q->header( -type => 'image/svg+xml', -cookie => $s->cookie_array() ),
       $self->default_body();
@@ -171,9 +172,6 @@ sub default_body {
     #my $total_width = $xl + $body_width
     my $total_width = $xl + $body_width + $longest_xlabel;
     my $label_shift = $yl + $body_height + $text_breath + $text_fudge;
-
-    #my $total_height = $label_shift + $longest_xlabel;
-    my $total_height = $label_shift + 265;
 
     # space between bars is wider than the bars by golden ratio
     my $golden_ratio = 1.61803399;
@@ -246,6 +244,7 @@ sub default_body {
         $legend_top    += $text_height;
         $vguides_shift += $wrw;
     }
+    my $total_height = max($label_shift, $legend_top) + 50;
 
     my $hguides = '';
     my $ylabels = '';

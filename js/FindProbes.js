@@ -76,7 +76,7 @@ event.addListener(window, "load", function() {
         var width = 1200;
         var height = 600;
         return "<object type=\"image/svg+xml\" width=\"" 
-        + width + "\" height=\"" + height + "\" data=\"" 
+        + width + "\" data=\"" 
         + resourceURI + "\"><embed src=\"" + resourceURI 
         + "\" width=\"" + width + "\" height=\"" + height 
         + "\" /></object>";
