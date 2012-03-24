@@ -6,11 +6,10 @@
 */
 
 var dom = YAHOO.util.Dom;
-var event = YAHOO.util.Event;
 var formatter = YAHOO.widget.DataTable.Formatter;
 
-event.addListener("resulttable_astext", "click", export_table, data, true);
-event.addListener("get_csv", "submit", function(o) {
+YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
+YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
     var inputEl = dom.get("q");
     var rec = data.records;
     var len = rec.length;
@@ -25,7 +24,7 @@ event.addListener("get_csv", "submit", function(o) {
     return true;
 }, null, false);
 
-event.addListener(window, "load", function() {
+YAHOO.util.Event.addListener(window, "load", function() {
 
     var graph_ul;
     var graph_content = [];
@@ -222,7 +221,7 @@ event.addListener(window, "load", function() {
                 // Set up SVG pop-up panel
                 var panelID = "panel" + i;
                 manager.remove(panelID);
-                event.addListener(a, 'click', function() {
+                YAHOO.util.Event.addListener(a, 'click', function() {
 
                     // first see if the panel already exists
                     var panel = manager.find(panelID);
