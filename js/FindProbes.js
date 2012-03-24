@@ -6,8 +6,11 @@
 */
 
 var dom = YAHOO.util.Dom;
-YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
-YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
+var event = YAHOO.util.Event;
+var formatter = YAHOO.widget.DataTable.Formatter;
+
+event.addListener("resulttable_astext", "click", export_table, data, true);
+event.addListener("get_csv", "submit", function(o) {
     var inputEl = dom.get("q");
     var rec = data.records;
     var len = rec.length;
@@ -22,7 +25,7 @@ YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
     return true;
 }, null, false);
 
-YAHOO.util.Event.addListener(window, "load", function() {
+event.addListener(window, "load", function() {
 
     var graph_ul;
     var graph_content = [];
@@ -191,12 +194,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
             return formatted.join(', ');
     }
 
-    var event = YAHOO.util.Event;
     var manager = (show_graphs === '') 
         ? new YAHOO.widget.OverlayManager()
         : null;
 
-    YAHOO.widget.DataTable.Formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
+    formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var i = oRecord.getCount();
             var this_rid = oRecord.getData(dataFields.rid);
@@ -250,24 +252,24 @@ YAHOO.util.Event.addListener(window, "load", function() {
             elCell.appendChild(a);
         }
     };
-    YAHOO.widget.DataTable.Formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
+    formatter.formatAccNum = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
             elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapAccNum, [species]);
         }
     };
-    YAHOO.widget.DataTable.Formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
+    formatter.formatGene = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
             elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapGeneSymbol, [species]);
         }
     };
-    YAHOO.widget.DataTable.Formatter.formatGeneName = function(elCell, oRecord, oColumn, oData) {
+    formatter.formatGeneName = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             elCell.innerHTML = (oColumn.key in currScope) ? highlightWords(oData) : oData;
         }
     }
-    YAHOO.widget.DataTable.Formatter.formatPlatform = function(elCell, oRecord, oColumn, oData) {
+    formatter.formatPlatform = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
             elCell.innerHTML = (oData.match(new RegExp('^' + species))) 
@@ -275,7 +277,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             : species + ' / ' + oData;
         }
     };
-    YAHOO.widget.DataTable.Formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
+    formatter.formatSequence = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             dom.addClass(elCell, 'sgx-dt-sequence');
             var species = oRecord.getData(dataFields.species);
