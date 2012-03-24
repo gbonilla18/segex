@@ -1,5 +1,10 @@
 Options -Indexes +ExecCGI +FollowSymLinks
 
+# Configure Apache to Serve SVG/SVGZ the Right Way
+# http://kaioa.com/node/45
+AddType image/svg+xml svg svgz
+AddEncoding gzip svgz
+
 # SetEnv not working with my current setup for some reason, even with
 # AllowOverride set to 'All'
 #
