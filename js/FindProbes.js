@@ -226,7 +226,12 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     // first see if the panel already exists
                     var panel = manager.find(panelID);
                     if (panel !== null) {
-                        panel.show();
+                        // toggle panel visibility
+                        if (panel.cfg.getProperty('visible')) {
+                            panel.hide();
+                        } else {
+                            panel.show();
+                        }
                         return;
                     }
 
