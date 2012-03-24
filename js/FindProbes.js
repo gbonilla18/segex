@@ -237,8 +237,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
                     // if not, create a new panel
                     panel = new YAHOO.widget.Panel(panelID, {
-                        close:true, visible:true, draggable:true,
-                        constraintoviewport:false, context:[elCell, "tl", "br"]
+                        close:true, visible:true, draggable:true, fixedcenter: false,
+                        constraintoviewport:false, context:[elCell, "tl", "tr"]
                     });
                     panel.setHeader(oData);
                     panel.setBody(buildSVGElement({
