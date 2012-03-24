@@ -404,7 +404,7 @@ sub default_body {
     text-anchor: end;
 }
 .xNALabel, .legendNALabel {
-    fill: #00f;
+    fill: #bbb;
 }
 .fill1, .fill2, .fill3 {
     fill: #f00;
