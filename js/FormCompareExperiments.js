@@ -1,4 +1,4 @@
-;(function () {
+;(function (exports) {
 
 "use strict";
 
@@ -119,67 +119,9 @@ function setDefaultCutoffs(exp_index, stid) {
     $("pval_" + exp_index).setAttribute("value", platform[study[stid][3]][1]);
     $("fc_" + exp_index).setAttribute("value", platform[study[stid][3]][2]);
 }
-function updateExperiments(obj){
-    // there is a different set of experiments for each study
-    // this functions updates the selection box below the current
-    var exp_index = obj.getAttribute("id").replace(/^stid_/,'');
-    var stid = obj.options[obj.selectedIndex].value;
-    setDefaultCutoffs(exp_index, stid);
-    populateSelectExperiments($("eid_" + exp_index), stid);
-}
-function removeExperiment(obj) {
-    experiment_count--;
-    var eid = obj.getAttribute("id").replace(/^remove_/,'');
-    var fs = $("exp_" + eid);
-    var fs2 = fs.nextSibling;
-    fs.parentNode.removeChild(fs);
-    while (fs2) {
-        var eid2 = fs2.getAttribute("id").replace(/^exp_/,'');
-        fs2.firstChild.innerHTML = "Experiment " + eid;        // legend
-        $("remove_" + eid2).setAttribute("id", "remove_" + eid);
-        $("stid_" + eid2).setAttribute("id", "stid_" + eid);
-        $("reverse_" + eid2).setAttribute("name", "reverse_" + eid);
-        $("reverse_" + eid2).setAttribute("id", "reverse_" + eid);
-        $("eid_" + eid2).setAttribute("name", "eid_" + eid);
-        $("eid_" + eid2).setAttribute("id", "eid_" + eid);
-        $("pval_" + eid2).setAttribute("name", "pval_" + eid);
-        $("pval_" + eid2).setAttribute("id", "pval_" + eid);
-        $("fc_" + eid2).setAttribute("name", "fc_" + eid);
-        $("fc_" + eid2).setAttribute("id", "fc_" + eid);
-        fs2.setAttribute("id", "exp_" + eid);
-        fs2 = fs2.nextSibling;
-        eid++;
-    }
-}
-function setSampleOrder(obj) {
-    var exp_index = obj.getAttribute("id").replace(/^reverse_/,'');
 
-    // get the currently selected study id
-    var opt = $("stid_" + exp_index).options;
 
-    var stid;
 
-    for (var i = 0, len = opt.length; i < len; ++i) 
-    {
-        if (opt[i].selected) 
-        { 
-            stid = opt[i].value; 
-            break;
-        } 
-    }
-
-    // set sample order
-    var num = (obj.checked) ? 2 : 1;
-    var denom = (obj.checked) ? 1 : 2;
-
-    // loop through all the experiment options and set sample order
-    opt = $("eid_" + exp_index).options;
-    for (i = 0, len = opt.length; i < len; ++i) 
-    {
-        var eid = opt[i].value.split("|")[1];
-        opt[i].text = study[stid][num][eid] + ' / ' + study[stid][denom][eid];
-    }
-}
 function addExperiment() {
     var eid;
     var stid;
@@ -292,6 +234,63 @@ function toggleFilterOptions(selectedRadio)
     }
 }
 //================================================================
+exports.removeExperiment = function(obj) {
+    experiment_count--;
+    var eid = obj.getAttribute("id").replace(/^remove_/,'');
+    var fs = $("exp_" + eid);
+    var fs2 = fs.nextSibling;
+    fs.parentNode.removeChild(fs);
+    while (fs2) {
+        var eid2 = fs2.getAttribute("id").replace(/^exp_/,'');
+        fs2.firstChild.innerHTML = "Experiment " + eid;        // legend
+        $("remove_" + eid2).setAttribute("id", "remove_" + eid);
+        $("stid_" + eid2).setAttribute("id", "stid_" + eid);
+        $("reverse_" + eid2).setAttribute("name", "reverse_" + eid);
+        $("reverse_" + eid2).setAttribute("id", "reverse_" + eid);
+        $("eid_" + eid2).setAttribute("name", "eid_" + eid);
+        $("eid_" + eid2).setAttribute("id", "eid_" + eid);
+        $("pval_" + eid2).setAttribute("name", "pval_" + eid);
+        $("pval_" + eid2).setAttribute("id", "pval_" + eid);
+        $("fc_" + eid2).setAttribute("name", "fc_" + eid);
+        $("fc_" + eid2).setAttribute("id", "fc_" + eid);
+        fs2.setAttribute("id", "exp_" + eid);
+        fs2 = fs2.nextSibling;
+        eid++;
+    }
+}
+exports.setSampleOrder = function(obj) {
+    var exp_index = obj.getAttribute("id").replace(/^reverse_/,'');
+
+    // get the currently selected study id
+    var opt = $("stid_" + exp_index).options;
+    var stid;
+    for (var i = 0, len = opt.length; i < len; ++i) {
+        if (opt[i].selected) { 
+            stid = opt[i].value; 
+            break;
+        } 
+    }
+
+    // set sample order
+    var num = (obj.checked) ? 2 : 1;
+    var denom = (obj.checked) ? 1 : 2;
+
+    // loop through all the experiment options and set sample order
+    opt = $("eid_" + exp_index).options;
+    for (i = 0, len = opt.length; i < len; ++i) {
+        var eid = opt[i].value.split("|")[1];
+        opt[i].text = study[stid][num][eid] + ' / ' + study[stid][denom][eid];
+    }
+}
+exports.updateExperiments = function(obj){
+    // there is a different set of experiments for each study
+    // this functions updates the selection box below the current
+    var exp_index = obj.getAttribute("id").replace(/^stid_/,'');
+    var stid = obj.options[obj.selectedIndex].value;
+    setDefaultCutoffs(exp_index, stid);
+    populateSelectExperiments($("eid_" + exp_index), stid);
+}
+//================================================================
 YAHOO.util.Event.addListener('platform', 'change', updatePlatform);
 YAHOO.util.Event.addListener('add_experiment', 'click', addExperiment);
 YAHOO.util.Event.addListener(window, 'load', function() {
@@ -303,4 +302,4 @@ YAHOO.util.Event.addListener(window, 'load', function() {
     addExperiment();
 });
 
-}());
+}(this));

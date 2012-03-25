@@ -412,14 +412,12 @@ function setupToggles(event, attr, getValue, callBack) {
     }
 
     // code below must be performed when DOM is loaded
-    var this_callback = (typeof callBack !== 'undefined') ? function () { callBack(this); toggle(); } : toggle;
     for (id in attr) {
         if (attr.hasOwnProperty(id)) {
             var toggle = createToggle(id);
             toggle();
-            var el = document.getElementById(id);
             YAHOO.util.Event.addListener(
-                id, event, this_callback, el
+                id, event, ((typeof callBack !== 'undefined') ? function () { callBack(this); toggle(); } : toggle), document.getElementById(id)
             );
         }
     }
