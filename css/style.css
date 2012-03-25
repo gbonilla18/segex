@@ -548,6 +548,11 @@ p.radio_heading {
 .fadeout {
 	color:#777;
 }
-.nowrap {
+.golabel {
 	white-space:nowrap;
+	cursor:pointer;
 }
+.golabel:hover {
+	color:#f00;
+}
+

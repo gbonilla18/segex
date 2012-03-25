@@ -2,8 +2,296 @@
 
 var dom = YAHOO.util.Dom;
 
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// Scalar utilities
 //==============================================================================
-// tab views
+// zeroPad
+// pad number `num' with zeros to `places' places
+//==============================================================================
+function zeroPad(num, places) {
+
+    // pad number `num' with zeros to `places' places
+    var zero = places - num.toString().length + 1;
+    var arr = new Array(+(zero > 0 && zero));
+    return arr.join("0") + num;
+}
+//==============================================================================
+// splitIntoPhrases
+// Splits by words or by double-quoted phrases. Meant to emulate MySQL full-
+// text searching.
+// parameters: (1) string
+// returns   : array
+//==============================================================================
+function splitIntoPhrases(str) {
+    var extractQuoted = /^"([^"]*)"/;
+    var extractWord = /^\W*(\w*)/;
+    var phrases = [];
+    var matched;
+    while (str.length > 0) {
+        // remove non-word non-quote characters from beginning
+        str = str.replace(/^[^\w"]*/, '');
+        
+        var matchQuoted = extractQuoted.exec(str);
+        if (matchQuoted !== null) {
+            // extract quoted substring
+            str = str.substring(matchQuoted[0].length);
+            matched = matchQuoted[1];
+            if (matched.length > 0) {
+                phrases.push(matched);
+            }
+        } else {
+            // extract first word ignoring quotes
+            var matchWord = extractWord.exec(str);
+            if (matchWord !== null) {
+                str = str.substring(matchWord[0].length);
+                matched = matchWord[1];
+                if (matched.length > 0) {
+                    phrases.push(matched);
+                }
+            } else {
+                // terminate
+                str = '';
+            }
+        }
+    }
+    return phrases;
+}
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// Array utilities
+//==============================================================================
+// execute function fun() for all pairs in the array
+//==============================================================================
+function forPairInList (list, fun) {
+    if (list !== null) {
+        for (var i = 0, len = list.length; i < len; i += 2) {
+            fun(list[i], list[i + 1]);
+        }
+    }
+}
+
+//==============================================================================
+// returns a new array containing a specified subset of the old one
+//==============================================================================
+function selectFromArray(array, subset) {
+    var subset_length = subset.length;
+    var result = new Array(subset_length);
+    for (var i = 0; i < subset_length; i++) {
+        result[i] = array[subset[i]];
+    }
+    return result;
+}
+
+//==============================================================================
+// sort tuples by column
+//==============================================================================
+function sortNestedByColumn (tuples, column) {
+    tuples.sort(function (a, b) {
+        a = a[column];
+        b = b[column];
+        return a < b ? -1 : (a > b ? 1 : 0);
+    }); 
+}
+
+//==============================================================================
+// sort tuples by column (numeric)
+//==============================================================================
+function sortNestedByColumnNumeric (tuples, column) {
+    tuples.sort(function (a, b) {
+        return a[column] - b[column];
+    }); 
+}
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// Object utilities
+//==============================================================================
+// count number of own properties in object
+//==============================================================================
+function object_length(obj) {
+    var size = 0, key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            size++;
+        }
+    }
+    return size;
+}
+//==============================================================================
+// return array of keys in the object
+//==============================================================================
+function object_keys(obj) {
+    var ret = [];
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            ret.push(key);
+        }
+    }
+    return ret;
+}
+//==============================================================================
+// delete all own properties in the object
+//==============================================================================
+function object_clear(obj) {
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            delete obj[key];
+        }
+    }
+    return obj;
+}
+//==============================================================================
+// add a single value to all keys
+//==============================================================================
+function object_add(obj, keys, val) {
+    for (var i = 0, len = keys.length; i < len; i++) {
+        obj[keys[i]] = val;
+    }
+}
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// DOM utilities
+//==============================================================================
+// set minimum width of a dropdown
+//==============================================================================
+function setMinWidth(el, width, old) {
+    // sets minimum width for an element with content
+
+    // first see if scrollWidth is greater than zero. If yes, reuse offsetWidth
+    // instead of setting minimum. Only when scrollWidth is zero do we set
+    // style.width.
+    el.style.width = (old.scrollWidth > 0) ? old.offsetWidth + 'px' : width;
+}
+
+//==============================================================================
+// getSelectedValue
+//==============================================================================
+function getSelectedValue(obj)
+{
+    try {
+        return obj.options[obj.selectedIndex].value;
+    } catch(e) {
+        // avoid rethrow: cannot be set because no option was selected
+        if (!(e instanceof TypeError || e instanceof DOMException)) {
+            throw e;
+        }
+    }
+}
+//==============================================================================
+// getSelectedFromRadioGroup
+//==============================================================================
+function getSelectedFromRadioGroup(obj) {
+    for (var i = 0, len = obj.length; i < len; i++) {
+        var button = obj[i];
+        if (button.checked) {
+            return button.value;
+        }
+    }
+    return null;
+}
+//==============================================================================
+// isDefinedSelection
+// returns 'defined' if yes, '' otherwise
+//==============================================================================
+function isDefinedSelection(el) { 
+    var val = getSelectedValue(el); 
+    return (typeof val !== 'undefined' && val !== '') ? 'defined' : '';
+}
+
+//==============================================================================
+// EnableDisable
+//==============================================================================
+function EnableDisable(el, disabled) {
+    var children = dom.getChildren(el);
+    var len = children.length;
+    for (var i = 0; i < len; i++) {
+        var child = children[i];
+        if (child.tagName === 'INPUT') {
+            child.disabled = disabled;
+        } else if (disabled !== '') {
+            dom.addClass(child, 'disabled');
+        } else {
+            dom.removeClass(child, 'disabled');
+        }
+        EnableDisable(child, disabled);
+    }
+}
+
+//==============================================================================
+// Recurse upward in the DOM hierarchy and return the first node that matches
+// the requested node name
+//==============================================================================
+function getFirstParentOfName(id, parentName) {
+    var el = dom.get(id);
+    if (el === null) {
+        return null;
+    }
+    var elParent = el.parentNode;
+    if (elParent === null) {
+        return null;
+    }
+    return (elParent.nodeName.toUpperCase() === parentName.toUpperCase()) ? elParent : getFirstParentOfName(elParent, parentName);
+}
+//==============================================================================
+// build dropdown
+//==============================================================================
+function buildDropDown(obj, tuples, selected, old) {
+    var len = tuples.length;
+    if (len > 0) {
+        // reset width for automatic width control
+        obj.style.width = '';
+    } else {
+        // set width to either old (if present) or minimum
+        setMinWidth(obj, '200px', old);
+    }
+    for (var i = 0; i < len; i++) {
+        var key = tuples[i][0];
+        var value = tuples[i][1];
+        var option = document.createElement('option');
+        option.setAttribute('value', key);
+        if (typeof(selected) !== 'undefined' && (key in selected)) {
+            option.selected = 'selected';
+        }
+        option.innerHTML = value;
+        obj.appendChild(option);
+    }
+}
+
+//==============================================================================
+// clear dropdown
+//==============================================================================
+function clearDropDown(obj) {
+    // capture old width
+    var oldWidth = { 
+        clientWidth: obj.clientWidth, 
+        offsetWidth: obj.offsetWidth, 
+        scrollWidth: obj.scrollWidth 
+    };
+    // remove option elements
+    while (obj.options[0]) {
+        obj.removeChild(obj.options[0]);
+    }
+    return oldWidth;
+}
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// YUI helpers
+//==============================================================================
+// YUI helper: call 'subscribe' method on element 'el' with obj as special 
+// argument; obj is structured like the following: 
+// {
+//      'click': function() { ... },
+//      'mousedown': onMousedown,
+//  }
+//==============================================================================
+function subscribeEnMasse(el, obj) {
+    for (var event in obj) {
+        if (obj.hasOwnProperty(event)) {
+            var handler = obj[event];
+            el.subscribe(event, handler);
+        }
+    }
+}
+//==============================================================================
+// YUI helper: tab views
 //==============================================================================
 function selectTabFromHash(tabView) {
     var url = window.location.href.split('#');
@@ -19,6 +307,9 @@ function selectTabFromHash(tabView) {
         }
     }
 }
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// Misc
 //==============================================================================
 // export_table
 //==============================================================================
@@ -135,178 +426,6 @@ function setupToggles(event, attr, getValue, callBack) {
                 id, event, this_callback, el
             );
         }
-    }
-}
-//==============================================================================
-// deleteConfirmation
-//==============================================================================
-function deleteConfirmation(oArg)
-{
-    var itemName = (oArg && oArg.itemName) ? oArg.itemName : "item";
-    var msg = "Are you sure you want to delete this " + itemName  + "?";
-    if (oArg && oArg.childName) {
-        msg += " Deleting it will also remove any " + oArg.childName + "(s) it contains."; 
-    }
-    return confirm(msg);
-}
-//==============================================================================
-// getSelectedValue
-//==============================================================================
-function getSelectedValue(obj)
-{
-    try {
-        return obj.options[obj.selectedIndex].value;
-    } catch(e) {
-        // avoid rethrow: cannot be set because no option was selected
-        if (!(e instanceof TypeError || e instanceof DOMException)) {
-            throw e;
-        }
-    }
-}
-//==============================================================================
-// getSelectedFromRadioGroup
-//==============================================================================
-function getSelectedFromRadioGroup(obj) {
-    for (var i = 0, len = obj.length; i < len; i++) {
-        var button = obj[i];
-        if (button.checked) {
-            return button.value;
-        }
-    }
-    return null;
-}
-//==============================================================================
-// splitIntoPhrases
-// Splits by words or by double-quoted phrases. Meant to emulate MySQL full-
-// text searching.
-// parameters: (1) string
-// returns   : array
-//==============================================================================
-function splitIntoPhrases(str) {
-    var extractQuoted = /^"([^"]*)"/;
-    var extractWord = /^\W*(\w*)/;
-    var phrases = [];
-    var matched;
-    while (str.length > 0) {
-        // remove non-word non-quote characters from beginning
-        str = str.replace(/^[^\w"]*/, '');
-        
-        var matchQuoted = extractQuoted.exec(str);
-        if (matchQuoted !== null) {
-            // extract quoted substring
-            str = str.substring(matchQuoted[0].length);
-            matched = matchQuoted[1];
-            if (matched.length > 0) {
-                phrases.push(matched);
-            }
-        } else {
-            // extract first word ignoring quotes
-            var matchWord = extractWord.exec(str);
-            if (matchWord !== null) {
-                str = str.substring(matchWord[0].length);
-                matched = matchWord[1];
-                if (matched.length > 0) {
-                    phrases.push(matched);
-                }
-            } else {
-                // terminate
-                str = '';
-            }
-        }
-    }
-    return phrases;
-}
-//==============================================================================
-// EnableDisable
-//==============================================================================
-function EnableDisable(el, disabled) {
-    var children = dom.getChildren(el);
-    var len = children.length;
-    for (var i = 0; i < len; i++) {
-        var child = children[i];
-        if (child.tagName === 'INPUT') {
-            child.disabled = disabled;
-        } else if (disabled !== '') {
-            dom.addClass(child, 'disabled');
-        } else {
-            dom.removeClass(child, 'disabled');
-        }
-        EnableDisable(child, disabled);
-    }
-}
-//==============================================================================
-// isDefinedSelection
-// returns 'defined' if yes, '' otherwise
-//==============================================================================
-function isDefinedSelection(el) { 
-    var val = getSelectedValue(el); 
-    return (typeof val !== 'undefined' && val !== '') ? 'defined' : '';
-}
-//==============================================================================
-// zeroPad
-// pad number `num' with zeros to `places' places
-//==============================================================================
-function zeroPad(num, places) {
-
-    // pad number `num' with zeros to `places' places
-    var zero = places - num.toString().length + 1;
-    var arr = new Array(+(zero > 0 && zero));
-    return arr.join("0") + num;
-}
-//==============================================================================
-// Recurse upward in the DOM hierarchy and return the first node that matches
-// the requested node name
-//==============================================================================
-function getFirstParentOfName(id, parentName) {
-    var el = dom.get(id);
-    if (el === null) {
-        return null;
-    }
-    var elParent = el.parentNode;
-    if (elParent === null) {
-        return null;
-    }
-    return (elParent.nodeName.toUpperCase() === parentName.toUpperCase()) ? elParent : getFirstParentOfName(elParent, parentName);
-}
-//==============================================================================
-// Object utilities
-//==============================================================================
-function object_length(obj) {
-
-    // count number of own properties in object
-    var size = 0, key;
-    for (key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            size++;
-        }
-    }
-    return size;
-}
-function object_keys(obj) {
-
-    // return array of keys in the object
-    var ret = [];
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            ret.push(key);
-        }
-    }
-    return ret;
-}
-function object_clear(obj) {
-
-    // delete all own properties in the object
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            delete obj[key];
-        }
-    }
-    return obj;
-}
-function object_add(obj, keys, val) {
-    // add a single value to all keys
-    for (var i = 0, len = keys.length; i < len; i++) {
-        obj[keys[i]] = val;
     }
 }
 

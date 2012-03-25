@@ -93,7 +93,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         var parentTR = getFirstParentOfName(elCell, 'TR');
 
         var label = document.createElement('label');
-        dom.addClass(label, 'nowrap');
+        dom.addClass(label, 'golabel');
         var checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         if (oData in buf) {

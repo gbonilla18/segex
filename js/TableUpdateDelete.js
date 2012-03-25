@@ -271,14 +271,6 @@ function newDataSourceFromArrays(struct) {
     return ds;
 }
 
-function forPairInList (list, fun) {
-    if (list !== null) {
-        for (var i = 0, len = list.length; i < len; i += 2) {
-            fun(list[i], list[i + 1]);
-        }
-    }
-}
-
 function expandJoinedFields(mainTable, lookupTables) {
     var tmp = {};
     forPairInList(mainTable.lookup, function(other_table, tuple) {
@@ -398,15 +390,6 @@ function createRowNameBuilder(nameColumns, item_class) {
     };
 }
 
-function subscribeEnMasse(el, obj) {
-    for (var event in obj) {
-        if (obj.hasOwnProperty(event)) {
-            var handler = obj[event];
-            el.subscribe(event, handler);
-        }
-    }
-}
-
 // helper functions
 function formatEmail(elLiner, oRecord, oColumn, oData) {
     elLiner.innerHTML = (oData !== null) ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>" : '';
@@ -414,24 +397,6 @@ function formatEmail(elLiner, oRecord, oColumn, oData) {
 
 function formatPubMed(elLiner, oRecord, oColumn, oData) {
     elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>') : '';
-}
-
-// returns a new array containing a specified subset of the old one
-function selectFromArray(array, subset) {
-    var subset_length = subset.length;
-    var result = new Array(subset_length);
-    for (var i = 0; i < subset_length; i++) {
-        result[i] = array[subset[i]];
-    }
-    return result;
-}
-
-function sortNestedByColumn (tuples, column) {
-    tuples.sort(function (a, b) {
-        a = a[column];
-        b = b[column];
-        return a < b ? -1 : (a > b ? 1 : 0);
-    });
 }
 
 function populateDropdowns(lookupTables, lookup, data) {

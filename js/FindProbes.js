@@ -270,10 +270,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var myDataSource = new YAHOO.util.DataSource(data.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
 
-
     myDataSource.responseSchema = {
         fields: myColumnList
     };
+
     var myData_config = {
         paginator: new YAHOO.widget.Paginator({
             rowsPerPage: 15 
@@ -281,23 +281,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
 
     var myDataTable = new YAHOO.widget.DataTable(
-        "resulttable", 
-        myColumnDefs, 
-        myDataSource, 
-        myData_config
+        "resulttable", myColumnDefs, myDataSource, myData_config
     );
-
-    // Set up editing flow 
-    var highlightEditableCell = function(oArgs) { 
-        var elCell = oArgs.target; 
-        if(dom.hasClass(elCell, "yui-dt-editable")) { 
-            this.highlightCell(elCell); 
-        } 
-    }; 
-    myDataTable.subscribe("cellMouseoverEvent", highlightEditableCell); 
-    myDataTable.subscribe("cellMouseoutEvent", 
-    myDataTable.onEventUnhighlightCell); 
-    myDataTable.subscribe("cellClickEvent", myDataTable.onEventShowCellEditor);
 
     // TODO: Ideally, use a "pre-formatter" event to clear graph_content
     myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
@@ -308,16 +293,13 @@ YAHOO.util.Event.addListener(window, "load", function() {
         graph_content.length = 0;
         return true;
     };
+
     if (show_graphs !== '') {
-        myDataTable.subscribe("renderEvent",
-             function () { graph_ul.innerHTML = graph_content.join(''); }
-        );
+        myDataTable.subscribe("renderEvent", function () { 
+            graph_ul.innerHTML = graph_content.join(''); 
+        });
     }
 
-    return {
-        oDS: myDataSource,
-        oDT: myDataTable
-    };
 });
 
 }());
