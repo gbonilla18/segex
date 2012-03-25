@@ -150,18 +150,6 @@ function object_add(obj, keys, val) {
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // DOM utilities
 //==============================================================================
-// set minimum width of a dropdown
-//==============================================================================
-function setMinWidth(el, width, old) {
-    // sets minimum width for an element with content
-
-    // first see if scrollWidth is greater than zero. If yes, reuse offsetWidth
-    // instead of setting minimum. Only when scrollWidth is zero do we set
-    // style.width.
-    el.style.width = (old.scrollWidth > 0) ? old.offsetWidth + 'px' : width;
-}
-
-//==============================================================================
 // getSelectedValue
 //==============================================================================
 function getSelectedValue(obj)
@@ -234,6 +222,14 @@ function getFirstParentOfName(id, parentName) {
 // build dropdown
 //==============================================================================
 function buildDropDown(obj, tuples, selected, old) {
+    function setMinWidth(el, width, old) {
+        // sets minimum width for an element with content
+
+        // first see if scrollWidth is greater than zero. If yes, reuse offsetWidth
+        // instead of setting minimum. Only when scrollWidth is zero do we set
+        // style.width.
+        el.style.width = (old.scrollWidth > 0) ? old.offsetWidth + 'px' : width;
+    }
     var len = tuples.length;
     if (len > 0) {
         // reset width for automatic width control
