@@ -1,10 +1,12 @@
+;(function (exports) {
+
 "use strict";
 
 /******************************************************************
 * populateProject()
 * This function is typically run only once, on page load
 ******************************************************************/
-function populateProject()
+exports.populateProject = function()
 {
     var project = this.project;
     var projects = (project.element === null) ? (project.element = document.getElementById(project.elementId)) : project.element;
@@ -32,7 +34,7 @@ function populateProject()
 }
 
 /******************************************************************/
-function populateProjectStudy()
+exports.populateProjectStudy = function()
 {
     var project = this.project;
     var projects = (project.element === null) ? (project.element = document.getElementById(project.elementId)) : project.element;
@@ -62,7 +64,7 @@ function populateProjectStudy()
     }
 }
 /******************************************************************/
-function populateStudyExperiment()
+exports.populateStudyExperiment = function()
 {
     var project = this.project;
     var projects = (project.element === null) ? (project.element = document.getElementById(project.elementId)) : project.element;
@@ -109,3 +111,5 @@ function populateStudyExperiment()
         buildDropDown(experiments, tuples, experiment.selected, oldWidth);
     }
 }
+
+}(this));

@@ -1,6 +1,8 @@
+;(function (exports) {
+
 "use strict";
 
-function setupCheckboxes(obj) {
+exports.setupCheckboxes = function(obj) {
     var idPrefix = obj.idPrefix;
     var checkboxIds = YAHOO.util.Dom.getElementsBy(
         function(obj) { return ((obj.type === 'checkbox') ? true : false); }, 
@@ -71,3 +73,5 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         setupToggles('click', struct, fun1, fun2);
     }
 });
+
+}(this));

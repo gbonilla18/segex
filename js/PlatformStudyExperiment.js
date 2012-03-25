@@ -1,10 +1,12 @@
+;(function (exports) {
+
 "use strict";
 
 /******************************************************************
 * populatePlatform()
 * This function is typically run only once, on page load
 ******************************************************************/
-function populatePlatform()
+exports.populatePlatform = function()
 {
     var platform = this.platform;
     var platforms = (platform.element === null) ? (platform.element = document.getElementById(platform.elementId)) : platform.element;
@@ -33,7 +35,7 @@ function populatePlatform()
 }
 
 /******************************************************************/
-function populatePlatformStudy()
+exports.populatePlatformStudy = function()
 {
     var platform = this.platform;
     var platforms = (platform.element === null) ? (platform.element = document.getElementById(platform.elementId)) : platform.element;
@@ -61,7 +63,7 @@ function populatePlatformStudy()
     buildDropDown(studies, tuples, study.selected, oldWidth);
 }
 /******************************************************************/
-function populateStudyExperiment()
+exports.populateStudyExperiment = function()
 {
     var platform = this.platform;
     var platforms = (platform.element === null) ? (platform.element = document.getElementById(platform.elementId)) : platform.element;
@@ -108,3 +110,5 @@ function populateStudyExperiment()
         buildDropDown(experiments, tuples, experiment.selected, oldWidth);
     }
 }
+
+}(this));

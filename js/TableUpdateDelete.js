@@ -1,3 +1,5 @@
+;(function (exports) {
+
 "use strict";
 
 /* depends on the following YUI files:
@@ -11,13 +13,6 @@
 
 function ajaxError(o, verb, name, resourceURI) {
     return (o.responseText !== undefined) ? "Error encountered when attempting to " + verb + " " + name + " under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + "):\n\n" + o.responseText : "Timeout on updating record (" + name + ") under " + resourceURI;
-}
-
-function highlightEditableCell(oArgs) { 
-    var elCell = oArgs.target; 
-    if (YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) { 
-        this.highlightCell(elCell); 
-    } 
 }
 
 function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder) {
@@ -57,37 +52,6 @@ function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, 
     });
 }
 
-function createCellDropdown(resourceURIBuilder, rowNameBuilder) {
-    return function(lookup_table, update_field, name_field) {
-        var getUpdateQuery = function(update_field, newValue) {
-            return "b=ajax_update&" + update_field + "=" + encodeURIComponent(newValue);
-        };
-        // TODO: instead of sending name_field as a parameter, rely on 'names'
-        // property?
-        var transformed_data = [];
-        var lookup_records = lookup_table.records;
-        var name_column = lookup_table.symbol2index[name_field];
-        var index_column = lookup_table.symbol2index[lookup_table.key[0]];
-        for (var key in lookup_records) {
-            if (lookup_records.hasOwnProperty(key)) {
-                var value = lookup_records[key];
-                transformed_data.push({ label: value[name_column], value: value[index_column]});
-            }
-        }
-
-        return createCellDropdownCreator(transformed_data, update_field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
-    };
-}
-
-function createCellDropdownDirect(resourceURIBuilder, rowNameBuilder) {
-    return function(field, rename_array) {
-        var getUpdateQuery = function(field, newValue) {
-            return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
-        };
-        return createCellDropdownCreator(rename_array, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
-    };
-}
-
 function createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
@@ -122,7 +86,43 @@ function createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, row
     });
 }
 
-function createCellUpdater(resourceURIBuilder, rowNameBuilder) {
+exports.highlightEditableCell = function(oArgs) { 
+    var elCell = oArgs.target; 
+    if (YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) {
+        // in the call context, `this' is a reference to YUI DataTable object
+        this.highlightCell(elCell); 
+    } 
+}
+exports.createCellDropdown = function(resourceURIBuilder, rowNameBuilder) {
+    return function(lookup_table, update_field, name_field) {
+        var getUpdateQuery = function(update_field, newValue) {
+            return "b=ajax_update&" + update_field + "=" + encodeURIComponent(newValue);
+        };
+        // TODO: instead of sending name_field as a parameter, rely on 'names'
+        // property?
+        var transformed_data = [];
+        var lookup_records = lookup_table.records;
+        var name_column = lookup_table.symbol2index[name_field];
+        var index_column = lookup_table.symbol2index[lookup_table.key[0]];
+        for (var key in lookup_records) {
+            if (lookup_records.hasOwnProperty(key)) {
+                var value = lookup_records[key];
+                transformed_data.push({ label: value[name_column], value: value[index_column]});
+            }
+        }
+
+        return createCellDropdownCreator(transformed_data, update_field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
+    };
+}
+exports.createCellDropdownDirect = function(resourceURIBuilder, rowNameBuilder) {
+    return function(field, rename_array) {
+        var getUpdateQuery = function(field, newValue) {
+            return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
+        };
+        return createCellDropdownCreator(rename_array, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
+    };
+}
+exports.createCellUpdater = function(resourceURIBuilder, rowNameBuilder) {
     return function(field) {
         /* uses createCellUpdater in TableUpdateDelete.js */
         var getUpdateQuery = function(field, newValue) {
@@ -131,16 +131,14 @@ function createCellUpdater(resourceURIBuilder, rowNameBuilder) {
         return createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
-
-function createEditFormatter(verb, noun, resourceURIBuilder) {
+exports.createEditFormatter = function(verb, noun, resourceURIBuilder) {
     var cellContent_part1 = '<a title="' + verb + ' this ' + noun + '" href="';
     var cellContent_part2 = '">' + verb + '</a>';
     return function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = cellContent_part1 + resourceURIBuilder(oRecord) + cellContent_part2;
     };
 }
-
-function createWaitIndicator(wait_indicator, waitIndicatorImageURL) {
+exports.createWaitIndicator = function(wait_indicator, waitIndicatorImageURL) {
     if (!wait_indicator) {
         // Initialize the temporary Panel to display while waiting for external content to load
         wait_indicator = new YAHOO.widget.Panel("wait", { 
@@ -158,8 +156,7 @@ function createWaitIndicator(wait_indicator, waitIndicatorImageURL) {
     }
     return wait_indicator;
 }
-
-function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder, waitIndicatorImageURL) {
+exports.createRowDeleter = function(buttonValue, resourceURIBuilder, deleteDataBuilder, rowNameBuilder, waitIndicatorImageURL) {
     var verb = buttonValue.toLowerCase();
 
     var handleSuccess = function(o, scope) {
@@ -212,8 +209,7 @@ function createRowDeleter(buttonValue, resourceURIBuilder, deleteDataBuilder, ro
         return true;
     };
 }
-
-function createDeleteDataBuilder(oArg) {
+exports.createDeleteDataBuilder = function(oArg) {
     var keys = (typeof oArg !== "undefined" && typeof oArg.key !== "undefined") ? oArg.key : {};
     var tableData = (typeof oArg !== "undefined" && typeof oArg.table !== "undefined") ? "&table=" + oArg.table : "";
     return function(oRecord) {
@@ -226,14 +222,13 @@ function createDeleteDataBuilder(oArg) {
         return data;
     };
 }
-
-function createDeleteFormatter(verb, noun) {
+exports.createDeleteFormatter = function(verb, noun) {
     var cellContent = '<button title="' + verb + ' this ' + noun + '" class="plaintext">' + verb + '</button>';
     return function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = cellContent;
     };
 }
-function createJoinFormatter(join_tuple, lookup_table, name_field) {
+exports.createJoinFormatter = function(join_tuple, lookup_table, name_field) {
     if (typeof join_tuple === 'undefined') {
         return function(elCell, oRecord, oColumn, oData) {};
     }
@@ -253,7 +248,7 @@ function createJoinFormatter(join_tuple, lookup_table, name_field) {
         elCell.innerHTML = (typeof sub_record !== 'undefined') ? sub_record[name_column] : '';
     };
 }
-function createRenameFormatter(rename_array) {
+exports.createRenameFormatter = function (rename_array) {
     var rename_hash = {};
     for (var i = 0, len = rename_array.length; i < len; i++) {
         var obj = rename_array[i];
@@ -263,15 +258,13 @@ function createRenameFormatter(rename_array) {
         elCell.innerHTML = rename_hash[oData];
     };
 }
-
-function newDataSourceFromArrays(struct) {
+exports.newDataSourceFromArrays = function(struct) {
     var ds = new YAHOO.util.DataSource(struct.records);
     ds.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
     ds.responseSchema = {fields:struct.fields};
     return ds;
 }
-
-function expandJoinedFields(mainTable, lookupTables) {
+exports.expandJoinedFields = function(mainTable, lookupTables) {
     var tmp = {};
     forPairInList(mainTable.lookup, function(other_table, tuple) {
         var obj = lookupTables[other_table];
@@ -361,8 +354,7 @@ function expandJoinedFields(mainTable, lookupTables) {
     }
     return mainTable;
 }
-
-function createResourceURIBuilder(uriPrefix, columnMapping) {
+exports.createResourceURIBuilder = function(uriPrefix, columnMapping) {
     return function (oRecord) {
         var resourceURI = uriPrefix;
         if (typeof columnMapping !== "undefined") {
@@ -375,8 +367,7 @@ function createResourceURIBuilder(uriPrefix, columnMapping) {
         return resourceURI;
     };
 }
-
-function createRowNameBuilder(nameColumns, item_class) {
+exports.createRowNameBuilder = function(nameColumns, item_class) {
     function getCleanFieldValue(oRecord, field) {
         /* getData() takes name of column that contains record names */
         return oRecord.getData(field).replace('"', "").replace("'","");
@@ -389,17 +380,13 @@ function createRowNameBuilder(nameColumns, item_class) {
         return item_class + " `" + names.join(" / ") + "`";
     };
 }
-
-// helper functions
-function formatEmail(elLiner, oRecord, oColumn, oData) {
+exports.formatEmail = function(elLiner, oRecord, oColumn, oData) {
     elLiner.innerHTML = (oData !== null) ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>" : '';
 }
-
-function formatPubMed(elLiner, oRecord, oColumn, oData) {
+exports.formatPubMed = function(elLiner, oRecord, oColumn, oData) {
     elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>') : '';
 }
-
-function populateDropdowns(lookupTables, lookup, data) {
+exports.populateDropdowns = function(lookupTables, lookup, data) {
     var inverseLookup = {};
     forPairInList(lookup, function(table, fieldmap) {
         var this_field = fieldmap[0];
@@ -466,3 +453,5 @@ function populateDropdowns(lookupTables, lookup, data) {
         }
     };
 }
+
+}(this));

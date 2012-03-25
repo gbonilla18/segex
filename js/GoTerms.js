@@ -96,7 +96,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         dom.addClass(label, 'golabel');
         var checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        if (oData in buf) {
+        if (buf.hasOwnProperty(oData)) {
             checkbox.checked = true;
             dom.addClass(parentTR, 'selected_row');
         } else {
