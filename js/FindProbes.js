@@ -155,7 +155,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     function formatSymbols(symbol, colKey, wrapperFun, args) {
         var doMatch = currScope.hasOwnProperty(colKey) && regex_obj !== null;
 
-        // split by commas while removing spaces
+        // split by commas while removing spaces, process, then join on commas
         return forEach(symbol.split(/[,\s]+/), function(val) {
             var higlightString = (doMatch && val.match(regex_obj)) ? 'class="highlight"' : '';
             this.push(wrapperFun(val, higlightString, args));

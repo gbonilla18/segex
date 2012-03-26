@@ -2365,11 +2365,10 @@ sub readrow_body {
 
     my $edit_content_id = 'edit';
 
-    my $readrow_table            = $self->{_readrow_tables}->[0];
-    my $readrow_table_info       = $self->{_readrow_tables}->[1];
-    my $readrow_table_content_id = $self->pluralize_noun($readrow_table);
-    my $extra_actions            = $readrow_table_info->{actions} || {};
-    my $extra_actions_html       = join(
+    my $readrow_table_tuple = $self->{_readrow_tables} || [ undef, {} ];
+    my ( $readrow_table, $readrow_table_info ) = @$readrow_table_tuple;
+    my $extra_actions = $readrow_table_info->{actions} || {};
+    my $extra_actions_html = join(
         ' <span class="separator">/</span> ',
         (
             map { $self->action_link( $_, $extra_actions->{$_} ) }
@@ -2394,7 +2393,9 @@ sub readrow_body {
             (
                 ( defined $readrow_table ) ? $q->li(
                     $q->a(
-                        { -href => "#$readrow_table_content_id" },
+                        {
+                            -href => '#' . $self->pluralize_noun($readrow_table)
+                        },
                         $q->em( $readrow_table_info->{heading} )
                     )
                   ) : ()
@@ -2409,7 +2410,7 @@ sub readrow_body {
             ),
             (
                 ( defined $readrow_table ) ? $q->div(
-                    { -id => $readrow_table_content_id },
+                    { -id => $self->pluralize_noun($readrow_table) },
                     $q->p($extra_actions_html),
                     $q->div(
                         { -class => 'clearfix', -id => $self->{dom_table_id} },
