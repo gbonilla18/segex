@@ -61,10 +61,18 @@ function splitIntoPhrases(str) {
 //==============================================================================
 // execute function fun() for all elements
 //==============================================================================
+function LoopExit() {}
 function forEach(list, fun, out) {
     if (list !== null) {
-        for (var i = 0, len = list.length; i < len; i++) {
-            fun.call(out, list[i]);
+        try {
+            for (var i = 0, len = list.length; i < len; i++) {
+                fun.call(out, list[i]);
+            }
+        }
+        catch(e) {
+            if (!(e instanceof LoopExit)) {
+                throw e;
+            }
         }
     }
     return out;
@@ -74,8 +82,15 @@ function forEach(list, fun, out) {
 //==============================================================================
 function forPairInList(list, fun, out) {
     if (list !== null) {
-        for (var i = 0, len = list.length; i < len; i += 2) {
-            fun.call(out, list[i], list[i + 1]);
+        try {
+            for (var i = 0, len = list.length; i < len; i += 2) {
+                fun.call(out, list[i], list[i + 1]);
+            }
+        }
+        catch(e) {
+            if (!(e instanceof LoopExit)) {
+                throw e;
+            }
         }
     }
     return out;
@@ -136,26 +151,44 @@ function sortNestedByColumnNumeric(tuples, column) {
 // and values.
 //==============================================================================
 function object_forEach(obj, fun, out) {
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            var val = obj[key];
-            fun.call(out, key, val);
+    try {
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                var val = obj[key];
+                fun.call(out, key, val);
+            }
+        }
+    } catch(e) {
+        if (!(e instanceof LoopExit)) {
+            throw e;
         }
     }
     return out;
 }
 function object_forKeys(obj, fun, out) {
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            fun.call(out, key);
+    try {
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                fun.call(out, key);
+            }
+        }
+    } catch(e) {
+        if (!(e instanceof LoopExit)) {
+            throw e;
         }
     }
     return out;
 }
 function object_forValues(obj, fun, out) {
+    try {
     for (var key in obj) {
         if (obj.hasOwnProperty(key)) {
             fun.call(out, obj[key]);
+        }
+    }
+    } catch(e) {
+        if (!(e instanceof LoopExit)) {
+            throw e;
         }
     }
     return out;
@@ -224,13 +257,12 @@ function getSelectedValue(obj)
 // getSelectedFromRadioGroup
 //==============================================================================
 function getSelectedFromRadioGroup(obj) {
-    for (var i = 0, len = obj.length; i < len; i++) {
-        var button = obj[i];
+    return forEach(obj, function(button) {
         if (button.checked) {
-            return button.value;
+            this.firstChecked = button.value;
+            throw new LoopExit;
         }
-    }
-    return null;
+    }, {}).firstChecked;
 }
 //==============================================================================
 // isDefinedSelection
@@ -371,28 +403,15 @@ function export_table(e) {
 
     // table head
     var col_count;
-    if (this_headers) {
+    if (typeof(this_headers) !== 'undefined' && this_headers !== null) {
         col_count = this_headers.length;
         doc.write(this_headers.join("\t"));
         doc.write("\n");
     }
 
     // table body
-    forEach(this_records, function(row_hash) {
-        var row_array = [];
-        var j;
-        if (col_count) {
-            // fill up until col_count
-            for (j = 0; j < col_count; j++) {
-                row_array.push(row_hash[j]);
-            }
-        } else {
-            // fill up until the first empty element
-            for (j = 0; row_hash[j]; j++) {
-                row_array.push(row_hash[j]);
-            }
-        }
-        doc.write(row_array.join("\t"));
+    forEach(this_records, function(row) {
+        doc.write(row.join("\t"));
         doc.write("\n");
     });
 
