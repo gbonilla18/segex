@@ -12,14 +12,12 @@ var formatter = YAHOO.widget.DataTable.Formatter;
 
 YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
 YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
-    var inputEl = dom.get("q");
-    var rec = data.records;
-    var len = rec.length;
-    var array = new Array(len);
-    for (var i = 0; i < len; i++) {
-        array[i] = rec[i][0];
-    }
-    inputEl.value = array.join(',');
+
+    // get first elements of data.records tuples -- those are Probe IDs
+    dom.get("q").value = forEach(data.records, function(el) {
+        this.push(el[0]);
+    }, []).join(',');
+
     dom.get("q_old").value = queryText;
     dom.get("scope_old").value = scope;
     dom.get("match_old").value = match;
@@ -61,17 +59,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
         };
 
     function buildSVGElement(obj) {
-        function uriFromKeyVal(obj) {
-            var uri_part = [];
-            for (var key in obj) {
-                if (obj.hasOwnProperty(key)) {
-                    var val = obj[key];
-                    uri_part.push(key + '=' + val);
-                }
-            }
-            return uri_part.join('&');
-        }
-        var resourceURI = "./?a=graph&" + uriFromKeyVal(obj);
+        var resourceURI = object_forEach(obj, function(key, val) {
+            this.push(key + '=' + encodeURIComponent(val));
+        }, ['./?a=graph']).join('&');
         var width = 1200;
         var height = 600;
         return "<object type=\"image/svg+xml\" width=\"" + width + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
@@ -163,16 +153,13 @@ YAHOO.util.Event.addListener(window, "load", function() {
     }
 
     function formatSymbols(symbol, colKey, wrapperFun, args) {
+        var colKeyInCurrScope = currScope.hasOwnProperty(colKey);
+
         // split by commas while removing spaces
-        var array = symbol.split(/[,\s]+/);
-        var len = array.length;
-        var formatted = new Array(len);
-        for (var i = 0; i < len; i++) {
-            var val = array[i];
-            var higlightString = (currScope.hasOwnProperty(colKey) && regex_obj !== null && val.match(regex_obj)) ? 'class="highlight"' : '';
-            formatted[i] = wrapperFun(val, higlightString, args);
-        }
-        return formatted.join(', ');
+        return forEach(symbol.split(/[,\s]+/), function(val) {
+            var higlightString = (colKeyInCurrScope && regex_obj !== null && val.match(regex_obj)) ? 'class="highlight"' : '';
+            this.push(wrapperFun(val, higlightString, args));
+        }, []).join(', ');
     }
 
     var manager = (show_graphs === '') ? new YAHOO.widget.OverlayManager() : null;

@@ -59,16 +59,38 @@ function splitIntoPhrases(str) {
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // Array utilities
 //==============================================================================
-// execute function fun() for all pairs in the array
+// execute function fun() for all elements
 //==============================================================================
-function forPairInList (list, fun) {
+function forEach(list, fun, out) {
     if (list !== null) {
-        for (var i = 0, len = list.length; i < len; i += 2) {
-            fun(list[i], list[i + 1]);
+        for (var i = 0, len = list.length; i < len; i++) {
+            fun.call(out, list[i]);
         }
     }
+    return out;
 }
-
+//==============================================================================
+// execute function fun() for all pairs in the array
+//==============================================================================
+function forPairInList(list, fun, out) {
+    if (list !== null) {
+        for (var i = 0, len = list.length; i < len; i += 2) {
+            fun.call(out, list[i], list[i + 1]);
+        }
+    }
+    return out;
+}
+//==============================================================================
+// convert a list to an object mapping
+//==============================================================================
+function pairs2obj(list, obj) {
+    if (typeof(obj) === 'undefined' || obj === null) {
+        obj = {};
+    }
+    return forPairInList(list, function(head, tail) {
+        this[head] = tail;
+    }, obj);
+}
 //==============================================================================
 // returns a new array containing a specified subset of the old one
 //==============================================================================
@@ -84,25 +106,60 @@ function selectFromArray(array, subset) {
 //==============================================================================
 // sort tuples by column
 //==============================================================================
-function sortNestedByColumn (tuples, column) {
-    tuples.sort(function (a, b) {
+function ComparisonSortOnColumn(column) {
+    return function (a, b) {
         a = a[column];
         b = b[column];
         return a < b ? -1 : (a > b ? 1 : 0);
-    }); 
+    };
+}
+function sortNestedByColumn(tuples, column) {
+    tuples.sort(ComparisonSortOnColumn(column)); 
 }
 
 //==============================================================================
 // sort tuples by column (numeric)
 //==============================================================================
-function sortNestedByColumnNumeric (tuples, column) {
-    tuples.sort(function (a, b) {
+function NumericSortOnColumn(column) {
+    return function (a, b) {
         return a[column] - b[column];
-    }); 
+    };
+}
+function sortNestedByColumnNumeric(tuples, column) {
+    tuples.sort(NumericSortOnColumn(column)); 
 }
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // Object utilities
+//==============================================================================
+// iterate over key-value pairs -- three function imitating Perl's each, keys,
+// and values.
+//==============================================================================
+function object_forEach(obj, fun, out) {
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            var val = obj[key];
+            fun.call(out, key, val);
+        }
+    }
+    return out;
+}
+function object_forKeys(obj, fun, out) {
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            fun.call(out, key);
+        }
+    }
+    return out;
+}
+function object_forValues(obj, fun, out) {
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            fun.call(out, obj[key]);
+        }
+    }
+    return out;
+}
 //==============================================================================
 // count number of own properties in object
 //==============================================================================
@@ -188,10 +245,7 @@ function isDefinedSelection(el) {
 // EnableDisable
 //==============================================================================
 function EnableDisable(el, disabled) {
-    var children = dom.getChildren(el);
-    var len = children.length;
-    for (var i = 0; i < len; i++) {
-        var child = children[i];
+    forEach(dom.getChildren(el), function(child) {
         if (child.tagName === 'INPUT') {
             child.disabled = disabled;
         } else if (disabled !== '') {
@@ -200,7 +254,7 @@ function EnableDisable(el, disabled) {
             dom.removeClass(child, 'disabled');
         }
         EnableDisable(child, disabled);
-    }
+    });
 }
 
 //==============================================================================
@@ -230,25 +284,24 @@ function buildDropDown(obj, tuples, selected, old) {
         // style.width.
         el.style.width = (old.scrollWidth > 0) ? old.offsetWidth + 'px' : width;
     }
-    var len = tuples.length;
-    if (len > 0) {
+    if (tuples.length > 0) {
         // reset width for automatic width control
         obj.style.width = '';
     } else {
         // set width to either old (if present) or minimum
         setMinWidth(obj, '200px', old);
     }
-    for (var i = 0; i < len; i++) {
-        var key = tuples[i][0];
-        var value = tuples[i][1];
+    var haveSelected = typeof(selected) !== 'undefined';
+    forEach(tuples, function(tuple) {
+        var key = tuple[0];
         var option = document.createElement('option');
         option.setAttribute('value', key);
-        if (typeof(selected) !== 'undefined' && (key in selected)) {
+        if (haveSelected && selected.hasOwnProperty(key)) {
             option.selected = 'selected';
         }
-        option.innerHTML = value;
+        option.innerHTML = tuple[1];
         obj.appendChild(option);
-    }
+    });
 }
 
 //==============================================================================
@@ -279,13 +332,11 @@ function clearDropDown(obj) {
 //  }
 //==============================================================================
 function subscribeEnMasse(el, obj) {
-    for (var event in obj) {
-        if (obj.hasOwnProperty(event)) {
-            var handler = obj[event];
-            el.subscribe(event, handler);
-        }
-    }
+    object_forEach(obj, function(event, handler) {
+        el.subscribe(event, handler);
+    });
 }
+
 //==============================================================================
 // YUI helper: tab views
 //==============================================================================
@@ -312,7 +363,6 @@ function selectTabFromHash(tabView) {
 function export_table(e) {
     var this_records = this.records;
     var this_headers = this.headers;
-    var row_count = this_records.length;
 
     var win = window.open("");
     var doc = win.document.open("text/html");
@@ -328,10 +378,9 @@ function export_table(e) {
     }
 
     // table body
-    var i, j;
-    for (i = 0; i < row_count; i++) {
-        var row_hash = this_records[i];
+    forEach(this_records, function(row_hash) {
         var row_array = [];
+        var j;
         if (col_count) {
             // fill up until col_count
             for (j = 0; j < col_count; j++) {
@@ -345,7 +394,7 @@ function export_table(e) {
         }
         doc.write(row_array.join("\t"));
         doc.write("\n");
-    }
+    });
 
     doc.write("</pre>\n");
     doc.close();
@@ -362,65 +411,46 @@ function setupToggles(event, attr, getValue, callBack) {
         var inv_prop = inverse_attr[id];
 
         // fill out 'dependents' helper hash
-        var dependents = {};
-        for (var inv_id in inv_prop) {
-            if (inv_prop.hasOwnProperty(inv_id)) {
-                dependents[inv_id] = document.getElementById(inv_id);
-            }
-        }
+        var dependents = object_forKeys(inv_prop, function(inv_id) {
+            this[inv_id] = document.getElementById(inv_id);
+        }, {});
 
         return function() {
+            // need to hide all objects not referenced by sel and show all
+            // objects that are.
             var sel = getValue(obj);
-            // need to hide all objects not referenced by sel
-            // and show all objects that are.
-            for (var dep_id in dependents) {
-                if (dependents.hasOwnProperty(dep_id)) {
-                    var dep_obj = dependents[dep_id];
-                    if (dep_obj !== null) {
-                        dep_obj.style.display = inv_prop[dep_id].hasOwnProperty(sel) ? 'block' : 'none';
-                    }
+            object_forEach(dependents, function(dep_id, dep_obj) {
+               if (dep_obj !== null) {
+                    var inv_obj = inv_prop[dep_id];
+                    var style = inv_obj.hasOwnProperty(sel) ? 'block' : 'none';
+                    dep_obj.style.display = style;
                 }
-            }
+            });
             return true;
         };
     }
 
     // inverse the inside hash
-    var id;
-    var inverse_attr = {};
-    for (id in attr) {
-        if (attr.hasOwnProperty(id)) {
-            var hash = attr[id];
-            var tmp = {};
-            for (var key in hash) {
-                if (hash.hasOwnProperty(key)) {
-                    var idList = hash[key];
-                    for (var i = 0, len = idList.length; i < len; i++) {
-                        var id2 = idList[i];
-                        if (tmp.hasOwnProperty(id2)) {
-                            tmp[id2][key] = null;
-                        } else {
-                            var tmp2 = {};
-                            tmp2[key] = null;
-                            tmp[id2] = tmp2;
-                        }
-                    }
-                }
-            }
-            inverse_attr[id] = tmp;
-        }
-    }
+    // converts {x: {a: [1, 2, ...]}} into
+    // {x: {1: {a: null}, 2: {a: null}, ...}}
+    var inverse_attr = object_forEach(attr, function(id, hash) {
+        this[id] = object_forEach(hash, function(key, idList) {
+            var tmp = this;
+            forEach(idList, function(el) {
+                tmp[el] = pairs2obj([key, null], tmp[el]);
+            });
+        }, {});
+    }, {});
 
     // code below must be performed when DOM is loaded
-    for (id in attr) {
-        if (attr.hasOwnProperty(id)) {
-            var toggle = createToggle(id);
-            toggle();
-            YAHOO.util.Event.addListener(
-                id, event, ((typeof callBack !== 'undefined') ? function () { callBack(this); toggle(); } : toggle), document.getElementById(id)
-            );
-        }
-    }
+    object_forKeys(attr, function(id) {
+        var toggle = createToggle(id);
+        toggle();
+        var toggleCallBack = ((typeof callBack !== 'undefined') ? function () { callBack(this); return toggle(); } : toggle);
+        YAHOO.util.Event.addListener(
+            id, event, toggleCallBack, document.getElementById(id)
+        );
+    });
 }
 
 //==============================================================================
@@ -437,9 +467,9 @@ function validate_fields(of,reqfields) {
     var errorMsg = "There is a problem with your input. Please fill out or correct the highlighted field(s).";
 
     // split the required fields and loop throught them
-    for (var i = 0, len = reqfields.length; i < len; i++) {
+    forEach(reqfields, function(el) {
         // get a required field
-        var f=document.getElementById(reqfields[i]);
+        var f=document.getElementById(el);
         if (f === null ) {
             // cannot find the required field in the DOM body
             return false;
@@ -473,7 +503,7 @@ function validate_fields(of,reqfields) {
                 if(value ===""){ cf_adderr(f); }
                 break;
         }
-    }
+    });
     return (document.getElementById('message') === null);
 
     /* tool methods */

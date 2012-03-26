@@ -100,17 +100,11 @@ exports.createCellDropdown = function(resourceURIBuilder, rowNameBuilder) {
         };
         // TODO: instead of sending name_field as a parameter, rely on 'names'
         // property?
-        var transformed_data = [];
-        var lookup_records = lookup_table.records;
         var name_column = lookup_table.symbol2index[name_field];
         var index_column = lookup_table.symbol2index[lookup_table.key[0]];
-        for (var key in lookup_records) {
-            if (lookup_records.hasOwnProperty(key)) {
-                var value = lookup_records[key];
-                transformed_data.push({ label: value[name_column], value: value[index_column]});
-            }
-        }
-
+        var transformed_data = object_forValues(lookup_table.records, function(value) {
+            this.push({ label: value[name_column], value: value[index_column] });
+        }, []);
         return createCellDropdownCreator(transformed_data, update_field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
@@ -210,16 +204,16 @@ exports.createRowDeleter = function(buttonValue, resourceURIBuilder, deleteDataB
     };
 }
 exports.createDeleteDataBuilder = function(oArg) {
-    var keys = (typeof oArg !== "undefined" && typeof oArg.key !== "undefined") ? oArg.key : {};
-    var tableData = (typeof oArg !== "undefined" && typeof oArg.table !== "undefined") ? "&table=" + oArg.table : "";
+    if (typeof(oArg) === 'undefined' || oArg === null) {
+        oArg = {};
+    }
+    var keys = (typeof oArg.key !== "undefined") ? oArg.key : {};
+    var tableData = (typeof oArg.table !== "undefined") ? ["table=" + encodeURIComponent(oArg.table)] : [];
     return function(oRecord) {
-        var data = "b=ajax_delete" + tableData;
-        for (var key in keys) {
-            if (keys.hasOwnProperty(key)) {
-                data += "&" + key + "=" + encodeURIComponent(oRecord.getData(keys[key]));
-            }
-        }
-        return data;
+        var initMap = ['b=ajax_delete'].concat(tableData);
+        return object_forEach(keys, function(key, val) {
+            this.push(key + '=' + encodeURIComponent(oRecord.getData(val)));
+        }, initMap).join('&');
     };
 }
 exports.createDeleteFormatter = function(verb, noun) {
@@ -249,11 +243,9 @@ exports.createJoinFormatter = function(join_tuple, lookup_table, name_field) {
     };
 }
 exports.createRenameFormatter = function (rename_array) {
-    var rename_hash = {};
-    for (var i = 0, len = rename_array.length; i < len; i++) {
-        var obj = rename_array[i];
-        rename_hash[obj.value] = obj.label;
-    }
+    var rename_hash = forEach(rename_array, function(obj) {
+        this[obj.value] = obj.label;
+    }, {});
     return function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = rename_hash[oData];
     };
@@ -265,20 +257,19 @@ exports.newDataSourceFromArrays = function(struct) {
     return ds;
 }
 exports.expandJoinedFields = function(mainTable, lookupTables) {
-    var tmp = {};
-    forPairInList(mainTable.lookup, function(other_table, tuple) {
+    var tmp = forPairInList(mainTable.lookup, function(other_table, tuple) {
         var obj = lookupTables[other_table];
         if (typeof obj !== 'undefined' && obj !== null) {
             obj.lookup_by = {};
             var this_field = tuple[0];
             var other_field = tuple[1];
-            if (tmp.hasOwnProperty(this_field)) {
-                tmp[this_field].push([other_table, other_field, obj]);
+            if (this.hasOwnProperty(this_field)) {
+                this[this_field].push([other_table, other_field, obj]);
             } else {
-                tmp[this_field] = [ [other_table, other_field, obj] ];
+                this[this_field] = [ [other_table, other_field, obj] ];
             }
         }
-    });
+    }, {});
     var mainTable_fields = mainTable.fields,
     mainTable_records = mainTable.records,
     num_records = mainTable_records.length,
@@ -292,79 +283,62 @@ exports.expandJoinedFields = function(mainTable, lookupTables) {
         if (tmp.hasOwnProperty(field)) {
             var objArray = tmp[field];
             var extra_col_count = 0;
-            for (var l = 0, obj_len = objArray.length; l < obj_len; l++) {
-                var triple = objArray[l];
+            forEach(objArray, function(triple) {
                 var lookupTable = triple[0];
                 var lookupField = triple[1];
                 var obj = triple[2];
-
 
                 var extra_key_len = obj.key.length;
                 var extra_fields = obj.view;
                 var extra_meta = obj.meta;
 
                 // prepend table name to every field from view
-                for (var m = 0, extra_len = extra_fields.length; m < extra_len; m++) {
-                    extra_fields[m] = lookupTable + '.' + extra_fields[m];
-                }
-
-                var extra_fields_len = extra_fields.length;
-                extra_col_count += extra_fields_len;
-                for (var f = 0; f < extra_fields_len; f++) {
-                    var join_field = extra_fields[f];
+                extra_col_count += extra_fields.length;
+                extra_fields = forEach(extra_fields, function(extra_field) {
+                    var join_field = lookupTable + '.' + extra_field;
                     // either plain field name or object containing parser
                     mainTable_fields.push(
                         extra_meta.hasOwnProperty(join_field) ? { key: join_field, parser: extra_meta[join_field].parser } : join_field
                     );
-                }
+                }, []);
 
                 // setup 'data' property in lookupTable
-                var data = {};
-                var lookupTable_records = obj.records;
                 var lookupIndex = obj.symbol2index[lookupField];
-                for (var r = 0, len = lookupTable_records.length; r < len; r++) {
-                    var record = lookupTable_records[r];
+                obj.lookup_by[lookupField] = forEach(obj.records, function(record) {
                     var data_slice = record.slice(extra_key_len);
                     var key_val = record[lookupIndex];
-                    if (data.hasOwnProperty(key_val)) {
-                        var this_array = data[key_val];
+                    if (this.hasOwnProperty(key_val)) {
+                        var this_array = this[key_val];
                         for (var c = 0, clen = this_array.length; c < clen; c++) {
                             // zip on commas
                             this_array[c] = this_array[c] + ', ' + data_slice[c];
                         }
                     } else {
-                        data[key_val] = data_slice;
+                        this[key_val] = data_slice;
                     }
-                }
-                obj.lookup_by[lookupField] = data;
-            }
+                }, {});
+            });
             // For each record in data array, add field value for the
             // corresponding join field.  TODO: if joined field not editable (no
             // dropdown formatter), make it sortable (fully subsitute key
             // values). Problem: how to tell that the joined field has no
             // dropdown formatter?
-            for (var i = 0; i < num_records; i++) {
-                var this_record = mainTable_records[i];
+            forEach(mainTable_records, function(this_record) {
                 var field_value = this_record[k];
                 for (var j = 0; j < extra_col_count; j++) {
                     this_record.push(field_value);
                 }
-            }
+            });
         }
     }
     return mainTable;
 }
 exports.createResourceURIBuilder = function(uriPrefix, columnMapping) {
     return function (oRecord) {
-        var resourceURI = uriPrefix;
-        if (typeof columnMapping !== "undefined") {
-            for (var key in columnMapping) {
-                if (columnMapping.hasOwnProperty(key)) {
-                    resourceURI += "&" + key + "=" + encodeURIComponent(oRecord.getData(columnMapping[key]));
-                }
-            }
-        }
-        return resourceURI;
+        var myColMap = (typeof columnMapping !== "undefined") ? columnMapping : [];
+        return object_forEach(myColMap, function(key, val) {
+            this.push(key + "=" + encodeURIComponent(oRecord.getData(val)));
+        }, [uriPrefix]).join('&');
     };
 }
 exports.createRowNameBuilder = function(nameColumns, item_class) {
@@ -373,84 +347,72 @@ exports.createRowNameBuilder = function(nameColumns, item_class) {
         return oRecord.getData(field).replace('"', "").replace("'","");
     }
     return function (oRecord) {
-        var names = [];
-        for (var i = 0, len = nameColumns.length; i < len; i++) {
-            names.push(getCleanFieldValue(oRecord, nameColumns[i]));
-        }
+        var names = forEach(nameColumns, function(el) {
+            this.push(getCleanFieldValue(oRecord, el));
+        }, []);
         return item_class + " `" + names.join(" / ") + "`";
     };
 }
 exports.formatEmail = function(elLiner, oRecord, oColumn, oData) {
-    elLiner.innerHTML = (oData !== null) ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>" : '';
+    elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>" : '';
 }
 exports.formatPubMed = function(elLiner, oRecord, oColumn, oData) {
     elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>') : '';
 }
 exports.populateDropdowns = function(lookupTables, lookup, data) {
-    var inverseLookup = {};
-    forPairInList(lookup, function(table, fieldmap) {
+    var inverseLookup = forPairInList(lookup, function(table, fieldmap) {
         var this_field = fieldmap[0];
+        var inv = this;
 
         // only use first lookup
-        if (!inverseLookup.hasOwnProperty(this_field)) {
+        if (!inv.hasOwnProperty(this_field)) {
             var table_info = lookupTables[table];
             if (typeof table_info !== 'undefined') {
                 var other_field = fieldmap[1];
-                var symbol2index = table_info.symbol2index;
-                var other_index = symbol2index[other_field];
                 var names = table_info.names;
                 if (names === null) {
-                    // default to key field 
-                    names = [other_field];
+                    names = [other_field]; // default to key field
                 }
-                var name_indexes = [];
-                for (var i = 0, name_count = names.length; i < name_count; i++) {
-                    name_indexes.push(symbol2index[names[i]]);
-                }
-                name_indexes.sort();
+
+                var symbol2index = table_info.symbol2index;
+                var name_indexes = forEach(names, function(name) {
+                    this.push(symbol2index[name]);
+                }, []).sort();
 
                 // now create a key-value structure mapping lookud up values of
                 // this_field to names in lookup table
-                var records = table_info.records;
-                var records_length = records.length;
-                var id_name = [['', '@Choose ' + table_info.symbol2name[names[0]] + ':']];
-                for (var j = 0; j < records_length; j++) {
-                    var record = records[j];
-                    id_name.push([record[other_index], selectFromArray(record, name_indexes).join(' / ')]);
-                }
+                var other_index = symbol2index[other_field];
+                var id_name = forEach(table_info.records, function(record) {
+                    this.push([record[other_index], selectFromArray(record, name_indexes).join(' / ')]);
+                }, [['', '@Choose ' + table_info.symbol2name[names[0]] + ':']]).sort(ComparisonSortOnColumn(1));
+
                 // generic tuple sort (sort hash by value)
-                sortNestedByColumn(id_name, 1);
-                inverseLookup[this_field] = {options: id_name, selected:data[this_field]};
+                inv[this_field] = {options: id_name, selected:data[this_field]};
             }
         }
-    });
+    }, {});
+
     return function() {
-        for (var key in inverseLookup) {
-            if (inverseLookup.hasOwnProperty(key)) {
-                var obj = document.getElementById(key);
-                if (obj !== null) {
-                    var val = inverseLookup[key];
-                    var selected = val.selected;
-                    var tuples = val.options;
-                    var tuples_length = tuples.length;
-                    // default width
-                    if (tuples_length === 0) {
-                        obj.style.width = '200px';
-                    }
-                    for (var i = 0; i < tuples_length; i++) {
-                        var this_key = tuples[i][0];
-                        var value = tuples[i][1];
-                        var option = document.createElement('option');
-                        option.setAttribute('value', this_key);
-                        if (typeof(selected) !== 'undefined' && this_key === selected) {
-                            option.selected = 'selected';
-                        }
-                        option.innerHTML = value;
-                        obj.appendChild(option);
-                    }
+        object_forEach(inverseLookup, function(key, val) {
+            var obj = document.getElementById(key);
+            if (obj !== null) {
+                var selected = val.selected;
+                var haveSelected = typeof(selected) !== 'undefined';
+                if (val.options.length === 0) {
+                    obj.style.width = '200px'; // default width
                 }
+                forEach(val.options, function(tuple) {
+                    var this_key = tuple[0];
+                    var option = document.createElement('option');
+                    option.setAttribute('value', this_key);
+                    if (haveSelected && this_key === selected) {
+                        option.selected = 'selected';
+                    }
+                    option.innerHTML = tuple[1];
+                    obj.appendChild(option);
+                });
             }
-        }
+        });
     };
 }
 

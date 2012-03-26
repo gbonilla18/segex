@@ -21,9 +21,9 @@ YAHOO.util.Event.addListener("resulttable_selectall", "click", function(o) {
     if (text === SELECT_ALL) {
 
         // select all rows
-        for (var i = 0; i < len; i++) {
-            buf[rec[i][0]] = null;
-        }
+        forEach(rec, function(el) {
+            buf[el[0]] = null;
+        });
         this.innerHTML = UNSELECT_ALL;
     } else {
 

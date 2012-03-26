@@ -19,16 +19,11 @@ exports.populatePlatform = function()
     var oldWidth = clearDropDown(platforms);
 
     // sort by platform name
-    var tuples = [];
-    for (var i in PlatfStudyExp) {
-        if (PlatfStudyExp.hasOwnProperty(i)) {
-            var platformNode = PlatfStudyExp[i];
-            var species = platformNode.species;
-            var content = (typeof species !== 'undefined' && species !== null) ? platformNode.name + ' \\ ' + species : platformNode.name;
-            tuples.push([i, content]);
-        }
-    }
-    sortNestedByColumn(tuples, 1);
+    var tuples = object_forEach(PlatfStudyExp, function(i, platformNode) {
+        var species = platformNode.species;
+        var content = (typeof species !== 'undefined' && species !== null) ? platformNode.name + ' \\ ' + species : platformNode.name;
+        this.push([i, content]);
+    }, []).sort(ComparisonSortOnColumn(1));
 
     // build dropdown box
     buildDropDown(platforms, tuples, platform.selected, oldWidth);
@@ -51,14 +46,9 @@ exports.populatePlatformStudy = function()
     var study_data = (typeof pid !== 'undefined' && typeof PlatfStudyExp[pid] !== 'undefined') ? PlatfStudyExp[pid].studies : {};
 
     // sort by study id
-    var tuples = [];
-    for (var i in study_data) {
-        if (study_data.hasOwnProperty(i)) {
-            var content = study_data[i].name;
-            tuples.push([i, content]);
-        }
-    }
-    sortNestedByColumn(tuples, 1);
+    var tuples = object_forEach(study_data, function(key, val) {
+        this.push([key, val.name]);
+    }, []).sort(ComparisonSortOnColumn(1));
 
     buildDropDown(studies, tuples, study.selected, oldWidth);
 }
@@ -89,22 +79,14 @@ exports.populateStudyExperiment = function()
         var experiment_data = platformNode.experiments;
 
         // sort by experiment id
-        var tuples = [];
-        for (var i in experiment_ids) {
-            if (experiment_ids.hasOwnProperty(i)) {
-                var experimentNode = experiment_data[i];
-                var content = i + '. ';
-                if (typeof(experimentNode) !== 'undefined') {
-                    // no experiment info for given eid among platform data -- this
-                    // typically would mean that the experiment in question has been
-                    // assigned to the study but not the platform -- this is not
-                    // supposed to happen but we consider the possibility anyway.
-                    content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
-                }
-                tuples.push([i, content]);
+        var tuples = object_forKeys(experiment_ids, function(i) {
+            var experimentNode = experiment_data[i];
+            var content = i + '. ';
+            if (typeof(experimentNode) !== 'undefined') {
+                content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
             }
-        }
-        sortNestedByColumnNumeric(tuples, 0);
+            this.push([i, content]);
+        }, []).sort(NumericSortOnColumn(0));
 
         // build dropdown box
         buildDropDown(experiments, tuples, experiment.selected, oldWidth);

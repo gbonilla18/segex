@@ -19,15 +19,9 @@ exports.populateProject = function()
     var oldWidth = clearDropDown(projects);
 
     // sort by project name
-    var tuples = [];
-    for (var i in ProjStudyExp) {
-        if (ProjStudyExp.hasOwnProperty(i)) {
-            var projectNode = ProjStudyExp[i];
-            var content = projectNode.name;
-            tuples.push([i, content]);
-        }
-    }
-    sortNestedByColumn(tuples, 1);
+    var tuples = object_forEach(ProjStudyExp, function(i, projectNode) {
+        this.push([i, projectNode.name]);
+    }, []).sort(ComparisonSortOnColumn(1));
 
     // build dropdown box
     buildDropDown(projects, tuples, project.selected, oldWidth);
@@ -51,14 +45,9 @@ exports.populateProjectStudy = function()
         var study_data = ProjStudyExp[pid].studies;
 
         // sort by study id
-        var tuples = [];
-        for (var i in study_data) {
-            if (study_data.hasOwnProperty(i)) {
-                var content = study_data[i].name;
-                tuples.push([i, content]);
-            }
-        }
-        sortNestedByColumn(tuples, 1);
+        var tuples = object_forEach(study_data, function(out, i, val) {
+            out.push([i, val.name]);
+        }, []).sort(ComparisonSortOnColumn(1));
 
         buildDropDown(studies, tuples, study.selected, oldWidth);
     }
@@ -90,22 +79,14 @@ exports.populateStudyExperiment = function()
         var experiment_data = projectNode.experiments;
 
         // sort by experiment id
-        var tuples = [];
-        for (var i in experiment_ids) {
-            if (experiment_ids.hasOwnProperty(i)) {
-                var experimentNode = experiment_data[i];
-                var content = i + '. ';
-                if (typeof(experimentNode) !== 'undefined') {
-                    // no experiment info for given eid among project data -- this
-                    // typically would mean that the experiment in question has been
-                    // assigned to the study but not the project -- this is not
-                    // supposed to happen but we consider the possibility anyway.
-                    content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
-                }
-                tuples.push([i, content]);
+        var tuples = object_forKeys(experiment_ids, function(i) {
+            var experimentNode = experiment_data[i];
+            var content = i + '. ';
+            if (typeof(experimentNode) !== 'undefined') {
+                content += experimentNode.sample2 + ' / ' + experimentNode.sample1;
             }
-        }
-        sortNestedByColumnNumeric(tuples, 0);
+            this.push([i, content]);
+        }, []).sort(NumericSortByColumn(0));
 
         // build dropdown box
         buildDropDown(experiments, tuples, experiment.selected, oldWidth);

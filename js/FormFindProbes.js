@@ -23,7 +23,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         }
     );
     setupToggles('change',
-        { 'show_graphs': { 'checked' : [ 'graph_hint_container', 'graph_hint' ] }},
+        { 'show_graphs': { 'checked' : [ 'graph_hint_container' ] }},
         function(el) { return (el !== null && el.checked) ? 'checked' : ''; }
     );
 
@@ -73,11 +73,9 @@ YAHOO.util.Event.addListener(window, 'load', function() {
         }
     }
     displayHintPanels();
-    for (var i = 0, len = match_buttons.length; i < len; i++) {
-        YAHOO.util.Event.addListener(
-            match_buttons[i], 'change', displayHintPanels
-        );
-    }
+    forEach(match_buttons, function(btn) {
+        YAHOO.util.Event.addListener(btn, 'change', displayHintPanels);
+    });
 
     // scope
     var scope_state = dom.get("scope_state");

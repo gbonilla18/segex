@@ -1977,45 +1977,45 @@ END_H2P_TEXT
                     )
                 ),
                 $q->div(
-                    { -id => 'graph_hint_container', },
-                    $q->div(
-                        { -class => 'dd_collapsible' },
-                        $q->p(
-                            $q->label(
-                                $q->input(
-                                    {
-                                        -type => 'radio',
-                                        -name => 'graph_type',
-                                        -title =>
+                    {
+                        -id    => 'graph_hint_container',
+                        -class => 'dd_collapsible'
+                    },
+                    $q->p(
+                        $q->label(
+                            $q->input(
+                                {
+                                    -type => 'radio',
+                                    -name => 'graph_type',
+                                    -title =>
 'Plot intensity ratios as fold change for each experiment',
-                                        -value   => 'Fold Change',
-                                        -checked => 'checked'
-                                    }
-                                ),
-                                'Fold Change'
+                                    -value   => 'Fold Change',
+                                    -checked => 'checked'
+                                }
                             ),
-                            $q->label(
-                                $q->input(
-                                    {
-                                        -type => 'radio',
-                                        -name => 'graph_type',
-                                        -title =>
-'Plot intensity ratios as base 2 logarithm for each experiment',
-                                        -value => 'Log Ratio',
-                                    }
-                                ),
-                                'Log Ratio'
-                            ),
+                            'Fold Change'
                         ),
-                        $q->p(
-                            { -id => 'graph_hint', -class => 'hint' },
-                            <<"END_graph_hint"
+                        $q->label(
+                            $q->input(
+                                {
+                                    -type => 'radio',
+                                    -name => 'graph_type',
+                                    -title =>
+'Plot intensity ratios as base 2 logarithm for each experiment',
+                                    -value => 'Log Ratio',
+                                }
+                            ),
+                            'Log Ratio'
+                        ),
+                    ),
+                    $q->p(
+                        { -class => 'hint', style => 'display:block;' },
+                        <<"END_graph_hint"
 For graphs to display, your browser should support Scalable Vector Graphics
 (SVG). Internet Explorer (IE) versions earlier than v9.0 can only display SVG
 images via 
 <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.
 END_graph_hint
-                        )
                     )
                 )
             )
