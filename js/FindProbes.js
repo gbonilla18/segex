@@ -14,8 +14,8 @@ YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, 
 YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
 
     // get first elements of data.records tuples -- those are Probe IDs
-    dom.get("q").value = forEach(data.records, function(el) {
-        this.push(el[0]);
+    dom.get("q").value = forEach(data.records, function(row) {
+        this.push(row[0]);
     }, []).join(',');
 
     dom.get("q_old").value = queryText;
@@ -153,11 +153,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
     }
 
     function formatSymbols(symbol, colKey, wrapperFun, args) {
-        var colKeyInCurrScope = currScope.hasOwnProperty(colKey);
+        var doMatch = currScope.hasOwnProperty(colKey) && regex_obj !== null;
 
         // split by commas while removing spaces
         return forEach(symbol.split(/[,\s]+/), function(val) {
-            var higlightString = (colKeyInCurrScope && regex_obj !== null && val.match(regex_obj)) ? 'class="highlight"' : '';
+            var higlightString = (doMatch && val.match(regex_obj)) ? 'class="highlight"' : '';
             this.push(wrapperFun(val, higlightString, args));
         }, []).join(', ');
     }

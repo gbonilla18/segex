@@ -210,10 +210,9 @@ exports.createDeleteDataBuilder = function(oArg) {
     var keys = (typeof oArg.key !== "undefined") ? oArg.key : {};
     var tableData = (typeof oArg.table !== "undefined") ? ["table=" + encodeURIComponent(oArg.table)] : [];
     return function(oRecord) {
-        var initMap = ['b=ajax_delete'].concat(tableData);
         return object_forEach(keys, function(key, val) {
             this.push(key + '=' + encodeURIComponent(oRecord.getData(val)));
-        }, initMap).join('&');
+        }, ['b=ajax_delete'].concat(tableData)).join('&');
     };
 }
 exports.createDeleteFormatter = function(verb, noun) {
@@ -270,10 +269,9 @@ exports.expandJoinedFields = function(mainTable, lookupTables) {
             }
         }
     }, {});
-    var mainTable_fields = mainTable.fields,
-    mainTable_records = mainTable.records,
-    num_records = mainTable_records.length,
-    mainTable_meta = mainTable.meta;
+    var mainTable_fields  = mainTable.fields;
+    var mainTable_records = mainTable.records;
+    var mainTable_meta    = mainTable.meta;
     for (var k = 0, num_fields = mainTable_fields.length; k < num_fields; k++) {
         var field = mainTable_fields[k];
         if (mainTable_meta.hasOwnProperty(field)) {
@@ -281,20 +279,16 @@ exports.expandJoinedFields = function(mainTable, lookupTables) {
             mainTable_fields[k] = { key: field, parser: mainTable_meta[field].parser };
         }
         if (tmp.hasOwnProperty(field)) {
-            var objArray = tmp[field];
             var extra_col_count = 0;
-            forEach(objArray, function(triple) {
+            forEach(tmp[field], function(triple) {
                 var lookupTable = triple[0];
                 var lookupField = triple[1];
-                var obj = triple[2];
-
-                var extra_key_len = obj.key.length;
-                var extra_fields = obj.view;
-                var extra_meta = obj.meta;
+                var obj         = triple[2];
 
                 // prepend table name to every field from view
-                extra_col_count += extra_fields.length;
-                extra_fields = forEach(extra_fields, function(extra_field) {
+                var extra_meta = obj.meta;
+                extra_col_count += obj.view.length;
+                var extra_fields = forEach(obj.view, function(extra_field) {
                     var join_field = lookupTable + '.' + extra_field;
                     // either plain field name or object containing parser
                     mainTable_fields.push(
@@ -304,6 +298,7 @@ exports.expandJoinedFields = function(mainTable, lookupTables) {
 
                 // setup 'data' property in lookupTable
                 var lookupIndex = obj.symbol2index[lookupField];
+                var extra_key_len = obj.key.length;
                 obj.lookup_by[lookupField] = forEach(obj.records, function(record) {
                     var data_slice = record.slice(extra_key_len);
                     var key_val = record[lookupIndex];
@@ -347,10 +342,9 @@ exports.createRowNameBuilder = function(nameColumns, item_class) {
         return oRecord.getData(field).replace('"', "").replace("'","");
     }
     return function (oRecord) {
-        var names = forEach(nameColumns, function(el) {
+        return item_class + ' `' + forEach(nameColumns, function(el) {
             this.push(getCleanFieldValue(oRecord, el));
-        }, []);
-        return item_class + " `" + names.join(" / ") + "`";
+        }, []).join(' / ') + '`';
     };
 }
 exports.formatEmail = function(elLiner, oRecord, oColumn, oData) {
@@ -362,10 +356,9 @@ exports.formatPubMed = function(elLiner, oRecord, oColumn, oData) {
 exports.populateDropdowns = function(lookupTables, lookup, data) {
     var inverseLookup = forPairInList(lookup, function(table, fieldmap) {
         var this_field = fieldmap[0];
-        var inv = this;
 
         // only use first lookup
-        if (!inv.hasOwnProperty(this_field)) {
+        if (!this.hasOwnProperty(this_field)) {
             var table_info = lookupTables[table];
             if (typeof table_info !== 'undefined') {
                 var other_field = fieldmap[1];
@@ -387,7 +380,7 @@ exports.populateDropdowns = function(lookupTables, lookup, data) {
                 }, [['', '@Choose ' + table_info.symbol2name[names[0]] + ':']]).sort(ComparisonSortOnColumn(1));
 
                 // generic tuple sort (sort hash by value)
-                inv[this_field] = {options: id_name, selected:data[this_field]};
+                this[this_field] = {options: id_name, selected:data[this_field]};
             }
         }
     }, {});
@@ -408,7 +401,7 @@ exports.populateDropdowns = function(lookupTables, lookup, data) {
                     if (haveSelected && this_key === selected) {
                         option.selected = 'selected';
                     }
-                    option.innerHTML = tuple[1];
+                    option.appendChild(document.createTextNode(tuple[1]));
                     obj.appendChild(option);
                 });
             }

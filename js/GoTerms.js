@@ -15,15 +15,10 @@ var SELECT_ALL = 'Select all';
 var UNSELECT_ALL = 'Unselect all';
 
 YAHOO.util.Event.addListener("resulttable_selectall", "click", function(o) {
-    var rec = data.records;
-    var len = rec.length;
-    var text = this.innerHTML;
-    if (text === SELECT_ALL) {
+    if (this.innerHTML === SELECT_ALL) {
 
         // select all rows
-        forEach(rec, function(el) {
-            buf[el[0]] = null;
-        });
+        forEach(data.records, function(row) { buf[row[0]] = null; });
         this.innerHTML = UNSELECT_ALL;
     } else {
 
