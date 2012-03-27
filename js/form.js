@@ -472,6 +472,20 @@ function setupToggles(event, attr, getValue, callBack) {
     });
 }
 
+//====
+//
+//====
+function setupPPDropdowns(arr) {
+    var obj = forPairInList(arr, function(key, val) { this[key] = val; }, {});
+    forPairInList(arr, function(key, val) {
+        forPairInList(val.updateViewOn, function(id, event) {
+            YAHOO.util.Event.addListener(
+                id, event, val.updateMethod, obj, true
+            );
+        });
+    });
+}
+
 //==============================================================================
 // validate_fields
 //==============================================================================

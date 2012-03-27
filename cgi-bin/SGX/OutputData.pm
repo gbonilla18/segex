@@ -8,6 +8,7 @@ use base qw/SGX::Strategy::Base/;
 use SGX::Util qw/car bind_csv_handle/;
 use JSON qw/encode_json/;
 require SGX::Model::PlatformStudyExperiment;
+require SGX::Abstract::JSEmitter;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  OutputData
@@ -362,52 +363,48 @@ sub default_body {
 sub getDropDownJS {
     my $self = shift;
 
-    my $PlatfStudyExp =
-      encode_json( $self->{_PlatformStudyExperiment}->get_ByPlatform() );
-
-    my $currentSelection = encode_json(
-        {
-            'platform' => {
-                element  => undef,
-                selected => (
-                      ( defined $self->{_pid} ) ? { $self->{_pid} => undef }
-                    : {}
-                ),
-                elementId => 'pid'
-            },
-            'study' => {
-                element  => undef,
-                selected => (
-                      ( defined $self->{_stid} ) ? { $self->{_stid} => undef }
-                    : {}
-                ),
-                elementId => 'stid'
-            },
-            'experiment' => {
-                element => undef,
-                selected =>
-                  +{ map { $_ => undef } @{ $self->{_eidList} || [] } },
-                elementId => 'eid'
-            }
-        }
-    );
-
-    return <<"END_ret";
-var PlatfStudyExp = $PlatfStudyExp;
-var currentSelection = $currentSelection;
-YAHOO.util.Event.addListener(window, 'load', function() {
-    populatePlatform.apply(currentSelection);
-    populatePlatformStudy.apply(currentSelection);
-    populateStudyExperiment.apply(currentSelection);
-});
-YAHOO.util.Event.addListener('pid', 'change', function() {
-    populatePlatformStudy.apply(currentSelection);
-    populateStudyExperiment.apply(currentSelection);
-});
-YAHOO.util.Event.addListener('stid', 'change', function() {
-    populateStudyExperiment.apply(currentSelection);
-});
-END_ret
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    return $js->let(
+        [
+            PlatfStudyExp =>
+              $self->{_PlatformStudyExperiment}->get_ByPlatform(),
+            currentSelection => [
+                'platform' => {
+                    element  => undef,
+                    selected => (
+                          ( defined $self->{_pid} )
+                        ? { $self->{_pid} => undef }
+                        : {}
+                    ),
+                    elementId    => 'pid',
+                    updateViewOn => [ sub { 'window' }, 'load' ],
+                    updateMethod => sub { 'populatePlatform' }
+                },
+                'study' => {
+                    element  => undef,
+                    selected => (
+                          ( defined $self->{_stid} )
+                        ? { $self->{_stid} => undef }
+                        : {}
+                    ),
+                    elementId => 'stid',
+                    updateViewOn =>
+                      [ sub { 'window' }, 'load', 'pid', 'change' ],
+                    updateMethod => sub { 'populatePlatformStudy' }
+                },
+                'experiment' => {
+                    element => undef,
+                    selected =>
+                      +{ map { $_ => undef } @{ $self->{_eidList} || [] } },
+                    elementId => 'eid',
+                    updateViewOn =>
+                      [ sub { 'window' }, 'load', 'stid', 'change' ],
+                    updateMethod => sub { 'populateStudyExperiment' }
+                }
+            ]
+        ],
+        declare => 1
+    ) . $js->apply( 'setupPPDropdowns', [ sub { 'currentSelection' } ] );
 }
 
 #===  CLASS METHOD  ============================================================

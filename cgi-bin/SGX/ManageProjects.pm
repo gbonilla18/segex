@@ -209,7 +209,7 @@ sub form_assign_head {
                 project_by_study => 1,
                 studies          => 1
             )
-        }
+        },
       );
 
     return 1;
@@ -315,106 +315,32 @@ sub get_pse_dropdown_js {
     return $js->let(
         [
             ProjStudyExp => $self->{_ProjectStudyExperiment}->get_ByProject(),
-            currentSelection => {
+            currentSelection => [
                 'project' => {
                     elementId => 'prid',
                     element   => undef,
-                    selected  => ( defined $prid ) ? { $prid => undef } : {}
+                    selected => ( ( defined $prid ) ? { $prid => undef } : {} ),
+                    updateViewOn => [ sub { 'window' }, 'load' ],
+                    updateMethod => sub   { 'populateProject' }
                 },
-                (
-                    ( $args{projects} )
-                    ? (
-                        'project' => {
-                            elementId => 'prid',
-                            element   => undef,
-                            selected  => {}
-                        }
-                      )
-                    : ()
-                ),
                 (
                     ( $args{studies} )
                     ? (
                         'study' => {
                             elementId => 'stid',
                             element   => undef,
-                            selected  => {}
+                            selected  => {},
+                            updateViewOn =>
+                              [ sub { 'window' }, 'load', 'prid', 'change' ],
+                            updateMethod => sub { 'populateProjectStudy' }
                         }
                       )
                     : ()
                 )
-            }
+            ]
         ],
         declare => 1
-      )
-      . $js->apply(
-        'YAHOO.util.Event.addListener',
-        [
-            sub { 'window' },
-            'load',
-            $js->lambda(
-                [],
-                $js->apply(
-                    'populateProject.apply', [ sub { 'currentSelection' } ],
-                ),
-                (
-                    ( $args{projects} && $args{studies} )
-                    ? (
-                        $js->apply(
-                            'populateProjectStudy.apply',
-                            [ sub { 'currentSelection' } ],
-                        )
-                      )
-                    : ()
-                )
-            )
-        ]
-      )
-      . (
-        ( $args{projects} || $args{studies} )
-        ? (
-            $js->apply(
-                'YAHOO.util.Event.addListener',
-                [
-                    'prid', 'change',
-                    $js->lambda(
-                        [],
-                        (
-                            ( $args{projects} && $args{studies} )
-                            ? (
-                                $js->apply(
-                                    'populateProjectStudy.apply',
-                                    [ sub { 'currentSelection' } ],
-                                )
-                              )
-                            : ()
-                        )
-                    )
-                ]
-            )
-          )
-        : ''
-      )
-      . (
-        ( $args{projects} && $args{studies} )
-        ? (
-            $js->apply(
-                'YAHOO.util.Event.addListener',
-                [
-                    'prid', 'change',
-                    $js->lambda(
-                        [],
-                        $js->apply(
-                            'populateProjectStudy.apply',
-                            [ sub { 'currentSelection' } ],
-                            void => 1
-                        )
-                    )
-                ],
-            )
-          )
-        : ''
-      );
+    ) . $js->apply( 'setupPPDropdowns', [ sub { 'currentSelection' } ] );
 }
 
 1;

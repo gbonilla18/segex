@@ -362,11 +362,9 @@ sub form_create_head {
     push @{ $self->{_js_src_yui} },  'button/button-min.js';
 
     # add platform dropdown
-    push @{ $self->{_js_src_code} },
-      ( { -src => 'collapsible.js' },
-        { -src => 'PlatformStudyExperiment.js' } );
+    push @{ $self->{_js_src_code} }, { -src => 'collapsible.js' };
 
-    push @{ $self->{_js_buffer} }, <<"END_SETUPTOGGLES" .
+    push @{ $self->{_js_buffer} }, <<"END_SETUPTOGGLES";
 YAHOO.util.Event.addListener(window,'load',function(){
     setupToggles('change',
         { 'pid': { 'defined' : ['stid_dt', 'stid_dd'] } }, 
@@ -378,13 +376,16 @@ YAHOO.util.Event.addListener(window,'load',function(){
     });
 });
 END_SETUPTOGGLES
-      $self->get_pse_dropdown_js(
+    push @{ $self->{_js_src_code} }, { -src => 'PlatformStudyExperiment.js' };
+    push @{ $self->{_js_src_code} }, {
+        -code => $self->get_pse_dropdown_js(
 
-        # default: show all studies or studies for a specific platform
-        platforms         => undef,
-        platform_by_study => 1,
-        studies           => 1
-      );
+            # default: show all studies or studies for a specific platform
+            platforms         => undef,
+            platform_by_study => 1,
+            studies           => 1
+        )
+    };
 
     $self->SUPER::form_create_head();
 
@@ -489,7 +490,7 @@ sub default_head {
                     '' => { name => '@Unassigned Experiments' }
                 }
             )
-        }
+        },
     );
 
     return 1;
@@ -723,11 +724,13 @@ sub get_pse_dropdown_js {
         [
             PlatfStudyExp =>
               $self->{_PlatformStudyExperiment}->get_ByPlatform(),
-            currentSelection => {
+            currentSelection => [
                 'platform' => {
                     elementId => 'pid',
                     element   => undef,
-                    selected  => ( ( defined $pid ) ? { $pid => undef } : {} )
+                    selected  => ( ( defined $pid ) ? { $pid => undef } : {} ),
+                    updateViewOn => [ sub { 'window' }, 'load' ],
+                    updateMethod => sub   { 'populatePlatform' }
                 },
                 (
                     ( $args{studies} )
@@ -739,7 +742,10 @@ sub get_pse_dropdown_js {
                                   ( defined $stid )
                                 ? { $stid => undef }
                                 : {}
-                            )
+                            ),
+                            updateViewOn =>
+                              [ sub { 'window' }, 'load', 'pid', 'change' ],
+                            updateMethod => sub { 'populatePlatformStudy' }
                         }
                       )
                     : ()
@@ -750,107 +756,18 @@ sub get_pse_dropdown_js {
                         'experiment' => {
                             elementId => 'eid',
                             element   => undef,
-                            selected  => {}
+                            selected  => {},
+                            updateViewOn =>
+                              [ sub { 'window' }, 'load', 'stid', 'change' ],
+                            updateMethod => sub { 'populateStudyExperiment' }
                         }
                       )
                     : ()
                 )
-            }
+            ]
         ],
         declare => 1
-      )
-      . $js->apply(
-        'YAHOO.util.Event.addListener',
-        [
-            sub { 'window' },
-            'load',
-            $js->lambda(
-                [],
-                (
-                    ( $args{platforms} )
-                    ? $js->apply(
-                        'populatePlatform.apply',
-                        [ sub { 'currentSelection' } ],
-                      )
-                    : ()
-                ),
-                (
-                    ( $args{studies} )
-                    ? (
-                        $js->apply(
-                            'populatePlatformStudy.apply',
-                            [ sub { 'currentSelection' } ],
-                        )
-                      )
-                    : ()
-                ),
-                (
-                    ( $args{studies} && $args{experiments} )
-                    ? (
-                        $js->apply(
-                            'populateStudyExperiment.apply',
-                            [ sub { 'currentSelection' } ],
-                        )
-                      )
-                    : ()
-                )
-            )
-        ],
-      )
-      . (
-        ( $args{studies} || $args{experiments} )
-        ? (
-            $js->apply(
-                'YAHOO.util.Event.addListener',
-                [
-                    'pid', 'change',
-                    $js->lambda(
-                        [],
-                        (
-                            ( $args{studies} )
-                            ? (
-                                $js->apply(
-                                    'populatePlatformStudy.apply',
-                                    [ sub { 'currentSelection' } ],
-                                )
-                              )
-                            : ()
-                        ),
-                        (
-                            ( $args{studies} && $args{experiments} )
-                            ? (
-                                $js->apply(
-                                    'populateStudyExperiment.apply',
-                                    [ sub { 'currentSelection' } ],
-                                )
-                              )
-                            : ()
-                        )
-                    )
-                ],
-            )
-          )
-        : ''
-      )
-      . (
-        ( $args{studies} && $args{experiments} )
-        ? (
-            $js->apply(
-                'YAHOO.util.Event.addListener',
-                [
-                    'stid', 'change',
-                    $js->lambda(
-                        [],
-                        $js->apply(
-                            'populateStudyExperiment.apply',
-                            [ sub { 'currentSelection' } ],
-                        )
-                    )
-                ],
-            )
-          )
-        : ''
-      );
+    ) . $js->apply( 'setupPPDropdowns', [ sub { 'currentSelection' } ] );
 }
 
 1;

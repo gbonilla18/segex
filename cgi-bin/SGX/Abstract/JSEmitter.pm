@@ -331,7 +331,7 @@ sub defun {
             join(
                 $self->{line_terminator},
                 map { $self->encode($_) } @$statements
-            )
+            ) . $self->{line_terminator}
         );
     };
 }

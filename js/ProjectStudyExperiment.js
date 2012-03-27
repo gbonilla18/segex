@@ -45,8 +45,8 @@ exports.populateProjectStudy = function()
         var study_data = ProjStudyExp[pid].studies;
 
         // sort by study id
-        var tuples = object_forEach(study_data, function(out, i, val) {
-            out.push([i, val.name]);
+        var tuples = object_forEach(study_data, function(i, val) {
+            this.push([i, val.name]);
         }, []).sort(ComparisonSortOnColumn(1));
 
         buildDropDown(studies, tuples, study.selected, oldWidth);
