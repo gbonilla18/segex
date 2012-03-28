@@ -477,17 +477,16 @@ sub default_head {
                 platforms         => 1,
                 studies           => 1,
                 platform_by_study => 1,
-                extra_platforms   => { 'all' => { name => '@All Platforms' } },
+                extra_platforms   => { all => { pname => '@All Platforms' } },
                 extra_studies     => {
-                    (
-                        ( defined($curr_proj) && $curr_proj ne '' )
-                        ? ( 'all' =>
-                              { name => '@Assigned Experiments (All Studies)' }
-                          )
-                        : ( 'all' =>
-                              { name => '@All Experiments (All Studies)' } )
-                    ),
-                    '' => { name => '@Unassigned Experiments' }
+                    all => {
+                        description => (
+                            ( defined($curr_proj) && $curr_proj ne '' )
+                            ? '@Assigned Experiments (All Studies)'
+                            : '@All Experiments (All Studies)'
+                        )
+                    },
+                    '' => { description => '@Unassigned Experiments' }
                 }
             )
         },

@@ -371,7 +371,7 @@ sub getPlatforms {
     my $rc  = $sth->execute;
 
     # first setup the model using platform info
-    my $extra_studies = $args{extra_studies};
+    my $extra_studies = $args{extra_studies} || {};
     
     while ( my $row = $sth->fetchrow_hashref ) {
 

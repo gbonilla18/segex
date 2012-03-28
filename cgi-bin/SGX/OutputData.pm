@@ -153,10 +153,10 @@ sub default_head {
         platforms       => 1,
         studies         => 1,
         experiments     => 1,
-        extra_platforms => { 'all' => { name => '@All Platforms' } },
+        extra_platforms => { 'all' => { pname => '@All Platforms' } },
         extra_studies   => {
-            'all' => { name => '@All Studies' },
-            ''    => { name => '@Unassigned Experiments' }
+            'all' => { description => '@All Studies' },
+            ''    => { description => '@Unassigned Experiments' }
         }
     );
     push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };

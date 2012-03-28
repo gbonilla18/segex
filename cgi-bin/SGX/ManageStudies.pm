@@ -234,7 +234,7 @@ sub default_head {
         {
             -code => $self->get_pse_dropdown_js(
                 platforms       => 1,
-                extra_platforms => { 'all' => { name => '@All Platforms' } }
+                extra_platforms => { all => { pname => '@All Platforms' } }
             )
         },
       );
@@ -322,7 +322,7 @@ sub form_assign_head {
                 platform_by_study => 1,
                 studies           => 1,
                 experiments       => 1,
-                extra_studies => { '' => { name => '@Unassigned Experiments' } }
+                extra_studies => { '' => { description => '@Unassigned Experiments' } }
             )
         },
       );
