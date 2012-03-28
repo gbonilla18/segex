@@ -85,7 +85,7 @@ sub get_ByStudy {
 #===  CLASS METHOD  ============================================================
 
 #   PARAMETERS:  stid
-#      RETURNS:  prid
+#      RETURNS:  p*
 #  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -128,8 +128,8 @@ sub getProjectStudyName {
 #===  CLASS METHOD  ============================================================
 
 #   PARAMETERS:
-#       projects          => T/F - whether to add project info such as
-#                                   prname and project name
+#       p*s          => T/F - whether to add p* info such as
+#                                   * and p* name
 #       studies            => T/F - whether to add study info such as study description
 #       experiments        => T/F - whether to add experiment info
 #                                   (names of sample 1 and sample 2)
@@ -137,10 +137,10 @@ sub getProjectStudyName {
 #                                   under given name will always show up in
 #                                   the list. If false, "@Unassigned" study
 #                                   will show up only in special cases.
-#       empty_project     => str/F - if true, a special project will show
+#       empty_p*     => str/F - if true, a special p* will show
 #                                   up in the list.
-#       project_by_study  => T/F - whether to store info about
-#                                   which project a study belongs to on a
+#       p*_by_study  => T/F - whether to store info about
+#                                   which p* a study belongs to on a
 #                                   per-study basis (_ByStudy hash).
 #      RETURNS:  HASHREF of merged data structure
 #  DESCRIPTION:
@@ -172,7 +172,7 @@ sub init {
     # defaulting to "no"
     my $project_by_study = $args{project_by_study};
 
-    # when project_by_study is set, both projects and studies will be set to
+    # when p* is set, both p* and studies will be set to
     # one
     if ($project_by_study) {
         $project_info = 1;
@@ -198,8 +198,8 @@ sub init {
 
     $self->getProjects( extra => $extra_projects ) if $project_info;
 
-    # we didn't define getStudy() because getProjectStudy() accomplishes the
-    # same goal (there is a one-to-many relationship between projects and
+    # we didn't define getStudy() because getP*Study() accomplishes the
+    # same goal (there is a one-to-many relationship between p* and
     # studies).
     $self->getProjectStudy(
         reverse_lookup => $project_by_study,
@@ -216,20 +216,20 @@ sub init {
 
     #---------------------------------------------------------------------------
     #  Assign experiments from under studies and place them under studies that
-    #  are under projects. This code will be executed only when we initialize
+    #  are under p*. This code will be executed only when we initialize
     #  the object with the following parameters:
     #
-    #  projects => 1, studies => 1, experiments => 1
+    #  p* => 1, studies => 1, experiments => 1
     #---------------------------------------------------------------------------
     if ( $project_info && $study_info && $experiment_info ) {
         my $model   = $self->{_ByProject};
         my $studies = $self->{_ByStudy};
 
         # Also determine which experiment ids do not belong to any study. Do
-        # this by obtaining a list of all experiments in the project (keys
-        # %{$project->{experiments}}) and subtracting from it experiments
+        # this by obtaining a list of all experiments in the p* (keys
+        # %{$p*->{experiments}}) and subtracting from it experiments
         # belonging to each study as we iterate over the list of all studies in
-        # the project.
+        # the p*.
         #
         my $this_empty_study =
           ( defined($extra_studies) && defined( $extra_studies->{''} ) )
@@ -243,12 +243,11 @@ sub init {
 
         foreach my $project ( values %$model ) {
 
-            # populate %unassigned hash initially with all experiments for the
-            # project
+            # populate %unassigned hash initially with all experiments for the p*
             my %unassigned =
               map { $_ => {} } keys %{ $project->{experiments} };
 
-            # initialize $project->{studies} (must always be present)
+            # initialize $p*->{studies} (must always be present)
             $project->{studies} ||= {};
             $project->{name}    ||= $this_empty_project;
             $project->{prname}  ||= undef;
@@ -323,20 +322,20 @@ sub iterateOverTable {
 #===  CLASS METHOD  ============================================================
 
 #   PARAMETERS:  extra => {
-#                   'all' => { name => '@All Projects', prname => undef },
-#                   ''    => { name => '@Unassigned', prname => undef }
+#                   'all' => { name => '@All P*', * => undef },
+#                   ''    => { name => '@Unassigned', * => undef }
 #                }
 #      RETURNS:  HASHREF to model
 #
 #  DESCRIPTION:  Builds a nested data structure that describes which studies
-#                belong to which project. The list of studies for each project
+#                belong to which p*. The list of studies for each p*
 #                contains a null member meant to represent Unassigned studies.
 #                The data structure is meant to be encoded as JSON.
 #
-#                var projectStudy = {
+#                var p*Study = {
 #                  '13': {
 #                     'name': 'Mouse Agilent 123',
-#                     'prname': 'Mouse',
+#                     '*': 'Mouse',
 #                     'studies': {
 #                       '108': { 'name': 'Study XX' },
 #                       '120': { 'name': 'Study YY' },
@@ -344,8 +343,8 @@ sub iterateOverTable {
 #                     }
 #                   },
 #                  '14': {
-#                     'name': 'Project 456',
-#                     'prname': 'Human',
+#                     'name': 'P* 456',
+#                     '*': 'Human',
 #                     'studies': {
 #                        '12': { 'name': 'Study abc' },
 #                        ''  : { 'name': 'Unassigned' }
@@ -379,15 +378,11 @@ sub getProjects {
         iterator   => sub {
             my ( $base_vals, $row ) = @_;
             my ($prid) = @$base_vals;
-
-            # "Unassigned" study should exist only
-            # (a) on request,
-            # (b) if there are actually unassigned studies (determined later)
             $model->{$prid} = $row;
         }
     );
 
-    # Merge in the hash we just built. If $self->{_ByProject} is undefined,
+    # Merge in the hash we just built. If $self->{_ByP*} is undefined,
     # this simply sets it to \%model
     $self->{_ByProject} = merge( $model, $self->{_ByProject} );
     return 1;
@@ -400,7 +395,7 @@ sub getProjects {
 #                }
 #                               whose id is a zero-length string.
 #                reverse_lookup => true/false  - whether to store info about
-#                               which project a study belongs to on a per-study
+#                               which p* a study belongs to on a per-study
 #                               basis (_ByStudy hash).
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -437,7 +432,7 @@ sub getProjectStudy {
         }
     );
 
-    # Merge in the hash we just built. If $self->{_ByProject} is undefined,
+    # Merge in the hash we just built. If $self->{_ByP*} is undefined,
     # this simply sets it to \%model
     $self->{_ByProject} = merge( \%model, $self->{_ByProject} );
     if ($reverse_lookup) {
@@ -468,14 +463,14 @@ sub getExperiments {
             my ( $base_vals, $row ) = @_;
             my ($eid) = @$base_vals;
 
-            # if there is an 'all' project, add every experiment to it
+            # if there is an 'all' p*, add every experiment to it
             if ( exists $model{all} ) {
                 $model{all}->{experiments}->{$eid} = dclone($row);
             }
         }
     );
 
-    # Merge in the hash we just built. If $self->{_ByProject} is undefined,
+    # Merge in the hash we just built. If $self->{_ByP*} is undefined,
     # this simply sets it to \%model
     $self->{_ByProject} = merge( \%model, $self->{_ByProject} );
     return 1;
@@ -524,23 +519,23 @@ __END__
 #
 #===============================================================================
 #
-#         FILE:  ProjectStudyExperiment.pm
+#         FILE:  P*StudyExperiment.pm
 #
-#  DESCRIPTION:  This is a model class for setting up the data in the project,
+#  DESCRIPTION:  This is a model class for setting up the data in the p*,
 #                study, and experiment tables in easy-to-use Perl data
 #                structures.
 #
 #                /* Result of composition of var StudyExperiment and
-#                * var ProjectExperiment */
+#                * var P*Experiment */
 #
-#                var projectStudyExperiment = {
+#                var p*StudyExperiment = {
 #
-#                   /*** Projects enumerated by their ids ***/
+#                   /*** P*s enumerated by their ids ***/
 #                   '13': {
 #
 #                       /* Study section. Only experiment ids are listed for
 #                        * each study. Note that the 'experiments' field of each
-#                        * study has the same structure as the project-wide
+#                        * study has the same structure as the p*-wide
 #                        * 'experiments' field. This allows us to write code
 #                        * that is ignorant of where the experiment object came
 #                        * from. */

@@ -85,7 +85,7 @@ sub get_ByStudy {
 #===  CLASS METHOD  ============================================================
 
 #   PARAMETERS:  stid
-#      RETURNS:  pid
+#      RETURNS:  p*
 #  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
@@ -135,8 +135,8 @@ sub getPlatformStudyName {
 #===  CLASS METHOD  ============================================================
 
 #   PARAMETERS:
-#       platforms          => T/F - whether to add platform info such as
-#                                   species and platform name
+#       p*s          => T/F - whether to add p* info such as
+#                                   * and p* name
 #       studies            => T/F - whether to add study info such as study description
 #       experiments        => T/F - whether to add experiment info
 #                                   (names of sample 1 and sample 2)
@@ -144,10 +144,10 @@ sub getPlatformStudyName {
 #                                   under given name will always show up in
 #                                   the list. If false, "@Unassigned" study
 #                                   will show up only in special cases.
-#       empty_platform     => str/F - if true, a special platform will show
+#       empty_p*     => str/F - if true, a special p* will show
 #                                   up in the list.
-#       platform_by_study  => T/F - whether to store info about
-#                                   which platform a study belongs to on a
+#       p*_by_study  => T/F - whether to store info about
+#                                   which p* a study belongs to on a
 #                                   per-study basis (_ByStudy hash).
 #      RETURNS:  HASHREF of merged data structure
 #  DESCRIPTION:
@@ -179,7 +179,7 @@ sub init {
     # defaulting to "no"
     my $platform_by_study = $args{platform_by_study};
 
-    # when platform_by_study is set, both platforms and studies will be set to
+    # when p* is set, both p* and studies will be set to
     # one
     if ($platform_by_study) {
         $platform_info = 1;
@@ -208,8 +208,8 @@ sub init {
         extra_studies => $extra_studies
     ) if $platform_info;
 
-    # we didn't define getStudy() because getPlatformStudy() accomplishes the
-    # same goal (there is a one-to-many relationship between platforms and
+    # we didn't define getStudy() because getP*Study() accomplishes the
+    # same goal (there is a one-to-many relationship between p* and
     # studies).
     $self->getPlatformStudy(
         reverse_lookup => $platform_by_study,
@@ -226,20 +226,20 @@ sub init {
 
     #---------------------------------------------------------------------------
     #  Assign experiments from under studies and place them under studies that
-    #  are under platforms. This code will be executed only when we initialize
+    #  are under p*. This code will be executed only when we initialize
     #  the object with the following parameters:
     #
-    #  platforms => 1, studies => 1, experiments => 1
+    #  p* => 1, studies => 1, experiments => 1
     #---------------------------------------------------------------------------
     if ( $platform_info && $study_info && $experiment_info ) {
         my $model   = $self->{_ByPlatform};
         my $studies = $self->{_ByStudy};
 
         # Also determine which experiment ids do not belong to any study. Do
-        # this by obtaining a list of all experiments in the platform (keys
-        # %{$platform->{experiments}}) and subtracting from it experiments
+        # this by obtaining a list of all experiments in the p* (keys
+        # %{$p*->{experiments}}) and subtracting from it experiments
         # belonging to each study as we iterate over the list of all studies in
-        # the platform.
+        # the p*.
         #
         my $this_empty_study =
           ( defined($extra_studies) && defined( $extra_studies->{''} ) )
@@ -253,12 +253,11 @@ sub init {
 
         foreach my $platform ( values %$model ) {
 
-            # populate %unassigned hash initially with all experiments for the
-            # platform
+            # populate %unassigned hash initially with all experiments for the p*
             my %unassigned =
               map { $_ => {} } keys %{ $platform->{experiments} };
 
-            # initialize $platform->{studies} (must always be present)
+            # initialize $p*->{studies} (must always be present)
             $platform->{studies} ||= {};
             $platform->{pname}   ||= $this_empty_platform;
             $platform->{sname}   ||= undef;
@@ -289,7 +288,6 @@ sub init {
             }
         }
     }
-
     return 1;
 }
 
@@ -334,20 +332,20 @@ sub iterateOverTable {
 #===  CLASS METHOD  ============================================================
 
 #   PARAMETERS:  extra => {
-#                   'all' => { name => '@All Platforms', species => undef },
-#                   ''    => { name => '@Unassigned', species => undef }
+#                   'all' => { name => '@All P*', * => undef },
+#                   ''    => { name => '@Unassigned', * => undef }
 #                }
 #      RETURNS:  HASHREF to model
 #
 #  DESCRIPTION:  Builds a nested data structure that describes which studies
-#                belong to which platform. The list of studies for each platform
+#                belong to which p*. The list of studies for each p*
 #                contains a null member meant to represent Unassigned studies.
 #                The data structure is meant to be encoded as JSON.
 #
-#                var platformStudy = {
+#                var p*Study = {
 #                  '13': {
 #                     'name': 'Mouse Agilent 123',
-#                     'species': 'Mouse',
+#                     '*': 'Mouse',
 #                     'studies': {
 #                       '108': { 'name': 'Study XX' },
 #                       '120': { 'name': 'Study YY' },
@@ -355,8 +353,8 @@ sub iterateOverTable {
 #                     }
 #                   },
 #                  '14': {
-#                     'name': 'Platform 456',
-#                     'species': 'Human',
+#                     'name': 'P* 456',
+#                     '*': 'Human',
 #                     'studies': {
 #                        '12': { 'name': 'Study abc' },
 #                        ''  : { 'name': 'Unassigned' }
@@ -396,7 +394,7 @@ sub getPlatforms {
         }
     );
 
-    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # Merge in the hash we just built. If $self->{_ByP*} is undefined,
     # this simply sets it to \%model
     $self->{_ByPlatform} = merge( $model, $self->{_ByPlatform} );
     return 1;
@@ -409,7 +407,7 @@ sub getPlatforms {
 #                }
 #                               whose id is a zero-length string.
 #                reverse_lookup => true/false  - whether to store info about
-#                               which platform a study belongs to on a per-study
+#                               which p* a study belongs to on a per-study
 #                               basis (_ByStudy hash).
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -446,7 +444,7 @@ sub getPlatformStudy {
         }
     );
 
-    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # Merge in the hash we just built. If $self->{_ByP*} is undefined,
     # this simply sets it to \%model
     $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
     if ($reverse_lookup) {
@@ -482,14 +480,14 @@ sub getExperiments {
             my $this_pid = ( defined($pid) ) ? $pid : '';
             $model{$this_pid}->{experiments}->{$eid} = $row;
 
-            # if there is an 'all' platform, add every experiment to it
+            # if there is an 'all' p*, add every experiment to it
             if ( exists $model{all} ) {
                 $model{all}->{experiments}->{$eid} = dclone($row);
             }
         }
     );
 
-    # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
+    # Merge in the hash we just built. If $self->{_ByP*} is undefined,
     # this simply sets it to \%model
     $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
     return 1;
@@ -538,23 +536,23 @@ __END__
 #
 #===============================================================================
 #
-#         FILE:  PlatformStudyExperiment.pm
+#         FILE:  P*StudyExperiment.pm
 #
-#  DESCRIPTION:  This is a model class for setting up the data in the platform,
+#  DESCRIPTION:  This is a model class for setting up the data in the p*,
 #                study, and experiment tables in easy-to-use Perl data
 #                structures.
 #
 #                /* Result of composition of var StudyExperiment and
-#                * var PlatformExperiment */
+#                * var P*Experiment */
 #
-#                var platformStudyExperiment = {
+#                var p*StudyExperiment = {
 #
-#                   /*** Platforms enumerated by their ids ***/
+#                   /*** P*s enumerated by their ids ***/
 #                   '13': {
 #
 #                       /* Study section. Only experiment ids are listed for
 #                        * each study. Note that the 'experiments' field of each
-#                        * study has the same structure as the platform-wide
+#                        * study has the same structure as the p*-wide
 #                        * 'experiments' field. This allows us to write code
 #                        * that is ignorant of where the experiment object came
 #                        * from. */
