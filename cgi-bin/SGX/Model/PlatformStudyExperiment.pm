@@ -108,7 +108,7 @@ sub getPlatformFromStudy {
 #===============================================================================
 sub getPlatformNameFromPID {
     my ( $self, $pid ) = @_;
-    return $self->{_ByPlatform}->{$pid}->{name};
+    return $self->{_ByPlatform}->{$pid}->{pname};
 }
 
 #===  CLASS METHOD  ============================================================
@@ -124,10 +124,10 @@ sub getPlatformStudyName {
     my ( $self, $pid, $stid ) = @_;
 
     my $platform      = $self->{_ByPlatform}->{$pid};
-    my $platform_name = $platform->{name};
+    my $platform_name = $platform->{pname};
     my $study_name =
       ( defined $stid and $stid ne '' )
-      ? $platform->{$stid}->{name}
+      ? $platform->{$stid}->{description}
       : '@Unassigned Experiments';
     return "$study_name \\ $platform_name";
 }
@@ -243,12 +243,12 @@ sub init {
         #
         my $this_empty_study =
           ( defined($extra_studies) && defined( $extra_studies->{''} ) )
-          ? $extra_studies->{''}->{name}
+          ? $extra_studies->{''}->{description}
           : $default_study_name;
 
         my $this_empty_platform =
           ( defined($extra_platforms) && defined( $extra_platforms->{''} ) )
-          ? $extra_platforms->{''}->{name}
+          ? $extra_platforms->{''}->{pname}
           : $default_platform_name;
 
         foreach my $platform ( values %$model ) {
@@ -260,8 +260,8 @@ sub init {
 
             # initialize $platform->{studies} (must always be present)
             $platform->{studies} ||= {};
-            $platform->{name}    ||= $this_empty_platform;
-            $platform->{species} ||= undef;
+            $platform->{pname}    ||= $this_empty_platform;
+            $platform->{sname} ||= undef;
 
             # cache "studies" field
             my $platformStudies = $platform->{studies};
@@ -283,7 +283,7 @@ sub init {
                 else {
                     $platformStudies->{''} = {
                         experiments => \%unassigned,
-                        name        => $this_empty_study
+                        description        => $this_empty_study
                     };
                 }
             }
@@ -385,6 +385,7 @@ sub getPlatforms {
         $model->{$pid} = $row;
     }
     $sth->finish;
+    warn 'getPlatforms ' . Dumper($model);
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
@@ -451,40 +452,17 @@ sub getPlatformStudy {
 
         $pid = '' if not defined $pid;
         $model{$pid}->{studies}->{$stid} = $row;
-        #if ( exists $model{$pid} ) {
-        #    $model{$pid}->{studies}->{$stid} = $row;
-        #}
-        #else {
-        #    $model{$pid} = { studies => { $stid => $row } };
-        #}
-
-        # if there is an 'all' platform, add every study to it
 
         if ($all_platforms) {
+            # if there is an 'all' platform, add every study to it
             $model{all}->{studies}->{$stid} = dclone($row);
-            #if ( exists $model{all} ) {
-            #    $model{all}->{studies}->{$stid} = dclone($row);
-            #}
-            #else {
-            #    $model{all} = {
-            #        studies => merge(
-            #            { $stid => dclone($row) },
-            #            dclone($extra_studies)
-            #        )
-            #    };
-            #}
         }
         if ($reverse_lookup) {
             $reverse_model{$stid}->{pid} = $pid;
-            #if ( exists $reverse_model{$stid} ) {
-            #    $reverse_model{$stid}->{pid} = $pid;
-            #}
-            #else {
-            #    $reverse_model{$stid} = { pid => $pid };
-            #}
         }
     }
     $sth->finish;
+    warn 'getPlatformStudy ' . Dumper(\%model);
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
@@ -526,7 +504,6 @@ sub getExperiments {
 
     # add experiments to platforms
     while ( my $row = $sth->fetchrow_hashref ) {
-
         my ( $pid, $eid ) = @$row{@base};
         delete @$row{@base};
 
@@ -535,26 +512,11 @@ sub getExperiments {
         my $this_pid = ( defined($pid) ) ? $pid : '';
         $model{$this_pid}->{experiments}->{$eid} = $row;
 
-        #if ( exists $model{$this_pid} ) {
-        #    $model{$this_pid}->{experiments}->{$eid} = $row;
-        #}
-        #else {
-        #    $model{$this_pid} = { experiments => { $eid => $row } };
-        #}
-
         # if there is an 'all' platform, add every experiment to it
         $model{all}->{experiments}->{$eid} = dclone($row);
-
-        #if ($all_platforms) {
-        #    if ( exists $model{all} ) {
-        #        $model{all}->{experiments}->{$eid} = $row;
-        #    }
-        #    else {
-        #        $model{all} = { experiments => { $eid => $row } };
-        #    }
-        #}
     }
     $sth->finish;
+    warn 'getExperiments ' . Dumper(\%model);
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
@@ -595,18 +557,13 @@ sub getStudyExperiment {
     my $rc  = $sth->execute;
 
     while ( my $row = $sth->fetchrow_hashref ) {
-
         my ($stid, $eid) = @$row{@base};
         delete @$row{@base};
 
         $model{$stid}->{experiments}->{$eid} = $row;
-        #if ( exists $model{$se_stid} ) {
-        #    $model{$stid}->{experiments}->{$eid} = $row;
-        #}
-        #else {
-        #    $model{$stid} = { experiments => { $eid => $row } };
-        #}
     }
+    $sth->finish;
+    warn 'getStudyExperiment ' . Dumper(\%model);
 
     # Merge in the hash we just built. If $self->{_ByStudy} is undefined,
     # this simply sets it to \%model

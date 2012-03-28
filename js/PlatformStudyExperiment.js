@@ -21,7 +21,7 @@ exports.populatePlatform = function()
     // sort by platform name
     var tuples = object_forEach(PlatfStudyExp, function(i, platformNode) {
         var species = platformNode.sname;
-        var content = (typeof species !== 'undefined' && species !== null) ? platformNode.name + ' \\ ' + species : platformNode.name;
+        var content = (typeof species !== 'undefined' && species !== null) ? platformNode.pname + ' \\ ' + species : platformNode.pname;
         this.push([i, content]);
     }, []).sort(ComparisonSortOnColumn(1));
 
