@@ -193,14 +193,8 @@ END_PLATFORM_QUERY
     ### populate a Javascript hash with the content of the platform recordset
     my %json_platform;
     while ( my @row = $sth->fetchrow_array ) {
-
-        # format:
-        # 0 - platform id => [
-        #   1 - platform name
-        #   2 - P-value cutoff
-        #   3 - fold-change cutoff
-        # ];
-        $json_platform{ $row[0] } = [ $row[1], $row[2], $row[3] ];
+        my $pid = shift @row;
+        $json_platform{$pid} = \@row;
     }
     $sth->finish;
 

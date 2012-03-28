@@ -3,6 +3,7 @@ package SGX::Model::PlatformStudyExperiment;
 use strict;
 use warnings;
 
+use Storable qw/dclone/;
 use SGX::Debug;
 use Hash::Merge qw/merge/;
 use SGX::Abstract::Exception ();
@@ -24,7 +25,29 @@ sub new {
     my $self = {
         _dbh        => $dbh,
         _ByPlatform => {},
-        _ByStudy    => {}
+        _ByStudy    => {},
+
+        # abstract defs
+        _Platform => {
+            table => 'platform LEFT JOIN species USING(sid)',
+            base => ['pid'],
+            attr => ['pname', 'sname']
+        },
+        _Study => {
+            table => 'study',
+            base => ['pid', 'stid'], 
+            attr => ['description']
+        },
+        _StudyExperiment => {
+            table => 'StudyExperiment',
+            base => [ 'stid', 'eid' ],
+            attr => []
+        },
+        _Experiment => {
+            table => 'experiment',
+            base  => [ 'pid', 'eid' ],
+            attr  => [ 'sample1', 'sample2' ]
+        },
     };
 
     bless $self, $class;
@@ -335,43 +358,37 @@ sub getPlatforms {
 
     # cache the database handle
     my $dbh = $self->{_dbh};
+    my $model = dclone($extra_platforms);
 
-    # query to get platform info
-    my $sth_platform = $dbh->prepare(<<"END_PLATFORMQUERY");
-SELECT
-    pid,
-    pname,
-    sname AS species
-FROM platform
-LEFT JOIN species USING(sid)
-END_PLATFORMQUERY
-    my $rc_platform = $sth_platform->execute;
-
-    my ( $pid, $pname, $species );
-    $sth_platform->bind_columns( undef, \$pid, \$pname, \$species );
-
-    # what is returned
-    my %model = (%$extra_platforms);
+    my $table_info = $self->{_Platform};
+    my @base       = @{ $table_info->{base} };
+    my $sql        = sprintf(
+        'SELECT %s FROM %s',
+        join( ',', ( @base, @{ $table_info->{attr} } ) ),
+        $table_info->{table}
+    );
+    my $sth = $dbh->prepare($sql);
+    my $rc  = $sth->execute;
 
     # first setup the model using platform info
     my $extra_studies = $args{extra_studies};
-    while ( $sth_platform->fetch ) {
+    
+    while ( my $row = $sth->fetchrow_hashref ) {
+
+        my ($pid) = @$row{@base};
+        delete @$row{@base};
 
         # "Unassigned" study should exist only
         # (a) on request,
         # (b) if there are actually unassigned studies (determined later)
-        $model{$pid} = {
-            name    => $pname,
-            species => $species,
-            studies => $extra_studies
-        };
+        $row->{studies} = dclone($extra_studies);
+        $model->{$pid} = $row;
     }
-
-    $sth_platform->finish;
+    $sth->finish;
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
-    $self->{_ByPlatform} = merge( \%model, $self->{_ByPlatform} );
+    $self->{_ByPlatform} = merge( $model, $self->{_ByPlatform} );
     return 1;
 }
 
@@ -410,60 +427,64 @@ sub getPlatformStudy {
     # defaulting to "no"
     my $reverse_lookup = $args{reverse_lookup};
 
-    # cache the database handle
     my $dbh = $self->{_dbh};
-
-    # what is returned
     my %model;
-
-    # query to get study info
-    my $sth_study = $dbh->prepare(<<"END_STUDYQUERY");
-SELECT
-    pid,
-    stid,
-    description
-FROM study
-END_STUDYQUERY
-    my $rc_study = $sth_study->execute;
-    my ( $pid, $stid, $study_desc );
-    $sth_study->bind_columns( undef, \$pid, \$stid, \$study_desc );
-
+    if ($all_platforms) {
+        $model{all} = { studies => dclone($extra_studies) };
+    }
     my %reverse_model;
 
+    my $table_info = $self->{_Study};
+    my @base       = @{ $table_info->{base} };
+    my $sql        = sprintf(
+        'SELECT %s FROM %s',
+        join( ',', ( @base, @{ $table_info->{attr} } ) ),
+        $table_info->{table}
+    );
+    my $sth = $dbh->prepare($sql);
+    my $rc  = $sth->execute;
+
     # complete the model using study info
-    while ( $sth_study->fetch ) {
+    while ( my $row = $sth->fetchrow_hashref ) {
+        my ($pid, $stid) = @$row{@base};
+        delete @$row{@base};
+
         $pid = '' if not defined $pid;
-        if ( exists $model{$pid} ) {
-            $model{$pid}->{studies}->{$stid}->{name} = $study_desc;
-        }
-        else {
-            $model{$pid} = { studies => { $stid => { name => $study_desc } } };
-        }
+        $model{$pid}->{studies}->{$stid} = $row;
+        #if ( exists $model{$pid} ) {
+        #    $model{$pid}->{studies}->{$stid} = $row;
+        #}
+        #else {
+        #    $model{$pid} = { studies => { $stid => $row } };
+        #}
 
         # if there is an 'all' platform, add every study to it
+
         if ($all_platforms) {
-            if ( exists $model{all} ) {
-                $model{all}->{studies}->{$stid}->{name} = $study_desc;
-            }
-            else {
-                $model{all} = {
-                    studies => merge(
-                        { $stid => { name => $study_desc } },
-                        $extra_studies
-                    )
-                };
-            }
+            $model{all}->{studies}->{$stid} = dclone($row);
+            #if ( exists $model{all} ) {
+            #    $model{all}->{studies}->{$stid} = dclone($row);
+            #}
+            #else {
+            #    $model{all} = {
+            #        studies => merge(
+            #            { $stid => dclone($row) },
+            #            dclone($extra_studies)
+            #        )
+            #    };
+            #}
         }
         if ($reverse_lookup) {
-            if ( exists $reverse_model{$stid} ) {
-                $reverse_model{$stid}->{pid} = $pid;
-            }
-            else {
-                $reverse_model{$stid} = { pid => $pid };
-            }
+            $reverse_model{$stid}->{pid} = $pid;
+            #if ( exists $reverse_model{$stid} ) {
+            #    $reverse_model{$stid}->{pid} = $pid;
+            #}
+            #else {
+            #    $reverse_model{$stid} = { pid => $pid };
+            #}
         }
     }
-    $sth_study->finish;
+    $sth->finish;
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
@@ -491,61 +512,49 @@ sub getExperiments {
     # default: false
     my $all_platforms = $args{all_platforms};
 
-    # cache the database handle
     my $dbh = $self->{_dbh};
-
-    # what is returned
     my %model;
-
-    # query to get platform info (know nothing about studies at this point)
-    my $sth_experiment = $dbh->prepare(<<"END_EXPERIMENTQUERY");
-SELECT
-    pid,
-    eid,
-    sample1,
-    sample2
-FROM experiment
-END_EXPERIMENTQUERY
-    my $rc_experiment = $sth_experiment->execute;
-    my ( $pid, $eid, $sample1, $sample2 );
-    $sth_experiment->bind_columns( undef, \$pid, \$eid, \$sample1, \$sample2 );
+    my $table_info = $self->{_Experiment};
+    my @base       = @{ $table_info->{base} };
+    my $sql        = sprintf(
+        'SELECT %s FROM %s',
+        join( ',', ( @base, @{ $table_info->{attr} } ) ),
+        $table_info->{table}
+    );
+    my $sth = $dbh->prepare($sql);
+    my $rc  = $sth->execute;
 
     # add experiments to platforms
-    while ( $sth_experiment->fetch ) {
+    while ( my $row = $sth->fetchrow_hashref ) {
+
+        my ( $pid, $eid ) = @$row{@base};
+        delete @$row{@base};
 
         # an experiment may not have any pid, in which case we add it to empty
         # platform
         my $this_pid = ( defined($pid) ) ? $pid : '';
-        if ( exists $model{$this_pid} ) {
-            $model{$this_pid}->{experiments}->{$eid} = {
-                sample1 => $sample1,
-                sample2 => $sample2
-            };
-        }
-        else {
-            $model{$this_pid} =
-              { experiments =>
-                  { $eid => { sample1 => $sample1, sample2 => $sample2 } } };
-        }
+        $model{$this_pid}->{experiments}->{$eid} = $row;
+
+        #if ( exists $model{$this_pid} ) {
+        #    $model{$this_pid}->{experiments}->{$eid} = $row;
+        #}
+        #else {
+        #    $model{$this_pid} = { experiments => { $eid => $row } };
+        #}
 
         # if there is an 'all' platform, add every experiment to it
-        if ($all_platforms) {
-            if ( exists $model{all} ) {
-                $model{all}->{experiments}->{$eid} = {
-                    sample1 => $sample1,
-                    sample2 => $sample2
-                };
-            }
-            else {
-                $model{all} =
-                  { experiments =>
-                      { $eid => { sample1 => $sample1, sample2 => $sample2 } }
-                  };
-            }
-        }
-    }
+        $model{all}->{experiments}->{$eid} = dclone($row);
 
-    $sth_experiment->finish;
+        #if ($all_platforms) {
+        #    if ( exists $model{all} ) {
+        #        $model{all}->{experiments}->{$eid} = $row;
+        #    }
+        #    else {
+        #        $model{all} = { experiments => { $eid => $row } };
+        #    }
+        #}
+    }
+    $sth->finish;
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
@@ -573,28 +582,30 @@ END_EXPERIMENTQUERY
 sub getStudyExperiment {
     my $self = shift;
 
-    # cache the database handle
     my $dbh = $self->{_dbh};
-
-    # what is returned
     my %model;
-    my $sth_StudyExperiment = $dbh->prepare(<<"END_STUDYEXPERIMENTQUERY");
-SELECT
-   stid,
-   eid 
-FROM StudyExperiment
-END_STUDYEXPERIMENTQUERY
-    my $rc_StudyExperiment = $sth_StudyExperiment->execute;
-    my ( $se_stid, $se_eid );
-    $sth_StudyExperiment->bind_columns( undef, \$se_stid, \$se_eid );
-    while ( $sth_StudyExperiment->fetch ) {
+    my $table_info = $self->{_StudyExperiment};
+    my @base       = @{ $table_info->{base} };
+    my $sql        = sprintf(
+        'SELECT %s FROM %s',
+        join( ',', ( @base, @{ $table_info->{attr} } ) ),
+        $table_info->{table}
+    );
+    my $sth = $dbh->prepare($sql);
+    my $rc  = $sth->execute;
 
-        if ( exists $model{$se_stid} ) {
-            $model{$se_stid}->{experiments}->{$se_eid} = {};
-        }
-        else {
-            $model{$se_stid} = { experiments => { $se_eid => {} } };
-        }
+    while ( my $row = $sth->fetchrow_hashref ) {
+
+        my ($stid, $eid) = @$row{@base};
+        delete @$row{@base};
+
+        $model{$stid}->{experiments}->{$eid} = $row;
+        #if ( exists $model{$se_stid} ) {
+        #    $model{$stid}->{experiments}->{$eid} = $row;
+        #}
+        #else {
+        #    $model{$stid} = { experiments => { $eid => $row } };
+        #}
     }
 
     # Merge in the hash we just built. If $self->{_ByStudy} is undefined,

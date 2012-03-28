@@ -20,7 +20,7 @@ exports.populatePlatform = function()
 
     // sort by platform name
     var tuples = object_forEach(PlatfStudyExp, function(i, platformNode) {
-        var species = platformNode.species;
+        var species = platformNode.sname;
         var content = (typeof species !== 'undefined' && species !== null) ? platformNode.name + ' \\ ' + species : platformNode.name;
         this.push([i, content]);
     }, []).sort(ComparisonSortOnColumn(1));
@@ -47,7 +47,7 @@ exports.populatePlatformStudy = function()
 
     // sort by study id
     var tuples = object_forEach(study_data, function(key, val) {
-        this.push([key, val.name]);
+        this.push([key, val.description]);
     }, []).sort(ComparisonSortOnColumn(1));
 
     buildDropDown(studies, tuples, study.selected, oldWidth);
