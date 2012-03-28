@@ -20,7 +20,7 @@ exports.populateProject = function()
 
     // sort by project name
     var tuples = object_forEach(ProjStudyExp, function(i, projectNode) {
-        this.push([i, projectNode.name]);
+        this.push([i, projectNode.prname]);
     }, []).sort(ComparisonSortOnColumn(1));
 
     // build dropdown box
@@ -46,7 +46,7 @@ exports.populateProjectStudy = function()
 
         // sort by study id
         var tuples = object_forEach(study_data, function(i, val) {
-            this.push([i, val.name]);
+            this.push([i, val.description]);
         }, []).sort(ComparisonSortOnColumn(1));
 
         buildDropDown(studies, tuples, study.selected, oldWidth);

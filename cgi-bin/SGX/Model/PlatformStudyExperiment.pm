@@ -30,18 +30,18 @@ sub new {
         # abstract defs
         _Platform => {
             table => 'platform LEFT JOIN species USING(sid)',
-            base => ['pid'],
-            attr => ['pname', 'sname']
+            base  => ['pid'],
+            attr  => [ 'pname', 'sname' ]
         },
-        _Study => {
+        _PlatformStudy => {
             table => 'study',
-            base => ['pid', 'stid'], 
-            attr => ['description']
+            base  => [ 'pid', 'stid' ],
+            attr  => ['description']
         },
         _StudyExperiment => {
             table => 'StudyExperiment',
-            base => [ 'stid', 'eid' ],
-            attr => []
+            base  => [ 'stid', 'eid' ],
+            attr  => []
         },
         _Experiment => {
             table => 'experiment',
@@ -260,8 +260,8 @@ sub init {
 
             # initialize $platform->{studies} (must always be present)
             $platform->{studies} ||= {};
-            $platform->{pname}    ||= $this_empty_platform;
-            $platform->{sname} ||= undef;
+            $platform->{pname}   ||= $this_empty_platform;
+            $platform->{sname}   ||= undef;
 
             # cache "studies" field
             my $platformStudies = $platform->{studies};
@@ -283,13 +283,51 @@ sub init {
                 else {
                     $platformStudies->{''} = {
                         experiments => \%unassigned,
-                        description        => $this_empty_study
+                        description => $this_empty_study
                     };
                 }
             }
         }
     }
 
+    return 1;
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  iterateOverTable
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub iterateOverTable {
+    my $self = shift;
+    my $dbh  = $self->{_dbh};
+
+    my %args = @_;
+
+    my $table_info = $args{table_info};
+    my $iterator   = $args{iterator};
+
+    my @base = @{ $table_info->{base} };
+    my $sql  = sprintf(
+        'SELECT %s FROM %s',
+        join( ',', ( @base, @{ $table_info->{attr} } ) ),
+        $table_info->{table}
+    );
+    my $sth = $dbh->prepare($sql);
+    my $rc  = $sth->execute;
+
+    while ( my $row = $sth->fetchrow_hashref ) {
+        my @base_vals = @$row{@base};
+        delete @$row{@base};
+
+        $iterator->( \@base_vals, $row );
+    }
+    $sth->finish;
     return 1;
 }
 
@@ -345,47 +383,18 @@ sub init {
 sub getPlatforms {
     my ( $self, %args ) = @_;
 
-    my $extra_platforms =
-      ( defined $args{extra} )
-      ? $args{extra}
-      : {};
-
-    #my $unassigned_name = $args{empty};
-    #my %extra_platforms =
-    #    ( defined $unassigned_name )
-    #  ? ( '' => { name => "\@$unassigned_name", species => undef } )
-    #  : ();
-
-    # cache the database handle
-    my $dbh = $self->{_dbh};
-    my $model = dclone($extra_platforms);
-
-    my $table_info = $self->{_Platform};
-    my @base       = @{ $table_info->{base} };
-    my $sql        = sprintf(
-        'SELECT %s FROM %s',
-        join( ',', ( @base, @{ $table_info->{attr} } ) ),
-        $table_info->{table}
-    );
-    my $sth = $dbh->prepare($sql);
-    my $rc  = $sth->execute;
-
-    # first setup the model using platform info
+    my $model = dclone( $args{extra} || {} );
     my $extra_studies = $args{extra_studies} || {};
-    
-    while ( my $row = $sth->fetchrow_hashref ) {
 
-        my ($pid) = @$row{@base};
-        delete @$row{@base};
-
-        # "Unassigned" study should exist only
-        # (a) on request,
-        # (b) if there are actually unassigned studies (determined later)
-        $row->{studies} = dclone($extra_studies);
-        $model->{$pid} = $row;
-    }
-    $sth->finish;
-    warn 'getPlatforms ' . Dumper($model);
+    $self->iterateOverTable(
+        table_info => $self->{_Platform},
+        iterator   => sub {
+            my ( $base_vals, $row ) = @_;
+            my ($pid) = @$base_vals;
+            $row->{studies} = dclone($extra_studies);
+            $model->{$pid} = $row;
+        }
+    );
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
@@ -411,58 +420,31 @@ sub getPlatforms {
 sub getPlatformStudy {
     my ( $self, %args ) = @_;
 
-    my $extra_studies = $args{extra} || {};
-
-    # default: false
-    my $all_platforms = $args{all_platforms};
-
-    # default: false
-    #my $all_studies = $args{all_studies};
-
-    #my $unassigned_name = $args{empty};
-    #my %unassigned =
-    #    ( defined $unassigned_name )
-    #  ? ( '' => { name => "\@$unassigned_name" } )
-    #  : ();
-
-    # defaulting to "no"
+    my %model =
+      $args{all_platforms}
+      ? ( all => { studies => dclone( $args{extra} || {} ) } )
+      : ();
+    my %reverse_model;
     my $reverse_lookup = $args{reverse_lookup};
 
-    my $dbh = $self->{_dbh};
-    my %model;
-    if ($all_platforms) {
-        $model{all} = { studies => dclone($extra_studies) };
-    }
-    my %reverse_model;
+    $self->iterateOverTable(
+        table_info => $self->{_PlatformStudy},
+        iterator   => sub {
+            my ( $base_vals, $row )  = @_;
+            my ( $pid,       $stid ) = @$base_vals;
 
-    my $table_info = $self->{_Study};
-    my @base       = @{ $table_info->{base} };
-    my $sql        = sprintf(
-        'SELECT %s FROM %s',
-        join( ',', ( @base, @{ $table_info->{attr} } ) ),
-        $table_info->{table}
-    );
-    my $sth = $dbh->prepare($sql);
-    my $rc  = $sth->execute;
+            $pid = '' if not defined $pid;
+            $model{$pid}->{studies}->{$stid} = $row;
 
-    # complete the model using study info
-    while ( my $row = $sth->fetchrow_hashref ) {
-        my ($pid, $stid) = @$row{@base};
-        delete @$row{@base};
-
-        $pid = '' if not defined $pid;
-        $model{$pid}->{studies}->{$stid} = $row;
-
-        if ($all_platforms) {
             # if there is an 'all' platform, add every study to it
-            $model{all}->{studies}->{$stid} = dclone($row);
+            if ( exists $model{all} ) {
+                $model{all}->{studies}->{$stid} = dclone($row);
+            }
+            if ($reverse_lookup) {
+                $reverse_model{$stid}->{pid} = $pid;
+            }
         }
-        if ($reverse_lookup) {
-            $reverse_model{$stid}->{pid} = $pid;
-        }
-    }
-    $sth->finish;
-    warn 'getPlatformStudy ' . Dumper(\%model);
+    );
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
@@ -487,36 +469,25 @@ sub getPlatformStudy {
 sub getExperiments {
     my ( $self, %args ) = @_;
 
-    # default: false
-    my $all_platforms = $args{all_platforms};
+    my %model = $args{all_platforms} ? ( all => { experiments => {} } ) : ();
 
-    my $dbh = $self->{_dbh};
-    my %model;
-    my $table_info = $self->{_Experiment};
-    my @base       = @{ $table_info->{base} };
-    my $sql        = sprintf(
-        'SELECT %s FROM %s',
-        join( ',', ( @base, @{ $table_info->{attr} } ) ),
-        $table_info->{table}
+    $self->iterateOverTable(
+        table_info => $self->{_Experiment},
+        iterator   => sub {
+            my ( $base_vals, $row ) = @_;
+            my ( $pid,       $eid ) = @$base_vals;
+
+          # an experiment may not have any pid, in which case we add it to empty
+          # platform
+            my $this_pid = ( defined($pid) ) ? $pid : '';
+            $model{$this_pid}->{experiments}->{$eid} = $row;
+
+            # if there is an 'all' platform, add every experiment to it
+            if ( exists $model{all} ) {
+                $model{all}->{experiments}->{$eid} = dclone($row);
+            }
+        }
     );
-    my $sth = $dbh->prepare($sql);
-    my $rc  = $sth->execute;
-
-    # add experiments to platforms
-    while ( my $row = $sth->fetchrow_hashref ) {
-        my ( $pid, $eid ) = @$row{@base};
-        delete @$row{@base};
-
-        # an experiment may not have any pid, in which case we add it to empty
-        # platform
-        my $this_pid = ( defined($pid) ) ? $pid : '';
-        $model{$this_pid}->{experiments}->{$eid} = $row;
-
-        # if there is an 'all' platform, add every experiment to it
-        $model{all}->{experiments}->{$eid} = dclone($row);
-    }
-    $sth->finish;
-    warn 'getExperiments ' . Dumper(\%model);
 
     # Merge in the hash we just built. If $self->{_ByPlatform} is undefined,
     # this simply sets it to \%model
@@ -544,26 +515,15 @@ sub getExperiments {
 sub getStudyExperiment {
     my $self = shift;
 
-    my $dbh = $self->{_dbh};
     my %model;
-    my $table_info = $self->{_StudyExperiment};
-    my @base       = @{ $table_info->{base} };
-    my $sql        = sprintf(
-        'SELECT %s FROM %s',
-        join( ',', ( @base, @{ $table_info->{attr} } ) ),
-        $table_info->{table}
+    $self->iterateOverTable(
+        table_info => $self->{_StudyExperiment},
+        iterator   => sub {
+            my ( $base_vals, $row ) = @_;
+            my ( $stid,      $eid ) = @$base_vals;
+            $model{$stid}->{experiments}->{$eid} = $row;
+        }
     );
-    my $sth = $dbh->prepare($sql);
-    my $rc  = $sth->execute;
-
-    while ( my $row = $sth->fetchrow_hashref ) {
-        my ($stid, $eid) = @$row{@base};
-        delete @$row{@base};
-
-        $model{$stid}->{experiments}->{$eid} = $row;
-    }
-    $sth->finish;
-    warn 'getStudyExperiment ' . Dumper(\%model);
 
     # Merge in the hash we just built. If $self->{_ByStudy} is undefined,
     # this simply sets it to \%model

@@ -398,7 +398,7 @@ sub getDropDownJS {
                       +{ map { $_ => undef } @{ $self->{_eidList} || [] } },
                     elementId => 'eid',
                     updateViewOn =>
-                      [ sub { 'window' }, 'load', 'stid', 'change' ],
+                      [ sub { 'window' }, 'load', 'pid', 'change', 'stid', 'change' ],
                     updateMethod => sub { 'populateStudyExperiment' }
                 }
             ]

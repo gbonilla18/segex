@@ -9,7 +9,6 @@ use Scalar::Util qw/looks_like_number/;
 use SGX::Debug qw/Dumper/;
 use SGX::Util qw/car file_opts_html file_opts_columns/;
 use SGX::Abstract::Exception ();
-require SGX::Model::ProjectStudyExperiment;
 require Data::UUID;
 use List::Util qw/sum/;
 use SGX::Config qw/$YUI_BUILD_ROOT/;
@@ -238,9 +237,6 @@ sub new {
         _default_table => 'platform',
         _readrow_tables =>
           [ 'study' => { heading => 'Studies on this Platform' } ],
-
-        _ProjectStudyExperiment =>
-          SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
 
     );
 

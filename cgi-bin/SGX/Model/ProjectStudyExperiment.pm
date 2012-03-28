@@ -3,12 +3,12 @@ package SGX::Model::ProjectStudyExperiment;
 use strict;
 use warnings;
 
+use Storable qw/dclone/;
 use SGX::Debug;
 use Hash::Merge qw/merge/;
 use SGX::Abstract::Exception ();
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -23,9 +23,31 @@ sub new {
     my ($dbh) = @args{qw{dbh}};
 
     my $self = {
-        _dbh        => $dbh,
+        _dbh       => $dbh,
         _ByProject => {},
-        _ByStudy    => {}
+        _ByStudy   => {},
+
+        # abstract defs
+        _Project => {
+            table => 'project',
+            base  => ['prid'],
+            attr  => ['prname']
+        },
+        _ProjectStudy => {
+            table => 'study LEFT JOIN ProjectStudy USING(stid)',
+            base  => [ 'prid', 'stid' ],
+            attr  => ['description']
+        },
+        _StudyExperiment => {
+            table => 'StudyExperiment',
+            base  => [ 'stid', 'eid' ],
+            attr  => []
+        },
+        _Experiment => {
+            table => 'experiment',
+            base  => ['eid'],
+            attr  => [ 'sample1', 'sample2' ]
+        },
     };
 
     bless $self, $class;
@@ -33,7 +55,6 @@ sub new {
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -49,7 +70,6 @@ sub get_ByProject {
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  getter method for _ByStudy
@@ -63,7 +83,6 @@ sub get_ByStudy {
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  stid
 #      RETURNS:  prid
@@ -79,7 +98,6 @@ sub getProjectFromStudy {
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -93,7 +111,6 @@ sub getProjectNameFromPID {
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -110,10 +127,9 @@ sub getProjectStudyName {
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:
 #       projects          => T/F - whether to add project info such as
-#                                   prdesc and project name
+#                                   prname and project name
 #       studies            => T/F - whether to add study info such as study description
 #       experiments        => T/F - whether to add experiment info
 #                                   (names of sample 1 and sample 2)
@@ -160,7 +176,7 @@ sub init {
     # one
     if ($project_by_study) {
         $project_info = 1;
-        $study_info    = 1;
+        $study_info   = 1;
     }
 
     my $default_study_name =
@@ -188,7 +204,7 @@ sub init {
     $self->getProjectStudy(
         reverse_lookup => $project_by_study,
         extra          => $extra_studies,
-        all_projects  => $all_projects
+        all_projects   => $all_projects
     ) if $study_info;
 
     $self->getExperiments( all_projects => $all_projects )
@@ -235,7 +251,7 @@ sub init {
             # initialize $project->{studies} (must always be present)
             $project->{studies} ||= {};
             $project->{name}    ||= $this_empty_project;
-            $project->{prdesc} ||= undef;
+            $project->{prname}  ||= undef;
 
             # cache "studies" field
             my $projectStudies = $project->{studies};
@@ -263,16 +279,52 @@ sub init {
             }
         }
     }
+    return 1;
+}
 
+#===  FUNCTION  ================================================================
+#         NAME:  iterateOverTable
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub iterateOverTable {
+    my $self = shift;
+    my $dbh  = $self->{_dbh};
+
+    my %args = @_;
+
+    my $table_info = $args{table_info};
+    my $iterator   = $args{iterator};
+
+    my @base = @{ $table_info->{base} };
+    my $sql  = sprintf(
+        'SELECT %s FROM %s',
+        join( ',', ( @base, @{ $table_info->{attr} } ) ),
+        $table_info->{table}
+    );
+    my $sth = $dbh->prepare($sql);
+    my $rc  = $sth->execute;
+
+    while ( my $row = $sth->fetchrow_hashref ) {
+        my @base_vals = @$row{@base};
+        delete @$row{@base};
+
+        $iterator->( \@base_vals, $row );
+    }
+    $sth->finish;
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
 
-
 #   PARAMETERS:  extra => {
-#                   'all' => { name => '@All Projects', prdesc => undef },
-#                   ''    => { name => '@Unassigned', prdesc => undef }
+#                   'all' => { name => '@All Projects', prname => undef },
+#                   ''    => { name => '@Unassigned', prname => undef }
 #                }
 #      RETURNS:  HASHREF to model
 #
@@ -284,7 +336,7 @@ sub init {
 #                var projectStudy = {
 #                  '13': {
 #                     'name': 'Mouse Agilent 123',
-#                     'prdesc': 'Mouse',
+#                     'prname': 'Mouse',
 #                     'studies': {
 #                       '108': { 'name': 'Study XX' },
 #                       '120': { 'name': 'Study YY' },
@@ -293,7 +345,7 @@ sub init {
 #                   },
 #                  '14': {
 #                     'name': 'Project 456',
-#                     'prdesc': 'Human',
+#                     'prname': 'Human',
 #                     'studies': {
 #                        '12': { 'name': 'Study abc' },
 #                        ''  : { 'name': 'Unassigned' }
@@ -320,59 +372,28 @@ sub init {
 sub getProjects {
     my ( $self, %args ) = @_;
 
-    my $extra_projects =
-      ( defined $args{extra} )
-      ? $args{extra}
-      : {};
+    my $model = dclone( $args{extra} || {} );
 
-    #my $unassigned_name = $args{empty};
-    #my %extra_projects =
-    #    ( defined $unassigned_name )
-    #  ? ( '' => { name => "\@$unassigned_name", prdesc => undef } )
-    #  : ();
+    $self->iterateOverTable(
+        table_info => $self->{_Project},
+        iterator   => sub {
+            my ( $base_vals, $row ) = @_;
+            my ($prid) = @$base_vals;
 
-    # cache the database handle
-    my $dbh = $self->{_dbh};
-
-    # query to get project info
-    my $sth_project = $dbh->prepare(<<"END_PLATFORMQUERY");
-SELECT
-    prid,
-    prname,
-    prdesc
-FROM project
-END_PLATFORMQUERY
-    my $rc_project = $sth_project->execute;
-
-    my ( $prid, $prname, $prdesc );
-    $sth_project->bind_columns( undef, \$prid, \$prname, \$prdesc );
-
-    # what is returned
-    my %model = (%$extra_projects);
-
-    # first setup the model using project info
-    while ( $sth_project->fetch ) {
-
-        # "Unassigned" study should exist only
-        # (a) on request,
-        # (b) if there are actually unassigned studies (determined later)
-        $model{$prid} = {
-            name    => $prname,
-            prdesc => $prdesc
-        };
-    }
-
-    $sth_project->finish;
+            # "Unassigned" study should exist only
+            # (a) on request,
+            # (b) if there are actually unassigned studies (determined later)
+            $model->{$prid} = $row;
+        }
+    );
 
     # Merge in the hash we just built. If $self->{_ByProject} is undefined,
     # this simply sets it to \%model
-    $self->{_ByProject} = merge( \%model, $self->{_ByProject} );
-
+    $self->{_ByProject} = merge( $model, $self->{_ByProject} );
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  extra => {
 #                    '' => { name => '@Unassigned' }
@@ -390,81 +411,31 @@ END_PLATFORMQUERY
 sub getProjectStudy {
     my ( $self, %args ) = @_;
 
-    my $extra_studies = $args{extra} || {};
-
-    # default: false
-    my $all_projects = $args{all_projects};
-
-    # default: false
-    #my $all_studies = $args{all_studies};
-
-    #my $unassigned_name = $args{empty};
-    #my %unassigned =
-    #    ( defined $unassigned_name )
-    #  ? ( '' => { name => "\@$unassigned_name" } )
-    #  : ();
-
-    # defaulting to "no"
+    my %model =
+      $args{all_projects}
+      ? ( all => { studies => dclone( $args{extra} || {} ) } )
+      : ();
+    my %reverse_model;
     my $reverse_lookup = $args{reverse_lookup};
 
-    # cache the database handle
-    my $dbh = $self->{_dbh};
+    $self->iterateOverTable(
+        table_info => $self->{_ProjectStudy},
+        iterator   => sub {
+            my ( $base_vals, $row )  = @_;
+            my ( $prid,      $stid ) = @$base_vals;
 
-    # what is returned
-    my %model;
+            $prid = '' if not defined $prid;
+            $model{$prid}->{studies}->{$stid} = $row;
 
-    # query to get study info
-    my $sth_study = $dbh->prepare(<<"END_STUDYQUERY");
-SELECT
-    prid,
-    stid,
-    description
-FROM study
-LEFT JOIN ProjectStudy USING(stid)
-END_STUDYQUERY
-    my $rc_study = $sth_study->execute;
-    my ( $prid, $stid, $study_desc );
-    $sth_study->bind_columns( undef, \$prid, \$stid, \$study_desc );
-
-    my %reverse_model;
-
-    # complete the model using study info
-    while ( $sth_study->fetch ) {
-        $prid = '' if not defined $prid;
-        if ( exists $model{$prid} ) {
-            $model{$prid}->{studies}->{$stid}->{name} = $study_desc;
-        }
-        else {
-            $model{$prid} =
-              { studies =>
-                  merge( { $stid => { name => $study_desc } }, $extra_studies )
-              };
-        }
-
-        # if there is an 'all' project, add every study to it
-        if ($all_projects) {
+            # if there is an 'all' project, add every study to it
             if ( exists $model{all} ) {
-                $model{all}->{studies}->{$stid}->{name} = $study_desc;
+                $model{all}->{studies}->{$stid} = dclone($row);
             }
-            else {
-                $model{all} = {
-                    studies => merge(
-                        { $stid => { name => $study_desc } },
-                        $extra_studies
-                    )
-                };
-            }
-        }
-        if ($reverse_lookup) {
-            if ( exists $reverse_model{$stid} ) {
+            if ($reverse_lookup) {
                 $reverse_model{$stid}->{prid} = $prid;
             }
-            else {
-                $reverse_model{$stid} = { prid => $prid };
-            }
         }
-    }
-    $sth_study->finish;
+    );
 
     # Merge in the hash we just built. If $self->{_ByProject} is undefined,
     # this simply sets it to \%model
@@ -476,7 +447,6 @@ END_STUDYQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
@@ -490,62 +460,20 @@ END_STUDYQUERY
 sub getExperiments {
     my ( $self, %args ) = @_;
 
-    # default: false
-    my $all_projects = $args{all_projects};
+    my %model = $args{all_projects} ? ( all => { experiments => {} } ) : ();
 
-    # cache the database handle
-    my $dbh = $self->{_dbh};
+    $self->iterateOverTable(
+        table_info => $self->{_Experiment},
+        iterator   => sub {
+            my ( $base_vals, $row ) = @_;
+            my ($eid) = @$base_vals;
 
-    # what is returned
-    my %model;
-
-    # query to get project info (know nothing about studies at this point)
-    my $sth_experiment = $dbh->prepare(<<"END_EXPERIMENTQUERY");
-SELECT
-    eid,
-    sample1,
-    sample2
-FROM experiment
-END_EXPERIMENTQUERY
-    my $rc_experiment = $sth_experiment->execute;
-    my ( $eid, $sample1, $sample2 );
-    $sth_experiment->bind_columns( undef, \$eid, \$sample1, \$sample2 );
-
-    # add experiments to projects
-    while ( $sth_experiment->fetch ) {
-
-        # an experiment may not have any pid, in which case we add it to empty
-        # project
-        if ( exists $model{all} ) {
-            $model{all}->{experiments}->{$eid} = {
-                sample1 => $sample1,
-                sample2 => $sample2
-            };
-        }
-        else {
-            $model{all} =
-              { experiments =>
-                  { $eid => { sample1 => $sample1, sample2 => $sample2 } } };
-        }
-
-        # if there is an 'all' project, add every experiment to it
-        if ($all_projects) {
+            # if there is an 'all' project, add every experiment to it
             if ( exists $model{all} ) {
-                $model{all}->{experiments}->{$eid} = {
-                    sample1 => $sample1,
-                    sample2 => $sample2
-                };
-            }
-            else {
-                $model{all} =
-                  { experiments =>
-                      { $eid => { sample1 => $sample1, sample2 => $sample2 } }
-                  };
+                $model{all}->{experiments}->{$eid} = dclone($row);
             }
         }
-    }
-
-    $sth_experiment->finish;
+    );
 
     # Merge in the hash we just built. If $self->{_ByProject} is undefined,
     # this simply sets it to \%model
@@ -554,7 +482,6 @@ END_EXPERIMENTQUERY
 }
 
 #===  CLASS METHOD  ============================================================
-
 
 #   PARAMETERS:  ????
 #      RETURNS:  HASHREF to model
@@ -574,29 +501,15 @@ END_EXPERIMENTQUERY
 sub getStudyExperiment {
     my $self = shift;
 
-    # cache the database handle
-    my $dbh = $self->{_dbh};
-
-    # what is returned
     my %model;
-    my $sth_StudyExperiment = $dbh->prepare(<<"END_STUDYEXPERIMENTQUERY");
-SELECT
-   stid,
-   eid 
-FROM StudyExperiment
-END_STUDYEXPERIMENTQUERY
-    my $rc_StudyExperiment = $sth_StudyExperiment->execute;
-    my ( $se_stid, $se_eid );
-    $sth_StudyExperiment->bind_columns( undef, \$se_stid, \$se_eid );
-    while ( $sth_StudyExperiment->fetch ) {
-
-        if ( exists $model{$se_stid} ) {
-            $model{$se_stid}->{experiments}->{$se_eid} = {};
+    $self->iterateOverTable(
+        table_info => $self->{_StudyExperiment},
+        iterator   => sub {
+            my ( $base_vals, $row ) = @_;
+            my ( $stid,      $eid ) = @$base_vals;
+            $model{$stid}->{experiments}->{$eid} = $row;
         }
-        else {
-            $model{$se_stid} = { experiments => { $se_eid => {} } };
-        }
-    }
+    );
 
     # Merge in the hash we just built. If $self->{_ByStudy} is undefined,
     # this simply sets it to \%model
