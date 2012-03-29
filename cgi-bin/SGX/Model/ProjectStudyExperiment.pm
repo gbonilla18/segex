@@ -93,7 +93,8 @@ sub get_ByStudy {
 #===============================================================================
 sub getProjectFromStudy {
     my ( $self, $stid ) = @_;
-    return $self->{_ByStudy}->{$stid}->{prid};
+    my $stid_info = defined($stid) ? $self->{_ByStudy}->{$stid} : undef;
+    return defined($stid_info) ? $stid_info->{prid} : undef;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -107,7 +108,7 @@ sub getProjectFromStudy {
 #===============================================================================
 sub getProjectNameFromPID {
     my ( $self, $prid ) = @_;
-    return $self->{_ByProject}->{$prid}->{name};
+    return $self->{_ByProject}->{$prid}->{prname};
 }
 
 #===  CLASS METHOD  ============================================================
@@ -121,8 +122,11 @@ sub getProjectNameFromPID {
 #===============================================================================
 sub getProjectStudyName {
     my ( $self, $prid, $stid ) = @_;
-    return $self->{_ByProject}->{$prid}->{studies}->{$stid}->{name} . ' \ '
-      . $self->{_ByProject}->{$prid}->{name};
+
+    my $project      = $self->{_ByProject}->{$prid};
+    my $project_name = $project->{prname};
+    my $study_name   = $project->{studies}->{$stid}->{description};
+    return "$study_name \\ $project_name";
 }
 
 #===  CLASS METHOD  ============================================================
@@ -172,8 +176,7 @@ sub init {
     # defaulting to "no"
     my $project_by_study = $args{project_by_study};
 
-    # when p* is set, both p* and studies will be set to
-    # one
+    # when p* is set, both p* and studies will be set to "yes"
     if ($project_by_study) {
         $project_info = 1;
         $study_info   = 1;
@@ -184,19 +187,15 @@ sub init {
       ? $args{default_study_name}
       : '@Unassigned Experiments';
 
-    my $default_project_name =
-      ( exists $args{default_project_name} )
-      ? $args{default_project_name}
-      : '@Unassigned Experiments';
-
     #---------------------------------------------------------------------------
     #  build model
     #---------------------------------------------------------------------------
     my $all_projects = ( exists $extra_projects->{all} ) ? 1 : 0;
 
-    #my $all_studies   = ( exists $extra_studies->{all} )   ? 1 : 0;
-
-    $self->getProjects( extra => $extra_projects ) if $project_info;
+    $self->getProjects(
+        extra         => $extra_projects,
+        extra_studies => $extra_studies
+    ) if $project_info;
 
     # we didn't define getStudy() because getP*Study() accomplishes the
     # same goal (there is a one-to-many relationship between p* and
@@ -233,24 +232,17 @@ sub init {
         #
         my $this_empty_study =
           ( defined($extra_studies) && defined( $extra_studies->{''} ) )
-          ? $extra_studies->{''}->{name}
+          ? $extra_studies->{''}->{description}
           : $default_study_name;
-
-        my $this_empty_project =
-          ( defined($extra_projects) && defined( $extra_projects->{''} ) )
-          ? $extra_projects->{''}->{name}
-          : $default_project_name;
 
         foreach my $project ( values %$model ) {
 
-            # populate %unassigned hash initially with all experiments for the p*
+           # populate %unassigned hash initially with all experiments for the p*
             my %unassigned =
               map { $_ => {} } keys %{ $project->{experiments} };
 
             # initialize $p*->{studies} (must always be present)
             $project->{studies} ||= {};
-            $project->{name}    ||= $this_empty_project;
-            $project->{prname}  ||= undef;
 
             # cache "studies" field
             my $projectStudies = $project->{studies};
@@ -272,7 +264,7 @@ sub init {
                 else {
                     $projectStudies->{''} = {
                         experiments => \%unassigned,
-                        name        => $this_empty_study
+                        prname      => $this_empty_study
                     };
                 }
             }
@@ -372,12 +364,14 @@ sub getProjects {
     my ( $self, %args ) = @_;
 
     my $model = dclone( $args{extra} || {} );
+    my $extra_studies = $args{extra_studies} || {};
 
     $self->iterateOverTable(
         table_info => $self->{_Project},
         iterator   => sub {
             my ( $base_vals, $row ) = @_;
             my ($prid) = @$base_vals;
+            $row->{studies} = dclone($extra_studies);
             $model->{$prid} = $row;
         }
     );
@@ -422,7 +416,7 @@ sub getProjectStudy {
             $prid = '' if not defined $prid;
             $model{$prid}->{studies}->{$stid} = $row;
 
-            # if there is an 'all' project, add every study to it
+            # if there is an 'all' p*, add every study to it
             if ( exists $model{all} ) {
                 $model{all}->{studies}->{$stid} = dclone($row);
             }

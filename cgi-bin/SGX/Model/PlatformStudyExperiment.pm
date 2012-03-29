@@ -93,8 +93,8 @@ sub get_ByStudy {
 #===============================================================================
 sub getPlatformFromStudy {
     my ( $self, $stid ) = @_;
-    my $stid_info = ( defined($stid) ? $self->{_ByStudy}->{$stid} : undef );
-    return ( defined($stid_info) ? $stid_info->{pid} : undef );
+    my $stid_info = defined($stid) ? $self->{_ByStudy}->{$stid} : undef;
+    return defined($stid_info) ? $stid_info->{pid} : undef;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -125,10 +125,7 @@ sub getPlatformStudyName {
 
     my $platform      = $self->{_ByPlatform}->{$pid};
     my $platform_name = $platform->{pname};
-    my $study_name =
-      ( defined $stid and $stid ne '' )
-      ? $platform->{$stid}->{description}
-      : '@Unassigned Experiments';
+    my $study_name    = $platform->{studies}->{$stid}->{description};
     return "$study_name \\ $platform_name";
 }
 
@@ -179,8 +176,7 @@ sub init {
     # defaulting to "no"
     my $platform_by_study = $args{platform_by_study};
 
-    # when p* is set, both p* and studies will be set to
-    # one
+    # when p* is set, both p* and studies will be set to "yes"
     if ($platform_by_study) {
         $platform_info = 1;
         $study_info    = 1;
@@ -191,17 +187,10 @@ sub init {
       ? $args{default_study_name}
       : '@Unassigned Experiments';
 
-    my $default_platform_name =
-      ( exists $args{default_platform_name} )
-      ? $args{default_platform_name}
-      : '@Unassigned Experiments';
-
     #---------------------------------------------------------------------------
     #  build model
     #---------------------------------------------------------------------------
     my $all_platforms = ( exists $extra_platforms->{all} ) ? 1 : 0;
-
-    #my $all_studies   = ( exists $extra_studies->{all} )   ? 1 : 0;
 
     $self->getPlatforms(
         extra         => $extra_platforms,
@@ -246,21 +235,14 @@ sub init {
           ? $extra_studies->{''}->{description}
           : $default_study_name;
 
-        my $this_empty_platform =
-          ( defined($extra_platforms) && defined( $extra_platforms->{''} ) )
-          ? $extra_platforms->{''}->{pname}
-          : $default_platform_name;
-
         foreach my $platform ( values %$model ) {
 
-            # populate %unassigned hash initially with all experiments for the p*
+           # populate %unassigned hash initially with all experiments for the p*
             my %unassigned =
               map { $_ => {} } keys %{ $platform->{experiments} };
 
             # initialize $p*->{studies} (must always be present)
             $platform->{studies} ||= {};
-            $platform->{pname}   ||= $this_empty_platform;
-            $platform->{sname}   ||= undef;
 
             # cache "studies" field
             my $platformStudies = $platform->{studies};
@@ -434,7 +416,7 @@ sub getPlatformStudy {
             $pid = '' if not defined $pid;
             $model{$pid}->{studies}->{$stid} = $row;
 
-            # if there is an 'all' platform, add every study to it
+            # if there is an 'all' p*, add every study to it
             if ( exists $model{all} ) {
                 $model{all}->{studies}->{$stid} = dclone($row);
             }
@@ -474,10 +456,7 @@ sub getExperiments {
         iterator   => sub {
             my ( $base_vals, $row ) = @_;
             my ( $pid,       $eid ) = @$base_vals;
-
-          # an experiment may not have any pid, in which case we add it to empty
-          # platform
-            my $this_pid = ( defined($pid) ) ? $pid : '';
+            my $this_pid = defined($pid) ? $pid : '';
             $model{$this_pid}->{experiments}->{$eid} = $row;
 
             # if there is an 'all' p*, add every experiment to it
