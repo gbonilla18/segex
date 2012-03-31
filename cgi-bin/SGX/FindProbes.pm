@@ -231,11 +231,10 @@ sub Search_head {
       );
     push @$js_src_yui,
       (
-        'yahoo-dom-event/yahoo-dom-event.js', 'connection/connection-min.js',
-        'dragdrop/dragdrop-min.js',           'container/container-min.js',
-        'element/element-min.js',             'datasource/datasource-min.js',
-        'paginator/paginator-min.js',         'datatable/datatable-min.js',
-        'selector/selector-min.js'
+        'yahoo-dom-event/yahoo-dom-event.js', 'dragdrop/dragdrop-min.js',
+        'container/container-min.js',         'element/element-min.js',
+        'datasource/datasource-min.js',       'paginator/paginator-min.js',
+        'datatable/datatable-min.js',         'selector/selector-min.js'
       );
 
     if ( $next_action == 1 ) {
@@ -1617,7 +1616,7 @@ sub Search_body {
 <strong>Light bars</strong>: values above the P threshold. 
 <strong>Green horizontal lines</strong>: fold-change threshold.
 END_LEGEND
-            $q->ul( { -id => 'graphs' }, '' ),
+            $q->div( { -id => 'graphs' }, '' ),
             $q->p( $q->a( { -href => '#' }, '^ Back to top' ) )
         );
     }
@@ -1658,8 +1657,8 @@ sub mainFormDD {
                         $q->textarea(
                             -name    => 'q',
                             -id      => 'q',
-                            -rows    => 10,
-                            -columns => 50,
+                            -rows    => 4,
+                            -columns => 55,
                             -title =>
 'Enter list of terms to search. Multiple entries have to be separated by commas or be on separate lines.'
                         )
@@ -1773,12 +1772,11 @@ sub mainFormDD {
                                 -id    => 'pattern_fullword_hint'
                             },
                             <<"END_EXAMPLE_TEXT"),
-For full-word searches in text fields such as GO names and gene descriptions,
-entering <strong>"brain development"</strong> will search for the entire phrase,
-typing <strong>brain -development</strong> will search for occurences of the
-word brain where the word development is not mentioned, and typing
-<strong>+brain +development</strong> will search for occurences of both words in
-any order. 
+When searching text fields (GO names, gene descriptions) in full-word mode,
+<strong>"brain development"</strong> means search for the exact phrase,
+<strong>brain -development</strong> means search for "brain" but not
+"development", and <strong>+brain +development</strong> means both words have to
+be present (in any order).
 <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">Click here</a>
 for detailed information.
 END_EXAMPLE_TEXT
@@ -1788,10 +1786,10 @@ END_EXAMPLE_TEXT
                                 -id    => 'pattern_part_hint'
                             },
                             <<"END_EXAMPLE_TEXT"),
-Partial matching lets you search for word parts and regular expressions.  For
-example, <strong>^cyp.b</strong> means "all genes starting with
-<strong>cyp.b</strong> where the fourth character (the dot) is any single letter
-or digit." 
+Partial mode lets you search for word parts and regular expressions.  For
+example, <strong>^cyp.b</strong> means search for all genes starting with
+<strong>cyp.b</strong> where the fourth character is any single letter
+or digit and the fifth letter is "b".
 <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">Click here</a>
 for detailed information.
 END_EXAMPLE_TEXT

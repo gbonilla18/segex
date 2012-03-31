@@ -30,17 +30,28 @@ function buildSVGElement(obj) {
 
     // resize object after loading to work around Safari resizing bug
     YAHOO.util.Event.addListener(object, 'load', function() {
-        var svgAttr = dom.getFirstChildBy(
+        var svg = dom.getFirstChildBy(
             this.contentDocument,
             function(el) { return (el.nodeName === 'svg'); }
-        ).attributes;
-        var newHeight = parseInt(svgAttr.height.value, 10);
-        if (this.offsetHeight !== newHeight) {
-            this.setAttribute('height', newHeight);
-        }
-        var newWidth = parseInt(svgAttr.width.value, 10);
-        if (this.offsetWidth !== newWidth) {
-            this.setAttribute('width', newWidth);
+        );
+        if (svg) { 
+            // Found SVG inside
+            var svgAttr = svg.attributes;
+            var newHeight = parseInt(svgAttr.height.value, 10);
+            if (this.offsetHeight !== newHeight) {
+                this.setAttribute('height', newHeight);
+            }
+            var newWidth = parseInt(svgAttr.width.value, 10);
+            if (this.offsetWidth !== newWidth) {
+                this.setAttribute('width', newWidth);
+            }
+            return true;
+        } else {
+            // no SVG -- probably error page returned
+            removeAllChildren(this.contentDocument);
+            this.setAttribute('height', 0);
+            this.setAttribute('width', 0);
+            return false;
         }
     });
     return object;
@@ -48,7 +59,7 @@ function buildSVGElement(obj) {
 
 // graph manager class
 function Graphs(id) {
-    this.graph_ul = dom.get(id);
+    this.graph_container = dom.get(id);
     this.graph_content = [];
     this.addToModel = function(li_id, svgObjAttr) {
         var li = document.createElement('li');
@@ -66,13 +77,16 @@ function Graphs(id) {
     };
     this.render = function() {
         // remove all existing DOM nodes
-        removeAllChildren(this.graph_ul);
+        removeAllChildren(this.graph_container);
 
         // add new ones from the model
-        var graph_ul = this.graph_ul;
-        forEach(this.graph_content, function(el) {
-            graph_ul.appendChild(el);
-        });
+        this.graph_container.appendChild(
+            forEach(
+                this.graph_content, 
+                function(el) { this.appendChild(el); }, 
+                document.createElement("ul")
+            )
+        );
     };
 }
 
