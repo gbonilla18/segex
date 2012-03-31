@@ -10,6 +10,72 @@
 var dom = YAHOO.util.Dom;
 var formatter = YAHOO.widget.DataTable.Formatter;
 
+function buildSVGElement(obj) {
+    var resourceURI = object_forEach(obj, function(key, val) {
+        this.push(key + '=' + encodeURIComponent(val));
+    }, ['./?a=graph']).join('&');
+
+    // another alternative to the code below
+    //var object = document.createElement('img');
+    //object.setAttribute('src', resourceURI);
+    //return object;
+
+    var object = document.createElement('object');
+    object.setAttribute('type', 'image/svg+xml');
+    object.setAttribute('data', resourceURI);
+    var embed = document.createElement('embed');
+    embed.setAttribute('type', 'image/svg+xml');
+    embed.setAttribute('src', resourceURI);
+    object.appendChild(embed);
+
+    // resize object after loading to work around Safari resizing bug
+    YAHOO.util.Event.addListener(object, 'load', function() {
+        var svgAttr = dom.getFirstChildBy(
+            this.contentDocument,
+            function(el) { return (el.nodeName === 'svg'); }
+        ).attributes;
+        var newHeight = parseInt(svgAttr.height.value, 10);
+        if (this.offsetHeight !== newHeight) {
+            this.setAttribute('height', newHeight);
+        }
+        var newWidth = parseInt(svgAttr.width.value, 10);
+        if (this.offsetWidth !== newWidth) {
+            this.setAttribute('width', newWidth);
+        }
+    });
+    return object;
+}
+
+// graph manager class
+function Graphs(id) {
+    this.graph_ul = dom.get(id);
+    this.graph_content = [];
+    this.addToModel = function(li_id, svgObjAttr) {
+        var li = document.createElement('li');
+        li.setAttribute('id', li_id);
+        li.appendChild(buildSVGElement(svgObjAttr));
+        this.graph_content.push(li);
+        return true;
+    };
+    this.purgeModel = function() {
+        forEach(this.graph_content, function(el) {
+            YAHOO.util.Event.purgeElement(el, false);
+        });
+        this.graph_content.length = 0;
+        return true;
+    };
+    this.render = function() {
+        // remove all existing DOM nodes
+        removeAllChildren(this.graph_ul);
+
+        // add new ones from the model
+        var graph_ul = this.graph_ul;
+        forEach(this.graph_content, function(el) {
+            graph_ul.appendChild(el);
+        });
+    };
+}
+
 YAHOO.util.Event.addListener("resulttable_astext", "click", export_table, data, true);
 YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
 
@@ -26,8 +92,6 @@ YAHOO.util.Event.addListener("get_csv", "submit", function(o) {
 
 YAHOO.util.Event.addListener(window, "load", function() {
 
-    var graph_ul;
-    var graph_content = [];
     var queriedPhrases = 
         (match === 'Full-Word') ?  splitIntoPhrases(queryText) : queryText.split(/[,\s]+/);
     var regex_obj = (function() {
@@ -57,19 +121,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
         } : function(x) {
             return x;
         };
-
-    function buildSVGElement(obj) {
-        var resourceURI = object_forEach(obj, function(key, val) {
-            this.push(key + '=' + encodeURIComponent(val));
-        }, ['./?a=graph']).join('&');
-        var width = 1200;
-        var height = 600;
-        return "<object type=\"image/svg+xml\" width=\"" + width + "\" data=\"" + resourceURI + "\"><embed src=\"" + resourceURI + "\" width=\"" + width + "\" height=\"" + height + "\" /></object>";
-    }
-
-    if (show_graphs !== 'No Graphs') {
-        graph_ul = dom.get("graphs");
-    }
 
     dom.get("caption").innerHTML = data.caption;
 
@@ -162,7 +213,15 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }, []).join(', ');
     }
 
-    var manager = (show_graphs === '') ? new YAHOO.widget.OverlayManager() : null;
+    var graphs = null;
+    var manager = null;
+    if (show_graphs === '') {
+        // do not show graphs below the table (only show them within panels)
+        manager = new YAHOO.widget.OverlayManager();
+    } else {
+        // show graphs below the table
+        graphs = new Graphs('graphs');
+    }
 
     formatter.formatProbe = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
@@ -176,14 +235,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
             a.setAttribute('title', 'Show differental expression graph');
             a.appendChild(document.createTextNode(oData));
 
-            if (show_graphs !== '') {
-                graph_content.push(
-                    "<li id=\"reporter_" + i + "\">" + buildSVGElement({proj:
-                    project_id, rid: this_rid, reporter: oData, trans: show_graphs}) +
-                    "</li>"
+            if (graphs !== null) {
+                var graphId = 'reporter_' + i;
+                graphs.addToModel(
+                    graphId,
+                    { proj: project_id, rid: this_rid, reporter: oData, trans: show_graphs }
                 );
-                a.setAttribute('href', '#reporter_' + i);
-            } else {
+                a.setAttribute('href', '#' + graphId);
+            } else if (manager !== null) {
 
                 // Set up SVG pop-up panel
                 var panelID = "panel" + i;
@@ -207,6 +266,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                         close:true, visible:true, draggable:true, fixedcenter: false,
                         constraintoviewport:false, context:[elCell, "tl", "tr"]
                     });
+                    dom.addClass(panel.element, 'graph-panel');
                     panel.setHeader(oData);
                     panel.setBody(buildSVGElement({
                         proj: project_id, rid: this_rid, reporter: oData,
@@ -256,10 +316,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     var myDataSource = new YAHOO.util.DataSource(data.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-
-    myDataSource.responseSchema = {
-        fields: myColumnList
-    };
+    myDataSource.responseSchema = { fields: myColumnList };
 
     var myData_config = {
         paginator: new YAHOO.widget.Paginator({
@@ -271,20 +328,17 @@ YAHOO.util.Event.addListener(window, "load", function() {
         "resulttable", myColumnDefs, myDataSource, myData_config
     );
 
-    // TODO: Ideally, use a "pre-formatter" event to clear graph_content
-    myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
-        graph_content.length = 0;
-        return true;
-    };
-    myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
-        graph_content.length = 0;
-        return true;
-    };
-
-    if (show_graphs !== '') {
-        myDataTable.subscribe("renderEvent", function () { 
-            graph_ul.innerHTML = graph_content.join(''); 
-        });
+    if (graphs !== null) {
+        // TODO: Ideally, use a "pre-formatter" event to clear graph_content
+        myDataTable.doBeforeSortColumn = function(oColumn, sSortDir) {
+            graphs.purgeModel();
+            return true;
+        };
+        myDataTable.doBeforePaginatorChange = function(oPaginatorState) {
+            graphs.purgeModel();
+            return true;
+        };
+        myDataTable.subscribe("renderEvent", function () { graphs.render(); });
     }
 
 });

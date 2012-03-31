@@ -5,6 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
+use List::Util qw/max/;
 use SGX::Util qw/car min max label_format/;
 
 #===  CLASS METHOD  ============================================================
@@ -164,10 +165,10 @@ sub default_body {
     my $body_width           = 500;
     my $body_height          = 300;
     my $body_height_extended = 400;
-    my $longest_xlabel       = 550;
-    my $text_breath          = 6;     # pixels
-    my $text_fudge           = 4;     # fudge factor
-    my $text_fudge_inv       = 10;    # inverse fudge factor
+    my $longest_xlabel       = 7 * max( map { length($_) } @$labels );
+    my $text_breath          = 6;                                       # pixels
+    my $text_fudge     = 4;     # fudge factor
+    my $text_fudge_inv = 10;    # inverse fudge factor
 
     #my $total_width = $xl + $body_width
     my $total_width = $xl + $body_width + $longest_xlabel;
@@ -244,7 +245,7 @@ sub default_body {
         $legend_top    += $text_height;
         $vguides_shift += $wrw;
     }
-    my $total_height = max($label_shift, $legend_top) + 50;
+    my $total_height = max( $label_shift, $legend_top ) + 50;
 
     my $hguides = '';
     my $ylabels = '';
@@ -344,7 +345,9 @@ sub default_body {
     my $ytitlex = $text_fudge_inv;          # + $text_breath;
     my $ytitley = $yl + $body_height / 2;
 
-### main block ####################################
+ #---------------------------------------------------------------------------
+ #  Including CSS into SVG so that one could save and use the SVG as a
+ #  stand-alone file.
  #
  # not drawing the Y-axis anymore -- if needed, the SVG code to show it was:
  #     <path d="M$xl $yl v$body_height" id="yAxis"/>
@@ -353,12 +356,12 @@ sub default_body {
  # and the Perl code to find xy coords was:
  #    my $xtitlex = $xl + $body_width / 2;
  #    my $xtitley = $total_height - $yl / 3;
-
+ #---------------------------------------------------------------------------
     return <<"END_SVG";
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
     "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
 <svg width="$total_width" height="$total_height" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-<defs>
 <style type="text/css"><![CDATA[
 #svgBackground{
     fill: #fff;
@@ -417,7 +420,6 @@ sub default_body {
     fill: #00f;
 }
 ]]></style>
-</defs>
 
 <!-- background fills -->
 <rect x="0" y="0" width="$total_width" height="$total_height" id="svgBackground"/>
