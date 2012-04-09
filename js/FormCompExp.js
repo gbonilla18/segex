@@ -9,6 +9,7 @@ YAHOO.util.Event.addListener(window, "load", function () {
 
     // Drop progressively enhanced content class, just before creating the
     // module
+    var user_selection = dom.get('user_selection');
     var specialFilterForm_el = dom.get("specialFilterForm");
     dom.removeClass(specialFilterForm_el, "yui-pe-content");
 
@@ -164,10 +165,10 @@ YAHOO.util.Event.addListener(window, "load", function () {
         }
         YAHOO.util.Event.addListener(select, 'change', function(ev) {
             var el = ev.target;
-            var val = el.options[el.selectedIndex].value;
+            var val = getSelectedValue(el);
             oRecord.setData(oColumn.key, val);
         });
-        oRecord.setData(oColumn.key, select.options[select.selectedIndex].value);
+        oRecord.setData(oColumn.key, getSelectedValue(select));
         elCell.appendChild(select);
     };
     var pvalFormatter = createTextboxFormatter(function(val) {
@@ -215,12 +216,21 @@ YAHOO.util.Event.addListener(window, "load", function () {
         if (selExperiments.selectedIndex < 0) {
             return;
         }
-        var result = selExperiments.options[selExperiments.selectedIndex].value;
+        var result = getSelectedValue(selExperiments);
         selExperiments.selectedIndex++;
         incrementParentIfEmpty(selStudies, selExperiments);
         triggerEvent(selExperiments, 'change');
         return result;
     }
+
+    // revive stored model
+    var records = [];
+    if (user_selection.value) {
+        records = JSON.parse(user_selection.value);
+    }
+    forEach(records, function(record) {
+        myDataTable.addRow(YAHOO.widget.DataTable._cloneObject(record));
+    });
 
     YAHOO.util.Event.addListener('add', 'click', function() {
         var pid = getSelectedValue(selPlatforms);
@@ -245,22 +255,14 @@ YAHOO.util.Event.addListener(window, "load", function () {
         myDataTable.addRow(record);
     });
 
-    var user_selection = dom.get('user_selection');
     YAHOO.util.Event.addListener('form_compareExperiments', 'submit', function(ev) {
         var data = forEach(
             myDataTable.getRecordSet().getRecords(), 
             function(record) {
-                this.push(
-                    forEach(
-                        ['stid', 'eid', 'pval', 'fchange', 'reverse', 'pValClass'], 
-                        function(key) { this[key] = record.getData(key) }, {}
-                    )
-                );
+                this.push(record.getData());
             }, []
         );
         user_selection.value = JSON.stringify(data);
-        //console.log(data);
-        //YAHOO.util.Event.stopEvent(ev);
     });
 });
 })();
