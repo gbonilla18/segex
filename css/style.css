@@ -14,7 +14,9 @@ em {
 	font-style:italic;
 }
 ol li { list-style: decimal; margin-left:20px; }
-
+input.shortnum {
+	width:5em;
+}
 .hidden {
 	visibility:hidden;
 }
@@ -260,6 +262,21 @@ img#schema {
 	margin:10px;
 }
 /************* YUI Sam skin correction ********/
+.yui-pe .yui-pe-content {
+	display:none;
+}
+.yui-skin-sam .yui-navset .yui-content,.yui-skin-sam .yui-navset .yui-navset-top .yui-content{
+	border:1px solid #ccc;
+	border-top-color:#243356;
+}
+.yui-skin-sam .yui-navset-left .yui-content{
+	border:1px solid #ccc;
+	border-left-color:#243356;
+}
+.yui-skin-sam .yui-navset-bottom .yui-content,.yui-skin-sam .yui-navset .yui-navset-bottom .yui-content{
+	border:1px solid #ccc;
+	border-bottom-color:#243356;
+}
 .yui-skin-sam .yui-button {
 	margin-bottom:8px;
 }
@@ -267,6 +284,9 @@ img#schema {
 	padding:8px;
 }
 .yui-skin-sam .yui-panel .bd, .yui-skin-sam .yui-panel .ft {
+	background-color:#f5f5f5;
+}
+.yui-skin-sam .graph-panel .bd, .yui-skin-sam .graph-panel .ft {
 	background-color:#fff;
 }
 .yui-skin-sam .yui-navset .yui-content {
@@ -433,6 +453,9 @@ dl, table, div.table_cont {
 }
 .hint pre, .hint p {
 	margin-bottom:0.75em;
+}
+.filter-dialog {
+	width:475px;
 }
 .highlight {
 	color:#000;

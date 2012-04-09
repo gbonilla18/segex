@@ -8,13 +8,14 @@ use base qw/SGX::Strategy::Base/;
 #use Benchmark;
 #use SGX::Debug;
 use URI::Escape qw/uri_escape/;
-use JSON qw/encode_json/;
+use JSON qw/encode_json decode_json/;
 require Tie::IxHash;
 require SGX::FindProbes;
 require SGX::Abstract::JSEmitter;
 require SGX::DBLists;
+require SGX::Model::PlatformStudyExperiment;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car count_gtzero max/;
+use SGX::Util qw/car count_gtzero max abbreviate/;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 use SGX::Debug;
 
@@ -30,11 +31,19 @@ use SGX::Debug;
 #===============================================================================
 sub init {
     my $self = shift;
+    my $dbh  = $self->{_dbh};
     $self->SUPER::init();
 
-    $self->set_attributes( _title => 'Compare Experiments' );
+    my $pse = SGX::Model::PlatformStudyExperiment->new( dbh => $dbh );
+    push @{ $pse->{_Platform}->{attr} }, ( 'def_p_cutoff', 'def_f_cutoff' );
+    push @{ $pse->{_Experiment}->{attr} }, 'PValFlag';
+
+    $self->set_attributes(
+        _title                   => 'Compare Experiments',
+        _PlatformStudyExperiment => $pse
+    );
     $self->register_actions(
-        Compare => { head => 'Compare_head', body => 'Compare_body' } );
+        Submit => { head => 'Compare_head', body => 'Compare_body' } );
 
     return $self;
 }
@@ -55,7 +64,11 @@ sub Compare_head {
     $self->set_attributes( _dbLists => SGX::DBLists->new( delegate => $self ),
     );
 
-    if ( !$self->get_eids() ) {
+    my $q = $self->{_cgi};
+    $self->{_xExpList} = decode_json( $q->param('user_selection') ) || [];
+    if ( !@{ $self->{_xExpList} } ) {
+        $self->add_message( { -class => 'error' },
+            'You did not provide any input' );
         $self->set_action('');
         $self->default_head();
         return 1;
@@ -72,9 +85,8 @@ sub Compare_head {
       );
     push @$js_src_yui,
       (
-        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
-        'paginator/paginator-min.js',         'datasource/datasource-min.js',
-        'datatable/datatable-min.js'
+        'element/element-min.js',       'paginator/paginator-min.js',
+        'datasource/datasource-min.js', 'datatable/datatable-min.js'
       );
     push @$js_src_code, { -code => $self->getResultsJS() };
     return 1;
@@ -101,7 +113,9 @@ sub default_head {
     push @$css_src_yui,
       (
         'button/assets/skins/sam/button.css',
-        'tabview/assets/skins/sam/tabview.css'
+        'tabview/assets/skins/sam/tabview.css',
+        'datatable/assets/skins/sam/datatable.css',
+        'container/assets/skins/sam/container.css'
       );
 
     # background image from: http://subtlepatterns.com/?p=703
@@ -116,8 +130,10 @@ END_css
     #---------------------------------------------------------------------------
     push @$js_src_yui,
       (
-        'yahoo-dom-event/yahoo-dom-event.js', 'element/element-min.js',
-        'button/button-min.js',               'tabview/tabview-min.js'
+        'element/element-min.js',     'dragdrop/dragdrop-min.js',
+        'button/button-min.js',       'datasource/datasource-min.js',
+        'datatable/datatable-min.js', 'tabview/tabview-min.js',
+        'container/container-min.js'
       );
     push @$js_src_code, +{ -code => <<"END_onload"};
 var tabView = new YAHOO.widget.TabView('property_editor');
@@ -128,11 +144,19 @@ END_onload
 
     push @$js_src_code,
       (
-        +{ -code => $self->getFormJS() },
-        +{ -src  => 'collapsible.js' },
-        +{ -src  => 'FormFindProbes.js' },
-        +{ -src  => 'FormCompareExperiments.js' }
+        +{ -src => 'collapsible.js' },
+        +{ -src => 'FormFindProbes.js' },
+        +{ -src => 'FormCompExp.js' }
       );
+
+    $self->{_PlatformStudyExperiment}->init(
+        platforms     => 1,
+        studies       => 1,
+        experiments   => 1,
+        extra_studies => { '' => { description => '@Unassigned Experiments' } }
+    );
+    push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
+    push @$js_src_code, { -code => $self->getDropDownJS() };
 
     my $findProbes = SGX::FindProbes->new(
         _dbh         => $self->{_dbh},
@@ -141,150 +165,6 @@ END_onload
     );
     $self->{_species_data} = $findProbes->get_species();
     return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  CompareExperiments
-#       METHOD:  getFormJS
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getFormJS {
-    my $self = shift;
-    my $s    = $self->{_UserSession};
-    my $dbh  = $self->{_dbh};
-
-    # find out what the current project is set to
-    my $curr_proj = $s->{session_cookie}->{curr_proj};
-
-    # get a list of platforms and cutoff values
-    my $query_text;
-    my @query_params;
-    if ( !defined($curr_proj) || $curr_proj eq '' ) {
-
-        # current project not set or set to 'All Projets'
-        $query_text =
-          qq{SELECT pid, pname, def_p_cutoff, def_f_cutoff FROM platform};
-    }
-    else {
-
-        # current project is set
-        push @query_params, $curr_proj;
-        $query_text = <<"END_PLATFORM_QUERY"
-SELECT 
-    pid, 
-    pname, 
-    def_p_cutoff, 
-    def_f_cutoff 
-FROM platform 
-RIGHT JOIN study USING(pid) 
-RIGHT JOIN ProjectStudy USING(stid)
-WHERE prid=? 
-GROUP BY pid
-END_PLATFORM_QUERY
-    }
-    my $sth      = $dbh->prepare($query_text);
-    my $rowcount = $sth->execute(@query_params);
-
-    ### populate a Javascript hash with the content of the platform recordset
-    my %json_platform;
-    while ( my @row = $sth->fetchrow_array ) {
-        my $pid = shift @row;
-        $json_platform{$pid} = \@row;
-    }
-    $sth->finish;
-
-    # get a list of studies
-    if ( !defined($curr_proj) || $curr_proj eq '' ) {
-
-        # current project not set or set to '@All Projects'
-        $sth      = $dbh->prepare(qq{select stid, description, pid from study});
-        $rowcount = $sth->execute();
-    }
-    else {
-
-        # current project is set
-        $sth = $dbh->prepare( <<"END_proj_query");
-select 
-    stid, 
-    description, 
-    pid 
-from study 
-RIGHT JOIN ProjectStudy USING(stid) 
-WHERE prid=?
-group by stid
-END_proj_query
-        $rowcount = $sth->execute($curr_proj);
-    }
-
-    ### populate a Javascript hash with the content of the study recordset
-    my %json_study;
-    while ( my @row = $sth->fetchrow_array ) {
-
-        # format:
-        # study_id => [
-        #   0 - study description
-        #   1 - sample 1 name
-        #   2 - sample 2 name
-        #   3 - platform id
-        # ];
-        $json_study{ $row[0] } = [ $row[1], {}, {}, $row[2] ];
-    }
-    $sth->finish;
-
-    # get a list of all experiments
-    if ( !defined($curr_proj) || $curr_proj eq '' ) {
-        $sth = $dbh->prepare(<<"END_EXP_QUERY");
-select 
-    stid, 
-    eid, 
-    experiment.sample2 as s2_desc, 
-    experiment.sample1 as s1_desc 
-from study 
-inner join StudyExperiment USING(stid)
-inner join experiment using(eid)
-GROUP BY eid
-END_EXP_QUERY
-        $rowcount = $sth->execute();
-    }
-    else {
-        $sth = $dbh->prepare(<<"END_EXP_QUERY");
-select 
-    stid, 
-    eid, 
-    experiment.sample2 as s2_desc, 
-    experiment.sample1 as s1_desc 
-from experiment
-inner join StudyExperiment USING(eid)
-inner join study using(stid)
-inner join ProjectStudy USING(stid)
-WHERE prid = ?
-GROUP BY eid
-END_EXP_QUERY
-        $rowcount = $sth->execute($curr_proj);
-    }
-
-    ### populate the Javascript hash with the content of the experiment recordset
-    while ( my @row = $sth->fetchrow_array ) {
-        $json_study{ $row[0] }->[1]->{ $row[1] } = $row[2];
-        $json_study{ $row[0] }->[2]->{ $row[1] } = $row[3];
-    }
-    $sth->finish;
-
-    return sprintf(
-        <<"END_form_compareExperiments_js",
-var form = "%s";
-var platform = %s;
-var study = %s;
-END_form_compareExperiments_js
-        'form_compareExperiments',
-        encode_json( \%json_platform ),
-        encode_json( \%json_study )
-    );
 }
 
 #===  FUNCTION  ================================================================
@@ -308,96 +188,114 @@ sub default_body {
         _UserSession => $self->{_UserSession}
     );
 
-    return
-      $q->h2('Compare Experiments'),
-      $q->dl(
-        $q->dt('Add experiment from platform:'),
-        $q->dd(
-'<button id="add_experiment" class="plaintext">Add experiment</button>',
-            $q->span( { -class => 'separator' }, ':' ),
-            $q->popup_menu(
-                -name  => 'platform',
-                -id    => 'platform',
-                -style => 'display:inline;'
-            )
+    return $q->h2('Compare Experiments'),
+      $q->div(
+        { -class => 'clearfix' },
+        $q->h3('1. Choose experiments:'),
+        $q->dl(
+            $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
+            $q->dd(
+                $q->popup_menu(
+                    -name  => 'pid',
+                    -id    => 'pid',
+                    -title => 'Choose microarray platform'
+                )
+            ),
+            $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
+            $q->dd(
+                $q->popup_menu(
+                    -name  => 'stid',
+                    -id    => 'stid',
+                    -title => 'Choose study'
+                )
+            ),
+            $q->dt( $q->label( { -for => 'eid' }, 'Experiment:' ) ),
+            $q->dd(
+                $q->popup_menu(
+                    -name  => 'eid',
+                    -id    => 'eid',
+                    -title => 'Choose experiment'
+                )
+            ),
+            $q->dt('&nbsp;'),
+            $q->dd(
+                $q->button(
+                    -id    => 'add',
+                    -class => 'button black bigrounded',
+                    -value => 'Add'
+                )
+            ),
         )
       ),
-      $q->start_form(
-        -method  => 'POST',
-        -enctype => 'multipart/form-data',
-        -id      => 'form_compareExperiments',
-        -action  => $q->url( absolute => 1 ) . '?a=compareExperiments'
+
+      # experiment table
+      $q->div(
+        { -class => 'clearfix' },
+        $q->h3('2. Set experiment options:'),
+        $q->div( { -class => 'clearfix', -id => 'exp_table' }, '' )
       ),
-      $q->dl(
-        $q->dt('Filter(s):'),
-        $q->dd(
-            $q->p(
-                $q->checkbox(
-                    -name  => 'chkAllProbes',
-                    -id    => 'chkAllProbes',
-                    -value => '1',
-                    -title =>
-'Include probes not significant in all experiments labeled \'TFS 0\'',
-                    -label => 'Include not significant probes'
-                ),
+
+      # form below the table
+      $q->div(
+        { -class => 'clearfix' },
+        $q->h3('3. Compare:'),
+        $q->start_form(
+            -method  => 'POST',
+            -enctype => 'multipart/form-data',
+            -id      => 'form_compareExperiments',
+            -action  => $q->url( absolute => 1 ) . '?a=compareExperiments'
+        ),
+        $q->dl(
+            $q->dt('Filter(s):'),
+            $q->dd(
                 $q->p(
                     $q->checkbox(
-                        -id    => 'specialFilter',
-                        -name  => 'specialFilter',
+                        -name  => 'chkAllProbes',
+                        -id    => 'chkAllProbes',
                         -value => '1',
-                        -title => 'Special filter on probes',
-                        -label => 'Special filter'
+                        -title =>
+'Include probes not significant in all experiments labeled \'TFS 0\'',
+                        -label => 'Include not significant probes'
+                    ),
+                    $q->p(
+                        $q->checkbox(
+                            -id    => 'specialFilter',
+                            -name  => 'specialFilter',
+                            -value => '1',
+                            -title => 'Special filter on probes',
+                            -label => 'Special filter'
+                        )
+                    ),
+                    $q->div(
+                        {
+                            -id    => 'specialFilterForm',
+                            -class => "yui-pe-content"
+                        },
+                        $q->div( { -class => 'hd' }, 'Filter options' ),
+                        $q->div(
+                            { -class => 'bd' },
+                            $findProbes->mainFormDD( $self->{_species_data} )
+                        )
                     )
                 ),
-                $q->div(
-                    {
-                        -id    => 'specialFilterForm',
-                        -class => 'dd_collapsible'
-                    },
-                    $findProbes->mainFormDD( $self->{_species_data} )
+
+            ),
+            $q->dt('&nbsp;'),
+            $q->dd(
+                $q->hidden(
+                    -name  => 'user_selection',
+                    -id    => 'user_selection',
+                    -value => ''
+                ),
+                $q->submit(
+                    -name  => 'b',
+                    -class => 'button black bigrounded',
+                    -value => 'Submit'
                 )
             )
-        )
-      ),
-
-      # END filters
-      $q->dl(
-        $q->dt('&nbsp;'),
-        $q->dd(
-            $q->submit(
-                -name  => 'b',
-                -class => 'button black bigrounded',
-                -value => 'Compare'
-            )
-        )
-      ),
-      $q->endform;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  CompareExperiments
-#       METHOD:  get_eids
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_eids {
-    my $self = shift;
-    my $q    = $self->{_cgi};
-    my @eids;
-    for ( my $i = 1 ; defined( $q->param("eid_$i") ) ; $i++ ) {
-        push @eids, car $q->param("eid_$i");
-    }
-    if ( @eids < 1 ) {
-        $self->add_message( { -class => 'error' },
-            'You did not provide any input' );
-        return;
-    }
-    $self->{_xExpList} = \@eids;
-    return scalar(@eids);
+        ),
+        $q->endform
+      );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -444,38 +342,42 @@ sub getResults {
 
     #If we are filtering, generate the SQL statement for the rid's.
     my @query_titles;
+    my @query_titles_params;
     my @query_fs_body;
+    my @query_fs_body_params;
     my ( @stid_eid, @reverses, @fcs, @pvals );
 
-    my $i = 0;
-    foreach ( @{ $self->{_xExpList} } ) {
-        $i++;
-        my ( $eid, $fc, $pval ) =
-          ( $q->param("eid_$i"), $q->param("fc_$i"), $q->param("pval_$i") );
-        my $reverse = ( defined( $q->param("reverse_$i") ) ) ? 1 : 0;
+    my $rows = $self->{_xExpList};
+    for ( my $i = 0 ; $i < @$rows ; $i++ ) {
+        my $row = $rows->[$i];
+        my ( $stid, $eid, $fc, $pval, $pValClass, $reverse ) =
+          @$row{qw/stid eid fchange pval pValClass reverse/};
+
+        $reverse = ( $reverse eq JSON::true ) ? 1 : 0;
 
         #Prepare the four arrays that will be used to display data
-        push @stid_eid, $eid;
+        push @stid_eid, [ $stid, $eid ];
         push @reverses, $reverse;
         push @fcs,      $fc;
         push @pvals,    $pval;
 
-        my ( $currentSTID, $currentEID ) = split( /\|/, $eid );
-
         #Flagsum breakdown query
-        my $flag = 1 << $i - 1;
+        my $flag = 1 << $i;
 
         push @query_fs_body, ($allProbes)
           ? <<"END_part_all"
-SELECT rid, IF(pvalue < $pval AND ABS(foldchange)  > $fc, $flag, 0) AS flag
+SELECT rid, IF(pvalue$pValClass < ? AND ABS(foldchange)  > ?, ?, 0) AS flag
 FROM microarray 
-WHERE eid=$currentEID
+WHERE eid=?
 END_part_all
           : <<"END_part_significant";
-SELECT rid, $flag AS flag 
+SELECT rid, ? AS flag 
 FROM microarray
-WHERE eid=$currentEID AND pvalue < $pval AND ABS(foldchange)  > $fc
+WHERE eid=? AND pvalue$pValClass < ? AND ABS(foldchange)  > ?
 END_part_significant
+        push @query_fs_body_params, ($allProbes)
+          ? ($pval, $fc, $flag, $eid)
+          : ( $flag, $eid, $pval, $fc );
 
         # account for sample order when building title query
         my $title =
@@ -484,15 +386,17 @@ END_part_significant
           : "experiment.sample2, ' / ', experiment.sample1";
 
         push @query_titles, <<"END_query_titles";
-SELECT eid, CONCAT(study.description, ': ', $title) AS title 
+SELECT eid, CONCAT(GROUP_CONCAT(study.description SEPARATOR ','), ': ', ?) AS title 
 FROM experiment 
-INNER JOIN StudyExperiment USING(eid)
-INNER JOIN study USING(stid)
-WHERE eid=$currentEID AND StudyExperiment.stid=$currentSTID
+LEFT JOIN StudyExperiment USING(eid)
+LEFT JOIN study USING(stid)
+WHERE eid=?
+GROUP BY eid
 END_query_titles
+        push @query_titles_params, ($title, $eid);
     }
 
-    my $exp_count = $i - 1;    # number of experiments being compared
+    my $exp_count = @$rows;    # number of experiments being compared
     my $d1SubQuery = join( ' UNION ALL ', @query_fs_body );
 
     my $query_fs = <<"END_query_fs";
@@ -509,12 +413,14 @@ END_query_fs
 
     #Run the Flag Sum Query.
     my $sth_fs      = $dbh->prepare($query_fs);
-    my $rowcount_fs = $sth_fs->execute();
+    my $rowcount_fs = $sth_fs->execute(@query_fs_body_params);
     my $h           = $sth_fs->fetchall_hashref('fs');
     $sth_fs->finish;
 
-    my $sth_titles = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
-    my $rowcount_titles = $sth_titles->execute();
+    my $query_titles = join( ' UNION ALL ', @query_titles );
+
+    my $sth_titles      = $dbh->prepare($query_titles);
+    my $rowcount_titles = $sth_titles->execute(@query_titles_params);
 
     #assert( $rowcount_titles == $exp_count );
 
@@ -601,8 +507,8 @@ sub getVennURI {
           . $scale
           . '&amp;chs=750x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='
           . join( '|',
-            map { uri_escape("$_. $ht->{$_}->{title}") }
-            map { [ split( /\|/, $_ ) ]->[1] } @$stid_eid[ 0 .. 1 ] );
+            map { uri_escape( "$_. " . abbreviate( $ht->{$_}->{title}, 60 ) ) }
+            map { $_->[1] } @$stid_eid[ 0 .. 1 ] );
     }
     elsif ( $rowcount_titles == 3 ) {
 
@@ -638,8 +544,8 @@ sub getVennURI {
           . $scale
           . "&amp;chs=750x300&chtt=$chart_title&amp;chco=ff0000,00ff00,0000ff&amp;chdl="
           . join( '|',
-            map { uri_escape("$_. $ht->{$_}->{title}") }
-            map { [ split( /\|/, $_ ) ]->[1] } @$stid_eid[ 0 .. 2 ] );
+            map { uri_escape( "$_. " . abbreviate( $ht->{$_}->{title}, 60 ) ) }
+            map { $_->[1] } @$stid_eid[ 0 .. 2 ] );
     }
     return $qstring;
 }
@@ -695,7 +601,7 @@ sub getResultsJS {
     # Summary table -------------------------------------
     my @tmpArray;
     for ( my $i = 0 ; $i < @$stid_eid ; $i++ ) {
-        my ( $currentSTID, $currentEID ) = split( /\|/, $stid_eid->[$i] );
+        my ( $currentSTID, $currentEID ) = @{ $stid_eid->[$i] };
         push @tmpArray,
           [
             $currentEID, $ht->{$currentEID}->{title},
@@ -707,7 +613,7 @@ sub getResultsJS {
     $out .= $js->let(
         [
             rep_count => $rep_count,
-            eid       => join( ',', @$stid_eid ),
+            eid       => join( ',', map { join( '|', @$_ ) } @$stid_eid ),
             rev       => join( ',', @$reverses ),
             fc        => join( ',', @$fcs ),
             pval      => join( ',', @$pvals ),
@@ -731,7 +637,7 @@ sub getResultsJS {
     my $tfs_response_fields = "{key:\"0\", parser:\"number\"},\n";
     my $i;
     for ( $i = 1 ; $i <= @$stid_eid ; $i++ ) {
-        my ( $this_stid, $this_eid ) = split( /\|/, $stid_eid->[ $i - 1 ] );
+        my ( $this_stid, $this_eid ) = @{ $stid_eid->[ $i - 1 ] };
         $tfs_defs .=
 "{key:\"$i\", sortable:true, resizeable:false, label:\"#$this_eid\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
         $tfs_response_fields .= "{key:\"$i\"},\n";
@@ -820,6 +726,67 @@ YAHOO.util.Event.addListener(window, "load", function() {
 END_extra_js
 
     return $out;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::OutputData
+#       METHOD:  getDropDownJS
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Return Javascript code including the JSON model necessary to
+#                populate Platform->Study->Experiment select controls.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub getDropDownJS {
+    my $self = shift;
+
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    return $js->let(
+        [
+            PlatfStudyExp =>
+              $self->{_PlatformStudyExperiment}->get_ByPlatform(),
+            currentSelection => [
+                'platform' => {
+                    element  => undef,
+                    selected => (
+                          ( defined $self->{_pid} )
+                        ? { $self->{_pid} => undef }
+                        : {}
+                    ),
+                    elementId    => 'pid',
+                    updateViewOn => [ sub { 'window' }, 'load' ],
+                    updateMethod => sub { 'populatePlatform' }
+                },
+                'study' => {
+                    element  => undef,
+                    selected => (
+                          ( defined $self->{_stid} )
+                        ? { $self->{_stid} => undef }
+                        : {}
+                    ),
+                    elementId => 'stid',
+                    updateViewOn =>
+                      [ sub { 'window' }, 'load', 'pid', 'change' ],
+                    updateMethod => sub { 'populatePlatformStudy' }
+                },
+                'experiment' => {
+                    element => undef,
+                    selected =>
+                      +{ map { $_ => undef } @{ $self->{_eidList} || [] } },
+                    elementId    => 'eid',
+                    updateViewOn => [
+                        sub { 'window' }, 'load',
+                        'pid',  'change',
+                        'stid', 'change'
+                    ],
+                    updateMethod => sub { 'populateStudyExperiment' }
+                }
+            ]
+        ],
+        declare => 1
+    ) . $js->apply( 'setupPPDropdowns', [ sub { 'currentSelection' } ] );
 }
 
 #===  CLASS METHOD  ============================================================

@@ -133,12 +133,13 @@ sub new {
                                         -checked => 'checked',
                                         -value   => 'Intensity-2'
                                     },
-                                    pvalue => {
+                                    pvalue1 => {
                                         -checked => 'checked',
-                                        -value   => 'P-Value'
+                                        -value   => 'P-Value (1)'
                                     },
                                     pvalue2 => { -value => 'P-Value (2)' },
-                                    pvalue3 => { -value => 'P-Value (3)' }
+                                    pvalue3 => { -value => 'P-Value (3)' },
+                                    pvalue4 => { -value => 'P-Value (4)' }
                                 ]
                             )
                         )

@@ -1,0 +1,5 @@
+cgi-bin/segex.conf
+*.swp
+.DS_Store
+sql/schema_upates.txt
+sql/schema_upates_go_terms.txt

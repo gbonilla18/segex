@@ -61,7 +61,7 @@ sub new {
                         __readonly__ => 1
                     },
                     description => {
-                        label      => 'Description',
+                        label      => 'Study Description',
                         -maxlength => 255,
                         -size      => 55
                     },

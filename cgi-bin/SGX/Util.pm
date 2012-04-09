@@ -11,7 +11,7 @@ use Scalar::Util qw/looks_like_number/;
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
   equal bind_csv_handle notp file_opts_html file_opts_columns distinct 
-  dec2indexes32 locationAsTextToCanon/;
+  dec2indexes32 locationAsTextToCanon abbreviate/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  locationAsTextToCanon
@@ -48,6 +48,24 @@ sub locationAsTextToCanon {
         push @loc_transform, "chr$1:$2-$3";
     }
     return join( ' ', @loc_transform );
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  abbreviate
+#      PURPOSE:  
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub abbreviate {
+    my $str = shift;
+    my $len = shift;
+    return (length($str) > $len - 3) 
+        ? substr($str, 0, $len - 3) . '...' 
+        : $str;
 }
 
 

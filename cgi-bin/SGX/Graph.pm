@@ -100,7 +100,7 @@ SELECT
 experiment.eid,
 CONCAT(GROUP_CONCAT(study.description SEPARATOR ', '), ': ', experiment.sample2, '/', experiment.sample1) AS label, 
 $sql_trans as y, 
-pvalue 
+pvalue1
 FROM microarray 
 NATURAL JOIN experiment 
 NATURAL JOIN StudyExperiment 

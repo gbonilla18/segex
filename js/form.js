@@ -378,6 +378,16 @@ function subscribeEnMasse(el, obj) {
         el.subscribe(event, handler);
     });
 }
+//==============================================================================
+// highlight editable cell in DataTable control
+//==============================================================================
+function highlightEditableCell(oArgs) { 
+    var elCell = oArgs.target; 
+    if (YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) {
+        // in the call context, `this' is a reference to YUI DataTable object
+        this.highlightCell(elCell); 
+    } 
+}
 
 //==============================================================================
 // YUI helper: tab views
@@ -399,6 +409,20 @@ function selectTabFromHash(tabView) {
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // Misc
+//==============================================================================
+// incrementDropdown
+//==============================================================================
+function lastIsSelected(obj) {
+    var len = obj.options.length;
+    var ind = obj.selectedIndex;
+    return ind === len - 1;
+}
+function incrementDropdown(obj) {
+    if (!lastIsSelected(obj)) {
+        obj.selectedIndex++;
+    }
+}
+
 //==============================================================================
 // export_table
 //==============================================================================
@@ -493,6 +517,16 @@ function setupPPDropdowns(arr) {
                 id, event, val.updateMethod, obj, true
             );
         });
+    });
+}
+
+//==============================================================================
+// triggerEvent
+//==============================================================================
+function triggerEvent(obj, event) {
+    var listeners = YAHOO.util.Event.getListeners(obj, event);
+    forEach(listeners, function(listener) {
+        listener.fn.apply(listener.scope);
     });
 }
 

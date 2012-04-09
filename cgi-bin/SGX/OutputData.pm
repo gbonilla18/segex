@@ -280,7 +280,7 @@ sub default_body {
             $q->popup_menu(
                 -name  => 'pid',
                 -id    => 'pid',
-                -title => 'Choose a microarray platform'
+                -title => 'Choose microarray platform'
             )
         ),
         $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
@@ -288,7 +288,7 @@ sub default_body {
             $q->popup_menu(
                 -name  => 'stid',
                 -id    => 'stid',
-                -title => 'Choose a study'
+                -title => 'Choose study'
             )
         ),
       ),

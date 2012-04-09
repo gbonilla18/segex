@@ -85,14 +85,6 @@ function createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, row
         asyncSubmitter: submitter
     });
 }
-
-exports.highlightEditableCell = function(oArgs) { 
-    var elCell = oArgs.target; 
-    if (YAHOO.util.Dom.hasClass(elCell, "yui-dt-editable")) {
-        // in the call context, `this' is a reference to YUI DataTable object
-        this.highlightCell(elCell); 
-    } 
-}
 exports.createCellDropdown = function(resourceURIBuilder, rowNameBuilder) {
     return function(lookup_table, update_field, name_field) {
         var getUpdateQuery = function(update_field, newValue) {

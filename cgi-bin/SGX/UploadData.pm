@@ -85,7 +85,7 @@ my @parser = (
         : ()
     ),
     (
-        $upload_pvalue
+        $upload_pvalue1
         ? sub {
             my ($x) = shift =~ /(.*)/;
             if ( looks_like_number($x) && $x >= 0.0 && $x <= 1.0 ) {
@@ -150,7 +150,7 @@ sub uploadData {
     my $upload_fchange    = defined( $q->param('fold_change') );
     my $upload_intensity1 = defined( $q->param('intensity1') );
     my $upload_intensity2 = defined( $q->param('intensity2') );
-    my $upload_pvalue     = defined( $q->param('pvalue') );
+    my $upload_pvalue1    = defined( $q->param('pvalue1') );
     my $upload_pvalue2    = defined( $q->param('pvalue2') );
     my $upload_pvalue3    = defined( $q->param('pvalue3') );
 
@@ -184,9 +184,10 @@ sub uploadData {
             ( $upload_fchange    ? 'foldchange DOUBLE' : () ),
             ( $upload_intensity1 ? 'intensity1 DOUBLE' : () ),
             ( $upload_intensity2 ? 'intensity2 DOUBLE' : () ),
-            ( $upload_pvalue     ? 'pvalue DOUBLE'     : () ),
+            ( $upload_pvalue1    ? 'pvalue1 DOUBLE'    : () ),
             ( $upload_pvalue2    ? 'pvalue2 DOUBLE'    : () ),
-            ( $upload_pvalue3    ? 'pvalue3 DOUBLE'    : () ) )
+            ( $upload_pvalue3    ? 'pvalue3 DOUBLE'    : () ),
+            ( $upload_pvalue4    ? 'pvalue4 DOUBLE'    : () ) )
       );
     push @param, [];
     push @check, undef;
@@ -207,9 +208,10 @@ END_loadData
             ( $upload_fchange    ? 'foldchange' : () ),
             ( $upload_intensity1 ? 'intensity1' : () ),
             ( $upload_intensity2 ? 'intensity2' : () ),
-            ( $upload_pvalue     ? 'pvalue'     : () ),
+            ( $upload_pvalue1    ? 'pvalue1'    : () ),
             ( $upload_pvalue2    ? 'pvalue2'    : () ),
-            ( $upload_pvalue3    ? 'pvalue3'    : () ) )
+            ( $upload_pvalue3    ? 'pvalue3'    : () ),
+            ( $upload_pvalue4    ? 'pvalue4'    : () ) )
     );
     push @param, [$outputFileName];
     push @check, sub {
@@ -256,9 +258,10 @@ END_insertResponse
             ( $upload_fchange    ? 'foldchange' : () ),
             ( $upload_intensity1 ? 'intensity1' : () ),
             ( $upload_intensity2 ? 'intensity2' : () ),
-            ( $upload_pvalue     ? 'pvalue'     : () ),
+            ( $upload_pvalue1    ? 'pvalue1'    : () ),
             ( $upload_pvalue2    ? 'pvalue2'    : () ),
-            ( $upload_pvalue3    ? 'pvalue3'    : () ) ),
+            ( $upload_pvalue3    ? 'pvalue3'    : () ),
+            ( $upload_pvalue4    ? 'pvalue4'    : () ) ),
         join( ',',
             'probe.rid',
             '? as eid',
@@ -266,13 +269,14 @@ END_insertResponse
             ( $upload_fchange    ? 'temptable.foldchange' : () ),
             ( $upload_intensity1 ? 'temptable.intensity1' : () ),
             ( $upload_intensity2 ? 'temptable.intensity2' : () ),
-            ( $upload_pvalue     ? 'temptable.pvalue'     : () ),
+            ( $upload_pvalue1    ? 'temptable.pvalue1'    : () ),
             ( $upload_pvalue2    ? 'temptable.pvalue2'    : () ),
-            ( $upload_pvalue3    ? 'temptable.pvalue3'    : () ) )
+            ( $upload_pvalue3    ? 'temptable.pvalue3'    : () ),
+            ( $upload_pvalue4    ? 'temptable.pvalue4'    : () ) )
     );
 
     my $create_cmd1 = $delegate->_create_command();
-    my $dbh = $delegate->{_dbh};
+    my $dbh         = $delegate->{_dbh};
     my $create_cmd2 =
       defined( $self->{_stid} )
       ? $dbh->prepare('INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)')

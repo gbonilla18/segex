@@ -987,9 +987,10 @@ SELECT
     foldchange  AS 'Fold Change',
     intensity1  AS 'Intensity-1',
     intensity2  AS 'Intensity-2',
-    pvalue      AS 'P-Value 1',
+    pvalue1     AS 'P-Value 1',
     pvalue2     AS 'P-Value 2',
-    pvalue3     AS 'P-Value 3'
+    pvalue3     AS 'P-Value 3',
+    pvalue4     AS 'P-Value 4'
 FROM $data_temp_table AS tmp
 INNER JOIN microarray USING(rid)
 END_ExperimentDataQuery
@@ -1025,9 +1026,10 @@ END_ExperimentDataQuery
     #       foldchange,
     #       intensity1,
     #       intensity2,
-    #       pvalue,
+    #       pvalue1,
     #       pvalue2,
-    #       pvalue3
+    #       pvalue3,
+    #       pvalue4
     #    ]]
     # }]
     #---------------------------------------------------------------------------
