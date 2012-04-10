@@ -138,10 +138,11 @@ YAHOO.util.Event.addListener(window, "load", function () {
     var experimentFormatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
         var eid = oRecord.getData('eid');
+        var study_desc = oRecord.getData('study_desc');
         var sample1 = oRecord.getData('sample1');
         var sample2 = oRecord.getData('sample2');
         var reverseCell = oRecord.getData('reverse');
-        var newVal = eid + '. ' + (reverseCell ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1));
+        var newVal = eid + '. ' + study_desc + ': ' + (reverseCell ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1));
         elCell.appendChild(document.createTextNode(newVal));
     };
     var pValClassFormatter = function(elCell, oRecord, oColumn, oData) {
@@ -241,10 +242,12 @@ YAHOO.util.Event.addListener(window, "load", function () {
         }
         var platfRoot = PlatfStudyExp[pid];
         var expRoot = platfRoot.experiments[eid];
+        var studyRoot = platfRoot.studies[stid];
         var record = YAHOO.widget.DataTable._cloneObject({
             sample1  : expRoot.sample1,
             sample2  : expRoot.sample2,
             pValFlag : expRoot.PValFlag,
+            study_desc: studyRoot.description,
 
             stid     : stid,
             eid      : eid,

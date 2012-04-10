@@ -89,6 +89,7 @@ sub Compare_head {
         'datasource/datasource-min.js', 'datatable/datatable-min.js'
       );
     push @$js_src_code, { -code => $self->getResultsJS() };
+    push @$js_src_code, { -src  => 'CompExp.js' };
     return 1;
 }
 
@@ -347,11 +348,17 @@ sub getResults {
     my @query_fs_body_params;
     my ( @stid_eid, @reverses, @fcs, @pvals );
 
+    my %ht;
     my $rows = $self->{_xExpList};
     for ( my $i = 0 ; $i < @$rows ; $i++ ) {
         my $row = $rows->[$i];
-        my ( $stid, $eid, $fc, $pval, $pValClass, $reverse ) =
-          @$row{qw/stid eid fchange pval pValClass reverse/};
+        my (
+            $stid, $study_desc, $eid,       $sample1, $sample2,
+            $fc,   $pval,       $pValClass, $reverse
+          )
+          = @$row{
+            qw/stid study_desc eid sample1 sample2 fchange pval pValClass reverse/
+          };
 
         $reverse = ( $reverse eq JSON::true ) ? 1 : 0;
 
@@ -376,24 +383,14 @@ FROM microarray
 WHERE eid=? AND pvalue$pValClass < ? AND ABS(foldchange)  > ?
 END_part_significant
         push @query_fs_body_params, ($allProbes)
-          ? ($pval, $fc, $flag, $eid)
+          ? ( $pval, $fc, $flag, $eid )
           : ( $flag, $eid, $pval, $fc );
 
         # account for sample order when building title query
-        my $title =
+        $ht{$eid}->{title} =
           ($reverse)
-          ? "experiment.sample1, ' / ', experiment.sample2"
-          : "experiment.sample2, ' / ', experiment.sample1";
-
-        push @query_titles, <<"END_query_titles";
-SELECT eid, CONCAT(GROUP_CONCAT(study.description SEPARATOR ','), ': ', ?) AS title 
-FROM experiment 
-LEFT JOIN StudyExperiment USING(eid)
-LEFT JOIN study USING(stid)
-WHERE eid=?
-GROUP BY eid
-END_query_titles
-        push @query_titles_params, ($title, $eid);
+          ? "$study_desc: $sample1 / $sample2"
+          : "$study_desc: $sample2 / $sample1";
     }
 
     my $exp_count = @$rows;    # number of experiments being compared
@@ -408,7 +405,6 @@ FROM (
     GROUP BY rid
 ) AS d2
 GROUP BY fs
-
 END_query_fs
 
     #Run the Flag Sum Query.
@@ -417,29 +413,15 @@ END_query_fs
     my $h           = $sth_fs->fetchall_hashref('fs');
     $sth_fs->finish;
 
-    my $query_titles = join( ' UNION ALL ', @query_titles );
-
-    my $sth_titles      = $dbh->prepare($query_titles);
-    my $rowcount_titles = $sth_titles->execute(@query_titles_params);
-
-    #assert( $rowcount_titles == $exp_count );
-
-    my $ht = $sth_titles->fetchall_hashref('eid');
-    $sth_titles->finish;
-
-    my $rep_count = 0;
-
     # counts mapping array
-    my @hc = ( (0) x $rowcount_titles );
+    my $rep_count = 0;
+    my @hc        = ( (0) x scalar(@$rows) );
+
     foreach my $value ( values %$h ) {
 
-        #for ( $i = 0 ; $i < $rowcount_titles ; $i++ ) {
-
-        #    # use of bitwise AND operator to test for bit presence
-        #    $hc[$i] += $value->{c} if 1 << $i & $value->{fs};
-        #}
+        # use of bitwise AND operator to test for bit presence
         ( $hc[$_] += ( 1 << $_ & $value->{fs} ) ? $value->{c} : 0 )
-          for 0 .. ( $rowcount_titles - 1 );
+          for 0 .. $#$rows;
         $rep_count += $value->{c};
     }
 
@@ -449,10 +431,10 @@ END_query_fs
         fcs             => \@fcs,
         pvals           => \@pvals,
         hc              => \@hc,
-        ht              => $ht,
+        ht              => \%ht,
         h               => $h,
         rep_count       => $rep_count,
-        rowcount_titles => $rowcount_titles,
+        rowcount_titles => scalar(@$rows),
         allProbes       => $allProbes,
         probeList       => $probeList,
     };
@@ -604,8 +586,8 @@ sub getResultsJS {
         my ( $currentSTID, $currentEID ) = @{ $stid_eid->[$i] };
         push @tmpArray,
           [
-            $currentEID, $ht->{$currentEID}->{title},
-            $fcs->[$i],  $pvals->[$i],
+            $currentEID,  $ht->{$currentEID}->{title},
+            $pvals->[$i], $fcs->[$i],
             $hc->[$i]
           ];
     }
@@ -632,24 +614,57 @@ sub getResultsJS {
     );
 
     # TFS breakdown table ------------------------------
-    my $tfs_defs =
-"{key:\"0\", sortable:true, resizeable:false, label:\"FS\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
-    my $tfs_response_fields = "{key:\"0\", parser:\"number\"},\n";
+    my @tfs_defs = (
+        {
+            key         => '0',
+            sortable    => sub { 'true' },
+            resizeable  => sub { 'false' },
+            label       => 'FS',
+            sortOptions => {
+                defaultDir => sub { 'YAHOO.widget.DataTable.CLASS_DESC' }
+            }
+        }
+    );
+
+    my @tfs_response_fields = ( { key => '0', parser => 'number' } );
     my $i;
     for ( $i = 1 ; $i <= @$stid_eid ; $i++ ) {
         my ( $this_stid, $this_eid ) = @{ $stid_eid->[ $i - 1 ] };
-        $tfs_defs .=
-"{key:\"$i\", sortable:true, resizeable:false, label:\"#$this_eid\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}},\n";
-        $tfs_response_fields .= "{key:\"$i\"},\n";
+        push @tfs_defs, {
+            key         => "$i",
+            sortable    => sub { 'true' },
+            resizeable  => sub { 'false' },
+            label       => "#$this_eid",
+            sortOptions => {
+                defaultDir => sub { 'YAHOO.widget.DataTable.CLASS_DESC' }
+            }
+        };
+        push @tfs_response_fields, { key => "$i" };
     }
-    $tfs_defs .=
-"{key:\"$i\", sortable:true, resizeable:true, label:\"Probe Count\", sortOptions:{defaultDir:YAHOO.widget.DataTable.CLASS_DESC}}, {key:\""
-      . ( $i + 1 )
-      . "\", sortable:false, resizeable:true, label:\"View probes\", formatter:\"formatDownload\"}\n";
-    $tfs_response_fields .=
-        "{key:\"$i\", parser:\"number\"}, {key:\""
-      . ( $i + 1 )
-      . "\", parser:\"number\"}\n";
+    push @tfs_defs, (
+        {
+            key         => "$i",
+            sortable    => sub { 'true' },
+            resizeable  => sub { 'true' },
+            label       => 'Probe Count',
+            sortOptions => {
+                defaultDir => sub { 'YAHOO.widget.DataTable.CLASS_DESC' }
+            }
+        },
+        {
+            key        => sprintf( "%s", $i + 1 ),
+            sortable   => sub            { 'false' },
+            resizeable => sub            { 'true' },
+            label      => 'View probes',
+            formatter  => 'formatDownload'
+        }
+    );
+
+    push @tfs_response_fields,
+      (
+        { key => "$i", parser => 'number' },
+        { key => sprintf( "%s", $i + 1 ), parser => 'number' }
+      );
 
     my @tfsBreakdown;
     foreach my $key ( sort { $h->{$b}->{fs} <=> $h->{$a}->{fs} } keys %$h ) {
@@ -665,67 +680,20 @@ sub getResultsJS {
             ( $rowcount_titles + 1 ) => $h->{$key}->{c}
           };
     }
-    $out .= $js->let(
+    return $out
+      . $js->let(
         [
             tfs => {
                 caption =>
 'Probes grouped by significance in different experiment combinations',
                 records => \@tfsBreakdown
-            }
+            },
+            rep_count       => $rep_count,
+            tfs_data_fields => \@tfs_response_fields,
+            tfs_table_defs  => \@tfs_defs
         ],
         declare => 1
-    ) . <<"END_extra_js";
-YAHOO.util.Event.addListener(window, "load", function() {
-    var Dom = YAHOO.util.Dom;
-    Dom.get("eid").value = eid;
-    Dom.get("rev").value = rev;
-    Dom.get("fc").value = fc;
-    Dom.get("pval").value = pval;
-    Dom.get("allProbes").value = allProbes;
-    Dom.get("searchFilter").value = searchFilter;
-    Dom.get("venn").innerHTML = venn;
-    Dom.get("summary_caption").innerHTML = summary.caption;
-    var summary_table_defs = [
-        {key:"0", sortable:true, resizeable:false, label:"#"},
-        {key:"1", sortable:true, resizeable:true, label:"Experiment"},
-        {key:"2", sortable:true, resizeable:false, label:"&#124;Fold Change&#124; &gt;"}, 
-        {key:"3", sortable:true, resizeable:false, label:"P &lt;"},
-        {key:"4", sortable:true, resizeable:false, label:"Probe Count"}
-    ];
-    var summary_data = new YAHOO.util.DataSource(summary.records);
-    summary_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-    summary_data.responseSchema = { fields: [
-        {key:"0", parser:"number"},
-        {key:"1"},
-        {key:"2", parser:"number"},
-        {key:"3", parser:"number"},
-        {key:"4", parser:"number"}
-    ]};
-    var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
-
-    YAHOO.widget.DataTable.Formatter.formatDownload = function(elCell, oRecord, oColumn, oData) {
-        var fs = oRecord.getData("0");
-        elCell.innerHTML = "<input class=\\"plaintext\\" type=\\"submit\\" name=\\"get\\" value=\\"TFS " + fs + " (HTML)\\" />&nbsp;&nbsp;&nbsp;<input class=\\"plaintext\\" type=\\"submit\\" name=\\"get\\" value=\\"TFS " + fs + " (CSV)\\" />";
-    }
-    Dom.get("tfs_caption").innerHTML = tfs.caption;
-    Dom.get("tfs_all_dt").innerHTML = "View data for $rep_count probes:";
-    Dom.get("tfs_all_dd").innerHTML = "<input type=\\"submit\\" name=\\"get\\" class=\\"plaintext\\" value=\\"TFS (HTML)\\" /><span class=\\"separator\\"> / </span><input type=\\"submit\\" class=\\"plaintext\\" name=\\"get\\" value=\\"TFS (CSV)\\" />";
-    var tfs_table_defs = [ $tfs_defs ];
-    var tfs_config = {
-        paginator: new YAHOO.widget.Paginator({
-            rowsPerPage: 50 
-        })
-    };
-    var tfs_data = new YAHOO.util.DataSource(tfs.records);
-    tfs_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-    tfs_data.responseSchema = {
-        fields: [$tfs_response_fields]
-    };
-    var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
-});
-END_extra_js
-
-    return $out;
+      );
 }
 
 #===  CLASS METHOD  ============================================================
