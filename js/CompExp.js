@@ -21,20 +21,23 @@ function getGoogleVennURI2() {
         B = parseInt(hc[1]),
         AB = c[2];
 
-    return object_forEach({
+    return {
+        title: 'Significant Probes Diagram',
+        uri: object_forEach({
+            //chtt - titlle
             cht  : 'v',
+            chs  : '800x300',
             chd  : 't:' + [A, B, 0, AB ].join(','),
             chds : [0, Math.max(A, B)].join(','),
-            chs  : '750x300',
-            chtt : encodeURIComponent('Significant Probes'),
             chco : ['ff0000', '00ff00'].join(','),
             chdl : forEach( _xExpList, 
-                    function(row) { this.push(encodeURIComponent(abbreviate(getExperimentName(row), 60))); }, 
+                    function(row) { this.push(encodeURIComponent(abbreviate(getExperimentName(row), 70))); }, 
                 []).join('|')
-        }, function(key, val) {
-            this.push(key + '=' + val);
-        }, ['http://chart.apis.google.com/chart?']
-    ).join('&');
+            }, function(key, val) {
+                this.push(key + '=' + val);
+            }, ['http://chart.apis.google.com/chart?']
+        ).join('&')
+    };
 }
 
 //==============================================================================
@@ -58,20 +61,23 @@ function getGoogleVennURI3() {
         }
     }, []).length;
 
-    return object_forEach({
+    return {
+        title: (num_circles > 2 ? 'Significant Probes Diagram (Approx.)' : 'Significant Probes Diagram'),
+        uri: object_forEach({
+            //chtt - titlle
             cht  : 'v',
+            chs  : '800x300',
             chd  : 't:' + [ A, B, C, AB, AC, BC, ABC ].join(','),
             chds : [0, Math.max(A, B, C)].join(','),
-            chs  : '750x300',
-            chtt : encodeURIComponent(num_circles > 2 ? 'Significant Probes (Approx.)' : 'Significant Probes'),
             chco : ['ff0000', '00ff00', '0000ff'].join(','),
             chdl : forEach( _xExpList, 
-                    function(row) { this.push(encodeURIComponent(abbreviate(getExperimentName(row), 60))); }, 
+                    function(row) { this.push(encodeURIComponent(abbreviate(getExperimentName(row), 70))); }, 
                 []).join('|')
-        }, function(key, val) {
-            this.push(key + '=' + val);
-        }, ['http://chart.apis.google.com/chart?']
-    ).join('&');
+            }, function(key, val) {
+                this.push(key + '=' + val);
+            }, ['http://chart.apis.google.com/chart?']
+        ).join('&') 
+    };
 }
 
 //==============================================================================
@@ -80,13 +86,13 @@ function getGoogleVenn() {
     // http://code.google.com/apis/chart/formats.html#data_scalin
     switch (_xExpList.length) {
         case 2:
-            return '<img alt="Venn Diagram" src="' + getGoogleVennURI2() + '" />';
+            return getGoogleVennURI2();
             break;
         case 3:
-            return '<img alt="Venn Diagram" src="' + getGoogleVennURI3() + '" />';
+            return getGoogleVennURI3();
             break;
         default:
-            return '';
+            return null;
             break;
     }
 }
@@ -110,7 +116,10 @@ var row_all = iterateForward(function(i) {
 YAHOO.util.Event.addListener(window, "load", function() {
     Dom.get("includeAllProbes").value = includeAllProbes;
     Dom.get("searchFilter").value = searchFilter;
-    Dom.get("venn").innerHTML = getGoogleVenn();
+
+    var venn = getGoogleVenn();
+    Dom.get("venn").innerHTML = (venn === null ? '' : '<h2>' + venn.title + '</h2><img title="Venn Diagram" alt="Venn Diagram" src="' + venn.uri + '" />');
+
     var selectedFS = Dom.get('selectedFS');
 
     //==============================================================================
