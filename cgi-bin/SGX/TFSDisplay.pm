@@ -461,8 +461,7 @@ SELECT
     platform.pname            AS 'Platform',
     species.sname          AS 'Species',
     probes.id_count           AS 'Probe Count',
-    probes.sequence_count     AS 'Sequences Loaded',
-    locations.locus_count     AS 'Locations Loaded'
+    probes.sequence_count     AS 'Sequences Loaded'
 FROM platform
 LEFT JOIN species USING(sid)
 LEFT JOIN (
@@ -474,21 +473,12 @@ LEFT JOIN (
     WHERE probe.pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
     GROUP BY pid
 ) AS probes USING(pid)
-LEFT JOIN (
-    SELECT
-        probe.pid,
-        COUNT(location.rid) AS locus_count
-    FROM probe
-    LEFT JOIN location USING(rid)
-    WHERE probe.pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
-    GROUP BY pid
-) AS locations USING(pid)
 WHERE pid IN (SELECT DISTINCT pid FROM experiment WHERE eid IN($placeholders))
 GROUP BY platform.pid
 END_LoadQuery
 
     my $sth = $dbh->prepare($singleItemQuery);
-    my $rc = $sth->execute( @eidList, @eidList, @eidList );
+    my $rc = $sth->execute( @eidList, @eidList);
     $self->{_FieldNames}   = $sth->{NAME};
     $self->{_DataPlatform} = $sth->fetchall_arrayref;
     $sth->finish;
@@ -513,7 +503,6 @@ sub loadAllData {
     my @query_body;
     my @query_proj;
     my @query_join;
-    my @query_titles;
 
     #If we got a list to filter on, build the string.
     my $probeListQuery =
@@ -580,26 +569,6 @@ WHERE eid = $currentEID
   AND ABS(foldchange) > $fc
 END_no_allProbesCSV
 
-        # account for sample order when building title query
-        my $title = (
-            $reverse
-            ? "experiment.sample1, ' / ', experiment.sample2"
-            : "experiment.sample2, ' / ', experiment.sample1"
-        );
-
-        push @query_titles, <<"END_query_titlesCSV";
-SELECT
-    experiment.eid,
-    CONCAT(study.description, ': ', $title) AS title,
-    CONCAT($title) AS experimentHeading,
-    study.description,
-    experiment.ExperimentDescription 
-FROM experiment 
-NATURAL JOIN StudyExperiment 
-NATURAL JOIN study 
-WHERE eid=$currentEID AND study.stid = $currentSTID
-END_query_titlesCSV
-
         $i++;
     }
 
@@ -612,8 +581,7 @@ END_query_titlesCSV
     unshift @query_proj,
       (
         qq{probe.probe_sequence AS 'Probe Sequence'},
-qq{GROUP_CONCAT(DISTINCT IF(gene.description='', NULL, gene.description) SEPARATOR '; ') AS 'Gene Description'},
-qq{GROUP_CONCAT(DISTINCT gene_note ORDER BY seqname ASC SEPARATOR '; ') AS 'Gene Ontology'},
+qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 'Gene Description'},
         qq{platform_species.sname AS 'Species'}
       );
 
@@ -648,17 +616,21 @@ GROUP BY probe.rid
 ORDER BY abs_fs DESC
 END_queryCSV
 
-    #Run the query for the experiment headers.
-    my $dbh = $self->{_dbh};
-    my $sth = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
-    my $rc  = $sth->execute;
-
-    # :TODO:10/24/2011 11:48:10:es: Do we really need a hashref here? Maybe an
-    # arrayref will do?
-    $self->{_headerRecords} = $sth->fetchall_hashref('eid');
-    $sth->finish;
+    $self->{_headerRecords} = +{
+        map {
+            $_->{eid} => +{
+                title             => $_->{study_desc},
+                experimentHeading => (
+                      ($_->{reverse}->isa('JSON::true'))
+                    ? ($_->{sample1} . '/' . $_->{sample2})
+                    : ($_->{sample2} . '/' . $_->{sample1})
+                )
+              };
+          } @{ $self->{_xExpList} }
+    };
 
     #Run the query for the actual data records.
+    my $dbh = $self->{_dbh};
     $self->{_Records}     = $dbh->prepare($query);
     $self->{_RowCountAll} = $self->{_Records}->execute;
     $self->{_Data}        = $self->{_Records}->fetchall_arrayref;
