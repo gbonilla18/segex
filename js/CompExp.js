@@ -211,6 +211,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
             { key: 'view_probes', sortable:false, resizeable: true, label:'View report', formatter:formatDownload}
         )
     };
+
+    // ======= Summary table ==============
     var summary_data = new YAHOO.util.DataSource(_xExpList);
     summary_data.responseSchema = { fields: [
         {key:"eid", parser:"number"},
@@ -233,6 +235,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     ];
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 
+    //============== TFS breakdown table ================
     var tfs_config = {
         paginator: new YAHOO.widget.Paginator({
             rowsPerPage: 50 
