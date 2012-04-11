@@ -84,6 +84,9 @@ function getGoogleVennURI3() {
 function getGoogleVenn() {
     // http://code.google.com/apis/chart/types.html#venn
     // http://code.google.com/apis/chart/formats.html#data_scalin
+    if (!probe_count) {
+        return null;
+    }
     switch (_xExpList.length) {
         case 2:
             return getGoogleVennURI2();
