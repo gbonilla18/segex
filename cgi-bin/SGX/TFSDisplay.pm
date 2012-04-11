@@ -7,7 +7,8 @@ use base qw/SGX::Strategy::Base/;
 
 use SGX::Debug;
 require Math::BigInt;
-use JSON qw/encode_json decode_json/;
+use JSON qw/decode_json/;
+require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car bind_csv_handle/;
 
@@ -142,7 +143,8 @@ sub default_head {
       );
 
     $self->loadTFSData();
-    push @$js_src_code, { -code => $self->displayTFSInfo() };
+    push @$js_src_code,
+      ( { -code => $self->displayTFSInfo() }, { -src => 'TFSDisplay.js' } );
     return 1;
 }
 
@@ -162,8 +164,7 @@ sub default_body {
     my $q = $self->{_cgi};
 
     return
-      $q->h2( { -id => 'summary_caption' }, '' ),
-      $q->div( $q->a( { -id => 'summ_astext' }, 'View as plain text' ) ),
+      $q->h2( { -id => 'summary_caption' }, 'Comparison Summary' ),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->h2( { -id => 'tfs_caption' }, '' ),
       $q->div( $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
@@ -184,9 +185,9 @@ sub loadDataFromSubmission {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    $self->{_xExpList} = decode_json( car $q->param('user_selection') );
+    $self->{_xExpList}     = decode_json( car $q->param('user_selection') );
     $self->{_allProbes}    = $q->param('includeAllProbes') || '';
-    $self->{_searchFilter} = $q->param('searchFilter')     || '';
+    $self->{_searchFilter} = $q->param('searchFilter') || '';
 
     $self->{_opts} = $q->param('opts') || '0';
 
@@ -375,11 +376,11 @@ END_no_allProbes
             $_->{eid} => +{
                 title             => $_->{study_desc},
                 experimentHeading => (
-                      ($_->{reverse}->isa('JSON::true'))
-                    ? ($_->{sample1} . '/' . $_->{sample2})
-                    : ($_->{sample2} . '/' . $_->{sample1})
+                      ( $_->{reverse}->isa('JSON::true') )
+                    ? ( $_->{sample1} . '/' . $_->{sample2} )
+                    : ( $_->{sample2} . '/' . $_->{sample1} )
                 )
-              };
+            };
           } @{ $self->{_xExpList} }
     };
 
@@ -478,7 +479,7 @@ GROUP BY platform.pid
 END_LoadQuery
 
     my $sth = $dbh->prepare($singleItemQuery);
-    my $rc = $sth->execute( @eidList, @eidList);
+    my $rc = $sth->execute( @eidList, @eidList );
     $self->{_FieldNames}   = $sth->{NAME};
     $self->{_DataPlatform} = $sth->fetchall_arrayref;
     $sth->finish;
@@ -621,11 +622,11 @@ END_queryCSV
             $_->{eid} => +{
                 title             => $_->{study_desc},
                 experimentHeading => (
-                      ($_->{reverse}->isa('JSON::true'))
-                    ? ($_->{sample1} . '/' . $_->{sample2})
-                    : ($_->{sample2} . '/' . $_->{sample1})
+                      ( $_->{reverse}->isa('JSON::true') )
+                    ? ( $_->{sample1} . '/' . $_->{sample2} )
+                    : ( $_->{sample2} . '/' . $_->{sample1} )
                 )
-              };
+            };
           } @{ $self->{_xExpList} }
     };
 
@@ -782,59 +783,8 @@ sub displayTFSInfo {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    my @tmpArrayHead;
-    my $i = 0;
-    foreach my $row ( @{ $self->{_xExpList} } ) {
-        my $currentSTID = $row->{stid};
-        my $currentEID  = $row->{eid};
-
-        my $this_eid                 = $self->{_headerRecords}->{$currentEID};
-        my $currentTitle             = $this_eid->{title};
-        my $currentStudyDescription  = $this_eid->{description};
-        my $currentExperimentHeading = $this_eid->{experimentHeading};
-        my $currentExperimentDescription = $this_eid->{ExperimentDescription};
-
-        # test for bit presence (store in 7:)
-        push @tmpArrayHead,
-          [
-            ( $i + 1 ),
-            $currentEID,
-            $currentStudyDescription,
-            $currentExperimentHeading,
-            $currentExperimentDescription,
-            $row->{fchange},
-            $row->{pval},
-            (
-                ( defined( $self->{_fs} ) && 1 << $i & $self->{_fs} )
-                ? 'x'
-                : ''
-            )
-          ];
-        $i++;
-    }
-
-    my $out = sprintf(
-        'var summary = %s;',
-        encode_json(
-            {
-                caption => 'Experiments compared',
-                headers => [
-                    '&nbsp;',                 'No.',
-                    'Study Description',      'Sample2/Sample1',
-                    'Experiment Description', '&#124;Fold Change&#124; &gt;',
-                    'P &lt;',                 '&nbsp;'
-                ],
-                parsers => [
-                    'number', 'number', 'string', 'string',
-                    'string', 'number', 'number', 'string'
-                ],
-                records => \@tmpArrayHead
-            }
-        )
-    );
-
-# Fields with indexes less num_start are formatted as strings,
-# fields with indexes equal to or greater than num_start are formatted as numbers.
+    # Fields with indexes less num_start are formatted as strings, fields with
+    # indexes equal to or greater than num_start are formatted as numbers.
     my @table_header;
     my @table_parser;
     my @table_format;
@@ -901,10 +851,12 @@ sub displayTFSInfo {
     unshift( @$_, get_tfs( shift @$_, shift @$_, $eid_count ) )
       for @$data_array;
 
-    $out .= sprintf(
-        'var tfs = %s;',
-        encode_json(
-            {
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    return '' . $js->let(
+        [
+            _xExpList => $self->{_xExpList},
+            _fs       => $self->{_fs},
+            tfs       => {
                 caption => sprintf( 'Your selection includes %d probes',
                     $self->{_RowCountAll} ),
                 headers => [ 'TFS',        @table_header ],
@@ -918,71 +870,9 @@ sub displayTFSInfo {
                       } @$data_array
                 ]
             }
-        )
+        ],
+        declare => 1
     );
-
-    return <<"END_JS";
-$out
-YAHOO.util.Event.addListener("summ_astext", "click", export_table, summary, true);
-YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
-YAHOO.util.Event.addListener(window, "load", function() {
-    var Dom = YAHOO.util.Dom;
-    var Formatter = YAHOO.widget.DataTable.Formatter;
-    var lang = YAHOO.lang;
-
-    Dom.get("summary_caption").innerHTML = summary.caption;
-    var summary_table_defs = [];
-    var summary_schema_fields = [];
-    for (var i=0, sh = summary.headers, sp = summary.parsers, al=sh.length; i<al; i++) {
-        summary_table_defs.push({key:String(i), sortable:true, label:sh[i]});
-        summary_schema_fields.push({key:String(i), parser:sp[i]});
-    }
-    var summary_data = new YAHOO.util.DataSource(summary.records);
-    summary_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-    summary_data.responseSchema = { fields: summary_schema_fields };
-    var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
-
-    Formatter.formatProbe = function (elCell, oRecord, oColumn, oData) {
-        var clean = (oData === null) ? '' : oData;
-        elCell.innerHTML = lang.substitute(tfs.frm_tpl.probe, {"0":clean});
-    }
-    Formatter.formatAccNum = function (elCell, oRecord, oColumn, oData) {
-        var clean = (oData === null) ? '' : oData;
-        elCell.innerHTML = lang.substitute(tfs.frm_tpl.accnum, {"0":clean});
-    }
-    Formatter.formatGene = function (elCell, oRecord, oColumn, oData) {
-        var clean = (oData === null) ? '' : oData;
-        elCell.innerHTML = lang.substitute(tfs.frm_tpl.gene, {"0":clean});
-    }
-    Formatter.formatProbeSequence = function (elCell, oRecord, oColumn, oData) {
-        var clean = (oData === null) ? '' : oData;
-        elCell.innerHTML = lang.substitute(lang.substitute(tfs.frm_tpl.probeseq, {"0":clean}),{"1":oRecord.getData("6")});
-
-    }
-    Formatter.formatNumber = function(elCell, oRecord, oColumn, oData) {
-        // Overrides the built-in formatter
-        if (oData !== null) {
-            elCell.innerHTML = oData.toPrecision(3);
-        }
-    }
-    Dom.get("tfs_caption").innerHTML = tfs.caption;
-    var tfs_table_defs = [];
-    var tfs_schema_fields = [];
-    for (var i=0, th = tfs.headers, tp = tfs.parsers, tf=tfs.formats, al=th.length; i<al; i++) {
-        tfs_table_defs.push({key:String(i), sortable:true, label:th[i], formatter:tf[i]});
-        tfs_schema_fields.push({key:String(i), parser:tp[i]});
-    }
-    var tfs_config = {
-        paginator: new YAHOO.widget.Paginator({
-            rowsPerPage: 15 
-        })
-    };
-    var tfs_data = new YAHOO.util.DataSource(tfs.records);
-    tfs_data.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-    tfs_data.responseSchema = { fields: tfs_schema_fields };
-    var tfs_table = new YAHOO.widget.DataTable("tfs_table", tfs_table_defs, tfs_data, tfs_config);
-});
-END_JS
 }
 
 1;

@@ -3,7 +3,6 @@
 "use strict";
 
 var dom = YAHOO.util.Dom;
-var lang   = YAHOO.lang;
 
 YAHOO.util.Event.addListener(window, "load", function () {
 
