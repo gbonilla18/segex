@@ -538,7 +538,7 @@ sub Compare_body {
       $q->hidden( -name => 'includeAllProbes', -id => 'includeAllProbes' ),
       $q->hidden( -name => 'searchFilter',     -id => 'searchFilter' ),
       $q->h2(
-        'Probes grouped by significance in different experiment combinations'),
+        'Probes significant in different experiment combinations'),
       $q->p( $q->strong('Data to display:') ),
       $q->p(
         $q->radio_group(

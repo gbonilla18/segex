@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::Base/;
 
 use SGX::Debug;
 require Math::BigInt;
-use JSON qw/encode_json/;
+use JSON qw/encode_json decode_json/;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car bind_csv_handle/;
 
@@ -184,29 +184,16 @@ sub loadDataFromSubmission {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    # The $self->{_fs} parameter is the flagsum for which the data will be
-    # filtered If the $self->{_fs} is zero or undefined, all data will be
-    # output.
-    my $split_on_commas = qr/\s*,\s*/;
-    $self->{_stid_eid} =
-      [ map { [ split /\|/ ] } split( $split_on_commas, $q->param('eid') ) ];
-    $self->{_reverses} = [ split( $split_on_commas, $q->param('rev') ) ];
-    $self->{_fcs}      = [ split( $split_on_commas, $q->param('fc') ) ];
-    $self->{_pvals}    = [ split( $split_on_commas, $q->param('pval') ) ];
+    $self->{_xExpList} = decode_json( car $q->param('user_selection') );
+    $self->{_allProbes}    = $q->param('includeAllProbes') || '';
+    $self->{_searchFilter} = $q->param('searchFilter')     || '';
 
-    $self->{_allProbes}     = $q->param('allProbes')    || '';
-    $self->{_searchFilter} = $q->param('searchFilter') || '';
-    $self->{_fs}            = $q->param('get')          || '';
-    $self->{_opts}          = $q->param('opts')         || '0';
+    $self->{_opts} = $q->param('opts') || '0';
 
-    if ( ( car $q->param('get') ) =~ m/^\s*TFS\s*(\d*)\s*\((CSV|HTML)\)\s*$/i )
-    {
-        ( $self->{_fs}, $self->{_format} ) = ( $1, $2 );
-        $self->{_fs} = undef if $self->{_fs} eq '';
-    }
-    else {
-        ( $self->{_fs}, $self->{_format} ) = ( undef, undef );
-    }
+    # The $self->{_fs} parameter is the flagsum for which we filter data
+    $self->{_fs}     = car $q->param('selectedFS');
+    $self->{_fs}     = undef if $self->{_fs} eq '';
+    $self->{_format} = car $q->param('get');
 
     return 1;
 }
@@ -317,32 +304,40 @@ sub loadTFSData {
     my @query_proj;
     my @query_join;
     my @query_body;
-    my @query_titles;
-    my $allProbes = $self->{_allProbes};
-    foreach my $eid ( @{ $self->{_stid_eid} } ) {
-        my ( $currentSTID, $currentEID ) = @$eid;
 
-        my ( $fc, $pval ) =
-          ( $self->{_fcs}->[ $i - 1 ], $self->{_pvals}->[ $i - 1 ] );
+    my $allProbes = $self->{_allProbes};
+    foreach my $row ( @{ $self->{_xExpList} } ) {
+        my $currentSTID = $row->{stid};
+        my $currentEID  = $row->{eid};
+        my $fc          = $row->{fchange};
+        my $pval        = $row->{pval};
+        my $pValClass   = $row->{pValClass};
+        my $pval_sql    = "pvalue$pValClass";
+        my $reverse     = ( $row->{reverse} eq JSON::true ) ? 1 : 0;
 
         my $abs_flag = 1 << $i - 1;
-        my $dir_flag =
-          ( $self->{_reverses}->[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
+        my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
         push @query_proj,
-          ( $self->{_reverses}->[ $i - 1 ] )
-          ? "1/m$i.ratio AS \'$i: Ratio\', m$i.pvalue AS \'$i: P-value\'"
-          : "m$i.ratio AS \'$i: Ratio\', m$i.pvalue AS \'$i: P-value\'";
+          (
+            $reverse
+            ? "1/m$i.ratio AS \'$i: Ratio\', m$i.$pval_sql AS \'$i: P-value\'"
+            : "m$i.ratio AS \'$i: Ratio\', m$i.$pval_sql AS \'$i: P-value\'"
+          );
 
-        if ( $self->{_opts} > 0 ) {
+        if ( $self->{_opts} ne 'basic' ) {
             push @query_proj,
-              ( $self->{_reverses}->[ $i - 1 ] )
-              ? "-m$i.foldchange AS \'$i: Fold Change\'"
-              : "m$i.foldchange AS \'$i: Fold Change\'";
+              (
+                $reverse
+                ? "-m$i.foldchange AS \'$i: Fold Change\'"
+                : "m$i.foldchange AS \'$i: Fold Change\'"
+              );
             push @query_proj,
-              ( $self->{_reverses}->[ $i - 1 ] )
-              ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
-              : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'";
-            push @query_proj, "m$i.pvalue AS \'$i: P-value\'";
+              (
+                $reverse
+                ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
+                : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'"
+              );
+            push @query_proj, "m$i.$pval_sql AS \'$i: P-value\'";
         }
 
         push @query_join,
@@ -353,8 +348,8 @@ sub loadTFSData {
           ? <<"END_yes_allProbes"
 SELECT
     rid, 
-    IF(pvalue < $pval AND ABS(foldchange) > $fc, $abs_flag, 0) AS abs_flag,
-    IF(pvalue < $pval AND ABS(foldchange) > $fc, 
+    IF($pval_sql < $pval AND ABS(foldchange) > $fc, $abs_flag, 0) AS abs_flag,
+    IF($pval_sql < $pval AND ABS(foldchange) > $fc, 
        IF(foldchange > 0, $dir_flag), 
        0
     ) AS dir_flag
@@ -368,44 +363,32 @@ SELECT
     IF(foldchange > 0, $dir_flag) AS dir_flag
 FROM microarray 
 WHERE eid = $currentEID 
-  AND pvalue < $pval 
+  AND $pval_sql < $pval 
   AND ABS(foldchange) > $fc
 END_no_allProbes
-
-        # account for sample order when building title query
-        my $title =
-          ( $self->{_reverses}->[ $i - 1 ] )
-          ? "experiment.sample1, ' / ', experiment.sample2"
-          : "experiment.sample2, ' / ', experiment.sample1";
-
-        push @query_titles, <<"END_query_titles";
-SELECT 
-    experiment.eid, 
-    CONCAT(study.description, ': ', $title) AS title, 
-    CONCAT($title) AS experimentHeading,
-    study.description,
-    experiment.ExperimentDescription 
-FROM experiment 
-NATURAL JOIN StudyExperiment 
-NATURAL JOIN study 
-WHERE eid=$currentEID AND study.stid = $currentSTID
-END_query_titles
 
         $i++;
     }
 
-    my $dbh = $self->{_dbh};
-    my $sth = $dbh->prepare( join( ' UNION ALL ', @query_titles ) );
-    my $rc  = $sth->execute;
-    $self->{_headerRecords} = $sth->fetchall_hashref('eid');
-    $sth->finish;
+    $self->{_headerRecords} = +{
+        map {
+            $_->{eid} => +{
+                title             => $_->{study_desc},
+                experimentHeading => (
+                      ($_->{reverse}->isa('JSON::true'))
+                    ? ($_->{sample1} . '/' . $_->{sample2})
+                    : ($_->{sample2} . '/' . $_->{sample1})
+                )
+              };
+          } @{ $self->{_xExpList} }
+    };
 
-    if ( $self->{_opts} > 1 ) {
+    if ( $self->{_opts} eq 'annot' ) {
         $self->{_numStart} += 3;
         unshift @query_proj,
           (
             qq{probe.probe_sequence AS 'Probe Sequence'},
-qq{GROUP_CONCAT(DISTINCT IF(gene.description='', NULL, gene.description) SEPARATOR '; ') AS 'Gene Description'},
+qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 'Gene Description'},
             qq{platform_species.sname AS 'Species'}
           );
     }
@@ -441,6 +424,7 @@ GROUP BY probe.rid
 ORDER BY abs_fs DESC
 END_query
 
+    my $dbh = $self->{_dbh};
     $self->{_Records}     = $dbh->prepare($query);
     $self->{_RowCountAll} = $self->{_Records}->execute;
 
@@ -462,7 +446,7 @@ sub getPlatformData {
 
     my $dbh = $self->{_dbh};
 
-    my @eidList = map { $_->[1] } @{ $self->{_stid_eid} };
+    my @eidList = map { $_->{eid} } @{ $self->{_xExpList} };
 
     my $placeholders =
       ( @eidList > 0 )
@@ -504,7 +488,7 @@ GROUP BY platform.pid
 END_LoadQuery
 
     my $sth = $dbh->prepare($singleItemQuery);
-    my $rc  = $sth->execute(@eidList, @eidList, @eidList);
+    my $rc = $sth->execute( @eidList, @eidList, @eidList );
     $self->{_FieldNames}   = $sth->{NAME};
     $self->{_DataPlatform} = $sth->fetchall_arrayref;
     $sth->finish;
@@ -538,32 +522,40 @@ sub loadAllData {
       : '';
 
     my $i = 1;
+    foreach my $row ( @{ $self->{_xExpList} } ) {
+        my $currentSTID = $row->{stid};
+        my $currentEID  = $row->{eid};
+        my $fc          = $row->{fchange};
+        my $pval        = $row->{pval};
+        my $reverse     = ( $row->{reverse} eq JSON::true ) ? 1 : 0;
+        my $pValClass   = $row->{pValClass};
+        my $pval_sql    = "pvalue$pValClass";
 
-    foreach my $eid ( @{ $self->{_stid_eid} } ) {
-        my ( $currentSTID, $currentEID ) = @$eid;
-
-        my ( $fc, $pval ) =
-          ( $self->{_fcs}->[ $i - 1 ], $self->{_pvals}->[ $i - 1 ] );
         my $abs_flag = 1 << $i - 1;
-        my $dir_flag =
-          ( $self->{_reverses}->[ $i - 1 ] ) ? "$abs_flag,0" : "0,$abs_flag";
+        my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
 
         push @query_proj,
-          ( $self->{_reverses}->[ $i - 1 ] )
-          ? "1/m$i.ratio AS \'$i: Ratio\'"
-          : "m$i.ratio AS \'$i: Ratio\'";
+          (
+            $reverse
+            ? "1/m$i.ratio AS \'$i: Ratio\'"
+            : "m$i.ratio AS \'$i: Ratio\'"
+          );
 
         push @query_proj,
-          ( $self->{_reverses}->[ $i - 1 ] )
-          ? "-m$i.foldchange AS \'$i: Fold Change\'"
-          : "m$i.foldchange AS \'$i: Fold Change\'";
+          (
+            $reverse
+            ? "-m$i.foldchange AS \'$i: Fold Change\'"
+            : "m$i.foldchange AS \'$i: Fold Change\'"
+          );
 
         push @query_proj,
-          ( $self->{_reverses}->[ $i - 1 ] )
-          ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
-          : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'";
+          (
+            $reverse
+            ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
+            : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'"
+          );
 
-        push @query_proj, "m$i.pvalue AS \'$i: P\'";
+        push @query_proj, "m$i.$pval_sql AS \'$i: P\'";
 
         push @query_join,
           "LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID";
@@ -572,8 +564,8 @@ sub loadAllData {
           ? <<"END_yes_allProbesCSV"
 SELECT
     rid,
-    IF(pvalue < $pval AND ABS(foldchange) > $fc, $abs_flag, 0) AS abs_flag,
-    IF(pvalue < $pval AND ABS(foldchange) > $fc, IF(foldchange > 0, $dir_flag), 0) AS dir_flag
+    IF($pval_sql < $pval AND ABS(foldchange) > $fc, $abs_flag, 0) AS abs_flag,
+    IF($pval_sql < $pval AND ABS(foldchange) > $fc, IF(foldchange > 0, $dir_flag), 0) AS dir_flag
 FROM microarray
 WHERE eid=$currentEID
 END_yes_allProbesCSV
@@ -584,15 +576,16 @@ SELECT
     IF(foldchange > 0, $dir_flag) AS dir_flag
 FROM microarray 
 WHERE eid = $currentEID 
-  AND pvalue < $pval 
+  AND $pval_sql < $pval 
   AND ABS(foldchange) > $fc
 END_no_allProbesCSV
 
         # account for sample order when building title query
-        my $title =
-          ( $self->{_reverses}->[ $i - 1 ] )
-          ? "experiment.sample1, ' / ', experiment.sample2"
-          : "experiment.sample2, ' / ', experiment.sample1";
+        my $title = (
+            $reverse
+            ? "experiment.sample1, ' / ', experiment.sample2"
+            : "experiment.sample2, ' / ', experiment.sample1"
+        );
 
         push @query_titles, <<"END_query_titlesCSV";
 SELECT
@@ -715,12 +708,13 @@ sub displayTFSInfoCSV {
     # This is the line with the experiment name and eid above the data columns.
     my @experimentNameHeader = (undef) x 8;
 
-    my $eid_count = @{ $self->{_stid_eid} };
     my @eidList;
 
     # Print Experiment info.
-    for ( my $i = 0 ; $i < $eid_count ; $i++ ) {
-        my ( $currentSTID, $currentEID ) = @{ $self->{_stid_eid}->[$i] };
+    my $i = 0;
+    foreach my $row ( @{ $self->{_xExpList} } ) {
+        my $currentSTID = $row->{stid};
+        my $currentEID  = $row->{eid};
 
         push @eidList, $currentEID;
 
@@ -734,8 +728,8 @@ sub displayTFSInfoCSV {
             $self->{_headerRecords}->{$currentEID}->{description},
             $self->{_headerRecords}->{$currentEID}->{experimentHeading},
             $self->{_headerRecords}->{$currentEID}->{ExperimentDescription},
-            $self->{_fcs}->[$i],
-            $self->{_pvals}->[$i]
+            $row->{fchange},
+            $row->{pval}
         );
 
         # Test for bit presence and print out 1 if present, 0 if absent
@@ -743,10 +737,12 @@ sub displayTFSInfoCSV {
           if defined $self->{_fs};
 
         $print->( \@currentLine );
+        $i++;
     }
     $print->();
 
     # Calculate TFS along with distinct counts
+    my $eid_count = @{ $self->{_xExpList} };
     my %TFSCounts;
     my $data_array = $self->{_Data};
     foreach (@$data_array) {
@@ -815,9 +811,11 @@ sub displayTFSInfo {
     my $q    = $self->{_cgi};
 
     my @tmpArrayHead;
-    my $eid_count = @{ $self->{_stid_eid} };
-    for ( my $i = 0 ; $i < $eid_count ; $i++ ) {
-        my ( $currentSTID, $currentEID ) = @{ $self->{_stid_eid}->[$i] };
+    my $i = 0;
+    foreach my $row ( @{ $self->{_xExpList} } ) {
+        my $currentSTID = $row->{stid};
+        my $currentEID  = $row->{eid};
+
         my $this_eid                 = $self->{_headerRecords}->{$currentEID};
         my $currentTitle             = $this_eid->{title};
         my $currentStudyDescription  = $this_eid->{description};
@@ -832,14 +830,15 @@ sub displayTFSInfo {
             $currentStudyDescription,
             $currentExperimentHeading,
             $currentExperimentDescription,
-            $self->{_fcs}->[$i],
-            $self->{_pvals}->[$i],
+            $row->{fchange},
+            $row->{pval},
             (
                 ( defined( $self->{_fs} ) && 1 << $i & $self->{_fs} )
                 ? 'x'
                 : ''
             )
           ];
+        $i++;
     }
 
     my $out = sprintf(
@@ -848,14 +847,10 @@ sub displayTFSInfo {
             {
                 caption => 'Experiments compared',
                 headers => [
-                    '&nbsp;',
-                    'No.',
-                    'Study Description',
-                    'Sample2/Sample1',
-                    'Experiment Description',
-                    '&#124;Fold Change&#124; &gt;',
-                    'P &lt;',
-                    '&nbsp;'
+                    '&nbsp;',                 'No.',
+                    'Study Description',      'Sample2/Sample1',
+                    'Experiment Description', '&#124;Fold Change&#124; &gt;',
+                    'P &lt;',                 '&nbsp;'
                 ],
                 parsers => [
                     'number', 'number', 'string', 'string',
@@ -896,21 +891,22 @@ sub displayTFSInfo {
                 -title  => 'Find all %1$ss related to %1$s {0}',
                 -target => '_blank',
                 -href   => $self->url( -absolute => 1 )
-                  .
-                  '?a=findProbes&b=Search&scope=%1$s&q={0}',
+                  . '?a=findProbes&b=Search&scope=%1$s&q={0}',
             },
             '{0}'
         );
-        $format_template{probe}  = sprintf( $find_probes, 'Probe IDs' );
-        $format_template{accnum} = sprintf( $find_probes, 'Genes/Accession Nos.' );
-        $format_template{gene}   = sprintf( $find_probes, 'Genes/Accession Nos.' );
+        $format_template{probe} = sprintf( $find_probes, 'Probe IDs' );
+        $format_template{accnum} =
+          sprintf( $find_probes, 'Genes/Accession Nos.' );
+        $format_template{gene} =
+          sprintf( $find_probes, 'Genes/Accession Nos.' );
     }
 
     $table_format[0] = 'formatProbe';
     $table_format[1] = 'formatAccNum';
     $table_format[2] = 'formatGene';
 
-    if ( $self->{_opts} > 1 ) {
+    if ( $self->{_opts} eq 'annot' ) {
         $table_format[3] = 'formatProbeSequence';
         $format_template{probeseq} = $q->a(
             {
@@ -929,6 +925,7 @@ sub displayTFSInfo {
     my $data_array = $self->{_Records}->fetchall_arrayref;
     $self->{_Records}->finish;
 
+    my $eid_count = @{ $self->{_xExpList} };
     unshift( @$_, get_tfs( shift @$_, shift @$_, $eid_count ) )
       for @$data_array;
 
