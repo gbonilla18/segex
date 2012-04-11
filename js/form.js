@@ -16,6 +16,13 @@ function zeroPad(num, places) {
     return arr.join("0") + num;
 }
 //==============================================================================
+// abbreviate
+//==============================================================================
+function abbreviate(str, len) {
+    var abbrLen = len - 3;
+    return str.length > abbrLen ? str.substr(0, abbrLen) + '...' : str;
+}
+//==============================================================================
 // splitIntoPhrases
 // Splits by words or by double-quoted phrases. Meant to emulate MySQL full-
 // text searching.
@@ -57,11 +64,31 @@ function splitIntoPhrases(str) {
     return phrases;
 }
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// Loops
+function LoopExit() {} // exception to exit a loop
+//==============================================================================
+// Iterate from a to b, step +1
+// (replaces for loop)
+//==============================================================================
+function iterateForward(fun, out, from, to) {
+    try {
+        for (var i = from; i < to; i++) {
+            fun.call(out, i);
+        }
+    }
+    catch(e) {
+        if (!(e instanceof LoopExit)) {
+            throw e;
+        }
+    }
+    return out;
+}
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // Array utilities
 //==============================================================================
 // execute function fun() for all elements
 //==============================================================================
-function LoopExit() {}
 function forEach(list, fun, out) {
     if (list !== null) {
         try {
@@ -129,7 +156,7 @@ function ComparisonSortOnColumn(column) {
     };
 }
 function sortNestedByColumn(tuples, column) {
-    tuples.sort(ComparisonSortOnColumn(column)); 
+    return tuples.sort(ComparisonSortOnColumn(column)); 
 }
 
 //==============================================================================
@@ -141,9 +168,16 @@ function NumericSortOnColumn(column) {
     };
 }
 function sortNestedByColumnNumeric(tuples, column) {
-    tuples.sort(NumericSortOnColumn(column)); 
+    return tuples.sort(NumericSortOnColumn(column)); 
 }
-
+function NumericSortOnColumnDesc(column) {
+    return function (a, b) {
+        return b[column] - a[column];
+    };
+}
+function sortNestedByColumnNumericDesc(tuples, column) {
+    return tuples.sort(NumericSortOnColumnDesc(column)); 
+}
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // Object utilities
 //==============================================================================
@@ -181,11 +215,11 @@ function object_forKeys(obj, fun, out) {
 }
 function object_forValues(obj, fun, out) {
     try {
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            fun.call(out, obj[key]);
+        for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                fun.call(out, obj[key]);
+            }
         }
-    }
     } catch(e) {
         if (!(e instanceof LoopExit)) {
             throw e;

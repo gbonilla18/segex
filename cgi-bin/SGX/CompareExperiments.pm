@@ -6,16 +6,14 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 #use Benchmark;
-#use SGX::Debug;
-use URI::Escape qw/uri_escape/;
 use JSON qw/encode_json decode_json/;
-require Tie::IxHash;
 require SGX::FindProbes;
 require SGX::Abstract::JSEmitter;
 require SGX::DBLists;
 require SGX::Model::PlatformStudyExperiment;
-use SGX::Abstract::Exception ();
-use SGX::Util qw/car count_gtzero max abbreviate/;
+
+#use SGX::Abstract::Exception ();
+use SGX::Util qw/car/;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 use SGX::Debug;
 
@@ -65,7 +63,8 @@ sub Compare_head {
     );
 
     my $q = $self->{_cgi};
-    $self->{_xExpList} = decode_json( $q->param('user_selection') ) || [];
+    $self->{_user_selection} = car $q->param('user_selection');
+    $self->{_xExpList} = decode_json( $self->{_user_selection} ) || [];
     if ( !@{ $self->{_xExpList} } ) {
         $self->add_message( { -class => 'error' },
             'You did not provide any input' );
@@ -316,7 +315,7 @@ sub getResults {
     my $s    = $self->{_UserSession};
 
     #This flag tells us whether or not to ignore the thresholds.
-    my $allProbes = $q->param('chkAllProbes');
+    my $includeAllProbes = $q->param('chkAllProbes');
 
     my $findProbes = SGX::FindProbes->new(
         _dbh         => $dbh,
@@ -346,32 +345,17 @@ sub getResults {
     my @query_titles_params;
     my @query_fs_body;
     my @query_fs_body_params;
-    my ( @stid_eid, @reverses, @fcs, @pvals );
 
-    my %ht;
     my $rows = $self->{_xExpList};
     for ( my $i = 0 ; $i < @$rows ; $i++ ) {
         my $row = $rows->[$i];
-        my (
-            $stid, $study_desc, $eid,       $sample1, $sample2,
-            $fc,   $pval,       $pValClass, $reverse
-          )
-          = @$row{
-            qw/stid study_desc eid sample1 sample2 fchange pval pValClass reverse/
-          };
-
-        $reverse = ( $reverse eq JSON::true ) ? 1 : 0;
-
-        #Prepare the four arrays that will be used to display data
-        push @stid_eid, [ $stid, $eid ];
-        push @reverses, $reverse;
-        push @fcs,      $fc;
-        push @pvals,    $pval;
+        my ( $eid, $sample1, $sample2, $fc, $pval, $pValClass ) =
+          @$row{qw/eid sample1 sample2 fchange pval pValClass/};
 
         #Flagsum breakdown query
         my $flag = 1 << $i;
 
-        push @query_fs_body, ($allProbes)
+        push @query_fs_body, ($includeAllProbes)
           ? <<"END_part_all"
 SELECT rid, IF(pvalue$pValClass < ? AND ABS(foldchange)  > ?, ?, 0) AS flag
 FROM microarray 
@@ -382,15 +366,10 @@ SELECT rid, ? AS flag
 FROM microarray
 WHERE eid=? AND pvalue$pValClass < ? AND ABS(foldchange)  > ?
 END_part_significant
-        push @query_fs_body_params, ($allProbes)
+        push @query_fs_body_params,
+          ($includeAllProbes)
           ? ( $pval, $fc, $flag, $eid )
           : ( $flag, $eid, $pval, $fc );
-
-        # account for sample order when building title query
-        $ht{$eid}->{title} =
-          ($reverse)
-          ? "$study_desc: $sample1 / $sample2"
-          : "$study_desc: $sample2 / $sample1";
     }
 
     my $exp_count = @$rows;    # number of experiments being compared
@@ -414,122 +393,24 @@ END_query_fs
     $sth_fs->finish;
 
     # counts mapping array
-    my $rep_count = 0;
-    my @hc        = ( (0) x scalar(@$rows) );
+    my $probe_count = 0;
+    my @hc = ( (0) x scalar(@$rows) );
 
     foreach my $value ( values %$h ) {
 
         # use of bitwise AND operator to test for bit presence
         ( $hc[$_] += ( 1 << $_ & $value->{fs} ) ? $value->{c} : 0 )
           for 0 .. $#$rows;
-        $rep_count += $value->{c};
+        $probe_count += $value->{c};
     }
 
     return {
-        stid_eid        => \@stid_eid,
-        reverses        => \@reverses,
-        fcs             => \@fcs,
-        pvals           => \@pvals,
-        hc              => \@hc,
-        ht              => \%ht,
-        h               => $h,
-        rep_count       => $rep_count,
-        rowcount_titles => scalar(@$rows),
-        allProbes       => $allProbes,
-        probeList       => $probeList,
+        h                => $h,
+        hc               => \@hc,
+        probeList        => $probeList,
+        probe_count      => $probe_count,
+        includeAllProbes => $includeAllProbes,
     };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  CompareExperiments
-#       METHOD:  getVennURI
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Draw a 750x300 area-proportional Venn diagram using Google API
-#                if $rowcount_titles is (2,3).
-#
-#                http://code.google.com/apis/chart/types.html#venn
-#                http://code.google.com/apis/chart/formats.html#data_scaling
-#
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getVennURI {
-    my %args            = @_;
-    my $rowcount_titles = $args{rowcount_titles};
-    my $h               = $args{h};
-    my $ht              = $args{ht};
-    my $hc              = $args{hc};
-    my $stid_eid        = $args{stid_eid};
-
-    my $qstring = '';
-    if ( $rowcount_titles == 2 ) {
-
-        # draw two circles
-        my @c;
-        for ( my $i = 1 ; $i < 4 ; $i++ ) {
-
-            # replace undefined values with zeros
-            push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
-        }
-        my $AB = $c[2];
-        my ( $A, $B ) = @$hc[ 0 .. 1 ];
-
-        #assert( $A == $c[0] + $AB );
-        #assert( $B == $c[1] + $AB );
-
-        # scale must be equal to the area of the largest circle
-        my $scale = max( $A, $B );
-        my @nums = ( $A, $B, 0, $AB );
-        $qstring =
-            'http://chart.apis.google.com/chart?cht=v&amp;chd=t:'
-          . join( ',', @nums )
-          . '&amp;chds=0,'
-          . $scale
-          . '&amp;chs=750x300&chtt=Significant+Probes&amp;chco=ff0000,00ff00&amp;chdl='
-          . join( '|',
-            map { uri_escape( "$_. " . abbreviate( $ht->{$_}->{title}, 60 ) ) }
-            map { $_->[1] } @$stid_eid[ 0 .. 1 ] );
-    }
-    elsif ( $rowcount_titles == 3 ) {
-
-        # draw three circles
-        my @c;
-        for ( my $i = 1 ; $i < 8 ; $i++ ) {
-
-            # replace undefined values with zeros
-            push @c, ( defined( $h->{$i} ) ) ? $h->{$i}->{c} : 0;
-        }
-        my $ABC = $c[6];
-        my $AB  = $c[2] + $ABC;
-        my $AC  = $c[4] + $ABC;
-        my $BC  = $c[5] + $ABC;
-        my ( $A, $B, $C ) = @$hc[ 0 .. 2 ];
-
-        my $chart_title =
-          ( count_gtzero( $A, $B, $C ) > 2 )
-          ? 'Significant+Probes+(Approx.)'
-          : 'Significant+Probes';
-
-        #assert( $A == $c[0] + $c[2] + $c[4] + $ABC );
-        #assert( $B == $c[1] + $c[2] + $c[5] + $ABC );
-        #assert( $C == $c[3] + $c[4] + $c[5] + $ABC );
-
-        # scale must be equal to the area of the largest circle
-        my $scale = max( $A, $B, $C );
-        my @nums = ( $A, $B, $C, $AB, $AC, $BC, $ABC );
-        $qstring =
-            'http://chart.apis.google.com/chart?cht=v&amp;chd=t:'
-          . join( ',', @nums )
-          . '&amp;chds=0,'
-          . $scale
-          . "&amp;chs=750x300&chtt=$chart_title&amp;chco=ff0000,00ff00,0000ff&amp;chdl="
-          . join( '|',
-            map { uri_escape( "$_. " . abbreviate( $ht->{$_}->{title}, 60 ) ) }
-            map { $_->[1] } @$stid_eid[ 0 .. 2 ] );
-    }
-    return $qstring;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -543,154 +424,19 @@ sub getVennURI {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getResultsJS {
-    my $self = shift;
-    my $obj  = $self->getResults();
+    my $self    = shift;
+    my $results = $self->getResults();
 
-    # scalars
-    my $rep_count       = $obj->{rep_count};
-    my $rowcount_titles = $obj->{rowcount_titles};
-    my $allProbes       = $obj->{allProbes};
-    my $probeList       = $obj->{probeList};
-
-    # references
-    my $reverses = $obj->{reverses};
-    my $stid_eid = $obj->{stid_eid};
-    my $hc       = $obj->{hc};
-    my $h        = $obj->{h};
-    my $ht       = $obj->{ht};
-    my $fcs      = $obj->{fcs};
-    my $pvals    = $obj->{pvals};
-
-    my $out = '';
     my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
-
-    my $vennURI = getVennURI(
-        rowcount_titles => $rowcount_titles,
-        h               => $h,
-        ht              => $ht,
-        hc              => $hc,
-        stid_eid        => $stid_eid
-    );
-    $out .= $js->let(
-        [
-            venn => ($vennURI)
-            ? "<img alt=\"Venn Diagram\" src=\"$vennURI\" />"
-            : ''
-        ],
-        declare => 1
-    );
-
-    # Summary table -------------------------------------
-    my @tmpArray;
-    for ( my $i = 0 ; $i < @$stid_eid ; $i++ ) {
-        my ( $currentSTID, $currentEID ) = @{ $stid_eid->[$i] };
-        push @tmpArray,
-          [
-            $currentEID,  $ht->{$currentEID}->{title},
-            $pvals->[$i], $fcs->[$i],
-            $hc->[$i]
-          ];
-    }
-
-    $out .= $js->let(
-        [
-            rep_count => $rep_count,
-            eid       => join( ',', map { join( '|', @$_ ) } @$stid_eid ),
-            rev       => join( ',', @$reverses ),
-            fc        => join( ',', @$fcs ),
-            pval      => join( ',', @$pvals ),
-            allProbes => (
-                ( defined $allProbes )
-                ? $allProbes
-                : ''
-            ),
-            searchFilter => $probeList,
-            summary      => {
-                caption => 'Experiments compared',
-                records => \@tmpArray
-            }
-        ],
-        declare => 1
-    );
-
-    # TFS breakdown table ------------------------------
-    my @tfs_defs = (
-        {
-            key         => '0',
-            sortable    => sub { 'true' },
-            resizeable  => sub { 'false' },
-            label       => 'FS',
-            sortOptions => {
-                defaultDir => sub { 'YAHOO.widget.DataTable.CLASS_DESC' }
-            }
-        }
-    );
-
-    my @tfs_response_fields = ( { key => '0', parser => 'number' } );
-    my $i;
-    for ( $i = 1 ; $i <= @$stid_eid ; $i++ ) {
-        my ( $this_stid, $this_eid ) = @{ $stid_eid->[ $i - 1 ] };
-        push @tfs_defs, {
-            key         => "$i",
-            sortable    => sub { 'true' },
-            resizeable  => sub { 'false' },
-            label       => "#$this_eid",
-            sortOptions => {
-                defaultDir => sub { 'YAHOO.widget.DataTable.CLASS_DESC' }
-            }
-        };
-        push @tfs_response_fields, { key => "$i" };
-    }
-    push @tfs_defs, (
-        {
-            key         => "$i",
-            sortable    => sub { 'true' },
-            resizeable  => sub { 'true' },
-            label       => 'Probe Count',
-            sortOptions => {
-                defaultDir => sub { 'YAHOO.widget.DataTable.CLASS_DESC' }
-            }
-        },
-        {
-            key        => sprintf( "%s", $i + 1 ),
-            sortable   => sub            { 'false' },
-            resizeable => sub            { 'true' },
-            label      => 'View probes',
-            formatter  => 'formatDownload'
-        }
-    );
-
-    push @tfs_response_fields,
-      (
-        { key => "$i", parser => 'number' },
-        { key => sprintf( "%s", $i + 1 ), parser => 'number' }
-      );
-
-    my @tfsBreakdown;
-    foreach my $key ( sort { $h->{$b}->{fs} <=> $h->{$a}->{fs} } keys %$h ) {
-
-        # numerical sort on hash value
-        push @tfsBreakdown,
-          {
-            0 => $key,
-            (
-                map { $_ => ( 1 << ( $_ - 1 ) & $h->{$key}->{fs} ) ? 'x' : '' }
-                  1 .. $rowcount_titles
-            ),
-            ( $rowcount_titles + 1 ) => $h->{$key}->{c}
-          };
-    }
-    return $out
+    return ''
       . $js->let(
         [
-            tfs => {
-                caption =>
-'Probes grouped by significance in different experiment combinations',
-                records => \@tfsBreakdown
-            },
-            rep_count       => $rep_count,
-            tfs_data_fields => \@tfs_response_fields,
-            tfs_table_defs  => \@tfs_defs
+            _xExpList        => $self->{_xExpList},
+            h                => $results->{h},
+            hc               => $results->{hc},
+            searchFilter     => $results->{probeList},
+            probe_count      => $results->{probe_count},
+            includeAllProbes => $results->{includeAllProbes},
         ],
         declare => 1
       );
@@ -772,17 +518,9 @@ sub Compare_body {
 
     my $q = $self->{_cgi};
 
-    my %opts_dropdown;
-    my $opts_dropdown_t = tie(
-        %opts_dropdown, 'Tie::IxHash',
-        '0' => 'Basic (ratios and p-value only)',
-        '1' => 'Experiment data',
-        '2' => 'Experiment data with annotations'
-    );
-
     return
       $q->div( { -id => 'venn' }, '' ),
-      $q->h2( { -id => 'summary_caption' }, '' ),
+      $q->h2('Experiments compared'),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->start_form(
         -method  => 'POST',
@@ -791,26 +529,28 @@ sub Compare_body {
         -class   => 'getTFS',
         -enctype => 'application/x-www-form-urlencoded'
       ),
-      $q->hidden( -name => 'eid',          -id => 'eid' ),
-      $q->hidden( -name => 'rev',          -id => 'rev' ),
-      $q->hidden( -name => 'fc',           -id => 'fc' ),
-      $q->hidden( -name => 'pval',         -id => 'pval' ),
-      $q->hidden( -name => 'allProbes',    -id => 'allProbes' ),
-      $q->hidden( -name => 'searchFilter', -id => 'searchFilter' ),
-      $q->h2( { -id => 'tfs_caption' }, '' ),
-      $q->dl(
-        $q->dt( $q->label( { -for => 'opts' }, 'Data to display:' ) ),
-        $q->dd(
-            $q->popup_menu(
-                -name    => 'opts',
-                -id      => 'opts',
-                -values  => [ keys %opts_dropdown ],
-                -default => '0',
-                -labels  => \%opts_dropdown
-            )
-        ),
-        $q->dt( { -id => 'tfs_all_dt' }, "&nbsp;" ),
-        $q->dd( { -id => 'tfs_all_dd' }, "&nbsp;" )
+      $q->hidden( -name => 'selectedFS', -id => 'selectedFS' ),
+      $q->hidden(
+        -name  => 'user_selection',
+        -id    => 'user_selection',
+        -value => $self->{_user_selection}
+      ),
+      $q->hidden( -name => 'includeAllProbes', -id => 'includeAllProbes' ),
+      $q->hidden( -name => 'searchFilter',     -id => 'searchFilter' ),
+      $q->h2(
+        'Probes grouped by significance in different experiment combinations'),
+      $q->p( $q->strong('Data to display:') ),
+      $q->p(
+        $q->radio_group(
+            -name    => 'opts',
+            -values  => [qw/basic data annot/],
+            -default => 'basic',
+            -labels  => {
+                'basic' => 'Basic',
+                'data'  => 'Including Data',
+                'annot' => 'Including Data and Annotation'
+            }
+        )
       ),
       $q->div( { -id => 'tfs_table', -class => 'table_cont' }, '' ),
       $q->endform;

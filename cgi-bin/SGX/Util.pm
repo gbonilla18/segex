@@ -51,25 +51,6 @@ sub locationAsTextToCanon {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  abbreviate
-#      PURPOSE:  
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub abbreviate {
-    my $str = shift;
-    my $len = shift;
-    return (length($str) > $len - 3) 
-        ? substr($str, 0, $len - 3) . '...' 
-        : $str;
-}
-
-
-#===  FUNCTION  ================================================================
 #         NAME:  dec2indexes
 #      PURPOSE:  Convert decimal number to an array of indexes corresponding to
 #                set bits.

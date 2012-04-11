@@ -72,7 +72,8 @@ YAHOO.util.Event.addListener(window, "load", function () {
     var myDataSource = new YAHOO.util.DataSource();
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
     myDataSource.responseSchema = { fields: [
-        {key:"eid", parser:"number"}, 
+        {key:"eid", parser:"number"},
+        {key:"study_desc"},
         {key:"sample1"},
         {key:"sample2"},
         {key:"reverse"},
