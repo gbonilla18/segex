@@ -386,6 +386,7 @@ exports.populateDropdowns = function(lookupTables, lookup, data) {
                 if (val.options.length === 0) {
                     obj.style.width = '200px'; // default width
                 }
+                removeAllChildren(obj);
                 forEach(val.options, function(tuple) {
                     var this_key = tuple[0];
                     var option = document.createElement('option');
