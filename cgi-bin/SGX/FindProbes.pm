@@ -508,11 +508,6 @@ sub FindProbes_init {
     }
 
     #---------------------------------------------------------------------------
-    #  main query: split on spaces or commas
-    #---------------------------------------------------------------------------
-    my @textSplit = split( /[,\s]+/, $text );
-
-    #---------------------------------------------------------------------------
     #  pattern match type
     #---------------------------------------------------------------------------
     my $match = car $q->param('match');
@@ -531,6 +526,25 @@ sub FindProbes_init {
       defined( $q->param('show_graphs') )
       ? car( $q->param('graph_type') )
       : '';
+
+    #---------------------------------------------------------------------------
+    #Split on spaces or commas. For Full-Word matches, emulate the treatment in
+    #build_SearchPredicate.
+    #---------------------------------------------------------------------------
+    my @textSplit;
+    if ( $match eq 'Full-Word' ) {
+        if ( my $p = $parser{$scope} ) {
+            $text =~ s/^\W*//;
+            $text =~ s/\W*$//;
+            @textSplit = map { $p->($_) } split( /[^\w:]+/, $text );
+        }
+        else {
+            @textSplit = split( /[,\s]+/, $text );
+        }
+    }
+    else {
+        @textSplit = split( /[,\s]+/, $text );
+    }
 
     #---------------------------------------------------------------------------
     #  special action for GO terms
