@@ -221,6 +221,7 @@ sub default_body {
             $q->dd(
                 $q->button(
                     -id    => 'add',
+                    -name  => 'add',
                     -class => 'button black bigrounded',
                     -value => 'Add'
                 )
