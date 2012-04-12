@@ -184,7 +184,7 @@ sub new {
                 meta  => {
                     locus_count => {
                         __sql__ => 'COUNT(locus.rid)',
-                        label   => 'Mapp. Loci',
+                        label   => 'Map. Loci',
                         parser  => 'number'
                     },
                 },
