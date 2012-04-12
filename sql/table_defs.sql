@@ -28,7 +28,7 @@ CREATE TABLE `GeneGO` (
   PRIMARY KEY (`gid`,`go_acc`),
   KEY `gid` (`gid`),
   KEY `go_acc` (`go_acc`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -103,7 +103,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=135 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=141 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -175,8 +175,8 @@ CREATE TABLE `microarray` (
   `rid` int(10) unsigned NOT NULL,
   `ratio` double DEFAULT NULL,
   `foldchange` double DEFAULT NULL,
-  `intensity2` double DEFAULT NULL,
   `intensity1` double DEFAULT NULL,
+  `intensity2` double DEFAULT NULL,
   `pvalue1` double DEFAULT NULL,
   `pvalue2` double DEFAULT NULL,
   `pvalue3` double DEFAULT NULL,
@@ -292,7 +292,7 @@ CREATE TABLE `study` (
   UNIQUE KEY `pid_description` (`pid`,`description`),
   KEY `pid` (`pid`),
   CONSTRAINT `study_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -327,4 +327,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-04-09 11:05:15
+-- Dump completed on 2012-04-12 14:09:19
