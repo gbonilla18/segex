@@ -553,9 +553,10 @@ sub readrow_body {
                 'Upload/Replace Gene Annotation',
                 $q->button(
                     {
-                        -id    => 'clearAnnot',
-                        -class => 'plaintext',
-                        -value => '(clear)'
+                        -id     => 'clearAnnot',
+                        -script => '',
+                        -class  => 'plaintext',
+                        -value  => '(clear)'
                     }
                 )
             ),

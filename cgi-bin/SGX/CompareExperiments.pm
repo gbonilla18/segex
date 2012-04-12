@@ -220,10 +220,10 @@ sub default_body {
             $q->dt('&nbsp;'),
             $q->dd(
                 $q->button(
-                    -id    => 'add',
-                    -name  => 'add',
-                    -class => 'button black bigrounded',
-                    -value => 'Add'
+                    -id     => 'add',
+                    -script => '',
+                    -class  => 'button black bigrounded',
+                    -value  => 'Add'
                 )
             ),
         )
@@ -538,8 +538,7 @@ sub Compare_body {
       ),
       $q->hidden( -name => 'includeAllProbes', -id => 'includeAllProbes' ),
       $q->hidden( -name => 'searchFilter',     -id => 'searchFilter' ),
-      $q->h2(
-        'Probes significant in different experiment combinations'),
+      $q->h2('Probes significant in different experiment combinations'),
       $q->p( $q->strong('Data to display:') ),
       $q->p(
         $q->radio_group(

@@ -175,7 +175,8 @@ sub new {
                     },
                 },
                 group_by => [qw/pid/],
-                join => [ ProbeGene => [ rid => 'rid', { join_type => 'LEFT' } ] ]
+                join =>
+                  [ ProbeGene => [ rid => 'rid', { join_type => 'LEFT' } ] ]
             },
             locus_counts => {
                 table => 'probe',
@@ -998,9 +999,10 @@ sub readrow_body {
                 'Upload/Replace Annotation',
                 $q->button(
                     {
-                        -id    => 'clearAnnot',
-                        -class => 'plaintext',
-                        -value => '(clear)'
+                        -id     => 'clearAnnot',
+                        -script => '',
+                        -class  => 'plaintext',
+                        -value  => '(clear)'
                     }
                 )
             ),
