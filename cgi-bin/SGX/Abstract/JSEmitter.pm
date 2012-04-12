@@ -143,33 +143,33 @@ sub false {
 # http://stackoverflow.com/questions/3381159/make-perl-shout-when-trying-to-access-undefined-hash-key/3382500#3382500
 # Perl Cookbook, 2nd ed.: 5.3. Creating a Hash with Immutable Keys or Values
 #===============================================================================
-{
-
-    package Safe::Hash;
-
-    use strict;
-    use warnings;
-
-    use base qw/Tie::StdHash/;
-
-    sub FETCH {
-        my ( $self, $key ) = @_;
-        exists $self->{$key}
-          or SGX::Exception::Internal::JS->throw(
-            error => "Symbol '$key' absent from id hash" );
-        return $self->{$key};
-    }
-
-    1;
-}
+#{
+#
+#    package Safe::Hash;
+#
+#    use strict;
+#    use warnings;
+#
+#    use base qw/Tie::StdHash/;
+#
+#    sub FETCH {
+#        my ( $self, $key ) = @_;
+#        exists $self->{$key}
+#          or SGX::Exception::Internal::JS->throw(
+#            error => "Symbol '$key' absent from id hash" );
+#        return $self->{$key};
+#    }
+#
+#    1;
+#}
 
 #---------------------------------------------------------------------------
 #  uses Safe::Hash as defined above
 #---------------------------------------------------------------------------
 sub register_var {
     my ( $self, $prefix, $ids ) = @_;
-    tie my %barewords => 'Safe::Hash';
-    %barewords =
+    #tie my %barewords => 'Safe::Hash';
+    my %barewords =
         ( $self->{pretty} )
       ? ( map { $_ => $self->literal($_) } @$ids )
       : ( map { $ids->[$_] => $self->literal( $prefix . $_ ) } 0 .. $#$ids );
