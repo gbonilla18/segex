@@ -222,6 +222,8 @@ CONCAT(experiment.sample2,' / ',experiment.sample1) AS 'Sample 2 / Sample 1',
 experiment.ExperimentDescription AS 'Exp. Description',
 END_experiment_info
 
+ # :TODO:04/12/2012 20:03:48:es: Split query below into two queries: one to
+ # obtain experiment info and another one to get response/probe data?
     my $query_text = sprintf(
         <<"END_ReportQuery",
 SELECT
@@ -232,7 +234,7 @@ group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'G
     $gene_info
     microarray.ratio      AS 'Ratio',
     microarray.foldchange AS 'Fold Change',
-    microarray.pvalue     AS 'P-value',
+    microarray.pvalue1     AS 'P-value 1',
     microarray.intensity1 AS 'Intensity 1',
     microarray.intensity2 AS 'Intensity 2'
 FROM experiment
