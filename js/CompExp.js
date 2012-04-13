@@ -23,7 +23,7 @@ function getGoogleVennURI2() {
 
     return {
         title: 'Significant Probes Diagram',
-        uri: object_forEach({
+        uri: 'http://chart.apis.google.com/chart?' + object_forEach({
             //chtt - titlle
             cht  : 'v',
             chs  : '800x300',
@@ -35,8 +35,7 @@ function getGoogleVennURI2() {
                 []).join('|')
             }, function(key, val) {
                 this.push(key + '=' + val);
-            }, ['http://chart.apis.google.com/chart?']
-        ).join('&')
+            }, []).join('&')
     };
 }
 
@@ -63,7 +62,7 @@ function getGoogleVennURI3() {
 
     return {
         title: (num_circles > 2 ? 'Significant Probes Diagram (Approx.)' : 'Significant Probes Diagram'),
-        uri: object_forEach({
+        uri: 'http://chart.apis.google.com/chart?' + object_forEach({
             //chtt - titlle
             cht  : 'v',
             chs  : '800x300',
@@ -75,8 +74,7 @@ function getGoogleVennURI3() {
                 []).join('|')
             }, function(key, val) {
                 this.push(key + '=' + val);
-            }, ['http://chart.apis.google.com/chart?']
-        ).join('&') 
+            }, []).join('&') 
     };
 }
 

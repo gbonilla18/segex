@@ -10,6 +10,11 @@ function getExperimentName(oArgs) {
     var sample2 = oArgs.sample2;
     return oArgs.eid + '. ' + oArgs.study_desc + ': ' + (oArgs.reverse ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1));
 }
+function isSignif(oRecord) {
+    var recordIndex = parseInt(oRecord.getCount(), 10);
+    var flags = parseInt(_fs, 10);
+    return (1 << recordIndex & flags);
+}
 
 YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
 YAHOO.util.Event.addListener(window, "load", function() {
@@ -19,15 +24,22 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
     var experimentFormatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
-        elCell.appendChild(document.createTextNode(getExperimentName(forEach(
+        var text = document.createTextNode(getExperimentName(forEach(
             ['eid', 'study_desc', 'sample1', 'sample2', 'reverse'], 
             function(key) { this[key] = oRecord.getData(key); }, 
             {}
-        ))));
+        )));
+        var a = document.createElement('a');
+        a.setAttribute('href', './?a=experiments&id=' + oData);
+        if (!isSignif(oRecord)) {
+            a.setAttribute('class', 'disabled');
+        } 
+        a.appendChild(text);
+        elCell.appendChild(a);
     };
     var formatterReqSignif = function(elCell, oRecord, oColumn, oData) {
-        var text = (1 << parseInt(oRecord.getCount()) & parseInt(_fs)) ? 'x' : '';
-        elCell.innerHTML = '<strong>' + text + '</strong>';
+        var text = isSignif(oRecord) ? '<strong>Yes</strong>' : 'No';
+        elCell.innerHTML = text;
     };
     var summary_data = new YAHOO.util.DataSource(_xExpList);
     summary_data.responseSchema = { fields: [
@@ -39,15 +51,15 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"pValFlag", parser:"number"},
         {key:"pValClass", parser:"number"},
         {key:"pval", parser:"number"},
-        {key:"fchange", parser: "number"},
+        {key:"fchange", parser: "number"}
     ]};
     var summary_table_defs = [
-        {key:"eid", sortable:true, resizeable:true, label:'Experiment', formatter:experimentFormatter},
-        {key:"reverse", sortable:true, resizeable:false, label:'Reverse Samples', formatter:formatterYesNo},
-        {key:"pValClass", sortable:true, resizeable:false, label:'P-value'},
-        {key:"pval", sortable:true, resizeable:false, label:'P <'},
-        {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >'},
-        {key:"reqSignif", sortable:true, resizeable:true, label:'Signif. in', formatter:formatterReqSignif}
+        {key:"eid", sortable:false, resizeable:true, label:'Experiment', formatter:experimentFormatter},
+        {key:"reverse", sortable:false, resizeable:false, label:'Reverse Samples', formatter:formatterYesNo},
+        {key:"pValClass", sortable:false, resizeable:false, label:'P-value'},
+        {key:"pval", sortable:false, resizeable:false, label:'P <'},
+        {key:"fchange", sortable:false, resizeable:false, label:'|Fold| >'},
+        {key:"reqSignif", sortable:false, resizeable:true, label:'Signif. In', formatter:formatterReqSignif}
     ];
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 
@@ -56,26 +68,26 @@ YAHOO.util.Event.addListener(window, "load", function() {
     Formatter.formatProbe = function (elCell, oRecord, oColumn, oData) {
         var clean = (oData === null) ? '' : oData;
         elCell.innerHTML = lang.substitute(tfs.frm_tpl.probe, {"0":clean});
-    }
+    };
     Formatter.formatAccNum = function (elCell, oRecord, oColumn, oData) {
         var clean = (oData === null) ? '' : oData;
         elCell.innerHTML = lang.substitute(tfs.frm_tpl.accnum, {"0":clean});
-    }
+    };
     Formatter.formatGene = function (elCell, oRecord, oColumn, oData) {
         var clean = (oData === null) ? '' : oData;
         elCell.innerHTML = lang.substitute(tfs.frm_tpl.gene, {"0":clean});
-    }
+    };
     Formatter.formatProbeSequence = function (elCell, oRecord, oColumn, oData) {
         var clean = (oData === null) ? '' : oData;
         elCell.innerHTML = lang.substitute(lang.substitute(tfs.frm_tpl.probeseq, {"0":clean}),{"1":oRecord.getData("6")});
 
-    }
+    };
     Formatter.formatNumber = function(elCell, oRecord, oColumn, oData) {
         // Overrides the built-in formatter
         if (oData !== null) {
             elCell.innerHTML = oData.toPrecision(3);
         }
-    }
+    };
     dom.get("tfs_caption").innerHTML = tfs.caption;
     var tfs_table_defs = [];
     var tfs_schema_fields = [];

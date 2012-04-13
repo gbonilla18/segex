@@ -141,6 +141,13 @@ a:focus { outline: none; }	/* removes the dotted rectangle that appears in Firef
 a:hover { color:#f00; }
 a:active { color:#fff; background:#55f; }
 th a:active { background:none; }
+a.external {
+	color:#090;
+}
+a.external:focus { outline: none; }	/* removes the dotted rectangle that appears in Firefox when link is clicked */
+a.external:hover { color:#f00; }
+a.external:active { color:#fff; background:#55f; }
+th a.external:active { background:none; }
 
 a#logo {
 	display:block;
@@ -461,11 +468,11 @@ dl, table, div.table_cont {
 	color:#000;
 	font-weight:bold;
 }
+
 .TicketName {
 	font-size:1.2em;
 }
 a.highlight {
-	color:#00f;
 }
 a .highlight {
 	color:inherit;

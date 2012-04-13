@@ -11,9 +11,10 @@ var dom = YAHOO.util.Dom;
 var formatter = YAHOO.widget.DataTable.Formatter;
 
 function buildSVGElement(obj) {
-    var resourceURI = object_forEach(obj, function(key, val) {
+    var resourceURI = './?' +
+    object_forEach(obj, function(key, val) {
         this.push(key + '=' + encodeURIComponent(val));
-    }, ['./?a=graph']).join('&');
+    }, [ 'a=graph' ]).join('&');
 
     // another alternative to the code below
     //var object = document.createElement('img');
@@ -191,8 +192,19 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var formatSequence = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             dom.addClass(elCell, 'sgx-dt-sequence');
-            var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = "<a href=\"http://genome.ucsc.edu/cgi-bin/hgBlat?userSeq=" + oData + "&type=DNA&org=" + species + "\" title=\"Search for this sequence using BLAT in " + species + " genome (genome.ucsc.edu)\" target=\"_blank\">" + oData + "</a>";
+            var organism = oRecord.getData(dataFields.species);
+            var uri = 'http://genome.ucsc.edu/cgi-bin/hgBlat?' +
+            object_forEach({
+                userSeq : oData,
+                type    : 'DNA',
+                org     : organism
+            }, function(key, val) {
+                this.push(key + '=' + encodeURIComponent(val));
+            }, []).join('&');
+
+            elCell.innerHTML = '<a class="external" href="' + uri + '" title="Map this sequence to ' + organism + ' genome with BLAT (genome.ucsc.edu)" target="_blank">' + oData + '</a>';
+        } else {
+            elCell.innerHTML = '';
         }
     };
 
@@ -286,25 +298,87 @@ YAHOO.util.Event.addListener(window, "load", function() {
             );
         }
     }
-    function wrapAccNum(b, highlight, args) {
-        var species = args[0];
+
+    function wrapAccNum(b, classString, args) {
+        var uri, database;
+        var organism = args[0];
+
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
-            return "<a " + highlight + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>";
+            // Ensembl IDs have a very specific format
+            database = 'Ensembl';
+            uri = 'http://www.ensembl.org/Search/Details?' + 
+            object_forEach({
+                idx     : 'Gene',
+                q       : b,
+                species : 'all'
+            }, function(key, val) {
+                this.push(key + '=' + encodeURIComponent(val));
+            }, []).join('&');
         } else {
-            return "<a " + highlight + " title=\"Search NCBI Nucleotide for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=Nucleotide&term=" + species + "[ORGN]+AND+" + b + "[ACCN]\">" + b + "</a>";
+            // Search for everything else in NCBI/Entrez Nucleotide
+            database = 'NCBI Nucleotide';
+            uri = 'http://www.ncbi.nlm.nih.gov/sites/entrez?' + 
+            object_forEach({
+                cmd  : 'search',
+                db   : 'Nucleotide',
+                term : b + '[ACCN] AND ' + organism + '[ORGN]'
+            }, function(key, val) {
+                this.push(key + '=' + encodeURIComponent(val));
+            }, []).join('&');
         }
+        var classTuple = 'class="external"';
+        if (classString !== null && classString !== '') {
+            var classTuple = 'class="external ' + classString + '"';
+        }
+        return '<a ' + classTuple + ' title="Search ' + database + ' for ' + b + '" target="_blank" href="' + uri + '">' + b + '</a>';
     }
-    function wrapGeneSymbol(b, highlight, args) {
-        var species = args[0];
-        var gsymbol = b;
-        if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
-            return "<a " + highlight + " title=\"Search Ensembl for " + b + "\" target=\"_blank\" href=\"http://www.ensembl.org/Search/Summary?species=all;q=" + b + "\">" + b + "</a>";
-        } else if (b.match(/^\d+$/)) {
-            return "<a " + highlight + " title=\"Search NCBI Gene for " + b + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/gene?term=" + b + "[uid]\">" + b + "</a>";
-        } else if (b.match(/^\w+_similar_to/)) {
-            gsymbol = /^(\w+)_similar_to/.exec(b)[1];
+
+    function wrapGeneSymbol(b, classString, args) {
+        var uri, database;
+        var organism = args[0];
+
+        if (b.match(/^\w+_similar_to/)) {
+            // Extract gene symbol from '_similar_to' match
+            b = /^(\w+)_similar_to/.exec(b)[1];
         }
-        return "<a " + highlight + " title=\"Search NCBI Gene for " + gsymbol + "\" target=\"_blank\" href=\"http://www.ncbi.nlm.nih.gov/sites/entrez?cmd=search&db=gene&term=" + species + "[ORGN]+AND+" + gsymbol + "[GENE]\">" + b + "</a>";
+
+        if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
+            // Ensembl IDs have a very specific format
+            database = 'Ensembl';
+            uri = 'http://www.ensembl.org/Search/Details?' + 
+            object_forEach({
+                idx     : 'Gene',
+                q       : b,
+                species : 'all'
+            }, function(key, val) {
+                this.push(key + '=' + encodeURIComponent(val));
+            }, []).join('&');
+        } else if (b.match(/^\d+$/)) {
+            // Search for integer ids in NCBI Gene [uid]
+            database = 'NCBI Gene';
+            uri = 'http://www.ncbi.nlm.nih.gov/gene?' +
+            object_forEach({
+                term : b + '[uid]',
+            }, function(key, val) {
+                this.push(key + '=' + encodeURIComponent(val));
+            }, []).join('&');
+        } else {
+            // Search for everything else in NCBI/Entrez Gene
+            database = 'NCBI Gene';
+            uri = 'http://www.ncbi.nlm.nih.gov/sites/entrez?' +
+            object_forEach({
+                cmd  : 'search',
+                db   : 'Gene',
+                term : b + '[GENE] AND ' + organism + '[ORGN]',
+            }, function(key, val) {
+                this.push(key + '=' + encodeURIComponent(val));
+            }, []).join('&');
+        }
+        var classTuple = 'class="external"';
+        if (classString !== null && classString !== '') {
+            var classTuple = 'class="external ' + classString + '"';
+        }
+        return '<a ' + classTuple + ' title="Search ' + database + ' for ' + b + '" target="_blank" href="' + uri + '">' + b + '</a>';
     }
 
     function formatSymbols(symbol, colKey, wrapperFun, args) {
@@ -312,8 +386,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
         // split by commas while removing spaces, process, then join on commas
         return forEach(symbol.split(/[,\s]+/), function(val) {
-            var higlightString = (doMatch && val.match(regex_obj)) ? 'class="highlight"' : '';
-            this.push(wrapperFun(val, higlightString, args));
+            var classes = (doMatch && val.match(regex_obj)) ? 'highlight' : '';
+            this.push(wrapperFun(val, classes, args));
         }, []).join(', ');
     }
 
