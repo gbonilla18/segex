@@ -59,7 +59,9 @@ sub default_head {
     my $sql_join_clause  = '';
     my $sql_where_clause = '';
     my @exec_array_title = ($reporter);
-    if ( defined($curr_proj) and $curr_proj ne '' ) {
+
+    # check if proj parameter is numeric
+    if ( defined($curr_proj) and $curr_proj =~ m/^\d+$/ ) {
         $sql_join_clause =
           'INNER JOIN study USING(pid) INNER JOIN ProjectStudy USING(stid)';
         $sql_where_clause = 'AND prid=?';
