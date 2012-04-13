@@ -184,6 +184,24 @@ function sortNestedByColumnNumericDesc(tuples, column) {
 // iterate over key-value pairs -- three function imitating Perl's each, keys,
 // and values.
 //==============================================================================
+function tuplesToObj() {
+    // takes a list of tuples and converts them to an object
+    var obj = {};
+    for (var i = 0, len = arguments.length; i < len; i++) {
+        var tuple = arguments[i];
+        obj[tuple[0]] = tuple[1];
+    }
+    return obj;
+}
+function countOwnProperties(obj) {
+    var i = 0;
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            i++;
+        }
+    }
+    return i;
+}
 function object_forEach(obj, fun, out) {
     try {
         for (var key in obj) {

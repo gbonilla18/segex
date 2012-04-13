@@ -73,14 +73,17 @@ sub new {
             species => {
                 item_name => 'species',
                 key       => [qw/sid/],
-                base      => [qw/sname/],
-                view      => [qw/sname/],
+                base      => [qw/sname slatin/],
+                view      => [qw/sname slatin/],
                 resource  => 'species',
                 names     => [qw/sname/],
                 meta      => {
                     sname => {
                         label => 'Species',
                         -size => 30
+                    },
+                    slatin => {
+                        label => 'Scientific Name'
                     }
                 },
                 lookup => [

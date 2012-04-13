@@ -1321,6 +1321,7 @@ END_sql_subset_by_project
             'platform.pid',
             "probe.reporter  AS 'Probe ID'",
             "species.sname   AS 'Species'",
+            "species.slatin  AS 'Species Official Name'",
             "platform.pname  AS 'Platform'",
 "group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.'",
 "group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene'",

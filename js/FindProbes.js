@@ -163,30 +163,43 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     panel.render(elCell);
                 });
             }
+            removeAllChildren(elCell);
             elCell.appendChild(a);
+        } else {
+            elCell.innerHTML = ''
         }
     };
     var formatAccNum = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapAccNum, [species]);
+            var slatin = oRecord.getData(dataFields.slatin);
+            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapAccNum, [species, slatin]);
+        } else {
+            elCell.innerHTML = ''
         }
     };
     var formatGene = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapGeneSymbol, [species]);
+            var slatin = oRecord.getData(dataFields.slatin);
+            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapGeneSymbol, [species, slatin]);
+        } else {
+            elCell.innerHTML = ''
         }
     };
     var formatGeneName = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             elCell.innerHTML = currScope.hasOwnProperty(oColumn.key) ? highlightWords(oData) : oData;
+        } else {
+            elCell.innerHTML = ''
         }
     };
     var formatPlatform = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             var species = oRecord.getData(dataFields.species);
             elCell.innerHTML = (oData.match(new RegExp('^' + species))) ? oData : species + ' / ' + oData;
+        } else {
+            elCell.innerHTML = ''
         }
     };
     var formatSequence = function(elCell, oRecord, oColumn, oData) {
@@ -241,67 +254,85 @@ YAHOO.util.Event.addListener(window, "load", function() {
     dom.get("caption").innerHTML = data.caption;
 
     // extra_fields >= 0
-    var dataFields = { rid: "0" };
-    var myColumnList = [{key:"0", parser:"number"}];
+    var dataFields = forEach(
+        ['rid'],
+        function(val) { this.self[val] = String(this.index++) },
+        { self: {}, index: countOwnProperties({}) }
+    ).self;
+    var myColumnList = [{key:dataFields.rid, parser:"number"}];
     var myColumnDefs = [];
-
-    var columns2highlight = {
-        'GO IDs'               : { },
-        'Probe IDs'            : { '2' : 1 },
-        'Genes/Accession Nos.' : { '5' : 1, '6' : 1 },
-        'Gene Names/Desc.'     : { '6' : 1, '9' : 1 }
-    };
-    var currScope = columns2highlight[scope];
 
     // extra_fields > 0
     if (extra_fields > 0) {
-        dataFields.species = '3';
+        forEach(
+            ['pid', 'reporter', 'species', 'slatin', 'platform_name', 'accnum', 'gsymbol'],
+            function(val) { this.self[val] = String(this.index++) },
+            { self: dataFields, index: countOwnProperties(dataFields) }
+        );
         myColumnList.push(
-            {key:"1", parser:"number"},
-            {key:"2"},
-            {key:"3"},
-            {key:"4"},
-            {key:"5"},
-            {key:"6"}
+            {key:dataFields.pid, parser:"number"},
+            {key:dataFields.reporter},
+            {key:dataFields.species},
+            {key:dataFields.slatin},
+            {key:dataFields.platform_name},
+            {key:dataFields.accnum},
+            {key:dataFields.gsymbol}
         );
         myColumnDefs.push(
-            {key:"4", sortable:true, resizeable:true, 
-                label:data.headers[3] + '/' + data.headers[4], formatter:formatPlatform},
-            {key:"2", sortable:true, resizeable:true, 
-                label:data.headers[2], formatter:formatProbe}
+            {key:dataFields.platform_name, sortable:true, resizeable:true, 
+                label:data.headers[parseInt(dataFields.platform_name)], formatter:formatPlatform},
+            {key:dataFields.reporter, sortable:true, resizeable:true, 
+                label:data.headers[parseInt(dataFields.reporter)], formatter:formatProbe}
         );
         if (extra_fields > 1) {
+            forEach(
+                ['probe_sequence', 'locus', 'gene_name'],
+                function(val) { this.self[val] = String(this.index++) },
+                { self: dataFields, index: countOwnProperties(dataFields) }
+            );
             myColumnList.push(
-                {key:"7"},
-                {key:"8"}
+                {key:dataFields.probe_sequence},
+                {key:dataFields.locus}
             );
             myColumnDefs.push(
-                {key:"7", sortable:true, resizeable:true,
-                    label:data.headers[7], formatter:formatSequence},
-                {key:"8", sortable:true, resizeable:true,
-                    label:data.headers[8]}
+                {key:dataFields.probe_sequence, sortable:true, resizeable:true,
+                    label:data.headers[parseInt(dataFields.probe_sequence)], formatter:formatSequence},
+                {key:dataFields.locus, sortable:true, resizeable:true,
+                    label:data.headers[parseInt(dataFields.locus)]}
             );
         }
         myColumnDefs.push(
-            {key:"5", sortable:true, resizeable:true, 
-                label:data.headers[5], formatter:formatAccNum}, 
-            {key:"6", sortable:true, resizeable:true, 
-                label:data.headers[6], formatter:formatGene}
+            {key:dataFields.accnum, sortable:true, resizeable:true, 
+                label:data.headers[parseInt(dataFields.accnum)], formatter:formatAccNum}, 
+            {key:dataFields.gsymbol, sortable:true, resizeable:true, 
+                label:data.headers[parseInt(dataFields.gsymbol)], formatter:formatGene}
         );
         if (extra_fields > 1) {
             myColumnList.push(
-                {key:"9"}
+                {key:dataFields.gene_name}
             );
             myColumnDefs.push(
-                {key:"9", sortable:true, resizeable:true, 
-                    label:data.headers[9], formatter:formatGeneName}
+                {key:dataFields.gene_name, sortable:true, resizeable:true, 
+                    label:data.headers[parseInt(dataFields.gene_name)], formatter:formatGeneName}
             );
         }
     }
+    var columns2highlight = {
+      'GO IDs'               : { },
+      'Probe IDs'            : tuplesToObj([dataFields.reporter, null]),
+      'Genes/Accession Nos.' : tuplesToObj([dataFields.accnum, null], [dataFields.gsymbol, null]),
+      'Gene Names/Desc.'     : tuplesToObj([dataFields.gsymbol, null], [dataFields.gene_name, null])
+    };
+    var currScope = columns2highlight[scope];
 
+    // =======================================================================
     function wrapAccNum(b, classString, args) {
         var uri, database;
         var organism = args[0];
+        var organism_latin = args[1];
+        if (organism_latin !== null) {
+            organism_latin = organism_latin.split(/\s+/).join('_');
+        }
 
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
             // Ensembl IDs have a very specific format
@@ -310,7 +341,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             object_forEach({
                 idx     : 'Gene',
                 q       : b,
-                species : 'all'
+                species : (organism_latin === null ? 'all' : organism_latin)
             }, function(key, val) {
                 this.push(key + '=' + encodeURIComponent(val));
             }, []).join('&');
@@ -333,9 +364,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
         return '<a ' + classTuple + ' title="Search ' + database + ' for ' + b + '" target="_blank" href="' + uri + '">' + b + '</a>';
     }
 
+    // =======================================================================
     function wrapGeneSymbol(b, classString, args) {
         var uri, database;
         var organism = args[0];
+        var organism_latin = args[1];
+        if (organism_latin !== null) {
+            organism_latin = organism_latin.split(/\s+/).join('_');
+        }
 
         if (b.match(/^\w+_similar_to/)) {
             // Extract gene symbol from '_similar_to' match
@@ -349,7 +385,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             object_forEach({
                 idx     : 'Gene',
                 q       : b,
-                species : 'all'
+                species : (organism_latin === null ? 'all' : organism_latin)
             }, function(key, val) {
                 this.push(key + '=' + encodeURIComponent(val));
             }, []).join('&');
@@ -381,6 +417,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         return '<a ' + classTuple + ' title="Search ' + database + ' for ' + b + '" target="_blank" href="' + uri + '">' + b + '</a>';
     }
 
+    // =======================================================================
     function formatSymbols(symbol, colKey, wrapperFun, args) {
         var doMatch = currScope.hasOwnProperty(colKey) && regex_obj !== null;
 

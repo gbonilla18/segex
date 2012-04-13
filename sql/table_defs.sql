@@ -271,7 +271,8 @@ DROP TABLE IF EXISTS `species`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `species` (
   `sid` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `sname` varchar(120) NOT NULL,
+  `sname` varchar(64) NOT NULL,
+  `slatin` varchar(64) DEFAULT NULL,
   PRIMARY KEY (`sid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -327,4 +328,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-04-12 14:09:19
+-- Dump completed on 2012-04-13 18:04:17
