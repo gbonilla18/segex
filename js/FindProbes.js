@@ -222,15 +222,12 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
     var formatLocation = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
-            elCell.innerHTML = forEach(oData.split(/\s*;\s*/), function(locus) {
-                // Example of input data:
-                // 5:LINESTRING(0 8865925,0 8865984)
-                var matches = locus.match(/\b([^\s]+):LINESTRING\(\d+\s+(\d+)\s*,\s*\d+\s+(\d+)\)/);
-                var chr = matches[1];
-                var start = matches[2];
-                var end = matches[3];
-                this.push('chr' + chr + ':' + start + '-' + end);
-            }, []).join(', ');
+            // Example of input data:
+            // 5:LINESTRING(0 8865925,0 8865984)
+            var re = /\b([^\s]+):LINESTRING\(\d+\s+(\d+)\s*,\s*\d+\s+(\d+)\)/gi;
+            elCell.innerHTML = oData.replace(re, function(match, chr, start, end) {
+                return 'chr' + chr + ':' + start + '-' + end;
+            });
         } else {
             elCell.innerHTML = '';
         }

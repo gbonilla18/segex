@@ -521,7 +521,8 @@ YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
 YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
-        idPrefix: 'geneannot_accnum'
+        idPrefix: 'geneannot_accnum',
+        minChecked: 1
     });
 
 });

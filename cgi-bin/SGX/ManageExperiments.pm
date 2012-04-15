@@ -375,7 +375,8 @@ YAHOO.util.Event.addListener(window,'load',function(){
         isDefinedSelection
     );
     setupCheckboxes({
-        idPrefix: 'datafile'
+        idPrefix: 'datafile',
+        minChecked: 1
     });
 });
 END_SETUPTOGGLES

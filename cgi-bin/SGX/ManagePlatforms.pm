@@ -440,7 +440,8 @@ YAHOO.util.Event.addListener(window,'load',function(){
     });
 
     setupCheckboxes({
-        idPrefix: 'annot_genome'
+        idPrefix: 'annot_genome',
+        minChecked: 2
     });
 
 });
@@ -1036,7 +1037,7 @@ END_info
                         $q,
                         id    => 'annot_genome',
                         items => [
-                            probe2 => {
+                            probe => {
                                 -checked  => 'checked',
                                 -disabled => 'disabled',
                                 -value    => 'Probe ID'
