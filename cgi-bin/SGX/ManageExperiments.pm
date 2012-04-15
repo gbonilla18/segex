@@ -200,8 +200,6 @@ sub new {
                         label          => 'Study',
                         parser         => 'number',
                         __type__       => 'popup_menu',
-                        -multiple      => 'multiple',
-                        -size          => 7,
                         __special__    => 1,
                         __optional__   => 1,
                         __createonly__ => 1
@@ -388,7 +386,8 @@ END_SETUPTOGGLES
             # default: show all studies or studies for a specific platform
             platforms         => undef,
             platform_by_study => 1,
-            studies           => 1
+            studies           => 1,
+            extra_studies => { '' => { description => '@Unassigned Experiments' } }
         )
     };
 

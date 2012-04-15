@@ -8,8 +8,8 @@ use SGX::Abstract::Exception ();
 use Scalar::Util qw/looks_like_number/;
 require Data::UUID;
 
-my @parser = (
-    sub {
+my %parse_types = (
+    probe_id => sub {
 
         # Regular expression for the first column (probe/reporter id) reads as
         # follows: from beginning to end, match any character other than [space,
@@ -23,82 +23,50 @@ my @parser = (
                 error => 'Cannot parse probe ID on line ' . shift );
         }
     },
-    (
-        $upload_ratio
-        ? sub {
+    ratio => sub {
 
        # Note: expression 'my ($x) = shift =~ /(.*)/' untaints input value and
        # assigns it to $x (untainting is important when perl -T option is used).
-            my ($x) = shift =~ /(.*)/;
-            if ( looks_like_number($x) && $x >= 0 ) {
-                return $x;
-            }
-            else {
-                SGX::Exception::User->throw(
-                    error => 'Ratio not a decimal r >= 0.0 on line ' . shift );
-            }
-          }
-        : ()
-    ),
-    (
-        $upload_fchange
-        ? sub {
-            my ($x) = shift =~ /(.*)/;
-            if ( looks_like_number($x) && abs($x) >= 1.0 ) {
-                return $x;
-            }
-            else {
-                SGX::Exception::User->throw(
-                    error => 'Fold change not a decimal |fc| >= 1.0 ' . shift );
-            }
-          }
-        : ()
-    ),
-    (
-        $upload_intensity1
-        ? sub {
-            my ($x) = shift =~ /(.*)/;
-            if ( looks_like_number($x) && $x >= 0.0 ) {
-                return $x;
-            }
-            else {
-                SGX::Exception::User->throw(
-                    error => 'Intensity 1 not a decimal i1 >= 0 on line '
-                      . shift );
-            }
-          }
-        : ()
-    ),
-    (
-        $upload_intensity2
-        ? sub {
-            my ($x) = shift =~ /(.*)/;
-            if ( looks_like_number($x) && $x >= 0.0 ) {
-                return $x;
-            }
-            else {
-                SGX::Exception::User->throw(
-                    error => 'Intensity 2 not a decimal i2 >= 0 on line '
-                      . shift );
-            }
-          }
-        : ()
-    ),
-    (
-        $upload_pvalue1
-        ? sub {
-            my ($x) = shift =~ /(.*)/;
-            if ( looks_like_number($x) && $x >= 0.0 && $x <= 1.0 ) {
-                return $x;
-            }
-            else {
-                SGX::Exception::User->throw(
-                    error => 'P-value not a decimal 0.0 <= p <= 1.0 on line '
-                      . shift );
-            }
-          }
-        : ()
-    )
+        my ($x) = shift =~ /(.*)/;
+        if ( looks_like_number($x) && $x >= 0 ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Ratio not a decimal r >= 0.0 on line ' . shift );
+        }
+    },
+    fchange => sub {
+        my ($x) = shift =~ /(.*)/;
+        if ( looks_like_number($x) && abs($x) >= 1.0 ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Fold change not a decimal |fc| >= 1.0 ' . shift );
+        }
+    },
+    intensity => sub {
+        my ($x) = shift =~ /(.*)/;
+        if ( looks_like_number($x) && $x >= 0.0 ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'Intensity not a decimal >= 0 on line ' . shift );
+        }
+    },
+    pvalue => sub {
+        my ($x) = shift =~ /(.*)/;
+        if ( looks_like_number($x) && $x >= 0.0 && $x <= 1.0 ) {
+            return $x;
+        }
+        else {
+            SGX::Exception::User->throw(
+                error => 'P-value not a decimal 0.0 <= p <= 1.0 on line '
+                  . shift );
+        }
+    }
 );
 
 #===  CLASS METHOD  ============================================================
@@ -153,13 +121,28 @@ sub uploadData {
     my $upload_pvalue1    = defined( $q->param('pvalue1') );
     my $upload_pvalue2    = defined( $q->param('pvalue2') );
     my $upload_pvalue3    = defined( $q->param('pvalue3') );
+    my $upload_pvalue4    = defined( $q->param('pvalue4') );
 
     require SGX::CSV;
+
+    my @parser = (
+        $parse_types{probe_id},
+        ( $upload_ratio      ? $parse_types{ratio}     : () ),
+        ( $upload_fchange    ? $parse_types{fchange}   : () ),
+        ( $upload_intensity1 ? $parse_types{intensity} : () ),
+        ( $upload_intensity2 ? $parse_types{intensity} : () ),
+        ( $upload_pvalue1    ? $parse_types{pvalue}    : () ),
+        ( $upload_pvalue2    ? $parse_types{pvalue}    : () ),
+        ( $upload_pvalue3    ? $parse_types{pvalue}    : () ),
+        ( $upload_pvalue4    ? $parse_types{pvalue}    : () )
+    );
+
     my ( $outputFileNames, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages( $delegate, $args{filefield},
         parser => \@parser );
 
     my ($outputFileName) = @$outputFileNames;
+    return if not defined $outputFileName;
 
     my $totalProbes = $self->countProbes();
 
@@ -277,8 +260,10 @@ END_insertResponse
 
     my $create_cmd1 = $delegate->_create_command();
     my $dbh         = $delegate->{_dbh};
+
+    # study id must be defined and numeric for a study link to be created
     my $create_cmd2 =
-      defined( $self->{_stid} )
+      (defined($self->{_stid}) && $self->{_stid} =~ m/^\d+$/)
       ? $dbh->prepare('INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)')
       : undef;
 
