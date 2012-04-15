@@ -72,6 +72,11 @@ sub new {
                                 $q,
                                 id    => 'annot_probe',
                                 items => [
+                                    probe => {
+                                        -checked  => 'checked',
+                                        -disabled => 'disabled',
+                                        -value    => 'Probe ID'
+                                    },
                                     probe_seq => {
                                         -checked => 'checked',
                                         -value   => 'Probe Sequence',
@@ -338,8 +343,7 @@ sub form_create_head {
 YAHOO.util.Event.addListener(window,'load',function(){
     setupCheckboxes({
         idPrefix:   'annot_probe',
-        keyName:    'Probe ID',
-        minChecked: 0
+        minChecked: 1
     });
 });
 END_SETUPTOGGLES
@@ -432,13 +436,11 @@ YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
         idPrefix:   'annot_probe',
-        keyName:    'Probe ID',
-        minChecked: 0
+        minChecked: 1
     });
 
     setupCheckboxes({
-        idPrefix: 'annot_genome',
-        keyName:  'Probe ID'
+        idPrefix: 'annot_genome'
     });
 
 });
@@ -1034,6 +1036,11 @@ END_info
                         $q,
                         id    => 'annot_genome',
                         items => [
+                            probe2 => {
+                                -checked  => 'checked',
+                                -disabled => 'disabled',
+                                -value    => 'Probe ID'
+                            },
                             map_loci => {
                                 -checked => 'checked',
                                 -value   => 'Mapping Locations'

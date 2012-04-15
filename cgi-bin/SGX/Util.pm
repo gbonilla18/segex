@@ -10,7 +10,7 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
-  equal bind_csv_handle notp file_opts_html file_opts_columns distinct 
+  equal bind_csv_handle notp file_opts_html file_opts_columns distinct
   dec2indexes32 locationAsTextToCanon abbreviate/;
 
 #===  FUNCTION  ================================================================
@@ -62,8 +62,8 @@ sub locationAsTextToCanon {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub dec2indexes32 {
-    my @a = reverse(split('', unpack('B32', pack('N', shift))));
-    return grep { $a[$_] } 0..$#a;
+    my @a = reverse( split( '', unpack( 'B32', pack( 'N', shift ) ) ) );
+    return grep { $a[$_] } 0 .. $#a;
 }
 
 #===  FUNCTION  ================================================================
@@ -209,30 +209,32 @@ sub file_opts_columns {
                 -class => 'pluscol',
                 -title => 'Click to customize which columns to upload'
             },
-            '+ Columns to upload'
+            '+ Columns in file'
         )
       ),
       $q->div(
         { -id => "${id}_container", -class => 'dd_collapsible' },
-        map {
-            my ( $key, $val ) = @$_;
-            $q->input(
-                {
-                    -type  => 'checkbox',
-                    -name  => $key,
-                    -id    => "check_$key",
-                    -title => "Upload $key",
-                    %$val
-                }
-              )
-          } tuples($items)
-      ),
-      $q->div(
-        {
-            -class => 'hint visible',
-            -id    => "${id}_hint"
-        },
-        ''
+        (
+            map {
+                my ( $key, $val ) = @$_;
+                $q->input(
+                    {
+                        -type  => 'checkbox',
+                        -name  => $key,
+                        -id    => "check_$key",
+                        -title => "Upload $key",
+                        %$val
+                    }
+                  )
+              } tuples($items)
+        ),
+        $q->div(
+            {
+                -class => 'hint visible',
+                -id    => "${id}_hint"
+            },
+            ''
+        )
       );
 }
 

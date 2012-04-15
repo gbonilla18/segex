@@ -521,8 +521,7 @@ YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
 YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
-        idPrefix: 'geneannot_accnum',
-        keyName:  'Gene Symbol'
+        idPrefix: 'geneannot_accnum'
     });
 
 });
@@ -591,6 +590,11 @@ END_info
                         $q,
                         id    => 'geneannot_accnum',
                         items => [
+                            gene_symbols => {
+                                -checked => 'checked',
+                                -disabled => 'disabled',
+                                -value => 'Gene Symbol'
+                            },
                             gene_name => {
                                 -checked => 'checked',
                                 -value   => 'Gene Name'

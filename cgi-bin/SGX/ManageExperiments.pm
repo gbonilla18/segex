@@ -117,6 +117,11 @@ sub new {
                                 $q,
                                 id    => 'datafile',
                                 items => [
+                                    probe => {
+                                        -checked  => 'checked',
+                                        -disabled => 'disabled',
+                                        -value    => 'Probe ID'
+                                    },
                                     ratio => {
                                         -checked => 'checked',
                                         -value   => 'Ratio'
@@ -135,11 +140,11 @@ sub new {
                                     },
                                     pvalue1 => {
                                         -checked => 'checked',
-                                        -value   => 'P-Value (1)'
+                                        -value   => 'P-Value 1'
                                     },
-                                    pvalue2 => { -value => 'P-Value (2)' },
-                                    pvalue3 => { -value => 'P-Value (3)' },
-                                    pvalue4 => { -value => 'P-Value (4)' }
+                                    pvalue2 => { -value => 'P-Value 2' },
+                                    pvalue3 => { -value => 'P-Value 3' },
+                                    pvalue4 => { -value => 'P-Value 4' }
                                 ]
                             )
                         )
@@ -372,8 +377,7 @@ YAHOO.util.Event.addListener(window,'load',function(){
         isDefinedSelection
     );
     setupCheckboxes({
-        idPrefix: 'datafile',
-        keyName:  'Probe ID'
+        idPrefix: 'datafile'
     });
 });
 END_SETUPTOGGLES

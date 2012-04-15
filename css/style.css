@@ -388,6 +388,15 @@ img#schema {
 	background: -webkit-gradient(linear, left top, left bottom, from(#bbbb99), to(#909080)); /* for webkit browsers */
 	background: -moz-linear-gradient(top, #bbbb99, #909080); /* for firefox 3.6+ */
 }
+
+/***** make disabled buttons appear dark-grey */
+.yui-skin-sam .yui-button-disabled button {
+	color:#fff;
+	background: #a0a0a0; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#a0a0a0', endColorstr='#555555'); /* for IE */
+	background: -webkit-gradient(linear, left top, left bottom, from(#a0a0a0), to(#555555)); /* for webkit browsers */
+	background: -moz-linear-gradient(top, #a0a0a0, #555555); /* for firefox 3.6+ */
+}
 /************* tmp drag-drop ******************/
 div.workarea {
 	float:left;

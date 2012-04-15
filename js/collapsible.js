@@ -15,8 +15,8 @@ exports.setupCheckboxes = function(obj) {
     var buttons = forEach(checkboxIds, function(el) {
         var button = new YAHOO.widget.Button(el.id);
         if (button.get('checked')) { count_checked++; }
-        this[el.id] = button;
-    }, {});
+        this.push(button);
+    }, []);
 
     // event handlers
     var beforeCheckedChange = function(ev) {
@@ -27,14 +27,14 @@ exports.setupCheckboxes = function(obj) {
         updateBanner();
     };
 
-    object_forValues(buttons, function(btn) {
+    forEach(buttons, function(btn) {
         btn.addListener("beforeCheckedChange", beforeCheckedChange);
         btn.addListener("checkedChange", checkedChange);
     });
     var banner = document.getElementById(idPrefix + '_hint');
     function updateBanner() {
-        var bannerText = "<p>The file should contain the following columns:</p><ol><li>" + obj.keyName + "</li>";
-        object_forValues(buttons, function(button) {
+        var bannerText = "<p>The file should contain the following columns:</p><ol>";
+        forEach(buttons, function(button) {
             if (button.get('checked')) {
                 bannerText += "<li>" + button.get('value') + "</li>";
             }
