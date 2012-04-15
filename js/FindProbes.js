@@ -220,6 +220,21 @@ YAHOO.util.Event.addListener(window, "load", function() {
             elCell.innerHTML = '';
         }
     };
+    var formatLocation = function(elCell, oRecord, oColumn, oData) {
+        if (oData !== null) {
+            elCell.innerHTML = forEach(oData.split(/\s*;\s*/), function(locus) {
+                // Example of input data:
+                // 5:LINESTRING(0 8865925,0 8865984)
+                var matches = locus.match(/\b([^\s]+):LINESTRING\(\d+\s+(\d+)\s*,\s*\d+\s+(\d+)\)/);
+                var chr = matches[1];
+                var start = matches[2];
+                var end = matches[3];
+                this.push('chr' + chr + ':' + start + '-' + end);
+            }, []).join(', ');
+        } else {
+            elCell.innerHTML = '';
+        }
+    };
 
     var queriedPhrases = 
         (match === 'Full-Word') ?  splitIntoPhrases(queryText) : queryText.split(/[,\s]+/);
@@ -298,7 +313,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 {key:dataFields.probe_sequence, sortable:true, resizeable:true,
                     label:data.headers[parseInt(dataFields.probe_sequence)], formatter:formatSequence},
                 {key:dataFields.locus, sortable:true, resizeable:true,
-                    label:data.headers[parseInt(dataFields.locus)]}
+                    label:data.headers[parseInt(dataFields.locus)], formatter:formatLocation}
             );
         }
         myColumnDefs.push(

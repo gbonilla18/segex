@@ -1331,7 +1331,7 @@ END_sql_subset_by_project
         push @select_fields,
           (
             "probe.probe_sequence AS 'Probe Sequence'",
-"GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Locus'",
+"GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator '; ') AS 'Locus'",
 "group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
           );
         if ( !defined( $self->{_loc_chr} ) ) {
@@ -1384,15 +1384,6 @@ END_XTableQuery
     # after any data were fetched.
     my @headers = @{ $sth->{NAME} };
     my $data    = $sth->fetchall_arrayref;
-
-    #---------------------------------------------------------------------------
-    #  Transform location info
-    #---------------------------------------------------------------------------
-    if ( $extra_fields > 1 ) {
-        foreach my $row (@$data) {
-            $row->[8] = locationAsTextToCanon( $row->[8] );
-        }
-    }
 
     # return tuple of headers + data array reference
     return ( \@headers, $data );
