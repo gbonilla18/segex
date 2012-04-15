@@ -6,7 +6,6 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 use SGX::Abstract::Exception ();
 use SGX::Config qw/%SEGEX_CONFIG/;
-use Scalar::Util qw/looks_like_number/;
 
 #---------------------------------------------------------------------------
 #  Parse term.txt. GO schema:
@@ -35,13 +34,12 @@ my @term_parser = (
 
     # term id
     sub {
-        my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) ) {
-            return $x;
+        if (shift =~ /(\d+)/) {
+            return $1 + 0;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Second column not numeric on line ' . shift );
+                error => 'Term id not an unsigned integer on line ' . shift );
         }
     },
 
@@ -54,8 +52,7 @@ my @term_parser = (
     # GO accession number
     sub {
         if ( shift =~ /^GO:(\d{7})$/ ) {
-            my $num = $1 + 0;
-            return $num;
+            return $1 + 0;
         }
         else {
             SGX::Exception::Skip->throw(
@@ -82,13 +79,12 @@ my @term_definition_parser = (
 
     # term id
     sub {
-        my ($x) = shift =~ /(.*)/;
-        if ( looks_like_number($x) ) {
-            return $x;
+        if (shift =~ /(\d+)/) {
+            return $1 + 0;
         }
         else {
             SGX::Exception::User->throw(
-                error => 'Second column not numeric on line ' . shift );
+                error => 'Term id not an unsigned integer on line ' . shift );
         }
     },
 
@@ -143,12 +139,13 @@ sub UploadTerms_head {
     my $self = shift;
 
     require SGX::CSV;
-    my ( $outputFileName, $recordsValid ) =
+    my ( $outputFileNames, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         parser      => \@term_parser,
         csv_in_opts => { quote_char => undef },
       );
+    my ($outputFileName) = @$outputFileNames;
 
     my $dbh = $self->{_dbh};
     my $sth = $dbh->prepare(<<"END_loadTerms");
@@ -156,7 +153,7 @@ LOAD DATA LOCAL INFILE ?
 REPLACE
 INTO TABLE go_term
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n' STARTING BY '' (
+LINES STARTING BY '' TERMINATED BY '\n' (
     go_term_id,
     go_name,
     go_term_type,
@@ -186,12 +183,13 @@ sub UploadTermDefs_head {
     my $self = shift;
 
     require SGX::CSV;
-    my ( $outputFileName, $recordsValid ) =
+    my ( $outputFileNames, $recordsValid ) =
       SGX::CSV::sanitizeUploadWithMessages(
         $self, 'file',
         parser      => \@term_definition_parser,
         csv_in_opts => { quote_char => undef },
       );
+    my ($outputFileName) = @$outputFileNames;
 
     my $dbh = $self->{_dbh};
 
@@ -207,7 +205,7 @@ END_loadTermDefs_createTemp
 LOAD DATA LOCAL INFILE ?
 INTO TABLE $temp_table
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n' STARTING BY '' (
+LINES STARTING BY '' TERMINATED BY '\n' (
     go_term_id,
     go_term_definition
 )

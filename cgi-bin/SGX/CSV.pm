@@ -330,24 +330,22 @@ sub csv_rewrite {
         }
 
         # perform validation on each column
-        my @out_fields;
         eval {
-            @out_fields =
-              map {
-                my $val = shift @$fields;
-                ( defined $_ ) ? $_->( $val, $line_num ) : ()
-              } @$parser;
+            $printfun->[0]->(
+                map {
+                    my $val = shift @$fields;
+                    ( defined $_ ) ? $_->( $val, $line_num ) : ()
+                  } @$parser
+            );
             1;
         } or do {
             my $exception = $@;
-            if ( $exception->isa('SGX::Exception::Skip') ) {
-                @out_fields = ();    # skip line
-            }
-            else {
-                $exception->throw();    # rethrow otherwise
+
+            # only skip 'Skip' exception (which mean: skip line)
+            if ( !$exception->isa('SGX::Exception::Skip') ) {
+                $exception->throw();
             }
         };
-        $printfun->[0]->(@out_fields);
         return 1;
     };
 

@@ -103,7 +103,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=141 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -139,7 +139,9 @@ CREATE TABLE `go_term` (
   `go_term_type` varchar(55) NOT NULL,
   `go_name` varchar(255) NOT NULL DEFAULT '',
   `go_term_definition` text,
-  PRIMARY KEY (`go_acc`),
+  `go_term_id` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`go_term_id`),
+  UNIQUE KEY `go_acc` (`go_acc`),
   FULLTEXT KEY `full` (`go_name`,`go_term_definition`),
   FULLTEXT KEY `names` (`go_name`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
@@ -328,4 +330,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-04-13 18:04:17
+-- Dump completed on 2012-04-15  0:42:57
