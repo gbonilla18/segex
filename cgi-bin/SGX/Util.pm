@@ -217,12 +217,12 @@ sub file_opts_columns {
         (
             map {
                 my ( $key, $val ) = @$_;
-                my $long_name = $val->{-value} || $key;
+                my $title = $val->{-title} || ( $val->{-value} || $key );
                 $q->input(
                     {
                         -type  => 'checkbox',
                         -name  => $key,
-                        -title => "Upload $long_name",
+                        -title => $title,
                         %$val
                     }
                   )

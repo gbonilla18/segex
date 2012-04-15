@@ -441,7 +441,7 @@ YAHOO.util.Event.addListener(window,'load',function(){
 
     setupCheckboxes({
         idPrefix: 'annot_genome',
-        minChecked: 2
+        minChecked: 1
     });
 
 });
@@ -468,8 +468,13 @@ sub UploadAnnot_head {
     my $species_id = $self->{_id_data}->{sid};
     my $pid        = $self->{_id};
 
-    my $q              = $self->{_cgi};
-    my $upload_maploci = defined( $q->param('map_loci') );
+    my $q                 = $self->{_cgi};
+    my $upload_maploci    = defined( $q->param('map_loci') );
+    my $upload_chromosome = defined( $q->param('chromosome') );
+    my $upload_start      = defined( $q->param('start') );
+    my $upload_end        = defined( $q->param('end') );
+    my $upload_maploci2   = $upload_chromosome || $upload_start || $upload_end;
+
     my $upload_accnums = defined( $q->param('accnum') );
     my $upload_symbols = defined( $q->param('gene_symbols') );
 
@@ -497,13 +502,34 @@ sub UploadAnnot_head {
         #  get mapping locations (second column)
         #----------------------------------------------------------------------
         if ($upload_maploci) {
-            my @loci;
+
+            # grab locus field
             my $locus = $fields->[$i];
+            $i++;
+
+            my @loci;
             while ( $locus =~ /\b(?:chr|)([^,;\s]+)\s*:\s*(\d+)-(\d+)\b/g ) {
                 push @loci, [ $1, $2, $3 ];
             }
             $print_loci->( $probe_id, @$_ ) for @loci;
-            $i++;
+        }
+        elsif ($upload_maploci2) {
+
+            # use (chromosome, start, end)
+            my ($chr, $start, $end);
+            if ($upload_chromosome) {
+                $chr = $fields->[$i];
+                $i++;
+            }
+            if ($upload_start) {
+                $start = $fields->[$i];
+                $i++;
+            }
+            if ($upload_end) {
+                $end = $fields->[$i];
+                $i++;
+            }
+            $print_loci->( $probe_id, $chr, $start, $end );
         }
 
         #----------------------------------------------------------------------
@@ -1044,8 +1070,12 @@ END_info
                             },
                             map_loci => {
                                 -checked => 'checked',
-                                -value   => 'Mapping Locations'
+                                -value   => 'Mapping Locations',
+                                -title   => 'Mapping Locations (format: chrX:1283237-1283277,chr15:12004558-12004599)'
                             },
+                            chr    => { -value => 'Chromosome' },
+                            start  => { -value => 'Start' },
+                            end    => { -value => 'End' },
                             accnum => {
                                 -checked => 'checked',
                                 -value   => 'Accession Numbers'

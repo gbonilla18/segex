@@ -38,7 +38,7 @@ exports.setupCheckboxes = function(obj) {
             '<p>The file should contain the following columns:</p><ol>' + 
             forEach(buttons, function(button) {
                 if (button.get('checked')) {
-                    this.push("<li>" + button.get('value') + "</li>");
+                    this.push("<li>" + button.get('title') + "</li>");
                 }
             }, []).join('') + 
             '</ol>';
