@@ -232,14 +232,14 @@ sub default_body {
       # experiment table
       $q->div(
         { -class => 'clearfix' },
-        $q->h3('2. Set experiment options:'),
+        $q->h3('2. Specify comparison options:'),
         $q->div( { -class => 'clearfix', -id => 'exp_table' }, '' )
       ),
 
       # form below the table
       $q->div(
         { -class => 'clearfix' },
-        $q->h3('3. Compare:'),
+        $q->h3('3. Run comparison:'),
         $q->start_form(
             -method  => 'POST',
             -enctype => 'multipart/form-data',
