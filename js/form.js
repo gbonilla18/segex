@@ -16,6 +16,18 @@ function zeroPad(num, places) {
     return arr.join("0") + num;
 }
 //==============================================================================
+// zeroPad
+// will add commas every three decimals to an integer representation of string
+//==============================================================================
+function formatCommas(numString) {
+    var re = /(-?\d+)(\d{3})/;
+    while (re.test(numString)) {
+        numString = numString.replace(re, "$1,$2");
+    }
+    return numString;
+}
+
+//==============================================================================
 // abbreviate
 //==============================================================================
 function abbreviate(str, len) {

@@ -226,7 +226,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             // 5:LINESTRING(0 8865925,0 8865984)
             var re = /\b([^\s]+):LINESTRING\(\d+\s+(\d+)\s*,\s*\d+\s+(\d+)\)/gi;
             elCell.innerHTML = oData.replace(re, function(match, chr, start, end) {
-                return 'chr' + chr + ':' + start + '-' + end;
+                return 'chr' + chr + ':' + formatCommas(start) + '-' + formatCommas(end);
             });
         } else {
             elCell.innerHTML = '';

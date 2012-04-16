@@ -11,7 +11,7 @@ use Scalar::Util qw/looks_like_number/;
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
   equal bind_csv_handle notp file_opts_html file_opts_columns distinct
-  dec2indexes32 locationAsTextToCanon abbreviate/;
+  dec2indexes32 locationAsTextToCanon abbreviate coord2int/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  locationAsTextToCanon
@@ -48,6 +48,27 @@ sub locationAsTextToCanon {
         push @loc_transform, "chr$1:$2-$3";
     }
     return join( ' ', @loc_transform );
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  coord2int
+#      PURPOSE:  Convert string coordinate into unsigned integer
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub coord2int {
+    my $coord = shift;
+    $coord = '' if not defined $coord;
+    $coord =~ s/,//g;    # rid of thousands separators
+    if ($coord =~ m/^\+*(\d+)$/) {
+        return int($1);
+    } else {
+        return undef;
+    }
 }
 
 #===  FUNCTION  ================================================================

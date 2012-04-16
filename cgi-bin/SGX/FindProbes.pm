@@ -11,7 +11,7 @@ require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util
   qw/car cdr trim min bind_csv_handle distinct file_opts_html dec2indexes32
-  locationAsTextToCanon/;
+  locationAsTextToCanon coord2int/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
@@ -493,8 +493,8 @@ sub FindProbes_init {
         $scope              = car $q->param('scope');
         $self->{_loc_spid}  = car $q->param('spid');
         $self->{_loc_chr}   = car $q->param('chr');
-        $self->{_loc_start} = car $q->param('start');
-        $self->{_loc_end}   = car $q->param('end');
+        $self->{_loc_start} = coord2int( car $q->param('start') );
+        $self->{_loc_end}   = coord2int( car $q->param('end') );
     }
     $self->{_scope} = $scope;
 
@@ -813,9 +813,7 @@ sub build_location_predparam {
             # chromosome was specified.
             my $loc_start = $self->{_loc_start};
             my $loc_end   = $self->{_loc_end};
-            if (   ( defined $loc_start and $loc_start ne '' )
-                && ( defined $loc_end and $loc_end ne '' ) )
-            {
+            if ( defined($loc_start) && defined($loc_end) ) {
                 $query .=
 ' AND Intersects(LineString(Point(0,?), Point(0,?)), zinterval)';
                 push @param, ( $loc_start, $loc_end );

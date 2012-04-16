@@ -7,7 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use Scalar::Util qw/looks_like_number/;
 use SGX::Debug qw/Dumper/;
-use SGX::Util qw/car file_opts_html file_opts_columns/;
+use SGX::Util qw/car file_opts_html file_opts_columns coord2int/;
 use SGX::Abstract::Exception ();
 require Data::UUID;
 use List::Util qw/sum/;
@@ -508,8 +508,8 @@ sub UploadAnnot_head {
             $i++;
 
             my @loci;
-            while ( $locus =~ /\b(?:chr|)([^,;\s]+)\s*:\s*(\d+)-(\d+)\b/g ) {
-                push @loci, [ $1, $2, $3 ];
+            while ( $locus =~ /\b(?:chr|)([^,;\s]+)\s*:\s*([,\d]+)-([,\d]+)\b/g ) {
+                push @loci, [ $1, coord2int($2), coord2int($3) ];
             }
             $print_loci->( $probe_id, @$_ ) for @loci;
         }
@@ -1072,7 +1072,7 @@ END_info
                             map_loci => {
                                 -checked => 'checked',
                                 -value   => 'Mapping Locations',
-                                -title   => 'Mapping Locations (format: chrX:1283237-1283277,chr15:12004558-12004599)'
+                                -title   => 'Mapping Locations (format: chrX:1,283,237-1,283,277 chr15:12,004,558-12,004,599)'
                             },
                             chr    => { -value => 'Chromosome' },
                             start  => { -value => 'Start' },
