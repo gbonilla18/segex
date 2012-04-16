@@ -109,8 +109,7 @@ sub new {
                         label          => 'Upload Data File',
                         __type__       => 'filefield',
                         __special__    => 1,
-                        __createonly__ => 1,
-                        __readonly__   => 1,
+                        __optional__   => 1,
                         __extra_html__ => $q->div(
                             file_opts_html( $q, 'fileOpts' ),
                             file_opts_columns(
@@ -348,6 +347,34 @@ sub get_id_data {
     return ( $pid, $stid );
 }
 
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
+#       METHOD:  readrow_head
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::readrow_head
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub readrow_head {
+    my $self = shift;
+    my ( $js_src_yui, $js_src_code, $css_src_yui ) =
+      @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
+
+    my $clearAnnotURI = $self->get_resource_uri( b => 'clearAnnot' );
+    push @$css_src_yui, 'button/assets/skins/sam/button.css';
+    push @$js_src_yui,  'button/button-min.js';
+    push @$js_src_code, ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
+YAHOO.util.Event.addListener(window,'load',function(){
+    setupCheckboxes({
+        idPrefix: 'datafile',
+        minChecked: 1
+    });
+});
+END_SETUPTOGGLES
+    return $self->SUPER::readrow_head();
+}
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
 #       METHOD:  form_create_head
@@ -598,6 +625,41 @@ sub form_assign_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
+#       METHOD:  default_update
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::default_update
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_update {
+    my $self = shift;
+    return if not defined $self->{_id};
+
+    my $q             = $self->{_cgi};
+    my $filefield     = 'file';
+    my $filefield_val = $q->param($filefield);
+    if ( defined($filefield_val) and $filefield_val ne '' ) {
+        # code below should be executed only when upload actually happens
+        require SGX::UploadData;
+        my $data = SGX::UploadData->new( delegate => $self );
+        eval {
+            $self->{_upload_completed} = $data->uploadData( filefield => 'file' , update => 1);
+        } or do {
+            my $exception = $@;
+            my $msg = ( defined $exception ) ? "$exception" : '';
+            $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
+        };
+    }
+
+    # show body for "readrow" 
+    $self->set_action('');
+    return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageExperiments
 #       METHOD:  default_create
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -614,7 +676,7 @@ sub default_create {
     my $data = SGX::UploadData->new( delegate => $self );
 
     eval {
-        $self->{_upload_completed} = $data->uploadData( filefield => 'file' );
+        $self->{_upload_completed} = $data->uploadData( filefield => 'file' , update => 0);
     } or do {
         my $exception = $@;
         my $msg = ( defined $exception ) ? "$exception" : '';

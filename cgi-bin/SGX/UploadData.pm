@@ -112,6 +112,7 @@ sub new {
 sub uploadData {
     my ( $self, %args ) = @_;
     my $delegate = $self->{delegate};
+    my $update   = $args{update};
 
     my $q                 = $delegate->{_cgi};
     my $upload_ratio      = defined( $q->param('ratio') );
@@ -170,7 +171,8 @@ sub uploadData {
             ( $upload_pvalue1    ? 'pvalue1 DOUBLE'    : () ),
             ( $upload_pvalue2    ? 'pvalue2 DOUBLE'    : () ),
             ( $upload_pvalue3    ? 'pvalue3 DOUBLE'    : () ),
-            ( $upload_pvalue4    ? 'pvalue4 DOUBLE'    : () ) )
+            ( $upload_pvalue4    ? 'pvalue4 DOUBLE'    : () ),
+            'UNIQUE KEY reporter (reporter)' )
       );
     push @param, [];
     push @check, undef;
@@ -210,97 +212,147 @@ END_loadData
         }
     };
 
-    if ( $totalProbes == 0 ) {
+    #---------------------------------------------------------------------------
+    #  2 || 3
+    #---------------------------------------------------------------------------
+    my $dbh = $delegate->{_dbh};
+    if ($update) {
+        push @sth, sprintf(
+            <<"END_insertResponse",
+UPDATE microarray
+INNER JOIN probe ON microarray.rid=probe.rid AND microarray.eid=?
+INNER JOIN $temp_table AS temptable USING(reporter)
+SET %s
+END_insertResponse
+            join(
+                ',',
+                ( $upload_ratio ? 'microarray.ratio=temptable.ratio' : () ),
+                (
+                    $upload_fchange
+                    ? 'microarray.foldchange=temptable.foldchange'
+                    : ()
+                ),
+                (
+                    $upload_intensity1
+                    ? 'microarray.intensity1=temptable.intensity1'
+                    : ()
+                ),
+                (
+                    $upload_intensity2
+                    ? 'microarray.intensity2=temptable.intensity2'
+                    : ()
+                ),
+                (
+                    $upload_pvalue1 ? 'microarray.pvalue1=temptable.pvalue1'
+                    : ()
+                ),
+                (
+                    $upload_pvalue2 ? 'microarray.pvalue2=temptable.pvalue2'
+                    : ()
+                ),
+                (
+                    $upload_pvalue3 ? 'microarray.pvalue3=temptable.pvalue3'
+                    : ()
+                ),
+                (
+                    $upload_pvalue4 ? 'microarray.pvalue4=temptable.pvalue4'
+                    : ()
+                )
+            ),
+        );
+        push @param, [ $delegate->{_id} ];
+    }
+    else {
 
     #---------------------------------------------------------------------------
-    #  2
+    #  INSERT/CREATE mode
     #---------------------------------------------------------------------------
-        push @sth, <<"END_insertProbe";
+        if ( $totalProbes == 0 ) {
+            push @sth, <<"END_insertProbe";
 INSERT INTO probe (pid, reporter)
 SELECT ? as pid, reporter
 FROM $temp_table
 END_insertProbe
-        push @param, [ $self->{_pid} ];
-        push @check, undef;
-    }
-
-    #---------------------------------------------------------------------------
-    #  2 || 3
-    #---------------------------------------------------------------------------
-    push @sth, sprintf(
-        <<"END_insertResponse",
+            push @param, [ $self->{_pid} ];
+            push @check, undef;
+        }
+        push @sth, sprintf(
+            <<"END_insertResponse",
 INSERT INTO microarray (%s)
 SELECT %s FROM probe
 INNER JOIN $temp_table AS temptable USING(reporter)
 WHERE probe.pid=?
 END_insertResponse
-        join( ',',
-            'rid',
-            'eid',
-            ( $upload_ratio      ? 'ratio'      : () ),
-            ( $upload_fchange    ? 'foldchange' : () ),
-            ( $upload_intensity1 ? 'intensity1' : () ),
-            ( $upload_intensity2 ? 'intensity2' : () ),
-            ( $upload_pvalue1    ? 'pvalue1'    : () ),
-            ( $upload_pvalue2    ? 'pvalue2'    : () ),
-            ( $upload_pvalue3    ? 'pvalue3'    : () ),
-            ( $upload_pvalue4    ? 'pvalue4'    : () ) ),
-        join( ',',
-            'probe.rid',
-            '? as eid',
-            ( $upload_ratio      ? 'temptable.ratio'      : () ),
-            ( $upload_fchange    ? 'temptable.foldchange' : () ),
-            ( $upload_intensity1 ? 'temptable.intensity1' : () ),
-            ( $upload_intensity2 ? 'temptable.intensity2' : () ),
-            ( $upload_pvalue1    ? 'temptable.pvalue1'    : () ),
-            ( $upload_pvalue2    ? 'temptable.pvalue2'    : () ),
-            ( $upload_pvalue3    ? 'temptable.pvalue3'    : () ),
-            ( $upload_pvalue4    ? 'temptable.pvalue4'    : () ) )
-    );
+            join( ',',
+                'rid',
+                'eid',
+                ( $upload_ratio      ? 'ratio'      : () ),
+                ( $upload_fchange    ? 'foldchange' : () ),
+                ( $upload_intensity1 ? 'intensity1' : () ),
+                ( $upload_intensity2 ? 'intensity2' : () ),
+                ( $upload_pvalue1    ? 'pvalue1'    : () ),
+                ( $upload_pvalue2    ? 'pvalue2'    : () ),
+                ( $upload_pvalue3    ? 'pvalue3'    : () ),
+                ( $upload_pvalue4    ? 'pvalue4'    : () ) ),
+            join( ',',
+                'probe.rid',
+                '? as eid',
+                ( $upload_ratio      ? 'temptable.ratio'      : () ),
+                ( $upload_fchange    ? 'temptable.foldchange' : () ),
+                ( $upload_intensity1 ? 'temptable.intensity1' : () ),
+                ( $upload_intensity2 ? 'temptable.intensity2' : () ),
+                ( $upload_pvalue1    ? 'temptable.pvalue1'    : () ),
+                ( $upload_pvalue2    ? 'temptable.pvalue2'    : () ),
+                ( $upload_pvalue3    ? 'temptable.pvalue3'    : () ),
+                ( $upload_pvalue4    ? 'temptable.pvalue4'    : () ) )
+        );
 
-    my $create_cmd1 = $delegate->_create_command();
-    my $dbh         = $delegate->{_dbh};
+        # study id must be defined and numeric for a study link to be created
+        my $create_cmd1 = $delegate->_create_command();
+        my $create_cmd2 =
+          ( defined( $self->{_stid} ) && $self->{_stid} =~ m/^\d+$/ )
+          ? $dbh->prepare(
+            'INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)')
+          : undef;
+        push @param, [
+            sub {
+                $create_cmd1->();
+                my $eid =
+                  $dbh->last_insert_id( undef, undef, 'experiment', 'eid' );
+                $self->{_eid} = $eid;
+                if ( defined $create_cmd2 ) {
+                    $create_cmd2->execute( $self->{_stid}, $eid );
+                    $create_cmd2->finish();
+                }
+                return $eid;
+            },
+            $self->{_pid}
+        ];
 
-    # study id must be defined and numeric for a study link to be created
-    my $create_cmd2 =
-      (defined($self->{_stid}) && $self->{_stid} =~ m/^\d+$/)
-      ? $dbh->prepare('INSERT INTO StudyExperiment (stid, eid) VALUES (?, ?)')
-      : undef;
-
-    push @param, [
-        sub {
-            $create_cmd1->();
-            my $eid = $dbh->last_insert_id( undef, undef, 'experiment', 'eid' );
-            $self->{_eid} = $eid;
-            if ( defined $create_cmd2 ) {
-                $create_cmd2->execute( $self->{_stid}, $eid );
-                $create_cmd2->finish();
-            }
-            return $eid;
-        },
-        $self->{_pid}
-    ];
-
-    push @check, sub {
-        my $responses     = shift;
-        my $recordsAdded  = $responses->[$#$responses];
-        my $probeCount    = $totalProbes || $responses->[2];
-        my $recordsLoaded = $responses->[1];
-        if ( $recordsAdded != $recordsLoaded ) {
-            my $msg =
+        # updating records (instead of inserting) will cause recordsAdded to be
+        # zero, and changes will be rolled back. Therefore we allow these checks
+        # only in INSERT/CREATE mode.
+        push @check, sub {
+            my $responses     = shift;
+            my $recordsAdded  = $responses->[$#$responses];
+            my $probeCount    = $totalProbes || $responses->[2];
+            my $recordsLoaded = $responses->[1];
+            if ( $recordsAdded != $recordsLoaded ) {
+                my $msg =
 "$recordsLoaded records found in input but only $recordsAdded could be added to database\n";
-            SGX::Exception::User->throw( error => $msg );
-        }
-        elsif ( $recordsAdded > $probeCount ) {
-            SGX::Exception::User->throw(
-                error => "Uploaded file contains duplicate data.\n" );
-        }
-        elsif ( $recordsAdded < $probeCount ) {
-            my $msg =
+                SGX::Exception::User->throw( error => $msg );
+            }
+            elsif ( $recordsAdded > $probeCount ) {
+                SGX::Exception::User->throw(
+                    error => "Uploaded file contains duplicate data.\n" );
+            }
+            elsif ( $recordsAdded < $probeCount ) {
+                my $msg =
 "WARNING: Added data to $recordsAdded probes (out of $probeCount probes under this platform)";
-            $delegate->add_message( { -class => 'error' }, $msg );
-        }
-    };
+                $delegate->add_message( { -class => 'error' }, $msg );
+            }
+        };
+    }
 
     return SGX::CSV::delegate_fileUpload(
         delegate   => $delegate,
