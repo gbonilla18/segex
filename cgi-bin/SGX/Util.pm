@@ -45,7 +45,7 @@ sub locationAsTextToCanon {
     while ( $loc_data =~
         m/\b([^\s]+):LINESTRING\(\d+\s+(\d+)\s*,\s*\d+\s+(\d+)\)/gi )
     {
-        push @loc_transform, "chr$1:$2-$3";
+        push @loc_transform, "chr$1:" . int2coord($2) . '-' . int2coord($3);
     }
     return join( ' ', @loc_transform );
 }
@@ -63,12 +63,30 @@ sub locationAsTextToCanon {
 sub coord2int {
     my $coord = shift;
     $coord = '' if not defined $coord;
-    $coord =~ s/,//g;    # rid of thousands separators
-    if ($coord =~ m/^\+*(\d+)$/) {
+    $coord =~ tr/,//d;    # rid of thousands separators
+    if ( $coord =~ m/^\+*(\d+)$/ ) {
         return int($1);
-    } else {
+    }
+    else {
         return undef;
     }
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  coord2int
+#      PURPOSE:  Convert unsigned integer into coordinate string (basically
+#                add thousand separator commas).
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub int2coord {
+    my $number = shift;
+    $number =~ s/(\d{1,3}?)(?=(\d{3})+$)/$1,/g;
+    return $number;
 }
 
 #===  FUNCTION  ================================================================
