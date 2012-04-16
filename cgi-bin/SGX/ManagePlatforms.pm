@@ -519,6 +519,7 @@ sub UploadAnnot_head {
             my ($chr, $start, $end);
             if ($upload_chromosome) {
                 $chr = $fields->[$i];
+                $chr =~ s/^chr//;
                 $i++;
             }
             if ($upload_start) {
