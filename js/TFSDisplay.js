@@ -43,8 +43,16 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
     var formatterReqSignif = function(elCell, oRecord, oColumn, oData) {
         var answer = isSignif(oRecord);
-        elCell.innerHTML = (answer === null) ? 'n/a'
-            : (isSignif(oRecord) ? '<strong>Yes</strong>' : 'No');
+        if (answer === null) {
+            dom.addClass(elCell, 'disabled');
+            elCell.innerHTML = 'n/a';
+        } else if (isSignif(oRecord)) {
+            dom.removeClass(elCell, 'disabled');
+            elCell.innerHTML = '<strong>Y</strong>';
+        } else {
+            dom.addClass(elCell, 'disabled');
+            elCell.innerHTML = 'N';
+        }
     };
     var summary_data = new YAHOO.util.DataSource(_xExpList);
     summary_data.responseSchema = { fields: [

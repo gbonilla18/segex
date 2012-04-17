@@ -153,7 +153,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.appendChild(btn_csv);
     };
     var formatMark = function(elCell, oRecord, oColumn, oData) {
-        if (oData === 'S') {
+        if (oData === 'Y') {
             dom.removeClass(elCell, 'disabled');
             elCell.innerHTML = '<strong>' + oData + '</strong>';
         } else {
@@ -202,7 +202,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     if ((1 << i) & fs) {
                         significant_in++;
                         //expected *= (hc[i] / total_probes);
-                        this.push('S');
+                        this.push('Y');
                     } else {
                         //expected *= ((total_probes - hc[i]) / total_probes);
                         this.push('N');
