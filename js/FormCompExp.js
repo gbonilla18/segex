@@ -8,6 +8,7 @@ YAHOO.util.Event.addListener(window, "load", function () {
 
     // Drop progressively enhanced content class, just before creating the
     // module
+    var user_pse = dom.get('user_pse');
     var user_selection = dom.get('user_selection');
     var specialFilterForm_el = dom.get("specialFilterForm");
     dom.removeClass(specialFilterForm_el, "yui-pe-content");
@@ -201,9 +202,9 @@ YAHOO.util.Event.addListener(window, "load", function () {
         "exp_table", myColumnDefs, myDataSource, {}
     );
 
-    var selPlatforms = dom.get('pid');
-    var selStudies = dom.get('stid');
-    var selExperiments = dom.get('eid');
+    var selPlatform = dom.get('pid');
+    var selStudy = dom.get('stid');
+    var selExperiment = dom.get('eid');
 
     function pickExperiment() {
         function incrementParentIfEmpty(parent, child) {
@@ -213,14 +214,14 @@ YAHOO.util.Event.addListener(window, "load", function () {
                 triggerEvent(parent, 'change');
             }
         }
-        incrementParentIfEmpty(selStudies, selExperiments);
-        if (selExperiments.selectedIndex < 0) {
+        incrementParentIfEmpty(selStudy, selExperiment);
+        if (selExperiment.selectedIndex < 0) {
             return;
         }
-        var result = getSelectedValue(selExperiments);
-        selExperiments.selectedIndex++;
-        incrementParentIfEmpty(selStudies, selExperiments);
-        triggerEvent(selExperiments, 'change');
+        var result = getSelectedValue(selExperiment);
+        selExperiment.selectedIndex++;
+        incrementParentIfEmpty(selStudy, selExperiment);
+        triggerEvent(selExperiment, 'change');
         return result;
     }
 
@@ -233,10 +234,9 @@ YAHOO.util.Event.addListener(window, "load", function () {
         myDataTable.addRow(YAHOO.widget.DataTable._cloneObject(record));
     });
 
-    var updateSpeciesSel = function() {
+    var updateSpeciesSel = function(pid) {
         // change species dropdown in filter dialog to the species of the
         // newly selected platform.
-        var pid = getSelectedValue(selPlatforms);
         var platfRoot = PlatfStudyExp[pid];
         var sid = platfRoot.sid;
 
@@ -258,16 +258,39 @@ YAHOO.util.Event.addListener(window, "load", function () {
         triggerEvent(selSpecies, 'change');
         selSpecies.setAttribute('disabled', 'disabled');
     }
-    YAHOO.util.Event.addListener(selPlatforms, 'change', function() {
-        // remove all experiments selected for comparison because they 
-        // belong to a different platform.
-        myDataTable.deleteRows(0, myDataTable.getRecordSet().getLength());
-        updateSpeciesSel();
+    // restore model from old_json
+    var old_json = JSON.parse(user_pse.value || '{}');
+    var platfCurrSel = currentSelection[1].selected = tuplesToObj([old_json.pid]);
+    var studyCurrSel = currentSelection[3].selected = tuplesToObj([old_json.stid]);
+    var experCurrSel = currentSelection[5].selected = tuplesToObj([old_json.eid]);
+    YAHOO.util.Event.addListener(selPlatform, 'change', function() {
+
+        // two things: (1) every time a platform changes, update 'user_pse'
+        // (2) if old value of 'user_pse' does not match new value, delete all
+        // experiments from the comparison
+        //
+        var old_json = JSON.parse(user_pse.value || '{}');
+        var new_pid = getSelectedValue(selPlatform);
+        if (new_pid !== old_json.pid) {
+            
+            // remove all experiments selected for comparison because they 
+            // belong to a different platform.
+            myDataTable.deleteRows(0, myDataTable.getRecordSet().getLength());
+
+            // change species dropdown in filter dialog to the species of the
+            // newly selected platform.
+            updateSpeciesSel(new_pid);
+        }
+        user_pse.value = JSON.stringify({
+            pid: new_pid,
+            stid: getSelectedValue(selStudy),
+            eid: getSelectedValue(selExperiment)
+        });
     });
 
     YAHOO.util.Event.addListener('add', 'click', function() {
-        var pid = getSelectedValue(selPlatforms);
-        var stid = getSelectedValue(selStudies);
+        var pid = getSelectedValue(selPlatform);
+        var stid = getSelectedValue(selStudy);
         var eid = pickExperiment();
         if (typeof pid === 'undefined' || typeof eid === 'undefined') {
             return false;
@@ -297,6 +320,11 @@ YAHOO.util.Event.addListener(window, "load", function () {
                 this.push(record.getData());
             }, []
         );
+        user_pse.value = JSON.stringify({
+            pid: getSelectedValue(selPlatform),
+            stid: getSelectedValue(selStudy),
+            eid: getSelectedValue(selExperiment)
+        });
         user_selection.value = JSON.stringify(data);
     });
 });

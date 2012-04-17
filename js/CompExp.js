@@ -11,6 +11,10 @@ function getExperimentName(oArgs) {
     return oArgs.eid + '. ' + oArgs.study_desc + ': ' + (oArgs.reverse ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1));
 }
 
+//function log_odds(o, e) {
+//    return Math.log(o/e);
+//}
+
 //==============================================================================
 function getGoogleVennURI2() {
     var c = iterateForward(function(fs) {
@@ -100,7 +104,7 @@ function getGoogleVenn() {
 
 //==============================================================================
 function formatterFlagsum (elCell, oRecord, oColumn, oData) {
-    var text = oData === null ? 'all probes' : 'FS ' + oData;
+    var text = oData === null ? (includeAllProbes ? 'all probes' : 'all sign. probes') : 'FS ' + oData;
     elCell.innerHTML = text;
 };
 
@@ -109,9 +113,8 @@ var rowcount_titles = _xExpList.length;
 
 // TFS: all
 var row_all = iterateForward(function(i) {
-    this.push('~');
+    this.push('n/a');
 }, [null], 0, rowcount_titles).concat(null, probe_count);
-
 
 
 YAHOO.util.Event.addListener(window, "load", function() {
@@ -150,7 +153,13 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.appendChild(btn_csv);
     };
     var formatMark = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = '<strong>' + oData + '</strong>';
+        if (oData === 'S') {
+            dom.removeClass(elCell, 'disabled');
+            elCell.innerHTML = '<strong>' + oData + '</strong>';
+        } else {
+            dom.addClass(elCell, 'disabled');
+            elCell.innerHTML = oData;
+        }
     };
     var formatterYesNo = function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = (oData) ? 'Yes' : 'No';
@@ -168,6 +177,16 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.innerHTML = hc[rowNumber];
     };
 
+    // ====== comparison note =========
+    var total_probes = probes_in_platform;
+    var text = 'Total probes in the platform: ' + probes_in_platform + '. ';
+    if (searchFilter !== null) {
+        total_probes = searchFilter.length;
+        text += 'Filtering on ' + total_probes + ' probes.';
+    }
+    dom.get('comparison_note').innerHTML = text;
+    // ================================
+
     var tfs = {
         caption:'Probes grouped by significance in different experiment combinations',
 
@@ -177,15 +196,22 @@ YAHOO.util.Event.addListener(window, "load", function() {
             function(val) {
                 var fs = val.fs;
                 var significant_in = 0;
+                //var expected = total_probes;
                 this.push(iterateForward(function(i) {
                     // test for bit presence
                     if ((1 << i) & fs) {
                         significant_in++;
-                        this.push('x');
+                        //expected *= (hc[i] / total_probes);
+                        this.push('S');
                     } else {
-                        this.push('');
+                        //expected *= ((total_probes - hc[i]) / total_probes);
+                        this.push('N');
                     }
-                }, [fs], 0, rowcount_titles).concat(significant_in, val.c));
+                }, [fs], 0, rowcount_titles).concat(
+                    significant_in, 
+                    val.c 
+                    //log_odds(val.c, expected).toPrecision(3)
+                ));
             }, 
             [row_all]
         ),
@@ -198,6 +224,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         ]).concat(
             { key: 'significant_in', parser: 'number'},
             { key: 'probe_count', parser: 'number'},
+            //{ key: 'log_odds', parser: 'number'},
             { key: 'view_probes' }
         ),
 
@@ -216,11 +243,13 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }, [
     { key: 'fs', sortable:true, resizeable:false, label: 'Flag Sum', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum}
         ]).concat(
-            { key: 'significant_in', sortable:true, resizeable: false, label:'Signif. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
+            { key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
             { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
+            //{ key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Over Expected' },
             { key: 'view_probes', sortable:false, resizeable: true, label:'View report', formatter:formatDownload}
         )
     };
+    YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
 
     // ======= Summary table ==============
     var summary_data = new YAHOO.util.DataSource(_xExpList);
@@ -241,7 +270,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"pValClass", sortable:true, resizeable:false, label:'P-value'},
         {key:"pval", sortable:true, resizeable:false, label:'P <'},
         {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >'},
-        {key:"probe_count", sortable:true, resizeable:false, label:'Probes', formatter:formatterProbeCounts}
+        {key:"probe_count", sortable:true, resizeable:false, label:'Sign. Probes', formatter:formatterProbeCounts}
     ];
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 

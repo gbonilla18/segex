@@ -30,6 +30,7 @@ use SGX::Debug;
 sub init {
     my $self = shift;
     my $dbh  = $self->{_dbh};
+    my $q    = $self->{_cgi};
     $self->SUPER::init();
 
     my $pse = SGX::Model::PlatformStudyExperiment->new( dbh => $dbh );
@@ -38,7 +39,7 @@ sub init {
 
     my $findProbes = SGX::FindProbes->new(
         _dbh         => $self->{_dbh},
-        _cgi         => $self->{_cgi},
+        _cgi         => $q,
         _UserSession => $self->{_UserSession}
     );
 
@@ -70,8 +71,14 @@ sub Compare_head {
     );
 
     my $q = $self->{_cgi};
+    $self->{_user_pse} = car $q->param('user_pse');
+    $self->{_user_pse} = '{}' if not defined $self->{_user_pse};
+    my $pse_json = decode_json( $self->{_user_pse} ) || {};
+    $self->{_pid} = $pse_json->{pid};
+
     $self->{_user_selection} = car $q->param('user_selection');
-    $self->{_xExpList} = decode_json( $self->{_user_selection} ) || [];
+    $self->{_user_selection} = '[]' if not defined $self->{_user_selection};
+    $self->{_xExpList}       = decode_json( $self->{_user_selection} ) || [];
     if ( !@{ $self->{_xExpList} } ) {
         $self->add_message( { -class => 'error' },
             'You did not provide any input' );
@@ -149,21 +156,21 @@ YAHOO.util.Event.addListener(window, 'load', function() {
 });
 END_onload
 
-    push @$js_src_code,
-      (
-        +{ -src => 'collapsible.js' },
-        +{ -src => 'FormFindProbes.js' },
-        +{ -src => 'FormCompExp.js' }
-      );
-
     $self->{_PlatformStudyExperiment}->init(
         platforms     => 1,
         studies       => 1,
         experiments   => 1,
         extra_studies => { '' => { description => '@Unassigned Experiments' } }
     );
-    push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
-    push @$js_src_code, { -code => $self->getDropDownJS() };
+
+    push @$js_src_code,
+      (
+        +{ -src  => 'PlatformStudyExperiment.js' },
+        +{ -src => 'collapsible.js' },
+        +{ -src => 'FormFindProbes.js' },
+        +{ -src => 'FormCompExp.js' },
+        +{ -code => $self->getDropDownJS() },
+      );
 
     $self->{_species_data} = $self->{_FindProbes}->get_species();
     return 1;
@@ -247,9 +254,8 @@ sub default_body {
             $q->dd(
                 $q->p(
                     $q->checkbox(
-                        -name  => 'chkAllProbes',
-                        -id    => 'chkAllProbes',
-                        -value => '1',
+                        -name => 'chkAllProbes',
+                        -id   => 'chkAllProbes',
                         -title =>
 'Include probes not significant in all experiments labeled \'TFS 0\'',
                         -label => 'Include not significant probes'
@@ -280,6 +286,10 @@ sub default_body {
             ),
             $q->dt('&nbsp;'),
             $q->dd(
+                $q->hidden(
+                    -name => 'user_pse',
+                    -id   => 'user_pse',
+                ),
                 $q->hidden(
                     -name  => 'user_selection',
                     -id    => 'user_selection',
@@ -313,7 +323,7 @@ sub getResults {
     my $s    = $self->{_UserSession};
 
     #This flag tells us whether or not to ignore the thresholds.
-    my $includeAllProbes = $q->param('chkAllProbes');
+    my $includeAllProbes = defined( $q->param('chkAllProbes') );
 
     my $findProbes = SGX::FindProbes->new(
         _dbh         => $dbh,
@@ -322,7 +332,7 @@ sub getResults {
     );
     $findProbes->getSessionOverrideCGI();
     my $probeListPredicate = '';
-    my $probeList          = [];
+    my $probeList;
 
     if ( $findProbes->FindProbes_init() ) {
 
@@ -385,9 +395,9 @@ GROUP BY fs
 END_query_fs
 
     #Run the Flag Sum Query.
-    my $sth_fs      = $dbh->prepare($query_fs);
-    my $rowcount_fs = $sth_fs->execute(@query_fs_body_params);
-    my $h           = $sth_fs->fetchall_hashref('fs');
+    my $sth_fs = $dbh->prepare($query_fs);
+    $sth_fs->execute(@query_fs_body_params);
+    my $h = $sth_fs->fetchall_hashref('fs');
     $sth_fs->finish;
 
     # counts mapping array
@@ -402,12 +412,19 @@ END_query_fs
         $probe_count += $value->{c};
     }
 
+    my $query_total = 'SELECT COUNT(*) from probe WHERE pid=?';
+    my $sth_total   = $dbh->prepare($query_total);
+    $sth_total->execute( $self->{_pid} );
+    my $probes_in_platform = $sth_total->fetchrow_arrayref()->[0];
+    $sth_total->finish;
+
     return {
-        h                => $h,
-        hc               => \@hc,
-        probeList        => $probeList,
-        probe_count      => $probe_count,
-        includeAllProbes => $includeAllProbes,
+        h                  => $h,
+        hc                 => \@hc,
+        probeList          => $probeList,
+        probe_count        => $probe_count,
+        probes_in_platform => $probes_in_platform,
+        includeAllProbes   => $includeAllProbes,
     };
 }
 
@@ -429,12 +446,13 @@ sub getResultsJS {
     return ''
       . $js->let(
         [
-            _xExpList        => $self->{_xExpList},
-            h                => $results->{h},
-            hc               => $results->{hc},
-            searchFilter     => $results->{probeList},
-            probe_count      => $results->{probe_count},
-            includeAllProbes => $results->{includeAllProbes},
+            _xExpList          => $self->{_xExpList},
+            h                  => $results->{h},
+            hc                 => $results->{hc},
+            searchFilter       => $results->{probeList},
+            probe_count        => $results->{probe_count},
+            probes_in_platform => $results->{probes_in_platform},
+            includeAllProbes   => $results->{includeAllProbes},
         ],
         declare => 1
       );
@@ -519,6 +537,7 @@ sub Compare_body {
     return
       $q->div( { -id => 'venn' }, '' ),
       $q->h2('Experiments compared'),
+      $q->p( { -id => 'comparison_note' }, '' ),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->start_form(
         -method  => 'POST',
@@ -549,6 +568,7 @@ sub Compare_body {
             }
         )
       ),
+      $q->div( $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
       $q->div( { -id => 'tfs_table', -class => 'table_cont' }, '' ),
       $q->endform;
 }

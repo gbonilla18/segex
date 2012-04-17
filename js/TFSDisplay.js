@@ -43,7 +43,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
     var formatterReqSignif = function(elCell, oRecord, oColumn, oData) {
         var answer = isSignif(oRecord);
-        elCell.innerHTML = (answer === null) ? 'Yes/No'
+        elCell.innerHTML = (answer === null) ? 'n/a'
             : (isSignif(oRecord) ? '<strong>Yes</strong>' : 'No');
     };
     var summary_data = new YAHOO.util.DataSource(_xExpList);
