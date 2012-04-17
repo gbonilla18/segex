@@ -9,9 +9,8 @@ require SGX::DBLists;
 require Tie::IxHash;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
-use SGX::Util
-  qw/car cdr trim min bind_csv_handle distinct file_opts_html dec2indexes32
-  locationAsTextToCanon coord2int/;
+use SGX::Util qw/car cdr trim min bind_csv_handle distinct file_opts_html
+dec2indexes32 locationAsTextToCanon coord2int/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 

@@ -233,6 +233,38 @@ YAHOO.util.Event.addListener(window, "load", function () {
         myDataTable.addRow(YAHOO.widget.DataTable._cloneObject(record));
     });
 
+    var updateSpeciesSel = function() {
+        // change species dropdown in filter dialog to the species of the
+        // newly selected platform.
+        var pid = getSelectedValue(selPlatforms);
+        var platfRoot = PlatfStudyExp[pid];
+        var sid = platfRoot.sid;
+
+        var selSpecies = dom.get('spid');
+        var opts = dom.getChildrenBy(selSpecies, function(el) {
+            return (el.nodeName === 'OPTION');
+        });
+
+        // find out the index of the option element corresponding to the
+        // selected species.
+        var i = 0;
+        forEach(opts, function(opt) {
+            if (opt.value === sid) {
+                throw new LoopExit;
+            }
+            i++;
+        });
+        selSpecies.selectedIndex = i;
+        triggerEvent(selSpecies, 'change');
+        selSpecies.setAttribute('disabled', 'disabled');
+    }
+    YAHOO.util.Event.addListener(selPlatforms, 'change', function() {
+        // remove all experiments selected for comparison because they 
+        // belong to a different platform.
+        myDataTable.deleteRows(0, myDataTable.getRecordSet().getLength());
+        updateSpeciesSel();
+    });
+
     YAHOO.util.Event.addListener('add', 'click', function() {
         var pid = getSelectedValue(selPlatforms);
         var stid = getSelectedValue(selStudies);

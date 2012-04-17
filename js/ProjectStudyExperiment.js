@@ -25,6 +25,7 @@ exports.populateProject = function()
 
     // build dropdown box
     buildDropDown(projects, tuples, project.selected, oldWidth);
+    triggerEvent(projects, 'change');
 }
 
 /******************************************************************/
@@ -51,6 +52,7 @@ exports.populateProjectStudy = function()
 
         buildDropDown(studies, tuples, study.selected, oldWidth);
     }
+    triggerEvent(studies, 'change');
 }
 /******************************************************************/
 exports.populateStudyExperiment = function()
@@ -91,6 +93,7 @@ exports.populateStudyExperiment = function()
         // build dropdown box
         buildDropDown(experiments, tuples, experiment.selected, oldWidth);
     }
+    triggerEvent(experiments, 'change');
 }
 
 }(this));

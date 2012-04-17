@@ -27,6 +27,7 @@ exports.populatePlatform = function()
 
     // build dropdown box
     buildDropDown(platforms, tuples, platform.selected, oldWidth);
+    triggerEvent(platforms, 'change');
 }
 
 /******************************************************************/
@@ -51,6 +52,7 @@ exports.populatePlatformStudy = function()
     }, []).sort(ComparisonSortOnColumn(1));
 
     buildDropDown(studies, tuples, study.selected, oldWidth);
+    triggerEvent(studies, 'change');
 }
 /******************************************************************/
 exports.populateStudyExperiment = function()
@@ -91,6 +93,7 @@ exports.populateStudyExperiment = function()
         // build dropdown box
         buildDropDown(experiments, tuples, experiment.selected, oldWidth);
     }
+    triggerEvent(experiments, 'change');
 }
 
 }(this));

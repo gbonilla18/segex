@@ -36,9 +36,16 @@ sub init {
     push @{ $pse->{_Platform}->{attr} }, ( 'def_p_cutoff', 'def_f_cutoff' );
     push @{ $pse->{_Experiment}->{attr} }, 'PValFlag';
 
+    my $findProbes = SGX::FindProbes->new(
+        _dbh         => $self->{_dbh},
+        _cgi         => $self->{_cgi},
+        _UserSession => $self->{_UserSession}
+    );
+
     $self->set_attributes(
         _title                   => 'Compare Experiments',
-        _PlatformStudyExperiment => $pse
+        _PlatformStudyExperiment => $pse,
+        _FindProbes              => $findProbes
     );
     $self->register_actions(
         Submit => { head => 'Compare_head', body => 'Compare_body' } );
@@ -158,12 +165,7 @@ END_onload
     push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
     push @$js_src_code, { -code => $self->getDropDownJS() };
 
-    my $findProbes = SGX::FindProbes->new(
-        _dbh         => $self->{_dbh},
-        _cgi         => $self->{_cgi},
-        _UserSession => $self->{_UserSession}
-    );
-    $self->{_species_data} = $findProbes->get_species();
+    $self->{_species_data} = $self->{_FindProbes}->get_species();
     return 1;
 }
 
@@ -181,12 +183,6 @@ sub default_body {
 
     my ($self) = @_;
     my $q = $self->{_cgi};
-
-    my $findProbes = SGX::FindProbes->new(
-        _dbh         => $self->{_dbh},
-        _cgi         => $q,
-        _UserSession => $self->{_UserSession}
-    );
 
     return $q->h2('Compare Experiments'),
       $q->div(
@@ -275,7 +271,8 @@ sub default_body {
                         $q->div( { -class => 'hd' }, 'Filter options' ),
                         $q->div(
                             { -class => 'bd' },
-                            $findProbes->mainFormDD( $self->{_species_data} )
+                            $self->{_FindProbes}
+                              ->mainFormDD( $self->{_species_data} )
                         )
                     )
                 ),

@@ -31,7 +31,7 @@ sub new {
         _Platform => {
             table => 'platform LEFT JOIN species USING(sid)',
             base  => ['pid'],
-            attr  => [ 'pname', 'sname' ]
+            attr  => [ 'pname', 'sname', 'sid' ]
         },
         _PlatformStudy => {
             table => 'study',
