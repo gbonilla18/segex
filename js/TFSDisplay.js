@@ -11,9 +11,13 @@ function getExperimentName(oArgs) {
     return oArgs.eid + '. ' + oArgs.study_desc + ': ' + (oArgs.reverse ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1));
 }
 function isSignif(oRecord) {
-    var recordIndex = parseInt(oRecord.getCount(), 10);
-    var flags = parseInt(_fs, 10);
-    return (1 << recordIndex & flags);
+    if (_fs === null) {
+        return null;
+    } else {
+        var recordIndex = parseInt(oRecord.getCount(), 10);
+        var flags = parseInt(_fs, 10);
+        return (1 << recordIndex & flags);
+    }
 }
 
 YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
@@ -38,8 +42,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
         elCell.appendChild(a);
     };
     var formatterReqSignif = function(elCell, oRecord, oColumn, oData) {
-        var text = isSignif(oRecord) ? '<strong>Yes</strong>' : 'No';
-        elCell.innerHTML = text;
+        var answer = isSignif(oRecord);
+        elCell.innerHTML = (answer === null) ? 'Yes/No'
+            : (isSignif(oRecord) ? '<strong>Yes</strong>' : 'No');
     };
     var summary_data = new YAHOO.util.DataSource(_xExpList);
     summary_data.responseSchema = { fields: [
