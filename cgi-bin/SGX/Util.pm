@@ -11,8 +11,27 @@ use Scalar::Util qw/looks_like_number/;
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
   equal bind_csv_handle notp file_opts_html file_opts_columns distinct
-  dec2indexes32 locationAsTextToCanon abbreviate coord2int/;
+  dec2indexes32 locationAsTextToCanon abbreviate coord2int writeFlags/;
 
+#===  FUNCTION  ================================================================
+#         NAME:  writeFlags
+#      PURPOSE:  
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub writeFlags {
+    my $flagsum = 0;
+    for (my $i = 0; $i < @_; $i++) {
+        if ($_[$i]) {
+            $flagsum |= (1 << $i);
+        }
+    }
+    return $flagsum;
+}
 #===  FUNCTION  ================================================================
 #         NAME:  locationAsTextToCanon
 #      PURPOSE:

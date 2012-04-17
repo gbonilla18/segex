@@ -208,7 +208,7 @@ sub new {
                     stid => {
                         label      => 'No.',
                         parser     => 'number',
-                        __hidden__ => 1
+                        #__hidden__ => 1
                     },
                     description => { label => 'Description' },
                     pubmed      => {

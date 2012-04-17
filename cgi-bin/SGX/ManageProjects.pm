@@ -53,8 +53,8 @@ sub new {
                         parser   => 'number',
                         __type__ => 'popup_menu',
 
+                        #__hidden__   => 1,
                         __tie__      => [ users => 'uid' ],
-                        __hidden__   => 1,
                         __optional__ => 1
                     },
                     prname => {
@@ -90,9 +90,9 @@ sub new {
                           }
                     },
                     pid => {
+                        #__hidden__ => 1,
                         label      => 'Platform',
                         parser     => 'number',
-                        __hidden__ => 1
                     }
                 },
                 lookup => [ platform     => [ pid  => 'pid' ] ],

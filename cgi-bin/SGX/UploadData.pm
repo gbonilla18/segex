@@ -6,6 +6,7 @@ use warnings;
 use SGX::Debug;
 use SGX::Abstract::Exception ();
 use Scalar::Util qw/looks_like_number/;
+use SGX::Util qw/writeFlags/;
 require Data::UUID;
 
 my %parse_types = (
@@ -260,6 +261,7 @@ END_insertResponse
                 )
             ),
         );
+        $self->{_eid} = $delegate->{_id};
         push @param, [ $delegate->{_id} ];
     }
     else {
@@ -353,6 +355,19 @@ END_insertResponse
             }
         };
     }
+
+    #---------------------------------------------------------------------------
+    #   write PValFlag
+    #---------------------------------------------------------------------------
+    push @sth, 'UPDATE experiment SET PValFlag=? WHERE eid=?';
+    push @param,
+      [
+        writeFlags(
+            $upload_pvalue1, $upload_pvalue2,
+            $upload_pvalue3, $upload_pvalue4
+        ),
+        sub { return $self->{_eid}; }
+      ];
 
     return SGX::CSV::delegate_fileUpload(
         delegate   => $delegate,
