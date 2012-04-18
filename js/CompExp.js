@@ -117,7 +117,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     //==============================================================================
     function formatterFlagsum (elCell, oRecord, oColumn, oData) {
-        var text = (oData === null) ? (includeAllProbes ? 'all probes' : 'all sign. probes') : 'FS ' + oData;
+        var text = (oData === null) ? (includeAllProbes ? 'all probes' : 'all sign. probes') : 'Set ' + oData;
         var btn = document.createElement('input');
         btn.setAttribute('type', 'submit');
         btn.setAttribute('class', 'plaintext');
@@ -218,7 +218,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 formatter:formatMark
             });
         }, [
-    { key: 'fs', sortable:true, resizeable:false, label: 'Set Index', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum}
+    { key: 'fs', sortable:true, resizeable:false, label: 'Probe Set Index', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum}
         ]).concat(
             { key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
             { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }}
