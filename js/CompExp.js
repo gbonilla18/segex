@@ -99,12 +99,6 @@ function getGoogleVenn() {
 }
 
 //==============================================================================
-function formatterFlagsum (elCell, oRecord, oColumn, oData) {
-    var text = oData === null ? (includeAllProbes ? 'all probes' : 'all sign. probes') : 'FS ' + oData;
-    elCell.innerHTML = text;
-};
-
-//==============================================================================
 var rowcount_titles = _xExpList.length;
 
 // TFS: all
@@ -119,35 +113,23 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     var venn = getGoogleVenn();
     Dom.get("venn").innerHTML = (venn === null ? '' : '<h2>' + venn.title + '</h2><img title="Venn Diagram" alt="Venn Diagram" src="' + venn.uri + '" />');
-
     var selectedFS = Dom.get('selectedFS');
 
     //==============================================================================
-    var formatDownload = function(elCell, oRecord, oColumn, oData) {
+    function formatterFlagsum (elCell, oRecord, oColumn, oData) {
+        var text = (oData === null) ? (includeAllProbes ? 'all probes' : 'all sign. probes') : 'FS ' + oData;
+        var btn = document.createElement('input');
+        btn.setAttribute('type', 'submit');
+        btn.setAttribute('class', 'plaintext');
+        btn.setAttribute('value', text);
+        btn.setAttribute('title', 'Display report including all probes from this set');
+        YAHOO.util.Event.addListener(btn, 'click', function(ev) {
+            selectedFS.value = this.getData('fs');
+        }, oRecord, true);
         removeAllChildren(elCell);
-        var fs = oRecord.getData("fs");
-        var btn_html = document.createElement('input');
-        btn_html.setAttribute('type', 'submit');
-        btn_html.setAttribute('class', 'plaintext');
-        btn_html.setAttribute('name', 'get');
-        btn_html.setAttribute('value', 'HTML');
-        var btn_csv = document.createElement('input');
-        btn_csv.setAttribute('type', 'submit');
-        btn_csv.setAttribute('class', 'plaintext');
-        btn_csv.setAttribute('name', 'get');
-        btn_csv.setAttribute('value', 'CSV');
-        var sep = document.createElement('span');
-        sep.setAttribute('class', 'separator');
-        sep.appendChild(document.createTextNode(' / '));
-
-        YAHOO.util.Event.addListener([btn_html, btn_csv], 'click', function(ev) {
-            selectedFS.value = fs;
-        });
-
-        elCell.appendChild(btn_html);
-        elCell.appendChild(sep);
-        elCell.appendChild(btn_csv);
+        elCell.appendChild(btn);
     };
+
     var formatMark = function(elCell, oRecord, oColumn, oData) {
         if (oData === 'Y') {
             dom.removeClass(elCell, 'disabled');
@@ -219,9 +201,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
             { key: 'fs', parser: 'number' }
         ]).concat(
             { key: 'significant_in', parser: 'number'},
-            { key: 'probe_count', parser: 'number'},
+            { key: 'probe_count', parser: 'number'}
             //{ key: 'log_odds', parser: 'number'},
-            { key: 'view_probes' }
         ),
 
         // tfs table definitions
@@ -240,9 +221,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
     { key: 'fs', sortable:true, resizeable:false, label: 'Set Index', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum}
         ]).concat(
             { key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
-            { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
+            { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }}
             //{ key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Over Expected' },
-            { key: 'view_probes', sortable:false, resizeable: true, label:'View report', formatter:formatDownload}
         )
     };
     YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);

@@ -561,10 +561,21 @@ sub Compare_body {
                     'annot' => 'Include Data & Annotation'
                 }
             )
+        ),
+        $q->dt( $q->strong('Report format:') ),
+        $q->dd(
+            $q->radio_group(
+                -name    => 'get',
+                -values  => [qw/HTML CSV/],
+                -default => 'HTML'
+            )
         )
       ),
       $q->div( { -style => 'clear:left;' },
         $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
+
+      # "TFS breakdown table" -- actually a permutation matrix where rows
+      # correpond to probe sets and columns correspond to experiments.
       $q->div( { -id => 'tfs_table', -class => 'table_cont' }, '' ),
       $q->endform;
 }
