@@ -557,8 +557,8 @@ sub Compare_body {
                 -default => 'basic',
                 -labels  => {
                     'basic' => 'Basic',
-                    'data'  => 'Include Data',
-                    'annot' => 'Include Data & Annotation'
+                    'data'  => 'w/ Data',
+                    'annot' => 'w/ Data and Annotation'
                 }
             )
         ),
