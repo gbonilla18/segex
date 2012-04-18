@@ -10,7 +10,7 @@ require Tie::IxHash;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car cdr trim min bind_csv_handle distinct file_opts_html
-dec2indexes32 locationAsTextToCanon coord2int/;
+  dec2indexes32 locationAsTextToCanon coord2int/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
@@ -1640,7 +1640,8 @@ END_LEGEND
 #===============================================================================
 sub mainFormDD {
     my $self         = shift;
-    my $species_data = shift;
+    my %args         = @_;
+    my $species_data = $args{species_hash};
     my $q            = $self->{_cgi};
 
     return $q->div(
@@ -1803,12 +1804,19 @@ END_EXAMPLE_TEXT
                         $q->div(
                             { -class => 'input_container' },
                             'Limit results to: ',
-                            $q->popup_menu(
-                                -name   => 'spid',
-                                -id     => 'spid',
-                                -title  => 'Choose species to search',
-                                -values => [ keys %$species_data ],
-                                -labels => $species_data
+                            (
+                                defined($species_data)
+                                ? $q->popup_menu(
+                                    -name   => 'spid',
+                                    -id     => 'spid',
+                                    -title  => 'Choose species to search',
+                                    -values => [ keys %$species_data ],
+                                    -labels => $species_data
+                                  )
+                                : $q->hidden(
+                                    -name => 'spid',
+                                    -id   => 'spid'
+                                )
                             )
                         ),
                         $q->div(
@@ -1939,7 +1947,7 @@ END_H2P_TEXT
 
         # Main Form
         $q->dt( $q->label( { -for => 'q' }, 'Search Term(s):' ) ),
-        $q->dd( $self->mainFormDD( $self->{_species_data} ) )
+        $q->dd( $self->mainFormDD( species_hash => $self->{_species_data} ) )
       ),
 
       # Output options

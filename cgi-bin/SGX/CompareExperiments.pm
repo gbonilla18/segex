@@ -172,7 +172,6 @@ END_onload
         +{ -code => $self->getDropDownJS() },
       );
 
-    $self->{_species_data} = $self->{_FindProbes}->get_species();
     return 1;
 }
 
@@ -277,8 +276,7 @@ sub default_body {
                         $q->div( { -class => 'hd' }, 'Filter options' ),
                         $q->div(
                             { -class => 'bd' },
-                            $self->{_FindProbes}
-                              ->mainFormDD( $self->{_species_data} )
+                            $self->{_FindProbes}->mainFormDD()
                         )
                     )
                 ),

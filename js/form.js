@@ -340,10 +340,12 @@ function getSelectedFromRadioGroup(obj) {
 }
 //==============================================================================
 // isDefinedSelection
+// Will work both on INPUT elements (uses el.value) and on SELECT elements 
+// (checks if any OPTION elements are selected).
 // returns 'defined' if yes, '' otherwise
 //==============================================================================
 function isDefinedSelection(el) { 
-    var val = getSelectedValue(el); 
+    var val = (el.nodeName === 'SELECT' ? getSelectedValue(el) : el.value); 
     return (typeof val !== 'undefined' && val !== '') ? 'defined' : '';
 }
 

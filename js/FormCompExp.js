@@ -237,26 +237,9 @@ YAHOO.util.Event.addListener(window, "load", function () {
     var updateSpeciesSel = function(pid) {
         // change species dropdown in filter dialog to the species of the
         // newly selected platform.
-        var platfRoot = PlatfStudyExp[pid];
-        var sid = platfRoot.sid;
-
         var selSpecies = dom.get('spid');
-        var opts = dom.getChildrenBy(selSpecies, function(el) {
-            return (el.nodeName === 'OPTION');
-        });
-
-        // find out the index of the option element corresponding to the
-        // selected species.
-        var i = 0;
-        forEach(opts, function(opt) {
-            if (opt.value === sid) {
-                throw new LoopExit;
-            }
-            i++;
-        });
-        selSpecies.selectedIndex = i;
+        selSpecies.value = PlatfStudyExp[pid].sid;
         triggerEvent(selSpecies, 'change');
-        selSpecies.setAttribute('disabled', 'disabled');
     }
     // restore model from old_json
     var old_json = JSON.parse(user_pse.value || '{}');
