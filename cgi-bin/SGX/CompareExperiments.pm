@@ -166,9 +166,9 @@ END_onload
     push @$js_src_code,
       (
         +{ -src  => 'PlatformStudyExperiment.js' },
-        +{ -src => 'collapsible.js' },
-        +{ -src => 'FormFindProbes.js' },
-        +{ -src => 'FormCompExp.js' },
+        +{ -src  => 'collapsible.js' },
+        +{ -src  => 'FormFindProbes.js' },
+        +{ -src  => 'FormCompExp.js' },
         +{ -code => $self->getDropDownJS() },
       );
 
@@ -263,7 +263,6 @@ sub default_body {
                         $q->checkbox(
                             -id    => 'specialFilter',
                             -name  => 'specialFilter',
-                            -value => '1',
                             -title => 'Special filter on probes',
                             -label => 'Special filter'
                         )
@@ -318,35 +317,31 @@ sub getResults {
     my $self = shift;
     my $q    = $self->{_cgi};
     my $dbh  = $self->{_dbh};
-    my $s    = $self->{_UserSession};
 
     #This flag tells us whether or not to ignore the thresholds.
     my $includeAllProbes = defined( $q->param('chkAllProbes') );
 
-    my $findProbes = SGX::FindProbes->new(
-        _dbh         => $dbh,
-        _cgi         => $q,
-        _UserSession => $s
-    );
-    $findProbes->getSessionOverrideCGI();
     my $probeListPredicate = '';
     my $probeList;
 
-    if ( $findProbes->FindProbes_init() ) {
+    if ( defined $q->param('specialFilter') ) {
+        my $findProbes = $self->{_FindProbes};
+        $findProbes->getSessionOverrideCGI();
+        if ( $findProbes->FindProbes_init() ) {
 
-        # get probe ids only
-        $findProbes->{_extra_fields} = 0;
-        my ( $headers, $records ) = $findProbes->xTableQuery();
-        $probeList = [ map { $_->[0] } @$records ];
-        my $dbLists  = $self->{_dbLists};
-        my $tmpTable = $dbLists->createTempList(
-            items     => $probeList,
-            name_type => [ 'rid', 'int(10) unsigned' ]
-        );
-        $probeListPredicate = "INNER JOIN $tmpTable USING(rid)";
+            # get probe ids only
+            $findProbes->{_extra_fields} = 0;
+            my ( $headers, $records ) = $findProbes->xTableQuery();
+            $probeList = [ map { $_->[0] } @$records ];
+            my $dbLists  = $self->{_dbLists};
+            my $tmpTable = $dbLists->createTempList(
+                items     => $probeList,
+                name_type => [ 'rid', 'int(10) unsigned' ]
+            );
+            $probeListPredicate = "INNER JOIN $tmpTable USING(rid)";
+        }
     }
 
-    #If we are filtering, generate the SQL statement for the rid's.
     my @query_titles;
     my @query_titles_params;
     my @query_fs_body;
@@ -413,7 +408,7 @@ END_query_fs
     my $query_total = 'SELECT COUNT(*) from probe WHERE pid=?';
     my $sth_total   = $dbh->prepare($query_total);
     $sth_total->execute( $self->{_pid} );
-    my $probes_in_platform = int($sth_total->fetchrow_arrayref()->[0]);
+    my $probes_in_platform = int( $sth_total->fetchrow_arrayref()->[0] );
     $sth_total->finish;
 
     return {
@@ -553,20 +548,23 @@ sub Compare_body {
       $q->hidden( -name => 'includeAllProbes', -id => 'includeAllProbes' ),
       $q->hidden( -name => 'searchFilter',     -id => 'searchFilter' ),
       $q->h2('Probes significant in different experiment combinations'),
-      $q->p( $q->strong('Data to display:') ),
-      $q->p(
-        $q->radio_group(
-            -name    => 'opts',
-            -values  => [qw/basic data annot/],
-            -default => 'basic',
-            -labels  => {
-                'basic' => 'Basic',
-                'data'  => 'Include Data',
-                'annot' => 'Include Data & Annotation'
-            }
+      $q->dl(
+        $q->dt( $q->strong('Data to display:') ),
+        $q->dd(
+            $q->radio_group(
+                -name    => 'opts',
+                -values  => [qw/basic data annot/],
+                -default => 'basic',
+                -labels  => {
+                    'basic' => 'Basic',
+                    'data'  => 'Include Data',
+                    'annot' => 'Include Data & Annotation'
+                }
+            )
         )
       ),
-      $q->div( $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
+      $q->div( { -style => 'clear:left;' },
+        $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
       $q->div( { -id => 'tfs_table', -class => 'table_cont' }, '' ),
       $q->endform;
 }
