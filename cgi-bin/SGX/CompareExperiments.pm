@@ -415,7 +415,7 @@ END_query_fs
     my $query_total = 'SELECT COUNT(*) from probe WHERE pid=?';
     my $sth_total   = $dbh->prepare($query_total);
     $sth_total->execute( $self->{_pid} );
-    my $probes_in_platform = $sth_total->fetchrow_arrayref()->[0];
+    my $probes_in_platform = int($sth_total->fetchrow_arrayref()->[0]);
     $sth_total->finish;
 
     return {

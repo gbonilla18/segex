@@ -1766,7 +1766,7 @@ sub mainFormDD {
                                     'Partial' => {
                                         id => 'partial',
                                         title =>
-'Match word parts, regular expressions'
+'Match word fragments, regular expressions'
                                     }
                                 }
                             )
@@ -1783,7 +1783,7 @@ When searching text fields (GO names, gene descriptions) in full-word mode,
 "development", and <strong>+brain +development</strong> means both words have to
 be present (in any order).
 <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">Click here</a>
-for detailed information.
+for details.
 END_EXAMPLE_TEXT
                         $q->p(
                             {
@@ -1791,12 +1791,12 @@ END_EXAMPLE_TEXT
                                 -id    => 'pattern_part_hint'
                             },
                             <<"END_EXAMPLE_TEXT"),
-Partial mode lets you search for word parts and regular expressions.  For
+Partial mode lets you search for word fragments and regular expressions.  For
 example, <strong>^cyp.b</strong> means search for all genes starting with
 <strong>cyp.b</strong> where the fourth character is any single letter
 or digit and the fifth letter is "b".
 <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">Click here</a>
-for detailed information.
+for details.
 END_EXAMPLE_TEXT
                     ),
                     $q->li(

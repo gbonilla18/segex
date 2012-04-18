@@ -11,10 +11,6 @@ function getExperimentName(oArgs) {
     return oArgs.eid + '. ' + oArgs.study_desc + ': ' + (oArgs.reverse ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1));
 }
 
-//function log_odds(o, e) {
-//    return Math.log(o/e);
-//}
-
 //==============================================================================
 function getGoogleVennURI2() {
     var c = iterateForward(function(fs) {
@@ -196,21 +192,21 @@ YAHOO.util.Event.addListener(window, "load", function() {
             function(val) {
                 var fs = val.fs;
                 var significant_in = 0;
-                //var expected = total_probes;
+                //var expected = parseFloat(total_probes);
                 this.push(iterateForward(function(i) {
                     // test for bit presence
                     if ((1 << i) & fs) {
                         significant_in++;
-                        //expected *= (hc[i] / total_probes);
+                        //expected *= hc[i] / total_probes;
                         this.push('Y');
                     } else {
-                        //expected *= ((total_probes - hc[i]) / total_probes);
+                        //expected *= (total_probes - hc[i]) / total_probes;
                         this.push('N');
                     }
                 }, [fs], 0, rowcount_titles).concat(
                     significant_in, 
-                    val.c 
-                    //log_odds(val.c, expected).toPrecision(3)
+                    val.c
+                    //Math.log(val.c / expected).toPrecision(3)
                 ));
             }, 
             [row_all]
