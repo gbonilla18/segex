@@ -190,10 +190,13 @@ sub default_body {
     my ($self) = @_;
     my $q = $self->{_cgi};
 
-    return $q->h2('Compare Experiments'),
+    return $q->h2('Compare Experiments'), $q->p(<<"COMPARE_SUMMARY"),
+This tool lets you obtain lists of probes with a specific pattern of expression
+across specified experiments.
+COMPARE_SUMMARY
       $q->div(
         { -class => 'clearfix' },
-        $q->h3('1. Choose experiments:'),
+        $q->h3('1. Choose experiments'),
         $q->dl(
             $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
             $q->dd(
@@ -234,14 +237,14 @@ sub default_body {
       # experiment table
       $q->div(
         { -class => 'clearfix' },
-        $q->h3('2. Specify comparison options:'),
+        $q->h3('2. Specify comparison options'),
         $q->div( { -class => 'clearfix', -id => 'exp_table' }, '' )
       ),
 
       # form below the table
       $q->div(
         { -class => 'clearfix' },
-        $q->h3('3. Run comparison:'),
+        $q->h3('3. Perform comparison'),
         $q->start_form(
             -method  => 'POST',
             -enctype => 'multipart/form-data',
