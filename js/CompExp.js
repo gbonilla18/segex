@@ -265,7 +265,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     ]};
     var summary_table_defs = [
         {key:"eid", sortable:true, resizeable:true, label:'Experiment', formatter:experimentFormatter},
-        {key:"reverse", sortable:true, resizeable:false, label:'Reverse Samples', formatter:formatterYesNo},
+        {key:"reverse", sortable:true, resizeable:false, label:'Switched Samples', formatter:formatterYesNo},
         {key:"pValClass", sortable:true, resizeable:false, label:'P-value'},
         {key:"pval", sortable:true, resizeable:false, label:'P <'},
         {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >'},

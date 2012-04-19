@@ -507,15 +507,19 @@ sub FindProbes_init {
     else {
         $scope              = car $q->param('scope');
         $self->{_loc_spid}  = car $q->param('spid');
+        $self->{_loc_pid}   = car $q->param('pid');
         $self->{_loc_chr}   = car $q->param('chr');
         $self->{_loc_start} = coord2int( car $q->param('start') );
         $self->{_loc_end}   = coord2int( car $q->param('end') );
     }
     $self->{_scope} = $scope;
 
-    if (   $text eq ''
+    if (
+           $text eq ''
         && !$upload_file
-        && !( defined( $self->{_loc_spid} ) and $self->{_loc_spid} ne '' ) )
+        && (   !( defined( $self->{_loc_spid} ) and $self->{_loc_spid} ne '' )
+            && !( defined( $self->{_loc_pid} ) and $self->{_loc_pid} ne '' ) )
+      )
     {
         $self->add_message( { -class => 'error' },
             'No search criteria specified' );
@@ -807,6 +811,15 @@ sub build_location_predparam {
 
     my $query = 'INNER JOIN platform ON probe.pid=platform.pid';
     my @param;
+
+    #---------------------------------------------------------------------------
+    #  Filter by platform
+    #---------------------------------------------------------------------------
+    my $loc_pid = $self->{_loc_pid};
+    if ( defined $loc_pid and $loc_pid ne '' ) {
+        $query .= ' AND platform.pid=?';
+        push @param, $loc_pid;
+    }
 
     #---------------------------------------------------------------------------
     # Filter by chromosomal location
@@ -1562,6 +1575,14 @@ sub Search_body {
                             -value => 'Full-Word'
                         ),
                         (
+                            $self->{_loc_pid}
+                            ? $q->hidden(
+                                -name  => 'pid',
+                                -value => $self->{_loc_pid}
+                              )
+                            : ()
+                        ),
+                        (
                             $self->{_loc_spid}
                             ? (
                                 $q->hidden(
@@ -1836,8 +1857,8 @@ END_EXAMPLE_TEXT
                                     -labels => $species_data
                                   )
                                 : $q->hidden(
-                                    -name => 'spid',
-                                    -id   => 'spid'
+                                    -name => 'pid',
+                                    -id   => 'search_pid'
                                 )
                             ),
                             $q->span(

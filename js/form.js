@@ -345,6 +345,7 @@ function getSelectedFromRadioGroup(obj) {
 // returns 'defined' if yes, '' otherwise
 //==============================================================================
 function isDefinedSelection(el) { 
+    if (el === null) { return ''; }
     var val = (el.nodeName === 'SELECT' ? getSelectedValue(el) : el.value); 
     return (typeof val !== 'undefined' && val !== '') ? 'defined' : '';
 }

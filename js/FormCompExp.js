@@ -235,11 +235,10 @@ YAHOO.util.Event.addListener(window, "load", function () {
     });
 
     var updateSpeciesSel = function(pid) {
-        // change species dropdown in filter dialog to the species of the
-        // newly selected platform.
-        var selSpecies = dom.get('spid');
-        selSpecies.value = PlatfStudyExp[pid].sid;
-        triggerEvent(selSpecies, 'change');
+        // updates hidden value with name 'pid' and id 'search_pid'
+        var searchPlatform = dom.get('search_pid');
+        searchPlatform.value = pid;
+        triggerEvent(searchPlatform, 'change');
     }
     // restore model from old_json
     var old_json = JSON.parse(user_pse.value || '{}');

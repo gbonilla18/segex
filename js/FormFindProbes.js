@@ -13,15 +13,19 @@ YAHOO.util.Event.addListener('main_form', 'submit', function() {
 });
 
 YAHOO.util.Event.addListener(window, 'load', function() {
-    setupToggles('change',
-        { 'spid': { 'defined' : ['chr_div' ] } }, 
-        function(el) {
-            var result = isDefinedSelection(el);
-            var disabled = result ? '' : 'disabled';
-            EnableDisable('location_block', disabled);
-            return result;
+    forEach(['spid', 'search_pid'], function(id) {
+        if (dom.get(id)) {
+            setupToggles('change',
+                tuplesToObj([id, { 'defined' : ['chr_div' ] }]),
+                function(el) {
+                    var result = isDefinedSelection(el);
+                    var disabled = result ? '' : 'disabled';
+                    EnableDisable('location_block', disabled);
+                    return result;
+                }
+            );
         }
-    );
+    });
     setupToggles('change',
         { 'show_graphs': { 'checked' : [ 'graph_hint_container' ] }},
         function(el) { return (el !== null && el.checked) ? 'checked' : ''; }

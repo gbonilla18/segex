@@ -68,7 +68,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     ]};
     var summary_table_defs = [
         {key:"eid", sortable:false, resizeable:true, label:'Experiment', formatter:experimentFormatter},
-        {key:"reverse", sortable:false, resizeable:false, label:'Reverse Samples', formatter:formatterYesNo},
+        {key:"reverse", sortable:false, resizeable:false, label:'Switched Samples', formatter:formatterYesNo},
         {key:"pValClass", sortable:false, resizeable:false, label:'P-value'},
         {key:"pval", sortable:false, resizeable:false, label:'P <'},
         {key:"fchange", sortable:false, resizeable:false, label:'|Fold| >'},
