@@ -1800,7 +1800,7 @@ sub mainFormDD {
                                 },
                                 <<"END_EXAMPLE_TEXT"),
 In 
-<a target="_blank" title="Click for more info on full-word searching" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">full-word search</a>
+<a target="_blank" title="Click for more info on full-word searching" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">full-word mode</a>
 in this scope, the phrase
 <span class="unbreakable-term">"brain development"</span> will match exactly,
 <span class="unbreakable-term">brain -development</span> will match "brain" but not "development", 

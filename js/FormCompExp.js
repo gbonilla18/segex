@@ -192,7 +192,7 @@ YAHOO.util.Event.addListener(window, "load", function () {
 
     var myColumnDefs = [
         {key:"eid", sortable:true, resizeable:true, label:'Experiment', formatter:experimentFormatter},
-        {key:"reverse", sortable:true, resizeable:false, label:'Reverse Samples', formatter:checkboxFormatter},
+        {key:"reverse", sortable:true, resizeable:false, label:'Switch Samples', formatter:checkboxFormatter},
         {key:"pValClass", sortable:true, resizeable:false, label:'P-value', formatter:pValClassFormatter},
         {key:"pval", sortable:true, resizeable:false, label:'P <', formatter:pvalFormatter},
         {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >', formatter:fchangeFormatter},

@@ -104,7 +104,7 @@ var rowcount_titles = _xExpList.length;
 // TFS: all
 var row_all = iterateForward(function(i) {
     this.push('n/a');
-}, [null], 0, rowcount_titles).concat(null, probe_count);
+}, [null], 0, rowcount_titles).concat(probe_count, null);
 
 
 YAHOO.util.Event.addListener(window, "load", function() {
@@ -163,36 +163,55 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var total_probes = probes_in_platform;
     var text = 'Total probes in the platform: ' + probes_in_platform + '. ';
     if (searchFilter !== null) {
-        total_probes = searchFilter.length;
-        text += 'Filtering on ' + total_probes + ' probes.';
+        total_probes = Math.min(searchFilter.length, probes_in_platform);
+        text += 'Filtering on ' + searchFilter.length + ' probes.';
     }
     dom.get('comparison_note').innerHTML = text;
     // ================================
+
+    var fs2expected = iterateForward(function(theoretic_fs) {
+            var expected = parseFloat(total_probes);
+            for (var i = 0; i < rowcount_titles; i++) {
+                if ((1 << i) & theoretic_fs) {
+                    expected *= hc[i] / total_probes;
+                } else {
+                    expected *= (total_probes - hc[i]) / total_probes;
+                }
+            };
+            this[String(theoretic_fs)] = expected;
+        }, {}, 0, 1 << rowcount_titles);
+
+    //var expectedNonZero = object_forValues(h, function(row) {
+    //    var row_fs = row.fs;
+    //    if (fs2expected.hasOwnProperty(row_fs) && parseInt(row_fs) > 0) {
+    //        this.total += fs2expected[row_fs];
+    //    }
+    //}, {total: 0.0}).total;
+    //var correctionFactor = probe_count / expectedNonZero;
 
     var tfs = {
         caption:'Probes grouped by significance in different experiment combinations',
 
         // data
         records: forEach(
-            object_forValues(h, function(val) { this.push(val); }, []).sort(NumericSortOnColumnDesc('fs')), 
-            function(val) {
-                var fs = val.fs;
+            // transforming object into array
+            object_forValues(h, function(row) { this.push(row); }, []).sort(NumericSortOnColumnDesc('fs')), 
+            function(row) {
+                var fs = parseInt(row.fs);
+                var observed = parseInt(row.c);
                 var significant_in = 0;
-                //var expected = parseFloat(total_probes);
                 this.push(iterateForward(function(i) {
                     // test for bit presence
                     if ((1 << i) & fs) {
                         significant_in++;
-                        //expected *= hc[i] / total_probes;
                         this.push('Y');
                     } else {
-                        //expected *= (total_probes - hc[i]) / total_probes;
                         this.push('N');
                     }
                 }, [fs], 0, rowcount_titles).concat(
+                    observed,
                     significant_in, 
-                    val.c
-                    //,expected.toFixed(0) //Math.log(val.c / expected).toPrecision(3)
+                    Math.log(observed / fs2expected[fs]).toPrecision(3)
                 ));
             }, 
             [row_all]
@@ -204,9 +223,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }, [
             { key: 'fs', parser: 'number' }
         ]).concat(
+            { key: 'probe_count', parser: 'number'},
             { key: 'significant_in', parser: 'number'},
-            { key: 'probe_count', parser: 'number'}
-            //,{ key: 'log_odds', parser: 'number'}
+            { key: 'log_odds', parser: 'number'}
         ),
 
         // tfs table definitions
@@ -224,9 +243,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }, [
     { key: 'fs', sortable:true, resizeable:false, label: 'Probe Subset', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum}
         ]).concat(
+            { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
             { key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
-            { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }}
-            //,{ key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Over Expected' }
+            { key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Ratio' }
         )
     };
     YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);

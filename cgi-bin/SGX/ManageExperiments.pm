@@ -58,7 +58,7 @@ sub new {
                 meta  => {
                     stid => { label => 'No.', parser => 'number' },
                     description =>
-                      { label => 'Description', __readonly__ => 1 },
+                      { label => 'Study', __readonly__ => 1 },
                     pubmed => {
                         label        => 'PubMed',
                         __readonly__ => 1,

@@ -335,7 +335,7 @@ sub getResults {
             # get probe ids only
             $findProbes->{_extra_fields} = 0;
             my ( $headers, $records ) = $findProbes->xTableQuery();
-            $probeList = [ map { $_->[0] } @$records ];
+            $probeList = [ map { int($_->[0]) } @$records ];
             my $dbLists  = $self->{_dbLists};
             my $tmpTable = $dbLists->createTempList(
                 items     => $probeList,
@@ -551,6 +551,13 @@ sub Compare_body {
       $q->hidden( -name => 'includeAllProbes', -id => 'includeAllProbes' ),
       $q->hidden( -name => 'searchFilter',     -id => 'searchFilter' ),
       $q->h2('Probes significant in different experiment combinations'),
+      $q->p(<<"END_MATRIX"),
+Rows correspond to experiment combinations, and columns labeled with pound signs
+correspond to experiments. The last three columns are: observed probe counts,
+number of experiments in which the probes have significant differential
+expression, and natural logarithm of observed probe count over expected
+(calculated assuming probes for each subset are drawn at random).
+END_MATRIX
       $q->dl(
         $q->dt( $q->strong('Data to display:') ),
         $q->dd(
