@@ -419,32 +419,45 @@ YAHOO.util.Event.addListener(window, "load", function() {
     // =======================================================================
     function wrapGeneSymbol(b, classString, args) {
         var uri, database;
+        var symbol = b;
 
-        if (b.match(/^\w+_similar_to/)) {
+        // some very data-specific code; ideally would not use the block
+        // directly below.
+        if (symbol.match(/^\w+[-_]similar_to/i)) {
             // Extract gene symbol from '_similar_to' match
-            b = /^(\w+)_similar_to/.exec(b)[1];
+            symbol = /^(\w+)[-_]similar_to/i.exec(symbol)[1];
+        }
+        if (symbol.match(/^\w+[-_]predicted$/i)) {
+            // Extract gene symbol from '_predicted' match
+            symbol = /^(\w+)[-_]predicted$/i.exec(symbol)[1];
         }
 
-        if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
+        if (symbol.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
             // Ensembl IDs have a very specific format
             database = 'Ensembl';
-            uri = getEnsemblURI({query: b, organism_latin: args[1]});
-        } else if (b.match(/^\d+$/)) {
+            uri = getEnsemblURI({query: symbol, organism_latin: args[1]});
+        } else if (symbol.match(/^\d+$/)) {
             // Search for integer ids in NCBI Gene [uid]
             database = 'NCBI Gene';
-            uri = getNCBIGeneURI({query: b, query_type: 'uid'});
+            uri = getNCBIGeneURI({query: symbol, query_type: 'uid'});
+        } else if (symbol.match(/^[A-Z]{2}[0-9]{6}$/i) || symbol.match(/^[A-Z][0-9]{5}$/i)) {
+            // On encountering these symbols, treat them as transcript ids
+            database = 'NCBI Nucleotide';
+            uri = getNCBIEntrezURI(
+                {query: symbol, query_type: 'ACCN', database: 'Nucleotide', organism: args[0]}
+            );
         } else {
             // Search for everything else in NCBI/Entrez Gene
             database = 'NCBI Gene';
             uri = getNCBIEntrezURI(
-                {query: b, query_type: 'GENE', database: 'Gene', organism: args[0]}
+                {query: symbol, query_type: 'GENE', database: 'Gene', organism: args[0]}
             );
         }
         var classTuple = 'class="external"';
         if (classString !== null && classString !== '') {
             var classTuple = 'class="external ' + classString + '"';
         }
-        return '<a ' + classTuple + ' title="Search ' + database + ' for ' + b + '" target="_blank" href="' + uri + '">' + b + '</a>';
+        return '<a ' + classTuple + ' title="Search ' + database + ' for ' + symbol + '" target="_blank" href="' + uri + '">' + b + '</a>';
     }
 
     // =======================================================================
@@ -474,7 +487,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     var myData_config = {
         paginator: new YAHOO.widget.Paginator({
-            rowsPerPage: 15 
+            rowsPerPage: 18 
         })
     };
 

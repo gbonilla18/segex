@@ -237,12 +237,26 @@ sub Search_head {
       );
 
     if ( $next_action == 1 ) {
-        my ( $headers, $records ) = $self->xTableQuery();
-        push @$js_src_code,
-          (
-            { -code => $self->findProbes_js( $headers, $records ) },
-            { -src  => 'FindProbes.js' }
-          );
+
+        eval {
+            push @$js_src_code,
+              (
+                { -code => $self->findProbes_js( $self->xTableQuery() ) },
+                { -src  => 'FindProbes.js' }
+              );
+            1;
+        } or do {
+            my $exception = $@;
+            if ( $exception->isa('Exception::Class::DBI::STH') ) {
+
+                # catch execute exceptions only
+                $self->add_message( { -class => 'error' },
+                    "Could not execute query. Database response was: $exception" );
+            }
+            else {
+                $exception->throw();
+            }
+        };
     }
     elsif ( $next_action == 2 ) {
         push @$js_src_code,
@@ -1405,7 +1419,7 @@ sub findProbes_js {
     #---------------------------------------------------------------------------
     #  HTML output
     #---------------------------------------------------------------------------
-    my $rowcount = @$records;
+    my $rowcount = @{ $records || [] };
 
     my $proj_name = $self->{_WorkingProjectName};
     my $caption   = sprintf(
@@ -1746,7 +1760,10 @@ sub mainFormDD {
                     )
                 ),
                 $q->ul(
-                    { -id => 'advanced_container', -class => 'dd_collapsible' },
+                    {
+                        -id    => 'advanced_container',
+                        -class => 'dd_collapsible'
+                    },
                     $q->li(
                         { -id => 'pattern_div' },
                         $q->p(
@@ -1792,10 +1809,11 @@ END_EXAMPLE_TEXT
                                 -id    => 'pattern_part_hint'
                             },
                             <<"END_EXAMPLE_TEXT"),
-Partial mode lets you search for word fragments and regular expressions.  For
-example, <strong>^cyp.b</strong> means search for all genes starting with
-<strong>cyp.b</strong> where the fourth character is any single letter
-or digit and the fifth letter is "b".
+In partial mode, you can search for word fragments and <i>regular
+expressions</i>. For example, regular expression
+<strong>^[A-Z]{2}[0-9]{6}\$</strong> matches accession numbers that have the
+following format: any two English-alphabet letters followed by exactly six
+digits (e.g. AK022913, BC169044, FQ226033).
 <a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">Click here</a>
 for details.
 END_EXAMPLE_TEXT
