@@ -1795,13 +1795,11 @@ sub mainFormDD {
                                 -id    => 'pattern_fullword_hint'
                             },
                             <<"END_EXAMPLE_TEXT"),
-When searching text fields (GO names, gene descriptions) in full-word mode,
-<strong>"brain development"</strong> means search for the exact phrase,
-<strong>brain -development</strong> means search for "brain" but not
-"development", and <strong>+brain +development</strong> means both words have to
-be present (in any order).
-<a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">Click here</a>
-for details.
+When searching gene and GO-term names/descriptions in full-word mode,
+<strong>"brain development"</strong> matches the exact phrase, <strong>brain
+-development</strong> matches "brain" but not "development", and <strong>+brain
++development</strong> matches both words in any order.
+<a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">More...</a>
 END_EXAMPLE_TEXT
                         $q->p(
                             {
@@ -1809,13 +1807,10 @@ END_EXAMPLE_TEXT
                                 -id    => 'pattern_part_hint'
                             },
                             <<"END_EXAMPLE_TEXT"),
-In partial mode, you can search for word fragments and <i>regular
-expressions</i>. For example, regular expression
-<strong>^[A-Z]{2}[0-9]{6}\$</strong> matches accession numbers that have the
-following format: any two English-alphabet letters followed by exactly six
-digits (e.g. AK022913, BC169044, FQ226033).
-<a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">Click here</a>
-for details.
+Match word fragments or <i>regular expressions</i>. For example, expression
+<strong>^[A-Z]{2}[0-9]{6}\$</strong> matches accession numbers in the following
+format: any two letters followed by exactly six digits (e.g. AK022913).
+<a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">More...</a>
 END_EXAMPLE_TEXT
                     ),
                     $q->li(
@@ -1871,8 +1866,8 @@ END_EXAMPLE_TEXT
                                     -style => 'display:block;'
                                 },
                                 <<"END_chr_note"
-[Optional] Enter a numeric interval preceded by chromosome name, for example 16,
-7, M, or X. Leave these fields blank to search all chromosomes.
+[Optional] Enter chromosome name (e.g. 22, M, or X) and numeric interval. Leave
+these fields blank to search entire genome.
 END_chr_note
                             )
                         )
