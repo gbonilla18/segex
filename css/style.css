@@ -471,7 +471,7 @@ dl, table, div.table_cont {
 	display:none;
 	color: #777;
 	background:#ffd;
-	padding: 0.5em 0.5em 0.62em 0.62em;
+	padding: 0.5em 0.31em 0.62em 0.62em;
 	margin: 0.62em 0 0 0;
 }
 .hint pre, .hint p {

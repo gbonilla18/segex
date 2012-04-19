@@ -1802,10 +1802,10 @@ sub mainFormDD {
 In 
 <a target="_blank" title="Click for more info on full-word searching" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">full-word search</a>
 in this scope, the phrase
-<span class="unbreakable-term">"brain development"</span> will be matched exactly,
+<span class="unbreakable-term">"brain development"</span> will match exactly,
 <span class="unbreakable-term">brain -development</span> will match "brain" but not "development", 
 <span class="unbreakable-term">+brain +development</span> will match both words
-in any order, while <span class="unbreakable-term">brain development</span> 
+in any order, and <span class="unbreakable-term">brain development</span> 
 will match any of the two words.
 END_EXAMPLE_TEXT
                             $q->div(
@@ -1818,8 +1818,8 @@ Matches word fragments or
 <a target="_blank" title="Click for more info on regular expressions" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">regular expressions</a>.
 For example, the expression 
 <span class="unbreakable-term">^[A-Z]{2}[0-9]{6}\$</span> 
-will match accession numbers that have the format of any two letters followed by
-six digits (e.g.  AK022913).
+matches accession numbers that have the format of any two letters followed by
+six digits (such as AK022913).
 END_EXAMPLE_TEXT
                         ),
                     ),
@@ -1876,8 +1876,8 @@ END_EXAMPLE_TEXT
                                 -style => 'display:block;'
                             },
                             <<"END_chr_note"
-[Optional] Enter chromosome name (e.g. 22, M, or X) and numeric interval. Leave
-these fields blank to search entire genome.
+[Optional] Enter chromosome name (such as 2, M, or X) and, optionally, a numeric
+range. Leave these fields blank to search entire genome.
 END_chr_note
                         )
                     )
