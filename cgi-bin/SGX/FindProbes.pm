@@ -1819,9 +1819,9 @@ for details.
 END_EXAMPLE_TEXT
                     ),
                     $q->li(
-                        $q->div(
+                        $q->p(
                             { -class => 'input_container' },
-                            'Limit results to: ',
+                            'Limit to: ',
                             (
                                 defined($species_data)
                                 ? $q->popup_menu(
@@ -1835,11 +1835,8 @@ END_EXAMPLE_TEXT
                                     -name => 'spid',
                                     -id   => 'spid'
                                 )
-                            )
-                        ),
-                        $q->div(
-                            { -class => 'dd_collapsible', },
-                            $q->div(
+                            ),
+                            $q->span(
                                 {
                                     -id    => 'location_block',
                                     -class => 'input_container'
