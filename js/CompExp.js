@@ -117,7 +117,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     //==============================================================================
     function formatterFlagsum (elCell, oRecord, oColumn, oData) {
-        var text = (oData === null) ? (includeAllProbes ? 'all probes' : 'all sign. probes') : 'Set ' + oData;
+        var text = (oData === null) ? (includeAllProbes ? 'all probes' : 'all sign. probes') : 'Subset ' + oData;
         var btn = document.createElement('input');
         btn.setAttribute('type', 'submit');
         btn.setAttribute('class', 'plaintext');
@@ -144,11 +144,15 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
     var experimentFormatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
-        elCell.appendChild(document.createTextNode(getExperimentName(forEach(
+        var text = document.createTextNode(getExperimentName(forEach(
             ['eid', 'study_desc', 'sample1', 'sample2', 'reverse'], 
             function(key) { this[key] = oRecord.getData(key); }, 
             {}
-        ))));
+        )));
+        var a = document.createElement('a');
+        a.setAttribute('href', './?a=experiments&id=' + oData);
+        a.appendChild(text);
+        elCell.appendChild(a);
     };
     var formatterProbeCounts = function(elCell, oRecord, oColumn, oData) {
         var rowNumber = oRecord.getCount();
@@ -218,7 +222,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 formatter:formatMark
             });
         }, [
-    { key: 'fs', sortable:true, resizeable:false, label: 'Probe Set Index', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum}
+    { key: 'fs', sortable:true, resizeable:false, label: 'Probe Subset', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum}
         ]).concat(
             { key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
             { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }}

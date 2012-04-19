@@ -269,6 +269,9 @@ img#schema {
 	margin:10px;
 }
 /************* YUI Sam skin correction ********/
+.yui-skin-sam .yui-pg-page {
+	font-family:Menlo,Consolas,Monaco,"Lucida Console",monospace;
+}
 .yui-pe .yui-pe-content {
 	display:none;
 }

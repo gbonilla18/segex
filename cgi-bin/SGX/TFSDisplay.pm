@@ -164,7 +164,7 @@ sub default_body {
     my $q = $self->{_cgi};
 
     return
-      $q->h2( { -id => 'summary_caption' }, 'Comparison Summary' ),
+      $q->h2( { -id => 'summary_caption' }, 'Subset Definition' ),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->h2( { -id => 'tfs_caption' }, '' ),
       $q->div( $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
@@ -857,7 +857,7 @@ sub displayTFSInfo {
             _xExpList => $self->{_xExpList},
             _fs       => $self->{_fs},
             tfs       => {
-                caption => sprintf( 'Your selection includes %d probes',
+                caption => sprintf( 'This subset includes %d probes',
                     $self->{_RowCountAll} ),
                 headers => [ 'TFS',        @table_header ],
                 parsers => [ 'string',     @table_parser ],

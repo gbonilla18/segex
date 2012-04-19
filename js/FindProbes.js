@@ -10,6 +10,64 @@
 var dom = YAHOO.util.Dom;
 var formatter = YAHOO.widget.DataTable.Formatter;
 
+// =======================================================================
+function getEnsemblURI(oArgs) {
+    var b = oArgs.query;
+    var regex = /^ENS[A-Z]{0,3}([A-Z])\d{11}$/i;
+    var resource_type = regex.exec(b)[1];
+    var organism_latin = oArgs.organism_latin;
+    if (organism_latin) {
+        organism_latin = organism_latin.split(/\s+/).join('_');
+    }
+    var uri, query;
+    if (resource_type === 'T' && organism_latin) {
+        uri = 'http://www.ensembl.org/' + organism_latin + '/Transcript/Summary?';
+        query = { t: b };
+    } else if (resource_type === 'G' && organism_latin) {
+        uri = 'http://www.ensembl.org/' + organism_latin + '/Gene/Summary?';
+        query = { g: b };
+    } else {
+        uri = 'http://www.ensembl.org/Search/Details?';
+        query = {
+            idx     : 'Gene',
+            q       : b,
+            species : (organism_latin ? organism_latin : 'all')
+        };
+    }
+    return uri + object_forEach(query, function(key, val) {
+        this.push(key + '=' + encodeURIComponent(val));
+    }, []).join('&');
+}
+// =======================================================================
+function getNCBIGeneURI(oArgs){
+    var b = oArgs.query;
+    var qt = (oArgs.query_type ? '[' + oArgs.query_type + ']' : '');
+    var uri = 'http://www.ncbi.nlm.nih.gov/gene?' +
+        object_forEach({
+            term : b + qt,
+        }, function(key, val) {
+            this.push(key + '=' + encodeURIComponent(val));
+        }, []).join('&');
+    return uri;
+}
+// =======================================================================
+function getNCBIEntrezURI(oArgs) {
+    var b = oArgs.query;
+    var organism = oArgs.organism;
+    var qt = (oArgs.query_type ? '[' + oArgs.query_type + ']' : '');
+    var qorg = (organism ? organism + '[ORGN]' : '');
+    var uri = 'http://www.ncbi.nlm.nih.gov/sites/entrez?' + 
+        object_forEach({
+            cmd  : 'search',
+            db   : oArgs.database,
+            term : [b + qt, qorg].join(' AND ')
+        }, function(key, val) {
+            this.push(key + '=' + encodeURIComponent(val));
+        }, []).join('&');
+    return uri;
+}
+
+// =======================================================================
 function buildSVGElement(obj) {
     var resourceURI = './?' +
     object_forEach(obj, function(key, val) {
@@ -340,34 +398,16 @@ YAHOO.util.Event.addListener(window, "load", function() {
     // =======================================================================
     function wrapAccNum(b, classString, args) {
         var uri, database;
-        var organism = args[0];
-        var organism_latin = args[1];
-        if (organism_latin !== null) {
-            organism_latin = organism_latin.split(/\s+/).join('_');
-        }
-
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
             // Ensembl IDs have a very specific format
             database = 'Ensembl';
-            uri = 'http://www.ensembl.org/Search/Details?' + 
-            object_forEach({
-                idx     : 'Gene',
-                q       : b,
-                species : (organism_latin === null ? 'all' : organism_latin)
-            }, function(key, val) {
-                this.push(key + '=' + encodeURIComponent(val));
-            }, []).join('&');
+            uri = getEnsemblURI({query: b, organism_latin: args[1]});
         } else {
             // Search for everything else in NCBI/Entrez Nucleotide
             database = 'NCBI Nucleotide';
-            uri = 'http://www.ncbi.nlm.nih.gov/sites/entrez?' + 
-            object_forEach({
-                cmd  : 'search',
-                db   : 'Nucleotide',
-                term : b + '[ACCN] AND ' + organism + '[ORGN]'
-            }, function(key, val) {
-                this.push(key + '=' + encodeURIComponent(val));
-            }, []).join('&');
+            uri = getNCBIEntrezURI(
+                {query: b, query_type: 'ACCN', database: 'Nucleotide', organism: args[0]}
+            );
         }
         var classTuple = 'class="external"';
         if (classString !== null && classString !== '') {
@@ -379,11 +419,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
     // =======================================================================
     function wrapGeneSymbol(b, classString, args) {
         var uri, database;
-        var organism = args[0];
-        var organism_latin = args[1];
-        if (organism_latin !== null) {
-            organism_latin = organism_latin.split(/\s+/).join('_');
-        }
 
         if (b.match(/^\w+_similar_to/)) {
             // Extract gene symbol from '_similar_to' match
@@ -393,34 +428,17 @@ YAHOO.util.Event.addListener(window, "load", function() {
         if (b.match(/^ENS[A-Z]{0,4}\d{11}$/i)) {
             // Ensembl IDs have a very specific format
             database = 'Ensembl';
-            uri = 'http://www.ensembl.org/Search/Details?' + 
-            object_forEach({
-                idx     : 'Gene',
-                q       : b,
-                species : (organism_latin === null ? 'all' : organism_latin)
-            }, function(key, val) {
-                this.push(key + '=' + encodeURIComponent(val));
-            }, []).join('&');
+            uri = getEnsemblURI({query: b, organism_latin: args[1]});
         } else if (b.match(/^\d+$/)) {
             // Search for integer ids in NCBI Gene [uid]
             database = 'NCBI Gene';
-            uri = 'http://www.ncbi.nlm.nih.gov/gene?' +
-            object_forEach({
-                term : b + '[uid]',
-            }, function(key, val) {
-                this.push(key + '=' + encodeURIComponent(val));
-            }, []).join('&');
+            uri = getNCBIGeneURI({query: b, query_type: 'uid'});
         } else {
             // Search for everything else in NCBI/Entrez Gene
             database = 'NCBI Gene';
-            uri = 'http://www.ncbi.nlm.nih.gov/sites/entrez?' +
-            object_forEach({
-                cmd  : 'search',
-                db   : 'Gene',
-                term : b + '[GENE] AND ' + organism + '[ORGN]',
-            }, function(key, val) {
-                this.push(key + '=' + encodeURIComponent(val));
-            }, []).join('&');
+            uri = getNCBIEntrezURI(
+                {query: b, query_type: 'GENE', database: 'Gene', organism: args[0]}
+            );
         }
         var classTuple = 'class="external"';
         if (classString !== null && classString !== '') {
@@ -449,8 +467,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
         // show graphs below the table
         graphs = new Graphs('graphs');
     }
-
-
 
     var myDataSource = new YAHOO.util.DataSource(data.records);
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
