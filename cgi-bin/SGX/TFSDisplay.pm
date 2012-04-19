@@ -163,8 +163,7 @@ sub default_body {
 
     my $q = $self->{_cgi};
 
-    return
-      $q->h2( { -id => 'summary_caption' }, 'Subset Definition' ),
+    return $q->h2( { -id => 'summary_caption' }, 'Subset ' . $self->{_fs} ),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->h2( { -id => 'tfs_caption' }, '' ),
       $q->div( $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
@@ -192,8 +191,8 @@ sub loadDataFromSubmission {
     $self->{_opts} = $q->param('opts') || '0';
 
     # The $self->{_fs} parameter is the flagsum for which we filter data
-    $self->{_fs}     = car $q->param('selectedFS');
-    $self->{_fs}     = undef if $self->{_fs} eq '';
+    my $fs = car $q->param('selectedFS');
+    $self->{_fs} = $fs ne '' ? $fs : undef;
     $self->{_format} = car $q->param('get');
 
     return 1;

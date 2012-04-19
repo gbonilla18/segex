@@ -420,7 +420,6 @@ ul.draglist li {
     cursor: move;
     zoom: 1;
 }
- 
 ul.draglist_alt { 
     position: relative;
     width: 200px; 
@@ -460,6 +459,11 @@ dl, table, div.table_cont {
 	border-top:1px solid #000;
 	clear:both;
 }
+.unbreakable-term {
+	color:#000;
+	font-weight:bold;
+	white-space: nowrap;
+}
 .disabled {
 	color: #999;
 }
@@ -467,8 +471,8 @@ dl, table, div.table_cont {
 	display:none;
 	color: #777;
 	background:#ffd;
-	padding: 1em;
-	margin-bottom: 0.5em;
+	padding: 0.5em 0.5em 0.62em 0.62em;
+	margin: 0.62em 0 0 0;
 }
 .hint pre, .hint p {
 	margin-bottom:0.75em;

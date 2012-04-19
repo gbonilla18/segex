@@ -192,7 +192,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 }, [fs], 0, rowcount_titles).concat(
                     significant_in, 
                     val.c
-                    //Math.log(val.c / expected).toPrecision(3)
+                    //,expected.toFixed(0) //Math.log(val.c / expected).toPrecision(3)
                 ));
             }, 
             [row_all]
@@ -206,7 +206,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         ]).concat(
             { key: 'significant_in', parser: 'number'},
             { key: 'probe_count', parser: 'number'}
-            //{ key: 'log_odds', parser: 'number'},
+            //,{ key: 'log_odds', parser: 'number'}
         ),
 
         // tfs table definitions
@@ -226,7 +226,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         ]).concat(
             { key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
             { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }}
-            //{ key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Over Expected' },
+            //,{ key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Over Expected' }
         )
     };
     YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);

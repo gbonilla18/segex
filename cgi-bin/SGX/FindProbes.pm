@@ -250,8 +250,10 @@ sub Search_head {
             if ( $exception->isa('Exception::Class::DBI::STH') ) {
 
                 # catch execute exceptions only
-                $self->add_message( { -class => 'error' },
-                    "Could not execute query. Database response was: $exception" );
+                $self->add_message(
+                    { -class => 'error' },
+                    "Could not execute query. Database response was: $exception"
+                );
             }
             else {
                 $exception->throw();
@@ -1767,55 +1769,62 @@ sub mainFormDD {
                     $q->li(
                         { -id => 'pattern_div' },
                         $q->p(
-                            'Search pattern: ',
-                            $q->radio_group(
-                                -name   => 'match',
-                                -values => [ 'Full-Word', 'Prefix', 'Partial' ],
-                                -default    => 'Full-Word',
-                                -attributes => {
-                                    'Full-Word' => {
-                                        id    => 'full_word',
-                                        title => 'Match full words'
-                                    },
-                                    'Prefix' => {
-                                        id    => 'prefix',
-                                        title => 'Match word prefixes'
-                                    },
-                                    'Partial' => {
-                                        id => 'partial',
-                                        title =>
+                            $q->div(
+                                'Search pattern: ',
+                                $q->radio_group(
+                                    -name => 'match',
+                                    -values =>
+                                      [ 'Full-Word', 'Prefix', 'Partial' ],
+                                    -default    => 'Full-Word',
+                                    -attributes => {
+                                        'Full-Word' => {
+                                            id    => 'full_word',
+                                            title => 'Match full words'
+                                        },
+                                        'Prefix' => {
+                                            id    => 'prefix',
+                                            title => 'Match word prefixes'
+                                        },
+                                        'Partial' => {
+                                            id => 'partial',
+                                            title =>
 'Match word fragments, regular expressions'
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            ),
+                            $q->div(
+                                {
+                                    -class => 'hint',
+                                    -id    => 'pattern_fullword_hint'
+                                },
+                                <<"END_EXAMPLE_TEXT"),
+In 
+<a target="_blank" title="Click for more info on full-word searching" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">full-word search</a>
+in this scope, the phrase
+<span class="unbreakable-term">"brain development"</span> will be matched exactly,
+<span class="unbreakable-term">brain -development</span> will match "brain" but not "development", 
+<span class="unbreakable-term">+brain +development</span> will match both words
+in any order, while <span class="unbreakable-term">brain development</span> 
+will match any of the two words.
+END_EXAMPLE_TEXT
+                            $q->div(
+                                {
+                                    -class => 'hint',
+                                    -id    => 'pattern_part_hint'
+                                },
+                                <<"END_EXAMPLE_TEXT"),
+Matches word fragments or 
+<a target="_blank" title="Click for more info on regular expressions" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">regular expressions</a>.
+For example, the expression 
+<span class="unbreakable-term">^[A-Z]{2}[0-9]{6}\$</span> 
+will match accession numbers that have the format of any two letters followed by
+six digits (e.g.  AK022913).
+END_EXAMPLE_TEXT
                         ),
-                        $q->p(
-                            {
-                                -class => 'hint',
-                                -id    => 'pattern_fullword_hint'
-                            },
-                            <<"END_EXAMPLE_TEXT"),
-When searching gene and GO-term names/descriptions in full-word mode,
-<strong>"brain development"</strong> matches the exact phrase, <strong>brain
--development</strong> matches "brain" but not "development", and <strong>+brain
-+development</strong> matches both words in any order.
-<a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">More...</a>
-END_EXAMPLE_TEXT
-                        $q->p(
-                            {
-                                -class => 'hint',
-                                -id    => 'pattern_part_hint'
-                            },
-                            <<"END_EXAMPLE_TEXT"),
-Match word fragments or <i>regular expressions</i>. For example, expression
-<strong>^[A-Z]{2}[0-9]{6}\$</strong> matches accession numbers in the following
-format: any two letters followed by exactly six digits (e.g. AK022913).
-<a target="_blank" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">More...</a>
-END_EXAMPLE_TEXT
                     ),
                     $q->li(
-                        $q->p(
-                            { -class => 'input_container' },
+                        $q->div(
                             'Limit to: ',
                             (
                                 defined($species_data)
@@ -1858,18 +1867,18 @@ END_EXAMPLE_TEXT
                                       'Enter end position on the chromosome',
                                     -size => 14
                                 )
-                            ),
-                            $q->p(
-                                {
-                                    -id    => 'chr_div',
-                                    -class => 'hint',
-                                    -style => 'display:block;'
-                                },
-                                <<"END_chr_note"
+                            )
+                        ),
+                        $q->div(
+                            {
+                                -id    => 'chr_div',
+                                -class => 'hint',
+                                -style => 'display:block;'
+                            },
+                            <<"END_chr_note"
 [Optional] Enter chromosome name (e.g. 22, M, or X) and numeric interval. Leave
 these fields blank to search entire genome.
 END_chr_note
-                            )
                         )
                     )
                 )
