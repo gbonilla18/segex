@@ -553,7 +553,7 @@ sub Compare_body {
       $q->h2('Probes significant in different experiment combinations'),
       $q->p(<<"END_MATRIX"),
 Rows correspond to experiment combinations, and columns labeled with pound signs
-correspond to experiments. The last three columns are: observed probe counts,
+correspond to experiments. The last two columns are: 
 number of experiments in which the probes have significant differential
 expression, and natural logarithm of observed probe count over expected
 (calculated assuming probes for each subset are drawn at random).

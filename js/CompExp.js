@@ -104,7 +104,7 @@ var rowcount_titles = _xExpList.length;
 // TFS: all
 var row_all = iterateForward(function(i) {
     this.push('n/a');
-}, [null], 0, rowcount_titles).concat(probe_count, null);
+}, [null, probe_count], 0, rowcount_titles).concat(null);
 
 
 YAHOO.util.Event.addListener(window, "load", function() {
@@ -208,8 +208,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     } else {
                         this.push('N');
                     }
-                }, [fs], 0, rowcount_titles).concat(
-                    observed,
+                }, [fs, observed], 0, rowcount_titles).concat(
                     significant_in, 
                     Math.log(observed / fs2expected[fs]).toPrecision(3)
                 ));
@@ -221,9 +220,9 @@ YAHOO.util.Event.addListener(window, "load", function() {
         data_fields: forEach(_xExpList, function(val) {
             this.push({ key: 'eid' + val.eid });
         }, [
-            { key: 'fs', parser: 'number' }
+            { key: 'fs', parser: 'number' },
+            { key: 'probe_count', parser: 'number'}
         ]).concat(
-            { key: 'probe_count', parser: 'number'},
             { key: 'significant_in', parser: 'number'},
             { key: 'log_odds', parser: 'number'}
         ),
@@ -241,11 +240,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 formatter:formatMark
             });
         }, [
-    { key: 'fs', sortable:true, resizeable:false, label: 'Probe Subset', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum}
+{ key: 'fs', sortable:true, resizeable:false, label: 'Probe Subset', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum},
+{ key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }}
         ]).concat(
-            { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
-            { key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
-            { key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Ratio' }
+{ key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
+{ key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Ratio' }
         )
     };
     YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
