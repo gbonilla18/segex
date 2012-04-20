@@ -276,7 +276,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     //============== TFS breakdown table ================
     var tfs_config = {
         paginator: new YAHOO.widget.Paginator({
-            rowsPerPage: 50 
+            rowsPerPage: 18 
         })
     };
     var tfs_data = new YAHOO.util.DataSource(tfs.records);

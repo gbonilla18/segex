@@ -160,10 +160,13 @@ sub default_head {
 #===============================================================================
 sub default_body {
     my $self = shift;
+    my $q    = $self->{_cgi};
+    my $fs   = $self->{_fs};
+    if ( !defined($fs) ) {
+        $fs = $self->{_allProbes} ? 'all probes' : 'all significant probes';
+    }
 
-    my $q = $self->{_cgi};
-
-    return $q->h2( { -id => 'summary_caption' }, 'Subset ' . $self->{_fs} ),
+    return $q->h2( { -id => 'summary_caption' }, "Subset: $fs" ),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->h2( { -id => 'tfs_caption' }, '' ),
       $q->div( $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),

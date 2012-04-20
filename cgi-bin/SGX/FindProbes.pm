@@ -828,9 +828,17 @@ sub build_location_predparam {
     if ( defined $loc_spid and $loc_spid ne '' ) {
         $query .= ' AND platform.sid=?';
         push @param, $loc_spid;
+    }
 
- # where Intersects(LineString(Point(0,93160788), Point(0,103160849)), # locus);
- # chromosome is meaningless unless species was specified.
+    #---------------------------------------------------------------------------
+    #  For location, we need either platform or species id
+    #---------------------------------------------------------------------------
+    if (   ( defined $loc_pid and $loc_pid ne '' )
+        || ( defined $loc_spid and $loc_spid ne '' ) )
+    {
+
+ # where Intersects(LineString(Point(0,93160788), Point(0,103160849)), locus);
+ # chromosome is meaningless unless species or platform was specified.
         my $loc_chr = $self->{_loc_chr};
         if ( defined $loc_chr and $loc_chr ne '' ) {
             $query .=
