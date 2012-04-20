@@ -85,8 +85,9 @@ sub init {
 
     $self->set_attributes( _title => 'Find Probes' );
     $self->register_actions(
-        Search    => { head => 'Search_head', body => 'Search_body' },
-        'Get CSV' => { head => 'GetCSV_head' }
+        'Search' => { head => 'Search_head', body => 'Search_body' },
+        'Search GO terms' => { body => 'SearchGO_body' },
+        'Get CSV'         => { head => 'GetCSV_head' }
     );
     return $self;
 }
@@ -248,8 +249,10 @@ sub Search_head {
           ( { -code => $jscode }, { -src => 'FindProbes.js' } );
     }
     elsif ( $next_action == 2 ) {
+        $self->getGOTerms();
         push @$js_src_code,
           ( { -code => $self->goTerms_js() }, { -src => 'GoTerms.js' } );
+        $self->set_action('Search GO terms');
     }
     return 1;
 }
@@ -266,7 +269,8 @@ sub Search_head {
 #===============================================================================
 sub goTerms_js {
     my $self = shift;
-    my $data = $self->{_GoTerms};
+    my $q    = $self->{_cgi};
+    my $data = $self->{_GoTerms} || [];
 
     my $rowcount = scalar(@$data);
     my $caption  = sprintf( 'Found %d GO %s',
@@ -286,7 +290,7 @@ sub goTerms_js {
             queryText  => $self->{_QueryText},
             match      => $match,
             scope      => $scope,
-            url_prefix => $self->{_cgi}->url( -absolute => 1 ),
+            url_prefix => $q->url( -absolute => 1 ),
             project_id => $self->{_WorkingProject},
             data       => \%json_probelist
         ],
@@ -556,7 +560,6 @@ sub FindProbes_init {
     #  special action for GO terms
     #---------------------------------------------------------------------------
     if ( $scope eq 'GO Names' or $scope eq 'GO Names/Desc.' ) {
-        $self->getGOTerms();
         return 2;
     }
 
@@ -1467,6 +1470,146 @@ sub findProbes_js {
 }
 
 #===  FUNCTION  ================================================================
+#         NAME:  SearchGO_body
+#      PURPOSE:  display results table for Find Probes
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub SearchGO_body {
+    my $self = shift;
+    my %args = @_;
+    my $q    = $self->{_cgi};
+
+    my $extra_fields = $args{extra_fields} || [];
+    my $action_a = $args{action_a}
+      || $q->url( absolute => 1 ) . '?a=findProbes';
+    my $action_b = $args{action_b} || 'Search';
+
+    my $type  = $self->{_scope} || '';
+    my $match = $self->{_match} || '';
+
+    my @actions = (
+        $q->a(
+            {
+                -id    => 'resulttable_selectall',
+                -title => 'Get probes for all GO accession numbers below'
+            },
+            'Select all'
+        ),
+        $q->a(
+            {
+                -id    => 'resulttable_astext',
+                -title => 'Present data in this table in tab-delimited format'
+            },
+            'View as plain text'
+        )
+    );
+
+    my $textToShow = (
+        $self->{_scope} eq 'GO IDs'
+        ? join( ', ',
+            map { 'GO:' . sprintf( '%07d', $_ ) } @{ $self->{_QueryTextProc} } )
+        : join( ', ', @{ $self->{_QueryTextProc} } )
+    );
+
+    my @ret = (
+        $q->h2( { -id => 'caption' }, '' ),
+        $q->p(
+            { -id => 'subcaption' },
+            sprintf( '%s search on %s', $self->{_match}, $self->{_scope}, )
+              . ": $textToShow"
+        ),
+        $q->start_form(
+            -id      => 'main_form',
+            -method  => 'POST',
+            -action  => $action_a,
+            -enctype => 'application/x-www-form-urlencoded'
+        ),
+        $q->dl(
+            $q->dt('Get probes for selected GO terms below:'),
+            $q->dd(
+                $q->hidden(
+                    -id   => 'q',
+                    -name => 'q'
+                ),
+                $q->hidden(
+                    -name  => 'scope',
+                    -value => 'GO IDs'
+                ),
+                $q->hidden(
+                    -name  => 'match',
+                    -value => 'Full-Word'
+                ),
+                (
+                    ( $self->{_loc_spid} || $self->{_loc_pid} )
+                    ? (
+                        (
+                            $self->{_loc_spid}
+                            ? $q->hidden(
+                                -name  => 'spid',
+                                -value => $self->{_loc_spid}
+                              )
+                            : ()
+                        ),
+                        (
+                            $self->{_loc_pid}
+                            ? $q->hidden(
+                                -name  => 'pid',
+                                -value => $self->{_loc_pid}
+                              )
+                            : ()
+                        ),
+                        $q->hidden(
+                            -name  => 'chr',
+                            -value => $self->{_loc_chr}
+                        ),
+                        $q->hidden(
+                            -name  => 'start',
+                            -value => $self->{_loc_start}
+                        ),
+                        $q->hidden(
+                            -name  => 'end',
+                            -value => $self->{_loc_end}
+                        )
+                      )
+                    : ()
+                ),
+                (
+                    $self->{_extra_fields} > 1
+                    ? $q->hidden(
+                        -name  => 'extra_fields',
+                        -value => 'on'
+                      )
+                    : ()
+                ),
+                @$extra_fields,
+                $q->submit(
+                    -class => 'button black bigrounded',
+                    -name  => 'b',
+                    -value => $action_b,
+                    -title => 'Get related probes for GO terms below'
+                )
+            )
+        ),
+        $q->endform,
+        $q->start_form(
+            -id      => 'get_csv',
+            -method  => 'POST',
+            -action  => $q->url( absolute => 1 ) . '?a=findProbes',
+            -enctype => 'application/x-www-form-urlencoded'
+        ),
+        join( $q->span( { -class => 'separator' }, ' / ' ), @actions ),
+        $q->endform,
+        $q->div( { -id => 'resulttable' }, '' )
+    );
+    return @ret;
+}
+
+#===  FUNCTION  ================================================================
 #         NAME:  Search_body
 #      PURPOSE:  display results table for Find Probes
 #   PARAMETERS:  ????
@@ -1484,42 +1627,32 @@ sub Search_body {
     my $match = $self->{_match} || '';
 
     my @actions = (
-        (
-            ( $type eq 'GO Names' or $type eq 'GO Names/Desc.' )
-            ? $q->a(
-                {
-                    -id    => 'resulttable_selectall',
-                    -title => 'Get probes for all GO accession numbers below'
-                },
-                'Select all'
-              )
-            : $q->span(
-                $q->hidden(
-                    -id    => 'q',
-                    -name  => 'q',
-                    -value => ''
-                ),
-                $q->hidden(
-                    -id    => 'q_old',
-                    -name  => 'q_old',
-                    -value => ''
-                ),
-                $q->hidden(
-                    -id    => 'scope_old',
-                    -name  => 'scope_old',
-                    -value => ''
-                ),
-                $q->hidden(
-                    -id    => 'match_old',
-                    -name  => 'match_old',
-                    -value => ''
-                ),
-                $q->submit(
-                    -class => 'plaintext',
-                    -name  => 'b',
-                    -value => 'Get CSV',
-                    -title => 'Get CSV report for these probes'
-                )
+        $q->span(
+            $q->hidden(
+                -id    => 'q',
+                -name  => 'q',
+                -value => ''
+            ),
+            $q->hidden(
+                -id    => 'q_old',
+                -name  => 'q_old',
+                -value => ''
+            ),
+            $q->hidden(
+                -id    => 'scope_old',
+                -name  => 'scope_old',
+                -value => ''
+            ),
+            $q->hidden(
+                -id    => 'match_old',
+                -name  => 'match_old',
+                -value => ''
+            ),
+            $q->submit(
+                -class => 'plaintext',
+                -name  => 'b',
+                -value => 'Get CSV',
+                -title => 'Get CSV report for these probes'
             )
         ),
         $q->a(
@@ -1545,94 +1678,6 @@ sub Search_body {
             sprintf( '%s search on %s', $self->{_match}, $self->{_scope}, )
               . ": $textToShow"
         ),
-        (
-            ( $type eq 'GO Names' or $type eq 'GO Names/Desc.' )
-            ? (
-                $q->start_form(
-                    -id      => 'main_form',
-                    -method  => 'POST',
-                    -action  => $q->url( absolute => 1 ) . '?a=findProbes',
-                    -enctype => 'application/x-www-form-urlencoded'
-                ),
-                $q->dl(
-                    $q->dt('Get probes for selected GO terms below:'),
-                    $q->dd(
-                        $q->hidden(
-                            -id   => 'q',
-                            -name => 'q'
-                        ),
-                        $q->hidden(
-                            -name  => 'scope',
-                            -value => 'GO IDs'
-                        ),
-                        $q->hidden(
-                            -name  => 'match',
-                            -value => 'Full-Word'
-                        ),
-                        (
-                            $self->{_loc_pid}
-                            ? $q->hidden(
-                                -name  => 'pid',
-                                -value => $self->{_loc_pid}
-                              )
-                            : ()
-                        ),
-                        (
-                            $self->{_loc_spid}
-                            ? (
-                                $q->hidden(
-                                    -name  => 'spid',
-                                    -value => $self->{_loc_spid}
-                                ),
-                                $q->hidden(
-                                    -name  => 'chr',
-                                    -value => $self->{_loc_chr}
-                                ),
-                                $q->hidden(
-                                    -name  => 'start',
-                                    -value => $self->{_loc_start}
-                                ),
-                                $q->hidden(
-                                    -name  => 'end',
-                                    -value => $self->{_loc_end}
-                                )
-                              )
-                            : ()
-                        ),
-                        (
-                            $self->{_extra_fields} > 1
-                            ? $q->hidden(
-                                -name  => 'extra_fields',
-                                -value => 'on'
-                              )
-                            : ()
-                        ),
-                        (
-                            $self->{_graphs}
-                            ? (
-                                $q->hidden(
-                                    -name  => 'show_graphs',
-                                    -value => '1'
-                                ),
-                                $q->hidden(
-                                    -name  => 'graph_type',
-                                    -value => $self->{_graphs}
-                                )
-                              )
-                            : ()
-                        ),
-                        $q->submit(
-                            -class => 'button black bigrounded',
-                            -name  => 'b',
-                            -value => 'Search',
-                            -title => 'Get related probes for GO terms below'
-                        )
-                    )
-                ),
-                $q->endform
-              )
-            : ()
-        ),
         $q->start_form(
             -id      => 'get_csv',
             -method  => 'POST',
@@ -1644,9 +1689,7 @@ sub Search_body {
         $q->div( { -id => 'resulttable' }, '' )
     );
 
-    if ( $self->{_graphs}
-        and !( $type eq 'GO Names' or $type eq 'GO Names/Desc.' ) )
-    {
+    if ( $self->{_graphs} ) {
         push @ret, (
             $q->p(<<"END_LEGEND"),
 <strong>Dark bars</strong>: values meething the P threshold. 
@@ -1657,6 +1700,7 @@ END_LEGEND
             $q->p( $q->a( { -href => '#' }, '^ Back to top' ) )
         );
     }
+
     return @ret;
 }
 

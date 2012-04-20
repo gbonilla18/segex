@@ -49,7 +49,9 @@ sub init {
         _FindProbes              => $findProbes
     );
     $self->register_actions(
-        Submit => { head => 'Compare_head', body => 'Compare_body' } );
+        Submit => { head => 'Compare_head', body => 'Compare_body' },
+        'Search GO terms' => { body => 'SearchGO_body' }
+    );
 
     return $self;
 }
@@ -71,8 +73,10 @@ sub Compare_head {
     );
 
     my $q = $self->{_cgi};
-    $self->{_user_pse} = car $q->param('user_pse');
-    $self->{_user_pse} = '{}' if not defined $self->{_user_pse};
+    $self->{_chkAllProbes}  = car $q->param('chkAllProbes');
+    $self->{_specialFilter} = car $q->param('specialFilter');
+    $self->{_user_pse}      = car $q->param('user_pse');
+    $self->{_user_pse}      = '{}' if not defined $self->{_user_pse};
     my $pse_json = decode_json( $self->{_user_pse} ) || {};
     $self->{_pid} = $pse_json->{pid};
 
@@ -105,7 +109,7 @@ sub Compare_head {
     #---------------------------------------------------------------------------
     #  filters?
     #---------------------------------------------------------------------------
-    if ( defined $q->param('specialFilter') ) {
+    if ( $self->{_specialFilter} ) {
         my $findProbes = $self->{_FindProbes};
         $findProbes->getSessionOverrideCGI();
         my $next_action = $findProbes->FindProbes_init();
@@ -115,8 +119,10 @@ sub Compare_head {
             $findProbes->{_extra_fields} = 0;
 
             my ( $headers, $records );
-            $self->safe_execute( sub { ($headers, $records) = $findProbes->xTableQuery(); },
-                "Could not execute query. Database response was: %s" );
+            $self->safe_execute(
+                sub { ( $headers, $records ) = $findProbes->xTableQuery(); },
+                "Could not execute query. Database response was: %s"
+            );
             $self->{_ProbeList} = [ map { int( $_->[0] ) } @$records ];
             my $dbLists = $self->{_dbLists};
             $self->{_ProbeTmpTable} = $dbLists->createTempList(
@@ -127,11 +133,14 @@ sub Compare_head {
         elsif ( $next_action == 2 ) {
 
             # GO terms
+            $self->safe_execute( sub { $findProbes->getGOTerms(); },
+                "Could not execute query. Database response was: %s" );
             push @$js_src_code,
               (
                 { -code => $findProbes->goTerms_js() },
                 { -src  => 'GoTerms.js' }
               );
+            $self->set_action('Search GO terms');
             return 1;
         }
     }
@@ -139,6 +148,45 @@ sub Compare_head {
     push @$js_src_code, { -code => $self->getResultsJS() };
     push @$js_src_code, { -src  => 'CompExp.js' };
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  CompareExperiments
+#       METHOD:  SearchGO_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub SearchGO_body {
+    my $self = shift;
+    my $q    = $self->{_cgi};
+
+    my $findProbes = $self->{_FindProbes};
+    return $findProbes->SearchGO_body(
+        action_a     => $q->url( absolute => 1 ) . '?a=compareExperiments',
+        action_b     => 'Submit',
+        extra_fields => [
+            $q->hidden(
+                -name  => 'chkAllProbes',
+                -value => $self->{_chkAllProbes}
+            ),
+            $q->hidden(
+                -name  => 'specialFilter',
+                -value => $self->{_specialFilter}
+            ),
+            $q->hidden(
+                -name  => 'user_pse',
+                -value => $self->{_user_pse}
+            ),
+            $q->hidden(
+                -name  => 'user_selection',
+                -value => $self->{_user_selection}
+            ),
+        ]
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -236,7 +284,6 @@ COMPARE_SUMMARY
             $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
             $q->dd(
                 $q->popup_menu(
-                    -name  => 'pid',
                     -id    => 'pid',
                     -title => 'Choose microarray platform'
                 )
@@ -244,7 +291,6 @@ COMPARE_SUMMARY
             $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),
             $q->dd(
                 $q->popup_menu(
-                    -name  => 'stid',
                     -id    => 'stid',
                     -title => 'Choose study'
                 )
@@ -252,7 +298,6 @@ COMPARE_SUMMARY
             $q->dt( $q->label( { -for => 'eid' }, 'Experiment:' ) ),
             $q->dd(
                 $q->popup_menu(
-                    -name  => 'eid',
                     -id    => 'eid',
                     -title => 'Choose experiment'
                 )
@@ -367,7 +412,7 @@ sub getResultsJS {
     my @query_fs_body_params;
 
     #This flag tells us whether or not to ignore the thresholds.
-    my $includeAllProbes = defined( $q->param('chkAllProbes') );
+    my $includeAllProbes = $self->{_chkAllProbes};
     my $rows             = $self->{_xExpList};
     for ( my $i = 0 ; $i < @$rows ; $i++ ) {
         my $row = $rows->[$i];
