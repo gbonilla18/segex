@@ -45,6 +45,39 @@ sub pluralize_noun {
 }
 
 #===  CLASS METHOD  ============================================================
+#        CLASS:  Base
+#       METHOD:  safe_execute
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub safe_execute {
+    my $self    = shift;
+    my $lambda  = shift;
+    my $message = shift;
+    eval {
+        $lambda->();
+        1;
+    } or do {
+        my $exception = $@;
+        if ( $exception->isa('Exception::Class::DBI::STH') ) {
+
+            # catch execute exceptions only
+            $self->add_message( { -class => 'error' },
+                sprintf( $message, "$exception" ) );
+
+        }
+        else {
+            $exception->throw();
+        }
+    };
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base
 #       METHOD:  new
 #   PARAMETERS:  ????

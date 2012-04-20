@@ -237,28 +237,15 @@ sub Search_head {
       );
 
     if ( $next_action == 1 ) {
-
-        eval {
-            push @$js_src_code,
-              (
-                { -code => $self->findProbes_js( $self->xTableQuery() ) },
-                { -src  => 'FindProbes.js' }
-              );
-            1;
-        } or do {
-            my $exception = $@;
-            if ( $exception->isa('Exception::Class::DBI::STH') ) {
-
-                # catch execute exceptions only
-                $self->add_message(
-                    { -class => 'error' },
-                    "Could not execute query. Database response was: $exception"
-                );
-            }
-            else {
-                $exception->throw();
-            }
-        };
+        my $jscode;
+        $self->safe_execute(
+            sub {
+                $jscode = $self->findProbes_js( $self->xTableQuery() );
+            },
+            "Could not execute query. Database response was: %s"
+        );
+        push @$js_src_code,
+          ( { -code => $jscode }, { -src => 'FindProbes.js' } );
     }
     elsif ( $next_action == 2 ) {
         push @$js_src_code,
@@ -329,7 +316,7 @@ sub build_SearchPredicateGO {
     );
     my $scope = $self->{_scope};
     my $type  = $translate_fields{$scope};
-    SGX::Exception::Internal->throw("Unrecognized search scope\n")
+    SGX::Exception::Internal->throw("Unrecognized search scope \"$scope\"\n")
       if not defined $type;
 
     if ( $match eq 'Full-Word' ) {
@@ -712,7 +699,7 @@ sub build_SearchPredicate {
     );
     my $scope = $self->{_scope};
     my $type  = $translate_fields{$scope};
-    SGX::Exception::Internal->throw("Unrecognized search scope\n")
+    SGX::Exception::Internal->throw("Unrecognized search scope \"$scope\"\n")
       if not defined $type;
 
     if ( $match eq 'Full-Word' ) {
@@ -837,8 +824,8 @@ sub build_location_predparam {
         || ( defined $loc_spid and $loc_spid ne '' ) )
     {
 
- # where Intersects(LineString(Point(0,93160788), Point(0,103160849)), locus);
- # chromosome is meaningless unless species or platform was specified.
+   # where Intersects(LineString(Point(0,93160788), Point(0,103160849)), locus);
+   # chromosome is meaningless unless species or platform was specified.
         my $loc_chr = $self->{_loc_chr};
         if ( defined $loc_chr and $loc_chr ne '' ) {
             $query .=

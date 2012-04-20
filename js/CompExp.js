@@ -197,8 +197,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
             // transforming object into array
             object_forValues(h, function(row) { this.push(row); }, []).sort(NumericSortOnColumnDesc('fs')), 
             function(row) {
-                var fs = parseInt(row.fs);
                 var observed = parseInt(row.c);
+                var expected = parseFloat(fs2expected[row.fs]);
+                // calculate the log_odds ratio
+                var fs = parseInt(row.fs);
                 var significant_in = 0;
                 this.push(iterateForward(function(i) {
                     // test for bit presence
@@ -210,7 +212,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     }
                 }, [fs, observed], 0, rowcount_titles).concat(
                     significant_in, 
-                    Math.log(observed / fs2expected[fs]).toPrecision(3)
+                    //(100 * (observed - expected) / Math.max(observed, expected)).toPrecision(3)
+                    Math.log(observed / expected).toPrecision(3)
                 ));
             }, 
             [row_all]

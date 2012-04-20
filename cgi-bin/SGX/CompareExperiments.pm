@@ -101,6 +101,41 @@ sub Compare_head {
         'element/element-min.js',       'paginator/paginator-min.js',
         'datasource/datasource-min.js', 'datatable/datatable-min.js'
       );
+
+    #---------------------------------------------------------------------------
+    #  filters?
+    #---------------------------------------------------------------------------
+    if ( defined $q->param('specialFilter') ) {
+        my $findProbes = $self->{_FindProbes};
+        $findProbes->getSessionOverrideCGI();
+        my $next_action = $findProbes->FindProbes_init();
+        if ( $next_action == 1 ) {
+
+            # get probe ids only
+            $findProbes->{_extra_fields} = 0;
+
+            my ( $headers, $records );
+            $self->safe_execute( sub { ($headers, $records) = $findProbes->xTableQuery(); },
+                "Could not execute query. Database response was: %s" );
+            $self->{_ProbeList} = [ map { int( $_->[0] ) } @$records ];
+            my $dbLists = $self->{_dbLists};
+            $self->{_ProbeTmpTable} = $dbLists->createTempList(
+                items     => $self->{_ProbeList},
+                name_type => [ 'rid', 'int(10) unsigned' ]
+            );
+        }
+        elsif ( $next_action == 2 ) {
+
+            # GO terms
+            push @$js_src_code,
+              (
+                { -code => $findProbes->goTerms_js() },
+                { -src  => 'GoTerms.js' }
+              );
+            return 1;
+        }
+    }
+
     push @$js_src_code, { -code => $self->getResultsJS() };
     push @$js_src_code, { -src  => 'CompExp.js' };
     return 1;
@@ -308,7 +343,7 @@ COMPARE_SUMMARY
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments
-#       METHOD:  getResults
+#       METHOD:  getResultsJS
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -316,41 +351,24 @@ COMPARE_SUMMARY
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub getResults {
+sub getResultsJS {
     my $self = shift;
     my $q    = $self->{_cgi};
     my $dbh  = $self->{_dbh};
 
-    #This flag tells us whether or not to ignore the thresholds.
-    my $includeAllProbes = defined( $q->param('chkAllProbes') );
-
-    my $probeListPredicate = '';
-    my $probeList;
-
-    if ( defined $q->param('specialFilter') ) {
-        my $findProbes = $self->{_FindProbes};
-        $findProbes->getSessionOverrideCGI();
-        if ( $findProbes->FindProbes_init() ) {
-
-            # get probe ids only
-            $findProbes->{_extra_fields} = 0;
-            my ( $headers, $records ) = $findProbes->xTableQuery();
-            $probeList = [ map { int($_->[0]) } @$records ];
-            my $dbLists  = $self->{_dbLists};
-            my $tmpTable = $dbLists->createTempList(
-                items     => $probeList,
-                name_type => [ 'rid', 'int(10) unsigned' ]
-            );
-            $probeListPredicate = "INNER JOIN $tmpTable USING(rid)";
-        }
-    }
-
+    my $probeList = $self->{_ProbeList};
+    my $probeListPredicate =
+      $self->{_ProbeTmpTable}
+      ? "INNER JOIN $self->{_ProbeTmpTable} USING(rid)"
+      : '';
     my @query_titles;
     my @query_titles_params;
     my @query_fs_body;
     my @query_fs_body_params;
 
-    my $rows = $self->{_xExpList};
+    #This flag tells us whether or not to ignore the thresholds.
+    my $includeAllProbes = defined( $q->param('chkAllProbes') );
+    my $rows             = $self->{_xExpList};
     for ( my $i = 0 ; $i < @$rows ; $i++ ) {
         my $row = $rows->[$i];
         my ( $eid, $sample1, $sample2, $fc, $pval, $pValClass ) =
@@ -414,41 +432,17 @@ END_query_fs
     my $probes_in_platform = int( $sth_total->fetchrow_arrayref()->[0] );
     $sth_total->finish;
 
-    return {
-        h                  => $h,
-        hc                 => \@hc,
-        probeList          => $probeList,
-        probe_count        => $probe_count,
-        probes_in_platform => $probes_in_platform,
-        includeAllProbes   => $includeAllProbes,
-    };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  CompareExperiments
-#       METHOD:  getResultsJS
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is called when experiments are compared.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getResultsJS {
-    my $self    = shift;
-    my $results = $self->getResults();
-
     my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
     return ''
       . $js->let(
         [
             _xExpList          => $self->{_xExpList},
-            h                  => $results->{h},
-            hc                 => $results->{hc},
-            searchFilter       => $results->{probeList},
-            probe_count        => $results->{probe_count},
-            probes_in_platform => $results->{probes_in_platform},
-            includeAllProbes   => $results->{includeAllProbes},
+            h                  => $h,
+            hc                 => \@hc,
+            searchFilter       => $probeList,
+            probe_count        => $probe_count,
+            probes_in_platform => $probes_in_platform,
+            includeAllProbes   => $includeAllProbes,
         ],
         declare => 1
       );
