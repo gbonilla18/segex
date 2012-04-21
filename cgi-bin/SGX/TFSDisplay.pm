@@ -444,14 +444,13 @@ END_query
 #     SEE ALSO:  n/a
 #===============================================================================
 sub getPlatformData {
-    my $self = shift;
+    my $self      = shift;
+    my $dbh       = $self->{_dbh};
+    my $data_rows = $self->{_xExpList};
 
-    my $dbh = $self->{_dbh};
-
-    my @eidList = map { $_->{eid} } @{ $self->{_xExpList} };
-
+    my @eidList = map { $_->{eid} } @$data_rows;
     my $placeholders =
-      ( @eidList > 0 )
+      (@$data_rows)
       ? join( ',', map { '?' } @eidList )
       : 'NULL';
 
@@ -651,7 +650,8 @@ END_queryCSV
 #     SEE ALSO:  n/a
 #===============================================================================
 sub displayTFSInfoCSV {
-    my $self = shift;
+    my $self      = shift;
+    my $data_rows = $self->{_xExpList};
 
     my $print = bind_csv_handle( \*STDOUT );
 
@@ -679,22 +679,29 @@ sub displayTFSInfoCSV {
     );
 
     # This is the line with the experiment name and eid above the data columns.
-    my @experimentNameHeader = (undef) x 8;
+    my @annot_field_headers = (
+        'TFS',
+        'Probe ID',
+        'Accession Number',
+        'Gene',
+        'Probe Sequence',
+        'Gene Name'
+    );
+    my @data_field_headers =
+      ( 'Ratio', 'Fold Change', 'Intensity-1', 'Intensity-2', 'P' );
 
-    my @eidList;
+    my @experimentNameHeader = (undef) x scalar(@annot_field_headers);
 
     # Print Experiment info.
     my $i = 0;
-    foreach my $row ( @{ $self->{_xExpList} } ) {
+    foreach my $row (@$data_rows) {
         my $currentSTID = $row->{stid};
         my $currentEID  = $row->{eid};
-
-        push @eidList, $currentEID;
 
         # Form the line that displays experiment names above data columns.
         push @experimentNameHeader,
           $currentEID . ':' . $self->{_headerRecords}->{$currentEID}->{title},
-          (undef) x 4;
+          (undef) x ( scalar(@data_field_headers) - 1 );
 
         my @currentLine = (
             $currentEID,
@@ -740,21 +747,14 @@ sub displayTFSInfoCSV {
     $print->( \@experimentNameHeader );
 
     # Experiment Data header.
+
     $print->(
         [
-            'TFS',
-            'Probe ID',
-            'Accession Number',
-            'Gene',
-            'Probe Sequence',
-            'Gene Name',
+            @annot_field_headers,
             map {
-                (
-                    "$_:Ratio",       "$_:Fold Change",
-                    "$_:Intensity-1", "$_:Intensity-2",
-                    "$_:P"
-                  )
-              } @eidList
+                my $eid = $_->{eid};
+                map { "$eid: $_" } @data_field_headers;
+              } @$data_rows
         ]
     );
 
