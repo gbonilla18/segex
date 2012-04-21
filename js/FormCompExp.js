@@ -207,20 +207,26 @@ YAHOO.util.Event.addListener(window, "load", function () {
     var selExperiment = dom.get('eid');
 
     function pickExperiment() {
-        function incrementParentIfEmpty(parent, child) {
+        function incrementParentIfEmptyChild(parent, child) {
             // increment study if experiment is empty
             while (child.selectedIndex < 0 && parent.selectedIndex >= 0) {
                 incrementDropdown(parent);
                 triggerEvent(parent, 'change');
             }
         }
-        incrementParentIfEmpty(selStudy, selExperiment);
+        incrementParentIfEmptyChild(selStudy, selExperiment);
         if (selExperiment.selectedIndex < 0) {
             return;
         }
-        var result = getSelectedValue(selExperiment);
+        var result = {
+            eid: getSelectedValue(selExperiment),
+            stid: getSelectedValue(selStudy),
+            pid: getSelectedValue(selPlatform)
+        };
+
+        // increment experiment to the next one
         selExperiment.selectedIndex++;
-        incrementParentIfEmpty(selStudy, selExperiment);
+        incrementParentIfEmptyChild(selStudy, selExperiment);
         triggerEvent(selExperiment, 'change');
         return result;
     }
@@ -271,9 +277,11 @@ YAHOO.util.Event.addListener(window, "load", function () {
     });
 
     YAHOO.util.Event.addListener('add', 'click', function() {
-        var pid = getSelectedValue(selPlatform);
-        var stid = getSelectedValue(selStudy);
-        var eid = pickExperiment();
+        var pse_obj = pickExperiment();
+        var eid = pse_obj.eid;
+        var stid = pse_obj.stid;
+        var pid = pse_obj.pid;
+
         if (typeof pid === 'undefined' || typeof eid === 'undefined') {
             return false;
         }
