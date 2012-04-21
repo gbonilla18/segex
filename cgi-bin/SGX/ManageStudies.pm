@@ -88,7 +88,6 @@ sub new {
                         #        : ( platform => 'pid' )
                         #    )
                         #],
-                        #__hidden__ => 1
                     },
                 },
                 lookup => [

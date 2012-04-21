@@ -44,7 +44,7 @@ function getNCBIGeneURI(oArgs){
     var qt = (oArgs.query_type ? '[' + oArgs.query_type + ']' : '');
     var uri = 'http://www.ncbi.nlm.nih.gov/gene?' +
         object_forEach({
-            term : b + qt,
+            term : ('"' + b + '"' + qt),
         }, function(key, val) {
             this.push(key + '=' + encodeURIComponent(val));
         }, []).join('&');
@@ -55,12 +55,12 @@ function getNCBIEntrezURI(oArgs) {
     var b = oArgs.query;
     var organism = oArgs.organism;
     var qt = (oArgs.query_type ? '[' + oArgs.query_type + ']' : '');
-    var qorg = (organism ? organism + '[ORGN]' : '');
+    var qorg = (organism ? ('"' + organism + '"' + '[ORGN]') : '');
     var uri = 'http://www.ncbi.nlm.nih.gov/sites/entrez?' + 
         object_forEach({
             cmd  : 'search',
             db   : oArgs.database,
-            term : [b + qt, qorg].join(' AND ')
+            term : [('"' + b + '"' + qt), qorg].join(' AND ')
         }, function(key, val) {
             this.push(key + '=' + encodeURIComponent(val));
         }, []).join('&');

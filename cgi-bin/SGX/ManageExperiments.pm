@@ -192,7 +192,6 @@ sub new {
                         #        : ( platform => 'pid' )
                         #    )
                         #],
-                        #__hidden__   => 1,
                         __readonly__ => 1,
                     },
                     stid => {

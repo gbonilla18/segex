@@ -206,11 +206,10 @@ sub new {
                 names => [qw/description/],
                 meta  => {
                     stid => {
-                        label      => 'No.',
-                        parser     => 'number',
-                        #__hidden__ => 1
+                        label  => 'No.',
+                        parser => 'number',
                     },
-                    description => { label => 'Description' },
+                    description => { label => 'Study' },
                     pubmed      => {
                         label     => 'PubMed ID',
                         formatter => sub { 'formatPubMed' }
@@ -508,7 +507,9 @@ sub UploadAnnot_head {
             $i++;
 
             my @loci;
-            while ( $locus =~ /\b(?:chr|)([^,;\s]+)\s*:\s*([,\d]+)-([,\d]+)\b/g ) {
+            while (
+                $locus =~ /\b(?:chr|)([^,;\s]+)\s*:\s*([,\d]+)-([,\d]+)\b/g )
+            {
                 push @loci, [ $1, coord2int($2), coord2int($3) ];
             }
             $print_loci->( $probe_id, @$_ ) for @loci;
@@ -516,7 +517,7 @@ sub UploadAnnot_head {
         elsif ($upload_maploci2) {
 
             # use (chromosome, start, end)
-            my ($chr, $start, $end);
+            my ( $chr, $start, $end );
             if ($upload_chromosome) {
                 $chr = $fields->[$i];
                 $chr =~ s/^chr//;
@@ -540,8 +541,8 @@ sub UploadAnnot_head {
 
             # disallow spaces and plus signs
             $print_symbols->( $probe_id, 0, $_ )
-              for ( map { $_ =~ /^([^\+\s]+)$/ } split /[,;\s]+/,
-                $fields->[$i] );
+              for ( map { $_ =~ /^([^\+\s]+)$/ }
+                split( /[,;\s]+/, $fields->[$i] ) );
             $i++;
         }
 
@@ -552,8 +553,8 @@ sub UploadAnnot_head {
 
             # disallow spaces and plus signs
             $print_symbols->( $probe_id, 1, $_ )
-              for ( map { $_ =~ /^([^\+\s]+)$/ } split /[,;\s]+/,
-                $fields->[$i] );
+              for ( map { $_ =~ /^([^\+\s]+)$/ }
+                split( /[,;\s]+/, $fields->[$i] ) );
             $i++;
         }
 
@@ -1072,7 +1073,8 @@ END_info
                             map_loci => {
                                 -checked => 'checked',
                                 -value   => 'Mapping Locations',
-                                -title   => 'Mapping Locations (format: chrX:1,283,237-1,283,277 chr15:12,004,558-12,004,599)'
+                                -title =>
+'Mapping Locations (format: chrX:1,283,237-1,283,277 chr15:12,004,558-12,004,599)'
                             },
                             chr    => { -value => 'Chromosome' },
                             start  => { -value => 'Start' },

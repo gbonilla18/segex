@@ -52,8 +52,6 @@ sub new {
                         label    => 'Created By',
                         parser   => 'number',
                         __type__ => 'popup_menu',
-
-                        #__hidden__   => 1,
                         __tie__      => [ users => 'uid' ],
                         __optional__ => 1
                     },
@@ -82,7 +80,7 @@ sub new {
                 names     => [qw/description/],
                 meta      => {
                     stid => { label => 'No.', parser => 'number' },
-                    description => { label => 'Description' },
+                    description => { label => 'Study' },
                     pubmed      => {
                         label     => 'PubMed ID',
                         formatter => sub {
@@ -90,7 +88,6 @@ sub new {
                           }
                     },
                     pid => {
-                        #__hidden__ => 1,
                         label      => 'Platform',
                         parser     => 'number',
                     }
