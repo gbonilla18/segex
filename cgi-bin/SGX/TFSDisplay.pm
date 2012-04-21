@@ -391,8 +391,7 @@ END_no_allProbes
         unshift @query_proj,
           (
             qq{probe.probe_sequence AS 'Probe Sequence'},
-qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 'Gene Description'},
-            qq{platform_species.sname AS 'Species'}
+qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 'Gene Description'}
           );
     }
 
@@ -462,7 +461,7 @@ sub getPlatformData {
     my $singleItemQuery = <<"END_LoadQuery";
 SELECT
     platform.pname            AS 'Platform',
-    species.sname          AS 'Species',
+    species.sname             AS 'Species',
     probes.id_count           AS 'Probe Count',
     probes.sequence_count     AS 'Sequences Loaded'
 FROM platform
@@ -584,8 +583,7 @@ END_no_allProbesCSV
     unshift @query_proj,
       (
         qq{probe.probe_sequence AS 'Probe Sequence'},
-qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 'Gene Description'},
-        qq{platform_species.sname AS 'Species'}
+qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 'Gene Description'}
       );
 
     my $d1SubQuery   = join( ' UNION ALL ', @query_body );
@@ -750,8 +748,6 @@ sub displayTFSInfoCSV {
             'Gene',
             'Probe Sequence',
             'Gene Name',
-            'Gene Ontology',
-            'Species',
             map {
                 (
                     "$_:Ratio",       "$_:Fold Change",
