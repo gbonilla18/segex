@@ -82,9 +82,7 @@ sub new {
                         label => 'Species',
                         -size => 30
                     },
-                    slatin => {
-                        label => 'Scientific Name'
-                    }
+                    slatin => { label => 'Scientific Name' }
                 },
                 lookup => [
                     gene_counts => [ sid => 'sid' ],
@@ -592,9 +590,9 @@ END_info
                         id    => 'geneannot_accnum',
                         items => [
                             gene_symbols => {
-                                -checked => 'checked',
+                                -checked  => 'checked',
                                 -disabled => 'disabled',
-                                -value => 'Gene Symbol'
+                                -value    => 'Gene Symbol'
                             },
                             gene_name => {
                                 -checked => 'checked',
@@ -604,7 +602,11 @@ END_info
                                 -checked => 'checked',
                                 -value   => 'Gene Description'
                             },
-                            go_terms => { -value => 'GO Terms' }
+                            go_terms => {
+                                -value => 'GO Terms',
+                                -title =>
+                                  'GO Terms (format: GO:0002389 GO:0001234)'
+                            }
                         ]
                     )
                 ),
