@@ -1081,11 +1081,13 @@ END_info
                             end    => { -value => 'End' },
                             accnum => {
                                 -checked => 'checked',
-                                -value   => 'Accession Numbers'
+                                -value   => 'Accession Numbers',
+                                -title   => 'Accession Numbers (if multiple, must be separated by either commas, semicolons, or white space)'
                             },
                             gene_symbols => {
                                 -checked => 'checked',
-                                -value   => 'Gene Symbols'
+                                -value   => 'Gene Symbols',
+                                -title   => 'Gene Symbols (if multiple, must be separated by either commas, semicolons, or white space)'
                             }
                         ]
                     )
