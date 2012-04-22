@@ -108,10 +108,9 @@ sub CSV_head {
 
     $s->commit();
     $self->getPlatformData();
-    $self->loadAllData();
 
-    # print CSV and exit
-    $self->displayTFSInfoCSV();
+    $self->loadDataCSV();
+    $self->displayDataCSV();
     exit;
 }
 
@@ -142,9 +141,11 @@ sub default_head {
         'datatable/datatable-min.js',         'yahoo/yahoo.js'
       );
 
-    $self->loadTFSData();
+    $self->loadDataHTML();
+    my $jsresults = $self->displayDataHTML();
+
     push @$js_src_code,
-      ( { -code => $self->displayTFSInfo() }, { -src => 'TFSDisplay.js' } );
+      ( { -code => $jsresults }, { -src => 'TFSDisplay.js' } );
     return 1;
 }
 
@@ -273,7 +274,7 @@ sub getSessionOverrideCGI {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::TFSDisplay
-#       METHOD:  loadTFSData
+#       METHOD:  loadDataHTML
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  LOAD TFS DATA
@@ -281,7 +282,7 @@ sub getSessionOverrideCGI {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub loadTFSData {
+sub loadDataHTML {
     my $self = shift;
 
     # Build the SQL query that does the TFS calculation
@@ -493,7 +494,7 @@ END_LoadQuery
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::TFSDisplay
-#       METHOD:  loadAllData
+#       METHOD:  loadDataCSV
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  LOAD ALL DATA FOR CSV OUTPUT
@@ -501,7 +502,7 @@ END_LoadQuery
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub loadAllData {
+sub loadDataCSV {
     my $self = shift;
 
     #This is the different parts of the experiment and titles query.
@@ -639,14 +640,13 @@ END_queryCSV
     my $dbh = $self->{_dbh};
     $self->{_Records}     = $dbh->prepare($query);
     $self->{_RowCountAll} = $self->{_Records}->execute;
-    $self->{_Data}        = $self->{_Records}->fetchall_arrayref;
 
     return 1;
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::TFSDisplay
-#       METHOD:  displayTFSInfoCSV
+#       METHOD:  displayDataCSV
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  DISPLAY PLATFORM,EXPERIMENT INFO, AND EXPERIMENT DATA TO A CSV
@@ -655,11 +655,13 @@ END_queryCSV
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub displayTFSInfoCSV {
+sub displayDataCSV {
     my $self      = shift;
     my $data_rows = $self->{_xExpList};
 
     my $print = bind_csv_handle( \*STDOUT );
+
+    my $sth_records  = $self->{_Records};
 
     # Report Header
     $print->( [ 'Compare Experiments Report', scalar localtime() ] );
@@ -720,7 +722,10 @@ sub displayTFSInfoCSV {
     # Calculate TFS along with distinct counts
     my $eid_count = @{ $self->{_xExpList} };
     my %TFSCounts;
-    my $data_array = $self->{_Data};
+
+    my $data_array = $sth_records->fetchall_arrayref;
+    $sth_records->finish;
+
     foreach (@$data_array) {
 
         # for each row
@@ -765,7 +770,7 @@ sub displayTFSInfoCSV {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::TFSDisplay
-#       METHOD:  displayTFSInfo
+#       METHOD:  displayDataHTML
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Display TFS info
@@ -773,7 +778,7 @@ sub displayTFSInfoCSV {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub displayTFSInfo {
+sub displayDataHTML {
     my $self = shift;
     my $q    = $self->{_cgi};
 
@@ -783,26 +788,25 @@ sub displayTFSInfo {
     my @table_parser;
     my @table_format;
 
+    my $sth_records  = $self->{_Records};
+    my $record_names = $sth_records->{NAME};
+
     for ( my $j = 2 ; $j < $self->{_numStart} ; $j++ ) {
-        push @table_header, $self->{_Records}->{NAME}->[$j];
+        push @table_header, $record_names->[$j];
         push @table_parser, 'string';
         push @table_format, 'formatText';
     }
-
-    for (
-        my $j = $self->{_numStart} ;
-        $j < @{ $self->{_Records}->{NAME} } ;
-        $j++
-      )
-    {
-        push @table_header, $self->{_Records}->{NAME}->[$j];
+    for ( my $j = $self->{_numStart} ; $j < @$record_names ; $j++ ) {
+        push @table_header, $record_names->[$j];
         push @table_parser, 'number';
         push @table_format, 'formatNumber';
     }
 
+    # wrapping block below in curly brackets because of "Insecure dependency
+    # when running with -T" (taint mode) Perl message
     my %format_template;
     {
-        my $find_probes = $q->a(
+        my $findProbesHTML = $q->a(
             {
                 -title  => 'Find all %1$ss related to %1$s {0}',
                 -target => '_blank',
@@ -811,12 +815,12 @@ sub displayTFSInfo {
             },
             '{0}'
         );
-        $format_template{probe} = sprintf( $find_probes, 'Probe IDs' );
+        $format_template{probe} = sprintf( $findProbesHTML, 'Probe IDs' );
         $format_template{accnum} =
-          sprintf( $find_probes, 'Genes/Accession Nos.' );
+          sprintf( $findProbesHTML, 'Genes/Accession Nos.' );
         $format_template{gene} =
-          sprintf( $find_probes, 'Genes/Accession Nos.' );
-    }
+          sprintf( $findProbesHTML, 'Genes/Accession Nos.' );
+    };
 
     $table_format[0] = 'formatProbe';
     $table_format[1] = 'formatAccNum';
@@ -838,8 +842,8 @@ sub displayTFSInfo {
     #---------------------------------------------------------------------------
     #  print table body
     #---------------------------------------------------------------------------
-    my $data_array = $self->{_Records}->fetchall_arrayref;
-    $self->{_Records}->finish;
+    my $data_array = $sth_records->fetchall_arrayref;
+    $sth_records->finish;
 
     my $eid_count = @{ $self->{_xExpList} };
     unshift( @$_, get_tfs( shift @$_, shift @$_, $eid_count ) )
