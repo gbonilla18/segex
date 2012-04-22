@@ -316,7 +316,7 @@ sub loadTFSData {
         my $pval        = $row->{pval};
         my $pValClass   = $row->{pValClass};
         my $pval_sql    = "pvalue$pValClass";
-        my $reverse     = ( $row->{reverse} eq JSON::true ) ? 1 : 0;
+        my $reverse     = $row->{reverse};
 
         my $abs_flag = 1 << $i - 1;
         my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
@@ -376,11 +376,15 @@ END_no_allProbes
     $self->{_headerRecords} = +{
         map {
             $_->{eid} => +{
-                title             => $_->{study_desc},
                 experimentHeading => (
-                      ( $_->{reverse}->isa('JSON::true') )
-                    ? ( $_->{sample1} . '/' . $_->{sample2} )
-                    : ( $_->{sample2} . '/' . $_->{sample1} )
+                    (
+                        $_->{study_desc} . ': '
+                          . (
+                            $_->{reverse}
+                            ? ( $_->{sample1} . '/' . $_->{sample2} )
+                            : ( $_->{sample2} . '/' . $_->{sample1} )
+                          )
+                    )
                 )
             };
           } @{ $self->{_xExpList} }
@@ -517,7 +521,7 @@ sub loadAllData {
         my $currentEID  = $row->{eid};
         my $fc          = $row->{fchange};
         my $pval        = $row->{pval};
-        my $reverse     = ( $row->{reverse} eq JSON::true ) ? 1 : 0;
+        my $reverse     = $row->{reverse};
         my $pValClass   = $row->{pValClass};
         my $pval_sql    = "pvalue$pValClass";
 
@@ -619,11 +623,13 @@ END_queryCSV
     $self->{_headerRecords} = +{
         map {
             $_->{eid} => +{
-                title             => $_->{study_desc},
                 experimentHeading => (
-                      ( $_->{reverse}->isa('JSON::true') )
-                    ? ( $_->{sample1} . '/' . $_->{sample2} )
-                    : ( $_->{sample2} . '/' . $_->{sample1} )
+                    $_->{study_desc} . ': '
+                      . (
+                        $_->{reverse}
+                        ? ( $_->{sample1} . '/' . $_->{sample2} )
+                        : ( $_->{sample2} . '/' . $_->{sample1} )
+                      )
                 )
             };
           } @{ $self->{_xExpList} }
@@ -668,15 +674,7 @@ sub displayTFSInfoCSV {
 
     # Print Experiment info header.
     $print->(
-        [
-            'Experiment Number',
-            'Study Description',
-            'Experiment Heading',
-            'Experiment Description',
-            '|Fold Change| >',
-            'P'
-        ]
-    );
+        [ 'Experiment Number', 'Experiment Heading', '|Fold Change| >', 'P' ] );
 
     # This is the line with the experiment name and eid above the data columns.
     my @annot_field_headers = (
@@ -693,31 +691,29 @@ sub displayTFSInfoCSV {
     my @experimentNameHeader = (undef) x scalar(@annot_field_headers);
 
     # Print Experiment info.
-    my $i = 0;
-    foreach my $row (@$data_rows) {
-        my $currentSTID = $row->{stid};
-        my $currentEID  = $row->{eid};
+    my $headerRecords = $self->{_headerRecords};
+    my $currFS        = $self->{_fs};
+
+    for ( my $i = 0 ; $i < @$data_rows ; $i++ ) {
+        my $row      = $data_rows->[$i];
+        my $eid      = $row->{eid};
+        my $eid_node = $headerRecords->{$eid};
 
         # Form the line that displays experiment names above data columns.
         push @experimentNameHeader,
-          $currentEID . ':' . $self->{_headerRecords}->{$currentEID}->{title},
+          $eid . ':' . $eid_node->{experimentHeading},
           (undef) x ( scalar(@data_field_headers) - 1 );
 
-        my @currentLine = (
-            $currentEID,
-            $self->{_headerRecords}->{$currentEID}->{description},
-            $self->{_headerRecords}->{$currentEID}->{experimentHeading},
-            $self->{_headerRecords}->{$currentEID}->{ExperimentDescription},
+        my $currLine = [
+            $eid,
+            $eid_node->{experimentHeading},
             $row->{fchange},
-            $row->{pval}
-        );
+            $row->{pval},
 
-        # Test for bit presence and print out 1 if present, 0 if absent
-        push( @currentLine, ( 1 << $i & $self->{_fs} ) ? 'x' : '' )
-          if defined $self->{_fs};
-
-        $print->( \@currentLine );
-        $i++;
+            # Test for bit presence and print out 1 if present, 0 if absent
+            ( defined($currFS) ? ( ( 1 << $i & $currFS ) ? 'x' : '' ) : () )
+        ];
+        $print->($currLine);
     }
     $print->();
 
