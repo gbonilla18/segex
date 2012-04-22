@@ -15,7 +15,7 @@ our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
 
 #===  FUNCTION  ================================================================
 #         NAME:  writeFlags
-#      PURPOSE:  
+#      PURPOSE:
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  ????
@@ -25,13 +25,14 @@ our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
 #===============================================================================
 sub writeFlags {
     my $flagsum = 0;
-    for (my $i = 0; $i < @_; $i++) {
-        if ($_[$i]) {
-            $flagsum |= (1 << $i);
+    for ( my $i = 0 ; $i < @_ ; $i++ ) {
+        if ( $_[$i] ) {
+            $flagsum |= ( 1 << $i );
         }
     }
     return $flagsum;
 }
+
 #===  FUNCTION  ================================================================
 #         NAME:  locationAsTextToCanon
 #      PURPOSE:
@@ -87,7 +88,7 @@ sub coord2int {
         return int($1);
     }
     else {
-        return undef;
+        return;
     }
 }
 
@@ -533,7 +534,7 @@ sub tuples {
     use integer;
     my $list = shift || [];
     return unless @$list;
-    map { [ $list->[ $_ + $_ ] => $list->[ $_ + $_ + 1 ] ] }
+    return map { [ $list->[ $_ + $_ ] => $list->[ $_ + $_ + 1 ] ] }
       0 .. ( $#$list / 2 );
 }
 
@@ -549,7 +550,7 @@ sub tuples {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub list_keys {
-    @_[ grep { !( $_ % 2 ) } 0 .. $#_ ];
+    return @_[ grep { !( $_ % 2 ) } 0 .. $#_ ];
 }
 
 #===  FUNCTION  ================================================================
@@ -564,13 +565,13 @@ sub list_keys {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub list_values {
-    @_[ grep { $_ % 2 } 0 .. $#_ ];
+    return @_[ grep { $_ % 2 } 0 .. $#_ ];
 }
 
 #---------------------------------------------------------------------------
 #  Some Lisp-like stuff: http://okmij.org/ftp/Perl/Scheme-in-Perl.txt
 #---------------------------------------------------------------------------
-sub car { $_[0] }        # car List -> Atom  -- the head of the list
-sub cdr { shift; @_ }    # cdr List -> List -- the tail of the list
+sub car { return $_[0] }        # car List -> Atom  -- the head of the list
+sub cdr { shift; return @_ }    # cdr List -> List -- the tail of the list
 
 1;

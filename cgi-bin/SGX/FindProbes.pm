@@ -114,7 +114,7 @@ sub default_head {
       );
 
     # background image from: http://subtlepatterns.com/?p=703
-    push @$css_src_code, +{ -code => <<END_css};
+    push @$css_src_code, +{ -code => <<"END_css"};
 .yui-skin-sam .yui-navset .yui-content { 
     background-image:url('$IMAGES_DIR/fancy_deboss.png'); 
 }
@@ -473,13 +473,12 @@ END_query1
 #===============================================================================
 sub FindProbes_init {
     my $self = shift;
+    my $q = $self->{_cgi};
 
     #---------------------------------------------------------------------------
     #  initialization code (moved from new() constructor)
     #---------------------------------------------------------------------------
     $self->set_attributes( _dbLists => SGX::DBLists->new( delegate => $self ) );
-
-    my $q = $self->{_cgi};
 
     my $action        = car $q->param('b');
     my $text          = trim( car $q->param('q') );
@@ -522,9 +521,9 @@ sub FindProbes_init {
     #---------------------------------------------------------------------------
     my $match = car $q->param('match');
     $match = 'Full-Word'
-      if $upload_file
-          || !defined($match)
-          || ( $scope eq 'Probe IDs' or $scope eq 'GO IDs' );
+      if ( $upload_file
+        || !defined($match)
+        || ( $scope eq 'Probe IDs' || $scope eq 'GO IDs' ) );
     $self->{_match} = $match;
 
     $self->{_extra_fields} =
@@ -568,10 +567,12 @@ sub FindProbes_init {
     #  entered or if terms are not symbols or if match type is not full word.
     #---------------------------------------------------------------------------
     return 1
-      if !$upload_file
-          and (  @textSplit < 2
-              or !exists $parser{$scope}
-              or $match ne 'Full-Word' );
+      if (
+        !$upload_file
+        && (   @textSplit < 2
+            || !exists $parser{$scope}
+            || $match ne 'Full-Word' )
+      );
 
     #----------------------------------------------------------------------
     #  More than one terms entered and matching is exact.
@@ -1148,7 +1149,7 @@ sub printFindProbeCSV {
     # always show these data fields:
     # 1: ratio, 2: foldchange, 3: intensity1, 4: intensity2
     my @always_show = 1 .. 4;
-    my $offset      = $always_show[$#always_show] + 1;
+    my $offset      = $always_show[-1] + 1;
 
     while ( my ( $pid, $obj ) = each %$exp_hash ) {
 
@@ -1179,9 +1180,10 @@ sub printFindProbeCSV {
             [
                 ( map { '' } @$annot_headers ),
                 map {
-                    $experiments->{$_}->[1],
-                      map { '' }
-                      @$exp_headers[ cdr( @{ $eid2array{$_} } ) ]
+                    (
+                        $experiments->{$_}->[1],
+                        map { '' } @$exp_headers[ cdr( @{ $eid2array{$_} } ) ]
+                    );
                   } @sorted_eids
             ]
         );

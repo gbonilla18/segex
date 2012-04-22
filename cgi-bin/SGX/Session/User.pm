@@ -97,10 +97,8 @@ sub static_auth {
           ? 1
           : ();
     }
-    else {
-        SGX::Exception::Internal->throw( error =>
-              'Unknown reference type in argument to User::is_authorized' );
-    }
+    return SGX::Exception::Internal->throw(
+        error => 'Unknown reference type in argument to User::is_authorized' );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -619,12 +617,10 @@ and that your new email address is different from your old one.
 END_noEmailChangeMsg
         return;
     }
-    else {
 
-        # should never happen
-        SGX::Exception::Internal::Duplicate->throw( error =>
-              "Expected one user record but encountered $rows_affected.\n" );
-    }
+    # should never happen
+    return SGX::Exception::Internal::Duplicate->throw(
+        error => "Expected one user record but encountered $rows_affected.\n" );
 }
 
 #===  CLASS METHOD  ============================================================

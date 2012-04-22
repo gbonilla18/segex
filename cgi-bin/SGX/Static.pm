@@ -100,12 +100,6 @@ sub about_body {
       $q->p(
 'Developed at Boston University as part of the BE768 Biologic Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.'
       );
-    $q->p(
-        $q->a(
-            { -href => $q->url( -absolute => 1 ) . '?b=schema' },
-            'View database schema'
-        )
-    );
 }
 
 1;

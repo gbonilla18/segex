@@ -202,7 +202,7 @@ END_loadData
     push @param, [$outputFileName];
     push @check, sub {
         my $responses    = shift;
-        my $recordsFound = $responses->[$#$responses];
+        my $recordsFound = $responses->[-1];
         if ( $recordsFound == 0 ) {
             SGX::Exception::User->throw( error => "No records in file.\n" );
         }
@@ -336,7 +336,7 @@ END_insertResponse
         # only in INSERT/CREATE mode.
         push @check, sub {
             my $responses     = shift;
-            my $recordsAdded  = $responses->[$#$responses];
+            my $recordsAdded  = $responses->[-1];
             my $probeCount    = $totalProbes || $responses->[2];
             my $recordsLoaded = $responses->[1];
             if ( $recordsAdded != $recordsLoaded ) {

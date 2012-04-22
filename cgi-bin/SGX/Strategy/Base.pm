@@ -147,6 +147,7 @@ sub init {
 sub add_message {
     my $self = shift;
     push @{ $self->{_messages} }, \@_;
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================

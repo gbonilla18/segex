@@ -33,8 +33,8 @@ sub get_module_from_action {
         # better RESTfulness
         #
         # verbs
-        uploadData  => 'SGX::UploadData',
-        uploadGO    => 'SGX::UploadGO',
+        uploadData => 'SGX::UploadData',
+        uploadGO   => 'SGX::UploadGO',
 
         outputData         => 'SGX::OutputData',
         compareExperiments => 'SGX::CompareExperiments',
@@ -78,10 +78,10 @@ Readonly::Scalar our $YUI_BUILD_ROOT => $SEGEX_CONFIG{yui_build_root};
 $ENV{PATH} = join(
     ':',
     keys %{
-        {
+        +{
             map {
                 ( my $key = $_ ) =~ s/\/*$//;
-                $key => undef
+                $key => undef;
               } ( $SEGEX_CONFIG{mailer_path} )
         }
       }

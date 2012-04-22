@@ -9,6 +9,7 @@ use SGX::Util qw/car bind_csv_handle/;
 use JSON qw/encode_json/;
 require SGX::Model::PlatformStudyExperiment;
 require SGX::Abstract::JSEmitter;
+use SGX::Abstract::Exception ();
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  OutputData
@@ -128,8 +129,10 @@ sub Load_head {
         exit;
     }
     else {
-        die "Unrecognized parameter value format=$format";
+        SGX::Exception::User->throw(
+            error => "Unrecognized parameter value format=$format" );
     }
+    return;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -161,6 +164,7 @@ sub default_head {
     );
     push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
     push @$js_src_code, { -code => $self->getDropDownJS() };
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -222,8 +226,8 @@ CONCAT(experiment.sample2,' / ',experiment.sample1) AS 'Sample 2 / Sample 1',
 experiment.ExperimentDescription AS 'Exp. Description',
 END_experiment_info
 
- # :TODO:04/12/2012 20:03:48:es: Split query below into two queries: one to
- # obtain experiment info and another one to get response/probe data?
+    # :TODO:04/12/2012 20:03:48:es: Split query below into two queries: one to
+    # obtain experiment info and another one to get response/probe data?
     my $query_text = sprintf(
         <<"END_ReportQuery",
 SELECT
@@ -398,9 +402,12 @@ sub getDropDownJS {
                     element => undef,
                     selected =>
                       +{ map { $_ => undef } @{ $self->{_eidList} || [] } },
-                    elementId => 'eid',
-                    updateViewOn =>
-                      [ sub { 'window' }, 'load', 'pid', 'change', 'stid', 'change' ],
+                    elementId    => 'eid',
+                    updateViewOn => [
+                        sub { 'window' }, 'load',
+                        'pid',  'change',
+                        'stid', 'change'
+                    ],
                     updateMethod => sub { 'populateStudyExperiment' }
                 }
             ]

@@ -476,6 +476,7 @@ sub _js_dump_lookups {
       @$self{qw/_js_emitter _js_env _js_buffer _other/};
     unshift @$code,
       '' . $js->let( [ $js_env->{lookupTables} => $_other ], declare => 1 );
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -569,7 +570,7 @@ sub readrow_head {
     }
 
     # background image from: http://subtlepatterns.com/?p=703
-    push @{ $self->{_css_src_code} }, +{ -code => <<END_css};
+    push @{ $self->{_css_src_code} }, +{ -code => <<"END_css"};
 .yui-skin-sam .yui-navset .yui-content { 
     background-image:url('$IMAGES_DIR/fancy_deboss.png'); 
 }
@@ -578,7 +579,7 @@ END_css
     push @{ $self->{_css_src_yui} }, ('tabview/assets/skins/sam/tabview.css');
     push @{ $self->{_js_src_yui} },  ('tabview/tabview-min.js');
     my $code = $self->{_js_buffer};
-    push @$code, <<END_onload;
+    push @$code, <<"END_onload";
 YAHOO.util.Event.addListener(window, 'load', function() {
     var tabView = new YAHOO.widget.TabView('property_editor');
     selectTabFromHash(tabView);
@@ -2599,7 +2600,7 @@ sub body_edit_fields {
         $cgi_meta{-title} .= ' (Optional)'
           if $cgi_meta{-title} and $meta->{__optional__};
 
-        next if $meta->{__createonly__} and !$unlimited_mode;
+        next if ( $meta->{__createonly__} && !$unlimited_mode );
         if ( $method eq 'checkbox' ) {
             push @tmp,
               (
@@ -2755,7 +2756,7 @@ sub action_link {
 
     return
       (
-        ( !defined($action) and $self->{_ActionName} eq '' )
+        ( !defined($action) && $self->{_ActionName} eq '' )
           or ( defined($action)
             and $self->{_ActionName} eq $action )
       ) ? $value

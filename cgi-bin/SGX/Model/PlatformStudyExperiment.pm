@@ -285,9 +285,8 @@ sub init {
 #===============================================================================
 sub iterateOverTable {
     my $self = shift;
-    my $dbh  = $self->{_dbh};
-
     my %args = @_;
+    my $dbh  = $self->{_dbh};
 
     my $table_info = $args{table_info};
     my $iterator   = $args{iterator};

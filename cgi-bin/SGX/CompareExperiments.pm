@@ -406,8 +406,6 @@ sub getResultsJS {
       $self->{_ProbeTmpTable}
       ? "INNER JOIN $self->{_ProbeTmpTable} USING(rid)"
       : '';
-    my @query_titles;
-    my @query_titles_params;
     my @query_fs_body;
     my @query_fs_body_params;
 
