@@ -101,12 +101,6 @@ function getGoogleVenn() {
 //==============================================================================
 var rowcount_titles = _xExpList.length;
 
-// TFS: all
-var row_all = iterateForward(function(i) {
-    this.push('n/a');
-}, [null, probe_count], 0, rowcount_titles).concat(null);
-
-
 YAHOO.util.Event.addListener(window, "load", function() {
     Dom.get("includeAllProbes").value = includeAllProbes;
     Dom.get("searchFilter").value = searchFilter;
@@ -130,7 +124,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }, oRecord, true);
         removeAllChildren(elCell);
         elCell.appendChild(btn);
-    };
+    }
+    function formatterSignIn (elCell, oRecord, oColumn, oData) {
+        elCell.innerHTML = (oData === null) ? ((includeAllProbes ? '0-' : '1-') + rowcount_titles) : oData;
+    }
 
     var formatMark = function(elCell, oRecord, oColumn, oData) {
         if (oData === 'Y') {
@@ -171,6 +168,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     dom.get('comparison_note').innerHTML = text;
     // ================================
 
+    var totalExpected = 0.0;
     var fs2expected = iterateForward(function(theoretic_fs) {
             var expected = parseFloat(total_probes);
             for (var i = 0; i < rowcount_titles; i++) {
@@ -180,8 +178,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     expected *= (total_probes - hc[i]) / total_probes;
                 }
             };
-            this[String(theoretic_fs)] = expected;
-        }, {}, 0, 1 << rowcount_titles);
+            totalExpected += expected;
+            this.push(expected);
+        }, [], 0, 1 << rowcount_titles);
+    var totalSignExpected = totalExpected - fs2expected[0];
 
     //var expectedNonZero = object_forValues(h, function(row) {
     //    var row_fs = row.fs;
@@ -190,6 +190,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
     //    }
     //}, {total: 0.0}).total;
     //var correctionFactor = probe_count / expectedNonZero;
+
+    // TFS: all
+    var row_all = iterateForward(function(i) {
+        this.push('n/a');
+    }, [null, probe_count], 0, rowcount_titles).concat(null, (includeAllProbes ? totalExpected : totalSignExpected), Math.log(probe_count / (includeAllProbes ? totalExpected : totalSignExpected)).toPrecision(3));
 
     var tfs = {
         caption:'Probes grouped by significance in different experiment combinations',
@@ -200,7 +205,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             object_forValues(h, function(row) { this.push(row); }, []).sort(NumericSortOnColumnDesc('fs')), 
             function(row) {
                 var observed = parseInt(row.c);
-                var expected = parseFloat(fs2expected[row.fs]);
+                var expected = parseFloat(fs2expected[parseInt(row.fs)]);
                 // calculate the log_odds ratio
                 var fs = parseInt(row.fs);
                 var significant_in = 0;
@@ -250,7 +255,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 { key: 'fs', sortable:true, resizeable:false, label: 'Probe Subset', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum},
 { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }}
         ]).concat(
-{ key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }},
+{ key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterSignIn},
 { key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Ratio' }
         )
     };
