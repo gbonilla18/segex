@@ -610,7 +610,8 @@ sub Compare_body {
         -class          => 'getTFS',
         -enctype        => 'application/x-www-form-urlencoded'
       ),
-      $q->hidden( -name => 'selectedFS', -id => 'selectedFS' ),
+      $q->hidden( -name => 'selectedFS',  -id => 'selectedFS' ),
+      $q->hidden( -name => 'selectedExp', -id => 'selectedExp' ),
       $q->hidden(
         -name  => 'user_selection',
         -id    => 'user_selection',

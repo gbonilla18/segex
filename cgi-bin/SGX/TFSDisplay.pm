@@ -7,6 +7,7 @@ use base qw/SGX::Strategy::Base/;
 
 use SGX::Debug;
 require Math::BigInt;
+require Math::BigFloat;
 use JSON qw/decode_json/;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
@@ -215,6 +216,8 @@ sub loadDataFromSubmission {
     # The $self->{_fs} parameter is the flagsum for which we filter data
     my $fs = car $q->param('selectedFS');
     $self->{_fs} = $fs ne '' ? $fs : undef;
+    my $expected = car $q->param('selectedExp');
+    $self->{_expected} = $expected ne '' ? $expected : undef;
     $self->{_format} = car $q->param('get');
 
     return 1;
@@ -714,6 +717,7 @@ sub displayDataCSV {
     my $headerRecords = $self->{_headerRecords};
     my $currFS        = $self->{_fs};
 
+    my $signExpCount = 0;
     for ( my $i = 0 ; $i < @$data_rows ; $i++ ) {
         my $row      = $data_rows->[$i];
         my $eid      = $row->{eid};
@@ -724,14 +728,27 @@ sub displayDataCSV {
           $eid . ':' . $eid_node->{experimentHeading},
           (undef) x ( scalar(@data_field_headers) - 1 );
 
-        my $currLine = [
-            $eid,
-            $eid_node->{experimentHeading},
-            $row->{fchange},
-            $row->{pval},
+        my $signCell = '';
+        if ( defined $currFS ) {
 
-            # Test for bit presence and print out 1 if present, 0 if absent
-            ( defined($currFS) ? ( ( 1 << $i & $currFS ) ? 'x' : '' ) : () )
+            # Test for bit presence, print out 'Yes' if present, 'No' if absent
+            if ( 1 << $i & $currFS ) {
+
+                # significant experiment
+                $signCell = 'Y';
+                $signExpCount++;
+
+            }
+            else {
+
+                # not significant experiment
+                $signCell = 'N';
+            }
+        }
+        my $currLine = [
+            $eid,            $eid_node->{experimentHeading},
+            $row->{fchange}, $row->{pval},
+            $signCell
         ];
         $print->($currLine);
     }
@@ -755,9 +772,26 @@ sub displayDataCSV {
           : 1;
     }
 
+    # print comparison stats
+    Math::BigFloat->accuracy(3);
+    my $observed = scalar(@$data_array);
+    my $expected = $self->{_expected};
+    my $log_odds = eval {
+        sprintf( "%.3f", Math::BigFloat->new( log( $observed / $expected ) ) );
+    };
+    my $expected_permut = eval { $expected / ( 1 << $signExpCount + 0.0 ) };
     $print->( ['TFS Summary'] );
-    $print->( [ 'TFS' => 'Probe Count' ] );
-    $print->( [ $_ => $TFSCounts{$_} ] )
+    $print->( [ 'TFS', 'Probe Count', 'Log Odds Over Expected' ] );
+    $print->( [ $currFS, $observed, $log_odds ] );
+    $print->(
+        [
+            $_,
+            $TFSCounts{$_},
+            eval {
+                Math::BigFloat->new( log( $TFSCounts{$_} / $expected_permut ) );
+            }
+        ]
+      )
       for sort { $TFSCounts{$b} <=> $TFSCounts{$a} }
       keys %TFSCounts;
     $print->();
@@ -871,6 +905,7 @@ sub displayDataHTML {
     return '' . $js->let(
         [
             _xExpList => $self->{_xExpList},
+            _expected => $self->{_expected},
             _fs       => $self->{_fs},
             tfs       => {
                 caption => sprintf( 'This subset includes %d probes',

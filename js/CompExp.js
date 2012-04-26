@@ -114,6 +114,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var venn = getGoogleVenn();
     Dom.get("venn").innerHTML = (venn === null ? '' : '<h2>' + venn.title + '</h2><img title="Venn Diagram" alt="Venn Diagram" src="' + venn.uri + '" />');
     var selectedFS = Dom.get('selectedFS');
+    var selectedExp = Dom.get('selectedExp');
 
     //==============================================================================
     function formatterFlagsum (elCell, oRecord, oColumn, oData) {
@@ -124,6 +125,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         btn.setAttribute('value', text);
         btn.setAttribute('title', 'Display report including all probes from this set');
         YAHOO.util.Event.addListener(btn, 'click', function(ev) {
+            selectedExp.value = this.getData('expected');
             selectedFS.value = this.getData('fs');
         }, oRecord, true);
         removeAllChildren(elCell);
@@ -212,6 +214,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     }
                 }, [fs, observed], 0, rowcount_titles).concat(
                     significant_in, 
+                    expected,
                     //(100 * (observed - expected) / Math.max(observed, expected)).toPrecision(3)
                     Math.log(observed / expected).toPrecision(3)
                 ));
@@ -227,6 +230,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             { key: 'probe_count', parser: 'number'}
         ]).concat(
             { key: 'significant_in', parser: 'number'},
+            { key: 'expected', parser: 'number'},
             { key: 'log_odds', parser: 'number'}
         ),
 
