@@ -14,6 +14,7 @@ YAHOO.util.Event.addListener(window, "load", function () {
     dom.removeClass(specialFilterForm_el, "yui-pe-content");
 
     // Instantiate the Dialog
+    var checkboxSpecialFilter = dom.get('specialFilter');
     var specialFilterForm = new YAHOO.widget.Dialog(
         specialFilterForm_el, 
         {
@@ -22,6 +23,10 @@ YAHOO.util.Event.addListener(window, "load", function () {
             constraintoviewport : false,
             draggable: true,
             modal: true,
+            buttons : [ 
+                { text:"Apply", handler:function() { this.hide(); }, isDefault:true },
+                { text:"Cancel", handler:function() { checkboxSpecialFilter.checked = false; this.cancel(); } } 
+            ]
         }
     );
 
@@ -59,7 +64,7 @@ YAHOO.util.Event.addListener(window, "load", function () {
     dom.addClass(specialFilterForm.element, 'filter-dialog');
     specialFilterForm.render();
 
-    YAHOO.util.Event.addListener("specialFilter", "change", 
+    YAHOO.util.Event.addListener(checkboxSpecialFilter, "change", 
         function(e) { 
             if (this.checked) {
                 specialFilterForm.show();
