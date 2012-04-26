@@ -5,6 +5,24 @@ unreleased data sets from Waxman laboratory at Boston University.
 
 ============ DATABASE SETUP (MySQL) ===============
 
+==== A. Linux =======
+
+0. [Optional] To allow for full-text searches on three-letter words and acronyms
+such as DNA, RNA, etc., copy file called "my-huge.cnf" from 
+/usr/local/mysql/support-files/ into /etc/, renaming it to "my.cnf":
+
+sudo cp /usr/local/mysql/support-files/my-huge.cnf /etc/my.cnf
+
+Next, add the following line(s) under section called "[mysqld]":
+
+   [mysqld]
+   # Allow full-text indexes on three-letter words such as DNA, RNA, etc.
+   ft_min_word_len=3
+
+Next, restart MySQL server:
+
+  sudo service mysqld restart
+
 1. Create empty database and add a dedicated user account. Note: in the default
 MySQL installation, the root password is empty (simply press enter to proceed).
 
@@ -20,6 +38,35 @@ MySQL installation, the root password is empty (simply press enter to proceed).
 
 3. Update cgi-bin/segex.conf file with correct database, user, and password
 information.
+
+===== B. MAc OS X =======
+
+0. [Optional] To allow for full-text searches on three-letter words and acronyms
+such as DNA, RNA, etc., edit file called my.cnf (CentOS: /etc/my.cnf) and add
+the following line(s) under section called "[mysqld]":
+
+   [mysqld]
+   # Allow full-text indexes on three-letter words such as DNA, RNA, etc.
+   ft_min_word_len=3
+
+Next, restart MySQL server via System Preferences.
+
+1. Create empty database and add a dedicated user account. Note: in the default
+MySQL installation, the root password is empty (simply press enter to proceed).
+
+  mysql -u root -p
+  > CREATE DATABASE segex_dev;
+  > CREATE USER 'segex_dev_user'@'localhost' IDENTIFIED BY 'b00g3yk1d';
+  > GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES
+    ON segex_dev.* TO 'segex_dev_user'@'localhost';
+
+2. Load database from backup
+
+  gunzip -c segex.sql.gz | mysql segex_dev -u root -p
+
+3. Update cgi-bin/segex.conf file with correct database, user, and password
+information.
+
 
 ============ SOFTWARE INSTALL ===============
 
