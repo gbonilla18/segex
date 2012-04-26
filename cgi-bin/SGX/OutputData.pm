@@ -13,41 +13,6 @@ use SGX::Abstract::Exception ();
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  OutputData
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-    my ( $class, @param ) = @_;
-
-    my $self = $class->SUPER::new(@param);
-
-    my $dbh = $self->{_dbh};
-
-    $self->set_attributes(
-        _title => 'Output Data',
-
-        _PlatformStudyExperiment =>
-          SGX::Model::PlatformStudyExperiment->new( dbh => $dbh ),
-
-        _Data            => '',
-        _RecordsReturned => undef,
-        _FieldNames      => '',
-        _stid            => '',
-        _pid             => '',
-        _eidList         => []
-    );
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  OutputData
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -58,7 +23,41 @@ sub new {
 #===============================================================================
 sub init {
     my $self = shift;
+    my $dbh  = $self->{_dbh};
+    my $s    = $self->{_UserSession};
     $self->SUPER::init();
+
+    my $pse = SGX::Model::PlatformStudyExperiment->new( dbh => $dbh );
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
+    if ( defined($curr_proj) && $curr_proj =~ m/^\d+$/ ) {
+
+        # limit platforms and studies shown to current project
+        $pse->{_Platform}->{table} = <<"Platfform_sql";
+platform 
+    INNER JOIN study USING(pid)
+    INNER JOIN ProjectStudy USING(stid)
+    LEFT JOIN species USING(sid)
+    WHERE prid=?
+Platfform_sql
+        push @{ $pse->{_Platform}->{param} }, ($curr_proj);
+        $pse->{_PlatformStudy}->{table} = <<"PlatfformStudy_sql";
+study
+    INNER JOIN ProjectStudy USING(stid)
+    WHERE prid=?
+PlatfformStudy_sql
+        push @{ $pse->{_PlatformStudy}->{param} }, ($curr_proj);
+    }
+
+    $self->set_attributes(
+        _title                   => 'Output Data',
+        _PlatformStudyExperiment => $pse,
+        _Data                    => '',
+        _RecordsReturned         => undef,
+        _FieldNames              => '',
+        _stid                    => '',
+        _pid                     => '',
+        _eidList                 => []
+    );
 
     $self->register_actions(
         Load => { head => 'Load_head', body => 'Load_body' } );
@@ -152,15 +151,22 @@ sub default_head {
 
     push @$js_src_yui, 'yahoo-dom-event/yahoo-dom-event.js';
 
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
+    my @pse_extra_studies =
+        ( defined($curr_proj) && $curr_proj =~ m/^\d+$/ )
+      ? ( show_unassigned_experiments => 0 )
+      : (
+        extra_studies => {
+            'all' => { description => '@All Studies' },
+            ''    => { description => '@Unassigned Experiments' }
+        }
+      );
     $self->{_PlatformStudyExperiment}->init(
         platforms       => 1,
         studies         => 1,
         experiments     => 1,
         extra_platforms => { 'all' => { pname => '@All Platforms' } },
-        extra_studies   => {
-            'all' => { description => '@All Studies' },
-            ''    => { description => '@Unassigned Experiments' }
-        }
+        @pse_extra_studies
     );
     push @$js_src_code, { -src  => 'PlatformStudyExperiment.js' };
     push @$js_src_code, { -code => $self->getDropDownJS() };

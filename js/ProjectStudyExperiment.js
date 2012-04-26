@@ -20,7 +20,10 @@ exports.populateProject = function()
 
     // sort by project name
     var tuples = object_forEach(ProjStudyExp, function(i, projectNode) {
-        this.push([i, projectNode.prname]);
+        // only show those projects for which we have a name
+        if (projectNode.hasOwnProperty('prname')) {
+            this.push([i, projectNode.prname]);
+        }
     }, []).sort(ComparisonSortOnColumn(1));
 
     // build dropdown box

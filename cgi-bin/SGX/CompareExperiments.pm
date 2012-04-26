@@ -31,9 +31,30 @@ sub init {
     my $self = shift;
     my $dbh  = $self->{_dbh};
     my $q    = $self->{_cgi};
+    my $s    = $self->{_UserSession};
     $self->SUPER::init();
 
     my $pse = SGX::Model::PlatformStudyExperiment->new( dbh => $dbh );
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
+    if ( defined($curr_proj) && $curr_proj =~ m/^\d+$/ ) {
+
+        # limit platforms and studies shown to current project
+        $pse->{_Platform}->{table} = <<"Platfform_sql";
+platform 
+    INNER JOIN study USING(pid)
+    INNER JOIN ProjectStudy USING(stid)
+    LEFT JOIN species USING(sid)
+    WHERE prid=?
+Platfform_sql
+        push @{ $pse->{_Platform}->{param} }, ($curr_proj);
+        $pse->{_PlatformStudy}->{table} = <<"PlatfformStudy_sql";
+study
+    INNER JOIN ProjectStudy USING(stid)
+    WHERE prid=?
+PlatfformStudy_sql
+        push @{ $pse->{_PlatformStudy}->{param} }, ($curr_proj);
+    }
+
     push @{ $pse->{_Platform}->{attr} }, ( 'def_p_cutoff', 'def_f_cutoff' );
     push @{ $pse->{_Experiment}->{attr} }, 'PValFlag';
 
@@ -201,6 +222,7 @@ sub SearchGO_body {
 #===============================================================================
 sub default_head {
     my $self = shift;
+    my $s    = $self->{_UserSession};
     my ( $js_src_yui, $js_src_code, $css_src_yui, $css_src_code ) =
       @$self{qw{_js_src_yui _js_src_code _css_src_yui _css_src_code}};
 
@@ -239,11 +261,18 @@ YAHOO.util.Event.addListener(window, 'load', function() {
 });
 END_onload
 
-    $self->{_PlatformStudyExperiment}->init(
-        platforms     => 1,
-        studies       => 1,
-        experiments   => 1,
+    my $curr_proj = $s->{session_cookie}->{curr_proj};
+    my @pse_extra_studies =
+        ( defined($curr_proj) && $curr_proj =~ m/^\d+$/ )
+      ? ( show_unassigned_experiments => 0 )
+      : (
         extra_studies => { '' => { description => '@Unassigned Experiments' } }
+      );
+    $self->{_PlatformStudyExperiment}->init(
+        platforms   => 1,
+        studies     => 1,
+        experiments => 1,
+        @pse_extra_studies
     );
 
     push @$js_src_code,

@@ -31,22 +31,26 @@ sub new {
         _Platform => {
             table => 'platform LEFT JOIN species USING(sid)',
             base  => ['pid'],
-            attr  => [ 'pname', 'sname', 'sid' ]
+            attr  => [ 'pname', 'sname', 'sid' ],
+            param => []
         },
         _PlatformStudy => {
             table => 'study',
             base  => [ 'pid', 'stid' ],
-            attr  => ['description']
+            attr  => ['description'],
+            param => []
         },
         _StudyExperiment => {
             table => 'StudyExperiment',
             base  => [ 'stid', 'eid' ],
-            attr  => []
+            attr  => [],
+            param => []
         },
         _Experiment => {
             table => 'experiment',
             base  => [ 'pid', 'eid' ],
-            attr  => [ 'sample1', 'sample2' ]
+            attr  => [ 'sample1', 'sample2' ],
+            param => []
         },
     };
 
@@ -176,6 +180,12 @@ sub init {
     # defaulting to "no"
     my $platform_by_study = $args{platform_by_study};
 
+    # defaulting to "yes"
+    my $show_unassigned_experiments = (
+        exists $args{show_unassigned_experiments}
+        ? $args{show_unassigned_experiments}
+        : 1 );
+
     # when p* is set, both p* and studies will be set to "yes"
     if ($platform_by_study) {
         $platform_info = 1;
@@ -257,7 +267,7 @@ sub init {
 
             # if %unassigned hash is not empty, add "Unassigned" study to
             # studies
-            if (%unassigned) {
+            if ($show_unassigned_experiments && scalar(%unassigned)) {
                 if ( exists $platformStudies->{''} ) {
                     $platformStudies->{''}->{experiments} = \%unassigned;
                 }
@@ -291,14 +301,16 @@ sub iterateOverTable {
     my $table_info = $args{table_info};
     my $iterator   = $args{iterator};
 
-    my @base = @{ $table_info->{base} };
-    my $sql  = sprintf(
+    my @base  = @{ $table_info->{base} };
+    my $param = $table_info->{param};
+
+    my $sql = sprintf(
         'SELECT %s FROM %s',
         join( ',', ( @base, @{ $table_info->{attr} } ) ),
         $table_info->{table}
     );
     my $sth = $dbh->prepare($sql);
-    my $rc  = $sth->execute;
+    my $rc  = $sth->execute(@$param);
 
     while ( my $row = $sth->fetchrow_hashref ) {
         my @base_vals = @$row{@base};
