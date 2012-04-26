@@ -11,8 +11,24 @@ use Scalar::Util qw/looks_like_number/;
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
   equal bind_csv_handle notp file_opts_html file_opts_columns distinct
-  dec2indexes32 locationAsTextToCanon abbreviate coord2int writeFlags/;
+  dec2indexes32 locationAsTextToCanon abbreviate coord2int writeFlags count_bits before_dot/;
 
+
+#===  FUNCTION  ================================================================
+#         NAME:  before_dot
+#      PURPOSE:  
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub before_dot {
+    my $x = shift;
+    my @arr = split('\.', "$x");
+    return $arr[0];
+}
 #===  FUNCTION  ================================================================
 #         NAME:  writeFlags
 #      PURPOSE:
@@ -372,6 +388,20 @@ sub array2hash {
 }
 
 #===  FUNCTION  ================================================================
+#         NAME:  count_bits
+#      PURPOSE:  Count number of '1'-s in binary representation of number
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub count_bits {
+    return unpack('%32b*', pack('I', shift));
+}
+
+#===  FUNCTION  ================================================================
 #         NAME:  count_gtzero
 #      PURPOSE:  Returns the number of elements in the argument array that are
 #                greater than zero, ignoring undefined values
@@ -534,7 +564,8 @@ sub tuples {
     use integer;
     my $list = shift || [];
     return unless @$list;
-    return map { [ $list->[ $_ + $_ ] => $list->[ $_ + $_ + 1 ] ] }
+    return
+      map { [ $list->[ $_ + $_ ] => $list->[ $_ + $_ + 1 ] ] }
       0 .. ( $#$list / 2 );
 }
 

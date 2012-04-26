@@ -11,7 +11,7 @@ require Math::BigFloat;
 use JSON qw/decode_json/;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car bind_csv_handle/;
+use SGX::Util qw/car bind_csv_handle count_bits before_dot/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  get_tfs
@@ -776,19 +776,31 @@ sub displayDataCSV {
     Math::BigFloat->accuracy(3);
     my $observed = scalar(@$data_array);
     my $expected = $self->{_expected};
-    my $log_odds = eval {
-        sprintf( "%.3f", Math::BigFloat->new( log( $observed / $expected ) ) );
-    };
-    my $expected_permut = eval { $expected / ( 1 << $signExpCount + 0.0 ) };
     $print->( ['TFS Summary'] );
     $print->( [ 'TFS', 'Probe Count', 'Log Odds Over Expected' ] );
-    $print->( [ $currFS, $observed, $log_odds ] );
+    $print->(
+        [
+            $currFS,
+            $observed,
+
+            # log_odds
+            eval { Math::BigFloat->new( log( $observed / $expected ) ); }
+        ]
+    );
     $print->(
         [
             $_,
             $TFSCounts{$_},
+
+            # log_odds
             eval {
-                Math::BigFloat->new( log( $TFSCounts{$_} / $expected_permut ) );
+                Math::BigFloat->new(
+                    log(
+                        $TFSCounts{$_} /
+                          $expected *
+                          ( 1 << count_bits( before_dot($_) ) + 0.0 )
+                    )
+                );
             }
         ]
       )
