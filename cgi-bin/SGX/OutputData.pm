@@ -307,9 +307,10 @@ sub default_body {
 
       # now start the form element
       $q->start_form(
-        -method  => 'GET',
-        -enctype => 'application/x-www-form-urlencoded',
-        -action  => $q->url( -absolute => 1 ) . '?a=outputData'
+        -accept_charset => 'utf-8',
+        -method         => 'GET',
+        -enctype        => 'application/x-www-form-urlencoded',
+        -action         => $q->url( -absolute => 1 ) . '?a=outputData'
       ),
       $q->dl(
         $q->dt( $q->label( { -for => 'eid' }, 'Experiment(s):' ) ),

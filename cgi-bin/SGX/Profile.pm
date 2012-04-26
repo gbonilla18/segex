@@ -450,8 +450,9 @@ sub form_login_body {
     );
     return $q->h2('Login to Segex'),
       $q->start_form(
-        -method => 'POST',
-        -action => $q->url( -absolute => 1 )
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
+        -action         => $q->url( -absolute => 1 )
           . "?a=profile&b=login&next=$destination",
         -onsubmit =>
           'return validate_fields(this, [\'username\',\'password\']);'
@@ -559,7 +560,8 @@ sub form_registerUser_body {
     # user cannot be logged in
     return $q->h2('Apply for Access to Segex'),
       $q->start_form(
-        -method => 'POST',
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=profile&b=registerUser',
         -onsubmit =>
 'return validate_fields(this, [\'username\',\'password1\',\'password2\',\'email1\',\'email2\',\'full_name\']);'
@@ -700,7 +702,8 @@ sub form_resetPassword_body {
 
     return $q->h2('I Forgot My Password'),
       $q->start_form(
-        -method   => 'POST',
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
         -action   => $q->url( -absolute => 1 ) . '?a=profile&b=resetPassword',
         -onsubmit => 'return validate_fields(this, [\'username\']);'
       ),
@@ -824,10 +827,14 @@ sub form_changePassword_body {
     my $require_old = !defined( $s->{session_stash}->{change_pwd} );
     return $q->h2('Change Password'),
       $q->start_form(
-        -method   => 'POST',
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
         -action   => $q->url( -absolute => 1 ) . '?a=profile&b=changePassword',
-        -onsubmit => (($require_old) ? "return validate_fields(this, ['old_password','new_password1','new_password2']);"
-: "return validate_fields(this, ['new_password1','new_password2']);")
+        -onsubmit => (
+            ($require_old)
+            ? "return validate_fields(this, ['old_password','new_password1','new_password2']);"
+            : "return validate_fields(this, ['new_password1','new_password2']);"
+        )
       ),
       $q->dl(
         ($require_old)
@@ -894,7 +901,8 @@ sub form_changeEmail_body {
     # user has to be logged in
     return $q->h2('Change Email Address'),
       $q->start_form(
-        -method => 'POST',
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=profile&b=changeEmail',
         -onsubmit =>
           'return validate_fields(this, [\'password\',\'email1\',\'email2\']);'
@@ -1103,7 +1111,8 @@ sub chooseProject_body {
     #Load the study dropdown to choose which experiments to load into table.
     return $q->h2('Select working project'),
       $q->start_form(
-        -method  => 'POST',
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
         -action  => $q->url( -absolute => 1 ) . '?a=profile&b=changeProjectTo',
         -enctype => 'application/x-www-form-urlencoded'
       ),

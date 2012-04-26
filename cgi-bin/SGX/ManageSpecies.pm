@@ -567,8 +567,9 @@ platform before using this form to update annotation (gene symbols not that were
 not already uploaded will be ignored).
 END_info
             $q->start_form(
-                -method   => 'POST',
-                -enctype  => 'multipart/form-data',
+                -accept_charset => 'utf-8',
+                -method         => 'POST',
+                -enctype        => 'multipart/form-data',
                 -onsubmit => 'return validate_fields(this, ["fileGene"]);',
                 -action   => $self->get_resource_uri(
                     b   => 'uploadAnnot',

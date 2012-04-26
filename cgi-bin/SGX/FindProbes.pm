@@ -473,7 +473,7 @@ END_query1
 #===============================================================================
 sub FindProbes_init {
     my $self = shift;
-    my $q = $self->{_cgi};
+    my $q    = $self->{_cgi};
 
     #---------------------------------------------------------------------------
     #  initialization code (moved from new() constructor)
@@ -1526,10 +1526,11 @@ sub SearchGO_body {
               . ": $textToShow"
         ),
         $q->start_form(
-            -id      => 'main_form',
-            -method  => 'POST',
-            -action  => $action_a,
-            -enctype => 'application/x-www-form-urlencoded'
+            -accept_charset => 'utf-8',
+            -id             => 'main_form',
+            -method         => 'POST',
+            -action         => $action_a,
+            -enctype        => 'application/x-www-form-urlencoded'
         ),
         $q->dl(
             $q->dt('Get probes for selected GO terms below:'),
@@ -1599,10 +1600,11 @@ sub SearchGO_body {
         ),
         $q->endform,
         $q->start_form(
-            -id      => 'get_csv',
-            -method  => 'POST',
-            -action  => $q->url( absolute => 1 ) . '?a=findProbes',
-            -enctype => 'application/x-www-form-urlencoded'
+            -accept_charset => 'utf-8',
+            -id             => 'get_csv',
+            -method         => 'POST',
+            -action         => $q->url( absolute => 1 ) . '?a=findProbes',
+            -enctype        => 'application/x-www-form-urlencoded'
         ),
         join( $q->span( { -class => 'separator' }, ' / ' ), @actions ),
         $q->endform,
@@ -1681,10 +1683,11 @@ sub Search_body {
               . ": $textToShow"
         ),
         $q->start_form(
-            -id      => 'get_csv',
-            -method  => 'POST',
-            -action  => $q->url( absolute => 1 ) . '?a=findProbes',
-            -enctype => 'application/x-www-form-urlencoded'
+            -accept_charset => 'utf-8',
+            -id             => 'get_csv',
+            -method         => 'POST',
+            -action         => $q->url( absolute => 1 ) . '?a=findProbes',
+            -enctype        => 'application/x-www-form-urlencoded'
         ),
         join( $q->span( { -class => 'separator' }, ' / ' ), @actions ),
         $q->endform,
@@ -2018,10 +2021,11 @@ You can enter here a list of probes, accession numbers, or gene names.
 The results will contain probes that are related to the search terms.
 END_H2P_TEXT
       $q->start_form(
-        -id      => 'main_form',
-        -method  => 'POST',
-        -action  => $q->url( absolute => 1 ) . '?a=findProbes',
-        -enctype => 'multipart/form-data'
+        -accept_charset => 'utf-8',
+        -id             => 'main_form',
+        -method         => 'POST',
+        -action         => $q->url( absolute => 1 ) . '?a=findProbes',
+        -enctype        => 'multipart/form-data'
       ),
 
       $q->dl(

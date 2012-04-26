@@ -49,9 +49,9 @@ sub new {
                         parser => 'number'
                     },
                     manager => {
-                        label    => 'Created By',
-                        parser   => 'number',
-                        __type__ => 'popup_menu',
+                        label        => 'Created By',
+                        parser       => 'number',
+                        __type__     => 'popup_menu',
                         __tie__      => [ users => 'uid' ],
                         __optional__ => 1
                     },
@@ -79,7 +79,7 @@ sub new {
                 resource  => 'studies',
                 names     => [qw/description/],
                 meta      => {
-                    stid => { label => 'No.', parser => 'number' },
+                    stid        => { label => 'No.', parser => 'number' },
                     description => { label => 'Study' },
                     pubmed      => {
                         label     => 'PubMed ID',
@@ -88,8 +88,8 @@ sub new {
                           }
                     },
                     pid => {
-                        label      => 'Platform',
-                        parser     => 'number',
+                        label  => 'Platform',
+                        parser => 'number',
                     }
                 },
                 lookup => [ platform     => [ pid  => 'pid' ] ],
@@ -252,8 +252,9 @@ sub form_assign_body {
 
       # Resource URI: /projects/id
       $q->start_form(
-        -method => 'POST',
-        -action => $self->get_resource_uri()
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
+        -action         => $self->get_resource_uri()
       ),
       $q->dl(
         $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),

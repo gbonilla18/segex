@@ -57,9 +57,8 @@ sub new {
                 names => [qw/description/],
                 meta  => {
                     stid => { label => 'No.', parser => 'number' },
-                    description =>
-                      { label => 'Study', __readonly__ => 1 },
-                    pubmed => {
+                    description => { label => 'Study', __readonly__ => 1 },
+                    pubmed      => {
                         label        => 'PubMed',
                         __readonly__ => 1,
                         formatter    => sub { 'formatPubMed' }
@@ -364,7 +363,8 @@ sub readrow_head {
     my $clearAnnotURI = $self->get_resource_uri( b => 'clearAnnot' );
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
     push @$js_src_yui,  'button/button-min.js';
-    push @$js_src_code, ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
+    push @$js_src_code,
+      ( { -src => 'collapsible.js' }, { -code => <<"END_SETUPTOGGLES" } );
 YAHOO.util.Event.addListener(window,'load',function(){
     setupCheckboxes({
         idPrefix: 'datafile',
@@ -374,6 +374,7 @@ YAHOO.util.Event.addListener(window,'load',function(){
 END_SETUPTOGGLES
     return $self->SUPER::readrow_head();
 }
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
 #       METHOD:  form_create_head
@@ -414,7 +415,8 @@ END_SETUPTOGGLES
             platforms         => undef,
             platform_by_study => 1,
             studies           => 1,
-            extra_studies => { '' => { description => '@Unassigned Experiments' } }
+            extra_studies =>
+              { '' => { description => '@Unassigned Experiments' } }
         )
     };
 
@@ -640,19 +642,22 @@ sub default_update {
     my $filefield     = 'file';
     my $filefield_val = $q->param($filefield);
     if ( defined($filefield_val) and $filefield_val ne '' ) {
+
         # code below should be executed only when upload actually happens
         require SGX::UploadData;
         my $data = SGX::UploadData->new( delegate => $self );
         eval {
-            $self->{_upload_completed} = $data->uploadData( filefield => 'file' , update => 1);
+            $self->{_upload_completed} =
+              $data->uploadData( filefield => 'file', update => 1 );
         } or do {
             my $exception = $@;
             my $msg = ( defined $exception ) ? "$exception" : '';
-            $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
+            $self->add_message( { -class => 'error' },
+                "No records loaded. $msg" );
         };
     }
 
-    # show body for "readrow" 
+    # show body for "readrow"
     $self->SUPER::default_update();
     $self->set_action('');
     return;
@@ -676,7 +681,8 @@ sub default_create {
     my $data = SGX::UploadData->new( delegate => $self );
 
     eval {
-        $self->{_upload_completed} = $data->uploadData( filefield => 'file' , update => 0);
+        $self->{_upload_completed} =
+          $data->uploadData( filefield => 'file', update => 0 );
     } or do {
         my $exception = $@;
         my $msg = ( defined $exception ) ? "$exception" : '';
@@ -727,8 +733,9 @@ sub form_assign_body {
 
       # Resource URI: /studies/id
       $q->start_form(
-        -method => 'POST',
-        -action => $self->get_resource_uri()
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
+        -action         => $self->get_resource_uri()
       ),
       $q->dl(
         $q->dt( $q->label( { -for => 'stid' }, 'Study:' ) ),

@@ -393,8 +393,9 @@ sub form_assign_body {
 
       # Resource URI: /studies/id
       $q->start_form(
-        -method => 'POST',
-        -action => $self->get_resource_uri()
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
+        -action         => $self->get_resource_uri()
       ),
       $q->dl(
         $q->dt( $q->label( { -for => 'eid' }, 'Experiment:' ) ),

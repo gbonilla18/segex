@@ -34,7 +34,7 @@ my @term_parser = (
 
     # term id
     sub {
-        if (shift =~ /(\d+)/) {
+        if ( shift =~ /(\d+)/ ) {
             return $1 + 0;
         }
         else {
@@ -79,7 +79,7 @@ my @term_definition_parser = (
 
     # term id
     sub {
-        if (shift =~ /(\d+)/) {
+        if ( shift =~ /(\d+)/ ) {
             return $1 + 0;
         }
         else {
@@ -255,9 +255,10 @@ you can still use GO annotation, but your text searches will be limited to GO
 names.
 END_info
       $q->start_form(
-        -method  => 'POST',
-        -enctype => 'multipart/form-data',
-        -action  => $q->url( absolute => 1 ) . '?a=uploadGO'
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
+        -enctype        => 'multipart/form-data',
+        -action         => $q->url( absolute => 1 ) . '?a=uploadGO'
       ),
       $q->dl(
         $q->dt('Path to term_definition.txt:'),
@@ -366,9 +367,10 @@ sub default_body {
         )
       ),
       $q->start_form(
-        -method  => 'POST',
-        -enctype => 'multipart/form-data',
-        -action  => $q->url( absolute => 1 ) . '?a=uploadGO'
+        -accept_charset => 'utf-8',
+        -method         => 'POST',
+        -enctype        => 'multipart/form-data',
+        -action         => $q->url( absolute => 1 ) . '?a=uploadGO'
       ),
       $q->dl(
         $q->dt('Path to term.txt:'),

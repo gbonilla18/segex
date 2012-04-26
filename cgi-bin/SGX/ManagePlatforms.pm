@@ -541,8 +541,10 @@ sub UploadAnnot_head {
 
             # disallow spaces and plus signs
             $print_symbols->( $probe_id, 0, $_ )
-              for ( map { $_ =~ /^([^\+\s]+)$/ }
-                split( /[,;\s]+/, $fields->[$i] ) );
+              for (
+                map { $_ =~ /^([^\+\s]+)$/ }
+                split( /[,;\s]+/, $fields->[$i] )
+              );
             $i++;
         }
 
@@ -553,8 +555,10 @@ sub UploadAnnot_head {
 
             # disallow spaces and plus signs
             $print_symbols->( $probe_id, 1, $_ )
-              for ( map { $_ =~ /^([^\+\s]+)$/ }
-                split( /[,;\s]+/, $fields->[$i] ) );
+              for (
+                map { $_ =~ /^([^\+\s]+)$/ }
+                split( /[,;\s]+/, $fields->[$i] )
+              );
             $i++;
         }
 
@@ -1044,8 +1048,9 @@ updated. If you wish to fully replace annotation for all existing probes, clear
 the annotation first by pressing "clear" above.
 END_info
             $q->start_form(
-                -method   => 'POST',
-                -enctype  => 'multipart/form-data',
+                -accept_charset => 'utf-8',
+                -method         => 'POST',
+                -enctype        => 'multipart/form-data',
                 -onsubmit => 'return validate_fields(this, ["fileProbeLoci"]);',
                 -action   => $self->get_resource_uri(
                     b   => 'uploadAnnot',
@@ -1083,12 +1088,14 @@ END_info
                             accnum => {
                                 -checked => 'checked',
                                 -value   => 'Accession Numbers',
-                                -title   => 'Accession Numbers (if multiple, must be separated by either commas, semicolons, or white space)'
+                                -title =>
+'Accession Numbers (if multiple, must be separated by either commas, semicolons, or white space)'
                             },
                             gene_symbols => {
                                 -checked => 'checked',
                                 -value   => 'Gene Symbols',
-                                -title   => 'Gene Symbols (if multiple, must be separated by either commas, semicolons, or white space)'
+                                -title =>
+'Gene Symbols (if multiple, must be separated by either commas, semicolons, or white space)'
                             }
                         ]
                     )

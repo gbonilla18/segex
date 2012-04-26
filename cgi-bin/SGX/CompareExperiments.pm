@@ -355,10 +355,11 @@ COMPARE_SUMMARY
         { -class => 'clearfix' },
         $q->h3('3. Perform comparison'),
         $q->start_form(
-            -method  => 'POST',
-            -enctype => 'multipart/form-data',
-            -id      => 'form_compareExperiments',
-            -action  => $q->url( absolute => 1 ) . '?a=compareExperiments'
+            -accept_charset => 'utf8',
+            -method         => 'POST',
+            -enctype        => 'multipart/form-data',
+            -id             => 'form_compareExperiments',
+            -action => $q->url( absolute => 1 ) . '?a=compareExperiments'
         ),
         $q->dl(
             $q->dt('Filter(s):'),
@@ -602,11 +603,12 @@ sub Compare_body {
       $q->p( { -id => 'comparison_note' }, '' ),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->start_form(
-        -method  => 'POST',
-        -action  => $q->url( -absolute => 1 ) . '?a=getTFS',
-        -target  => '_blank',
-        -class   => 'getTFS',
-        -enctype => 'application/x-www-form-urlencoded'
+        -accept_charset => 'utf8',
+        -method         => 'POST',
+        -action         => $q->url( -absolute => 1 ) . '?a=getTFS',
+        -target         => '_blank',
+        -class          => 'getTFS',
+        -enctype        => 'application/x-www-form-urlencoded'
       ),
       $q->hidden( -name => 'selectedFS', -id => 'selectedFS' ),
       $q->hidden(

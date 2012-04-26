@@ -599,9 +599,10 @@ sub view_start_get_form {
     my $self = shift;
     my $q    = $self->{_cgi};
     return $q->start_form(
-        -method  => 'GET',
-        -enctype => 'application/x-www-form-urlencoded',
-        -action  => $self->url( -absolute => 1 )
+        -accept_charset => 'utf-8',
+        -method         => 'GET',
+        -enctype        => 'application/x-www-form-urlencoded',
+        -action         => $self->url( -absolute => 1 )
     );
 }
 
