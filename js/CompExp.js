@@ -119,7 +119,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         btn.setAttribute('value', text);
         btn.setAttribute('title', 'Display report including all probes from this set');
         YAHOO.util.Event.addListener(btn, 'click', function(ev) {
-            selectedExp.value = this.getData('expected');
+            selectedExp.value = JSON.stringify(fs2expected);
             selectedFS.value = this.getData('fs');
         }, oRecord, true);
         removeAllChildren(elCell);
@@ -179,9 +179,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 }
             };
             totalExpected += expected;
-            this.push(expected);
-        }, [], 0, 1 << rowcount_titles);
-    var totalSignExpected = totalExpected - fs2expected[0];
+            this[String(theoretic_fs)] = expected;
+        }, {}, 0, 1 << rowcount_titles);
+    var totalSignExpected = totalExpected - fs2expected['0'];
+    fs2expected[null] = includeAllProbes ? totalExpected : totalSignExpected;
 
     //var expectedNonZero = object_forValues(h, function(row) {
     //    var row_fs = row.fs;
@@ -194,7 +195,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     // TFS: all
     var row_all = iterateForward(function(i) {
         this.push('n/a');
-    }, [null, probe_count], 0, rowcount_titles).concat(null, (includeAllProbes ? totalExpected : totalSignExpected), Math.log(probe_count / (includeAllProbes ? totalExpected : totalSignExpected)).toPrecision(3));
+    }, [null, probe_count], 0, rowcount_titles).concat(null, Math.log(probe_count / fs2expected[null]).toPrecision(3));
 
     var tfs = {
         caption:'Probes grouped by significance in different experiment combinations',
@@ -205,7 +206,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
             object_forValues(h, function(row) { this.push(row); }, []).sort(NumericSortOnColumnDesc('fs')), 
             function(row) {
                 var observed = parseInt(row.c);
-                var expected = parseFloat(fs2expected[parseInt(row.fs)]);
+                var expected = parseFloat(fs2expected[row.fs]);
                 // calculate the log_odds ratio
                 var fs = parseInt(row.fs);
                 var significant_in = 0;
@@ -219,7 +220,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
                     }
                 }, [fs, observed], 0, rowcount_titles).concat(
                     significant_in, 
-                    expected,
                     //(100 * (observed - expected) / Math.max(observed, expected)).toPrecision(3)
                     Math.log(observed / expected).toPrecision(3)
                 ));
@@ -235,7 +235,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
             { key: 'probe_count', parser: 'number'}
         ]).concat(
             { key: 'significant_in', parser: 'number'},
-            { key: 'expected', parser: 'number'},
             { key: 'log_odds', parser: 'number'}
         ),
 

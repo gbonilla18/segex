@@ -216,8 +216,7 @@ sub loadDataFromSubmission {
     # The $self->{_fs} parameter is the flagsum for which we filter data
     my $fs = car $q->param('selectedFS');
     $self->{_fs} = $fs ne '' ? $fs : undef;
-    my $expected = car $q->param('selectedExp');
-    $self->{_expected} = $expected ne '' ? $expected : undef;
+    $self->{_expected} = decode_json( car( $q->param('selectedExp') ) || '{}' );
     $self->{_format} = car $q->param('get');
 
     return 1;
@@ -784,7 +783,9 @@ sub displayDataCSV {
             $observed,
 
             # log_odds
-            eval { Math::BigFloat->new( log( $observed / $expected ) ); }
+            eval {
+                Math::BigFloat->new( log( $observed / $expected->{null} ) );
+            }
         ]
     );
     $print->(
@@ -797,7 +798,7 @@ sub displayDataCSV {
                 Math::BigFloat->new(
                     log(
                         $TFSCounts{$_} /
-                          $expected *
+                          $expected->{ ( before_dot($_) ) } *
                           ( 1 << count_bits( before_dot($_) ) + 0.0 )
                     )
                 );
