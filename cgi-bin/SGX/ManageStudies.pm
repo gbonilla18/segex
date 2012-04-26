@@ -7,6 +7,7 @@ use base qw/SGX::Strategy::CRUD/;
 
 use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception ();
+use SGX::Util qw/car/;
 require SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
@@ -25,6 +26,7 @@ sub new {
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
     my $curr_proj = $s->{session_cookie}->{curr_proj};
 
+    my $pid = car $q->param('pid');
     $self->set_attributes(
 
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
@@ -77,14 +79,14 @@ sub new {
                         parser       => 'number',
                         __readonly__ => 1,
                         (
-                            looks_like_number( $q->param('pid') )
+                            looks_like_number($pid)
                             ? ()
-                            : __tie__ => [ ( platform => 'pid' ) ]
+                            : ( __tie__ => [ ( platform => 'pid' ) ] )
                         ),
 
                         #__tie__      => [
                         #    (
-                        #        looks_like_number( $q->param('pid') ) ? ()
+                        #        looks_like_number( $pid ) ? ()
                         #        : ( platform => 'pid' )
                         #    )
                         #],
@@ -92,7 +94,7 @@ sub new {
                 },
                 lookup => [
                     (
-                        looks_like_number( $q->param('pid') ) ? ()
+                        looks_like_number($pid) ? ()
                         : ( platform => [ pid => 'pid' ] )
                     )
                 ],
@@ -321,7 +323,8 @@ sub form_assign_head {
                 platform_by_study => 1,
                 studies           => 1,
                 experiments       => 1,
-                extra_studies => { '' => { description => '@Unassigned Experiments' } }
+                extra_studies =>
+                  { '' => { description => '@Unassigned Experiments' } }
             )
         },
       );
@@ -449,7 +452,7 @@ sub get_pse_dropdown_js {
     my $pid =
       ( defined $stid )
       ? $pse->getPlatformFromStudy($stid)
-      : $q->param('pid');
+      : car( $q->param('pid') );
 
     return $js->let(
         [

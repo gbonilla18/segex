@@ -48,8 +48,6 @@ sub new {
     my ( $class, @param ) = @_;
     my $self = $class->SUPER::new(@param);
 
-    $self->set_attributes( _title => 'View Slice' );
-
     # find out what the current project is set to
     $self->getSessionOverrideCGI();
 
@@ -72,6 +70,8 @@ sub init {
     $self->SUPER::init();
 
     $self->loadDataFromSubmission();    # sets _format attribute
+
+    $self->set_attributes( _title => $self->get_subset_name() );
 
     # two lines below modify action value and therefore affect which hook will
     # get called
@@ -151,6 +151,28 @@ sub default_head {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  TFSDisplay
+#       METHOD:  get_subset_name
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_subset_name {
+    my $self = shift;
+    my $fs   = $self->{_fs};
+    return (
+        defined($fs) ? "Subset $fs"
+        : (
+            $self->{_allProbes} ? 'Subset: all probes'
+            : 'Subset: all significant probes'
+        )
+    );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  TFSDisplay
 #       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -162,12 +184,8 @@ sub default_head {
 sub default_body {
     my $self = shift;
     my $q    = $self->{_cgi};
-    my $fs   = $self->{_fs};
-    if ( !defined($fs) ) {
-        $fs = $self->{_allProbes} ? 'all probes' : 'all significant probes';
-    }
 
-    return $q->h2( { -id => 'summary_caption' }, "Subset: $fs" ),
+    return $q->h2( { -id => 'summary_caption' }, $self->get_subset_name() ),
       $q->div( { -id => 'summary_table', -class => 'table_cont' }, '' ),
       $q->h2( { -id => 'tfs_caption' }, '' ),
       $q->div( $q->a( { -id => 'tfs_astext' }, 'View as plain text' ) ),
@@ -661,7 +679,7 @@ sub displayDataCSV {
 
     my $print = bind_csv_handle( \*STDOUT );
 
-    my $sth_records  = $self->{_Records};
+    my $sth_records = $self->{_Records};
 
     # Report Header
     $print->( [ 'Compare Experiments Report', scalar localtime() ] );

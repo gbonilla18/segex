@@ -79,10 +79,10 @@ sub new {
                 names     => [qw/sname/],
                 meta      => {
                     sname => {
-                        label => 'Species',
-                        -size => 30
+                        label => 'Short Name',
+                        -size => 20
                     },
-                    slatin => { label => 'Scientific Name' }
+                    slatin => { label => 'Scientific Name', -size => 30 }
                 },
                 lookup => [
                     gene_counts => [ sid => 'sid' ],

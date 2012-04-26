@@ -653,6 +653,7 @@ sub default_update {
     }
 
     # show body for "readrow" 
+    $self->SUPER::default_update();
     $self->set_action('');
     return;
 }
