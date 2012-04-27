@@ -5,15 +5,11 @@ unreleased data sets from Waxman laboratory at Boston University.
 
 ============ DATABASE SETUP (MySQL) ===============
 
-==== A. Linux =======
+===== A. Linux =======
 
 0. [Optional] To allow for full-text searches on three-letter words and acronyms
-such as DNA, RNA, etc., copy file called "my-huge.cnf" from 
-/usr/local/mysql/support-files/ into /etc/, renaming it to "my.cnf":
-
-sudo cp /usr/local/mysql/support-files/my-huge.cnf /etc/my.cnf
-
-Next, add the following line(s) under section called "[mysqld]":
+such as DNA, RNA, etc., edit file called my.cnf (CentOS: /etc/my.cnf) and add
+the following line(s) under section called "[mysqld]":
 
    [mysqld]
    # Allow full-text indexes on three-letter words such as DNA, RNA, etc.
@@ -39,11 +35,16 @@ MySQL installation, the root password is empty (simply press enter to proceed).
 3. Update cgi-bin/segex.conf file with correct database, user, and password
 information.
 
-===== B. MAc OS X =======
+==== B. Mac OS X =======
 
 0. [Optional] To allow for full-text searches on three-letter words and acronyms
-such as DNA, RNA, etc., edit file called my.cnf (CentOS: /etc/my.cnf) and add
-the following line(s) under section called "[mysqld]":
+such as DNA, RNA, etc., copy file called "my-huge.cnf" from 
+/usr/local/mysql/support-files/ into /etc/, renaming it to "my.cnf":
+
+sudo cp /usr/local/mysql/support-files/my-huge.cnf /etc/my.cnf
+
+Next, add the following line(s) under section called "[mysqld]" to the newly
+created my.cnf file:
 
    [mysqld]
    # Allow full-text indexes on three-letter words such as DNA, RNA, etc.
