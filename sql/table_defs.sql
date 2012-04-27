@@ -103,7 +103,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=141 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -203,7 +203,7 @@ CREATE TABLE `platform` (
   `pname` varchar(120) NOT NULL,
   `def_p_cutoff` double DEFAULT NULL,
   `def_f_cutoff` double DEFAULT NULL,
-  `sid` int(10) unsigned DEFAULT NULL,
+  `sid` int(10) unsigned NOT NULL,
   PRIMARY KEY (`pid`),
   UNIQUE KEY `pname` (`pname`),
   KEY `sid` (`sid`),
@@ -330,4 +330,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-04-15  0:42:57
+-- Dump completed on 2012-04-26 20:44:08
