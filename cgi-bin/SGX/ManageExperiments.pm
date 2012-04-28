@@ -108,7 +108,6 @@ sub new {
                         label          => 'Upload Data File',
                         __type__       => 'filefield',
                         __special__    => 1,
-                        __optional__   => 1,
                         __extra_html__ => $q->div(
                             file_opts_html( $q, 'fileOpts' ),
                             file_opts_columns(

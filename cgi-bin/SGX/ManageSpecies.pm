@@ -562,7 +562,7 @@ sub readrow_body {
                 )
             ),
             $q->p(<<"END_info"),
-Note: You should first upload gene symbols / accession numbers to corresponding
+You should first upload gene symbols / accession numbers to corresponding
 platform before using this form to update annotation (gene symbols not that were
 not already uploaded will be ignored).
 END_info

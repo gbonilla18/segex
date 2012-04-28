@@ -1376,9 +1376,6 @@ sub _build_predicate {
         }
     }
     while ( my ( $uri_sel, $sql_sel ) = each %selectors ) {
-
-        #my $val = $q->param($_);
-        #if ( defined $val ) {
         foreach (
             map { ( $_ ne '' ) ? $_ : undef }
             grep { $_ ne 'all' } $q->param($uri_sel)

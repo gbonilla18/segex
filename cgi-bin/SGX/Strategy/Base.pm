@@ -469,7 +469,7 @@ sub dispatch_js {
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
     # preliminary processing routine (e.g. create request handler) tells us so.
-    #
+    
     # do not show body
     return
       if $self->_dispatch_by( $self->get_dispatch_action() => 'redirect' );
@@ -512,8 +512,9 @@ sub dispatch {
     #
     my $q = $self->{_cgi};
     $q->delete_all();
-    return $self->_dispatch_by( $self->get_dispatch_action() => 'body' )
-      ;    # show body
+
+    # show body
+    return $self->_dispatch_by( $self->get_dispatch_action() => 'body' );
 }
 
 #===  CLASS METHOD  ============================================================

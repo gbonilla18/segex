@@ -397,6 +397,7 @@ exports.populateDropdowns = function(lookupTables, lookup, data) {
                     option.appendChild(document.createTextNode(tuple[1]));
                     obj.appendChild(option);
                 });
+                triggerEvent(obj, 'change');
             }
         });
     };

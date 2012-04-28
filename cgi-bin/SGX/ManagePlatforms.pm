@@ -1043,7 +1043,7 @@ sub readrow_body {
                 )
             ),
             $q->p(<<"END_info"),
-Note: Only information for the probe ids that are included in the file will be
+Only information for the probe ids that are included in the file will be
 updated. If you wish to fully replace annotation for all existing probes, clear
 the annotation first by pressing "clear" above.
 END_info
