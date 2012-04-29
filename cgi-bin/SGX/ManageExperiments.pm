@@ -207,6 +207,7 @@ sub new {
                     }
                 },
                 lookup => [
+                    data_count => [ eid => 'eid', { join_type => 'LEFT' } ],
                     (
 
                         # No need to display platform column if specific
@@ -245,7 +246,6 @@ sub new {
                           )
                         : ()
                     ),
-                    data_count => [ eid => 'eid', { join_type => 'LEFT' } ],
                 ],
             },
             data_count => {
