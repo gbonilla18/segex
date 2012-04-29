@@ -9,22 +9,30 @@ use SGX::Config;
 my $softwareVersion = '0.4.1.3';
 
 my $all_resources = {
+
+    # Query
     compareExperiments => {
         label => 'Compare Experiments',
-        title => 'Compare multiple experiments for significant probes'
+        title => 'Compare multiple experiments for significant probes',
+        perm  => 'readonly'
     },
     findProbes => {
         label => 'Find Probes',
         title =>
-          'Search for probes by probe ids, gene symbols, accession numbers'
+          'Search for probes by probe ids, gene symbols, accession numbers',
+        perm => 'readonly'
     },
-    outputData  => { label => 'Output Data' },
+    outputData  => { label => 'Output Data',  perm => 'readonly' },
+
+    # Manage
     platforms   => { label => 'Manage Platforms' },
     experiments => { label => 'Manage Experiments' },
     studies     => { label => 'Manage Studies' },
     projects    => { label => 'Manage Projects' },
     species     => { label => 'Manage Species' },
     users       => { label => 'Manage Users', perm => 'admin' },
+
+    # Upload
     'experiments&b=form_create' =>
       { label => 'Upload Data', title => 'Upload data to a new experiment' },
     uploadGO => {
@@ -40,8 +48,8 @@ sub make_link_creator {
         my @result;
         foreach my $action (@_) {
             if ( my $properties = $resource_table->{$action} ) {
-                my $perm = $properties->{perm};
-                next if defined($perm) and 1 != $obj->is_authorized($perm);
+                my $perm = $properties->{perm} || 'user';
+                next if $obj->is_authorized(level => $perm) != 1;
                 my $label = $properties->{label} || $action;
                 my $title = $properties->{title} || $label;
                 my $link_class =
@@ -277,7 +285,7 @@ sub build_sidemenu {
 
     my @menu;
     my $url_prefix = $q->url( -absolute => 1 );
-    if ( $obj->is_authorized('') == 1 ) {
+    if ( $obj->is_authorized() == 1 ) {
 
         my $proj_name = $obj->get_volatile('session_cookie')->{proj_name};
         my $curr_proj = $obj->get_volatile('session_cookie')->{curr_proj};
@@ -390,7 +398,7 @@ sub build_sidemenu {
 sub build_menu {
     my $obj = shift;
     my $q   = $obj->{_cgi};
-    return '&nbsp;' unless 1 == $obj->is_authorized('user');
+    return '&nbsp;' if ($obj->is_authorized(level => 'readonly') != 1);
 
     my $link_creator =
       make_link_creator( $all_resources, $obj, $q, $q->url_param('a') );
@@ -400,8 +408,7 @@ sub build_menu {
           $link_creator->(qw/compareExperiments findProbes outputData/),
         'Manage' => $link_creator->(
             qw/experiments studies projects platforms species users/),
-        'Upload' =>
-          $link_creator->(qw/experiments&b=form_create uploadGO/)
+        'Upload' => $link_creator->(qw/experiments&b=form_create uploadGO/)
     );
 
     my @result;

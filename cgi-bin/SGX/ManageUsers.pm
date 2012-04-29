@@ -78,7 +78,7 @@ sub new {
                         -size => 30
                     },
                     full_name => {
-                        label        => 'Full Name',
+                        label        => 'Full name',
                         -size        => 55,
                         __optional__ => 1
                     },
@@ -93,35 +93,33 @@ sub new {
                         __type__        => 'popup_menu',
                         dropdownOptions => [
                             {
-                                value => '',
-                                label => 'Not Granted',
-
-                                #__perm__ => get_user_rank('anonym')
+                                value => 'nogrants',
+                                label => 'Not Granted'
+                            },
+                            {
+                                value => 'readonly',
+                                label => 'Read Only'
                             },
                             {
                                 value => 'user',
-                                label => 'User',
-
-                                #__perm__ => get_user_rank('user')
+                                label => 'User'
                             },
                             {
                                 value => 'admin',
-                                label => 'Administrator',
-
-                                #__perm__ => get_user_rank('admin')
+                                label => 'Administrator'
                             }
                         ]
                     },
                     email_confirmed => {
                         __type__        => 'checkbox',
-                        label           => 'Confirm. Email',
+                        label           => 'Verified email',
                         dropdownOptions => [
                             { value => '0', label => 'No' },
                             { value => '1', label => 'Yes' }
                         ],
                         __optional__ => 1
                     },
-                    udate => { label => 'Creat. Date', __readonly__ => 1 }
+                    udate => { label => 'Created on', __readonly__ => 1 }
                 },
             }
         },

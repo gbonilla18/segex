@@ -196,57 +196,60 @@ sub init {
     $self->set_attributes( _permission_level => 'anonym' );
     $self->register_actions(
 
-        # default
-        '' => { head => 'default_head', body => 'default_body', perm => '' },
-
-        # signed in only
+       # default profile page is useless at any level below nogrants.
+       # change/verify email and password is useless at any level below nogrants
+        '' => {
+            head => 'default_head',
+            body => 'default_body',
+            perm => 'nogrants'
+        },
         form_changePassword => {
             body => 'form_changePassword_body',
-            perm => 'user'
+            perm => 'nogrants'
+        },
+        changePassword => {
+            head => 'changePassword_head',
+            perm => 'nogrants'
         },
         form_changeEmail => {
             body => 'form_changeEmail_body',
-            perm => 'user'
+            perm => 'nogrants'
         },
+        changeEmail => {
+            head => 'changeEmail_head',
+            perm => 'nogrants'
+        },
+        verifyEmail => { head => 'verifyEmail_head', perm => 'nogrants' },
+        logout      => { head => 'logout_head',      perm => 'nogrants' },
+
+        # projects are useless at any level below readonly
         chooseProject => {
             head => 'chooseProject_head',
             body => 'chooseProject_body',
-            perm => 'user'
+            perm => 'readonly'
         },
         changeProjectTo => {
             head => 'changeProjectTo_head',
             body => 'chooseProject_body',
-            perm => 'user'
-        },
-        changePassword => {
-            head => 'changePassword_head',
-            perm => 'user'
-        },
-        changeEmail => {
-            head => 'changeEmail_head',
-            perm => 'user'
+            perm => 'readonly'
         },
 
-        # anonymous or signed in
-        verifyEmail => { head => 'verifyEmail_head', perm => 'anonym' },
-        logout      => { head => 'logout_head',      perm => 'anonym' },
+        # have to allow 'forgot password' functionality to anonymous users
+        form_resetPassword => {
+            head => 'default_head',
+            body => 'form_resetPassword_body',
+            perm => 'anonym'
+        },
+        resetPassword => { head => 'resetPassword_head', perm => 'anonym' },
 
-        # anonymous only
-        registerUser =>
-          { head => 'registerUser_head', perm => [ 'anonym', 'anonym' ] },
+        # register user and login are allowed to anonymous users *only*
         form_registerUser => {
             head => 'default_head',
             body => 'form_registerUser_body',
             perm => [ 'anonym', 'anonym' ]
         },
-        resetPassword =>
-          { head => 'resetPassword_head', perm => [ 'anonym', 'anonym' ] },
-        form_resetPassword => {
-            head => 'default_head',
-            body => 'form_resetPassword_body',
-            perm => [ 'anonym', 'anonym' ]
-        },
-        login      => { head => 'login_head', perm => [ 'anonym', 'anonym' ] },
+        registerUser =>
+          { head => 'registerUser_head', perm => [ 'anonym', 'anonym' ] },
         form_login => {
             head => 'default_head', # cannot leave this field empty since
                                     # in that case the system will lookup
@@ -258,6 +261,7 @@ sub init {
             body => 'form_login_body',
             perm => [ 'anonym', 'anonym' ]
         },
+        login => { head => 'login_head', perm => [ 'anonym', 'anonym' ] }
     );
 
     return $self;
@@ -298,7 +302,7 @@ sub default_body {
 
     return $q->h2('My Profile'),
       (
-        ( 1 == $self->is_authorized('user') )
+        ( $self->is_authorized( level => 'user' ) == 1 )
         ? $q->p(
             $q->a(
                 {
@@ -387,7 +391,7 @@ sub login_head {
             car( $q->param('password') ),
             \$error_string
         )
-        and 1 == $self->is_authorized('')
+        and $self->is_authorized() == 1
       )
     {
 
@@ -458,7 +462,7 @@ sub form_login_body {
           'return validate_fields(this, [\'username\',\'password\']);'
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'username' }, 'Your login id:' ) ),
+        $q->dt( $q->label( { -for => 'username' }, 'Login name:' ) ),
         $q->dd(
             $q->textfield(
                 -name      => 'username',
@@ -564,10 +568,19 @@ sub form_registerUser_body {
         -method         => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=profile&b=registerUser',
         -onsubmit =>
-'return validate_fields(this, [\'username\',\'password1\',\'password2\',\'email1\',\'email2\',\'full_name\']);'
+"return validate_fields(this, ['username','password1','password2','email1','email2']);"
       ),
       $q->dl(
-        $q->dt( $q->label( { -for => 'username' }, 'Username:' ) ),
+        $q->dt( $q->label( { -class => 'optional', -for => 'full_name' }, 'Your Full Name:' ) ),
+        $q->dd(
+            $q->textfield(
+                -name  => 'full_name',
+                -id    => 'full_name',
+                -size  => 30,
+                -title => 'Enter your first and last names here (optional)'
+            )
+        ),
+        $q->dt( $q->label( { -for => 'username' }, 'Login name:' ) ),
         $q->dd(
             $q->textfield(
                 -name  => 'username',
@@ -609,30 +622,23 @@ sub form_registerUser_body {
                 -title => 'Type your email address again for confirmation'
             )
         ),
-        $q->dt( $q->label( { -for => 'full_name' }, 'Full Name:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name  => 'full_name',
-                -id    => 'full_name',
-                -title => 'Enter your first and last names here (optional)'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'address' }, 'Address:' ) ),
-        $q->dd(
-            $q->textarea(
-                -name  => 'address',
-                -id    => 'address',
-                -title => 'Enter your contact address (optional)'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'phone' }, 'Contact Phone:' ) ),
-        $q->dd(
-            $q->textfield(
-                -name  => 'phone',
-                -id    => 'phone',
-                -title => 'Enter your contact phone number (optional)'
-            )
-        ),
+
+        #$q->dt( $q->label( { -for => 'address' }, 'Address:' ) ),
+        #$q->dd(
+        #    $q->textarea(
+        #        -name  => 'address',
+        #        -id    => 'address',
+        #        -title => 'Enter your contact address (optional)'
+        #    )
+        #),
+        #$q->dt( $q->label( { -for => 'phone' }, 'Contact Phone:' ) ),
+        #$q->dd(
+        #    $q->textfield(
+        #        -name  => 'phone',
+        #        -id    => 'phone',
+        #        -title => 'Enter your contact phone number (optional)'
+        #    )
+        #),
         $q->dt('&nbsp;'),
         $q->dd(
 
@@ -709,10 +715,7 @@ sub form_resetPassword_body {
       ),
       $q->dl(
         $q->dt(
-            $q->label(
-                { -for => 'username' },
-                'Your login ID or email address:'
-            )
+            $q->label( { -for => 'username' }, 'Login name or email address:' )
         ),
         $q->dd(
             $q->textfield(

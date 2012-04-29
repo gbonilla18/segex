@@ -83,7 +83,10 @@ sub init {
     my $self = shift;
     $self->SUPER::init();
 
-    $self->set_attributes( _title => 'Find Probes' );
+    $self->set_attributes(
+        _title            => 'Find Probes',
+        _permission_level => 'readonly'
+    );
     $self->register_actions(
         'Search' => { head => 'Search_head', body => 'Search_body' },
         'Search GO terms' => { body => 'SearchGO_body' },

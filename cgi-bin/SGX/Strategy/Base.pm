@@ -338,15 +338,16 @@ sub get_volatile {
 #===============================================================================
 sub is_authorized {
     my $self = shift;
-    my $perm = shift;
+    my %args = @_;
+    my $perm = $args{level};
     my $s    = $self->{_UserSession};
 
     if ( defined $s ) {
-        return $s->is_authorized($perm);
+        return $s->is_authorized(level => $args{level});
     }
     else {
         require SGX::Session::User;
-        return SGX::Session::User::static_auth( undef, $perm ) ? 1 : 0;
+        return SGX::Session::User::static_auth( undef, $args{level} ) ? 1 : 0;
     }
 }
 
@@ -375,7 +376,7 @@ sub _dispatch_by {
       ? $meta->{perm}
       : $self->{_permission_level};
 
-    my $is_auth = $self->is_authorized($perm);
+    my $is_auth = $self->is_authorized(level => $perm);
     if ( $is_auth == 1 ) {
 
         # execute hook

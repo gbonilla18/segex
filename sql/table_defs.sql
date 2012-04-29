@@ -2,7 +2,7 @@
 --
 -- Host: localhost    Database: segex_dev
 -- ------------------------------------------------------
--- Server version	5.1.57
+-- Server version	5.1.57-log
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -103,7 +103,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=141 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -313,7 +313,7 @@ CREATE TABLE `users` (
   `full_name` varchar(255) NOT NULL DEFAULT '',
   `address` varchar(255) NOT NULL DEFAULT '',
   `phone` varchar(127) NOT NULL DEFAULT '',
-  `level` enum('','user','admin') NOT NULL DEFAULT '',
+  `level` enum('nogrants','readonly','user','admin') NOT NULL DEFAULT 'nogrants',
   `email_confirmed` tinyint(1) DEFAULT '0',
   `udate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`),
@@ -330,4 +330,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-04-26 20:44:08
+-- Dump completed on 2012-04-29 15:41:00

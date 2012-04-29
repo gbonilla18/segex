@@ -50,6 +50,7 @@ PlatfformStudy_sql
 
     $self->set_attributes(
         _title                   => 'Output Data',
+        _permission_level        => 'readonly',
         _PlatformStudyExperiment => $pse,
         _Data                    => '',
         _RecordsReturned         => undef,

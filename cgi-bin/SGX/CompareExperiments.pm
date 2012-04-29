@@ -66,6 +66,7 @@ PlatfformStudy_sql
 
     $self->set_attributes(
         _title                   => 'Compare Experiments',
+        _permission_level        => 'readonly',
         _PlatformStudyExperiment => $pse,
         _FindProbes              => $findProbes
     );
