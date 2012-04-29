@@ -47,7 +47,31 @@ sub new {
                 base      => [qw/eid stid/],
                 join_type => 'INNER'
             },
+            'study_brief' => {
+
+                # this table is used in View All Experiments
+                table    => 'study',
+                key      => [qw/stid/],
+                base     => [qw/description/],
+                view     => [qw/description/],
+                resource => 'studies',
+
+                # table key to the left, URI param to the right
+                names => [qw/description/],
+                meta  => {
+                    stid        => { label => 'No.', parser => 'number' },
+                    description => {
+                        label        => 'Study(-ies)',
+                        formatter    => sub { 'formatPubMed' },
+                        __readonly__ => 1,
+                        __sql__ =>
+'GROUP_CONCAT(CONCAT(study_brief.description, \' (\', study_brief.pubmed, \')\') SEPARATOR \', \')'
+                    }
+                }
+            },
             'study' => {
+
+                # this table is used in Edit Experiment
                 key      => [qw/stid/],
                 base     => [qw/description pubmed/],
                 view     => [qw/description pubmed/],
@@ -77,7 +101,7 @@ sub new {
                 key       => [qw/pid/],
                 view      => [qw/pname/],
                 names     => [qw/pname/],
-                meta      => { pname => { label => 'Platform' }, },
+                meta      => { pname => { label => 'Platform' } },
 
                #join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
             },
@@ -92,12 +116,11 @@ sub new {
                 item_name => 'experiment',
                 key       => [qw/eid/],
                 view      => [
-                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation study_desc/
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
                 ],
                 resource => 'experiments',
                 base     => [
-                    qw/sample1 sample2 ExperimentDescription
-                      AdditionalInformation pid stid file/
+                    qw/sample1 sample2 ExperimentDescription AdditionalInformation pid file/
                 ],
 
                 # table key to the left, URI param to the right
@@ -192,19 +215,6 @@ sub new {
                         #],
                         __readonly__ => 1,
                     },
-                    stid => {
-                        label          => 'Study',
-                        parser         => 'number',
-                        __type__       => 'popup_menu',
-                        __special__    => 1,
-                        __optional__   => 1,
-                        __createonly__ => 1
-                    },
-                    study_desc => {
-                        __sql__      => 'study.description',
-                        __readonly__ => 1,
-                        label        => 'Study(-ies)'
-                    }
                 },
                 lookup => [
                     data_count => [ eid => 'eid', { join_type => 'LEFT' } ],
@@ -224,7 +234,7 @@ sub new {
                         eid => 'eid',
                         { selectors => { stid => 'stid' } }
                     ],
-                    'study' => [
+                    study_brief => [
                         'StudyExperiment.stid' => 'stid',
                         { join_type => 'LEFT' }
                     ],
