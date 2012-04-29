@@ -607,7 +607,6 @@ sub Compare_body {
         -accept_charset => 'utf8',
         -method         => 'POST',
         -action         => $q->url( -absolute => 1 ) . '?a=getTFS',
-        -target         => '_blank',
         -class          => 'getTFS',
         -enctype        => 'application/x-www-form-urlencoded'
       ),
@@ -632,25 +631,37 @@ given subset) over the expected (calculated assuming probes for each subset are
 drawn at random).
 END_MATRIX
       $q->dl(
-        $q->dt( $q->strong('Data to display:') ),
-        $q->dd(
-            $q->radio_group(
-                -name    => 'opts',
-                -values  => [qw/basic data annot/],
-                -default => 'basic',
-                -labels  => {
-                    'basic' => 'Basic',
-                    'data'  => 'w/ Data',
-                    'annot' => 'w/ Data and Annotation'
-                }
-            )
-        ),
         $q->dt( $q->strong('Report format:') ),
         $q->dd(
-            $q->radio_group(
-                -name    => 'get',
-                -values  => [qw/HTML CSV/],
-                -default => 'HTML'
+            $q->p(
+                $q->radio_group(
+                    -name       => 'get',
+                    -values     => [qw/HTML CSV/],
+                    -default    => 'CSV',
+                    -attributes => {
+                        HTML => {
+                            id    => 'getHTML',
+                            title => 'Display data in HTML format'
+                        },
+                        CSV => {
+                            id    => 'getCSV',
+                            title => 'Download a CSV report of selected subset'
+                        }
+                    }
+                )
+            ),
+            $q->p(
+                { -id => 'display_format', -style => 'display:none;' },
+                $q->radio_group(
+                    -name    => 'opts',
+                    -values  => [qw/basic data annot/],
+                    -default => 'basic',
+                    -labels  => {
+                        'basic' => 'Basic',
+                        'data'  => 'w/ Data',
+                        'annot' => 'w/ Data and Annotation'
+                    }
+                )
             )
         )
       ),

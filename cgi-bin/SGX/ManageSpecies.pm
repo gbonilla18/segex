@@ -80,9 +80,16 @@ sub new {
                 meta      => {
                     sname => {
                         label => 'Short Name',
+                        __extra_html__ =>
+'<p class="hint visible">Should be the same as NCBI organism name. Examples: Mouse, Rat, Human, etc.</p>',
                         -size => 20
                     },
-                    slatin => { label => 'Scientific Name', -size => 30 }
+                    slatin => {
+                        label => 'Scientific Name',
+                        -size => 30,
+                        __extra_html__ =>
+'<p class="hint visible">Used for Ensembl lookups. Examples: Mus musculus, Rattus norvegicus, Homo sapiens, etc.</p>'
+                    }
                 },
                 lookup => [
                     gene_counts => [ sid => 'sid' ],

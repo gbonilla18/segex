@@ -986,7 +986,7 @@ SELECT
     probe.probe_sequence AS 'Probe Sequence',
     GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Locus',
     GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
-    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol',
     GROUP_CONCAT(DISTINCT concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
 
 FROM $annot_temp_table AS tmp
@@ -1353,7 +1353,7 @@ END_sql_subset_by_project
             "species.slatin  AS 'Species Official Name'",
             "platform.pname  AS 'Platform'",
 "group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.'",
-"group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene'",
+"group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol'",
           );
     }
     if ( $extra_fields > 1 ) {

@@ -102,6 +102,16 @@ function getGoogleVenn() {
 var rowcount_titles = _xExpList.length;
 
 YAHOO.util.Event.addListener(window, "load", function() {
+    setupToggles('change',
+        { 
+            'getHTML': { 'checked' : ['display_format'] }, 
+            'getCSV': { '' : ['display_format'] } 
+        }, 
+        function(el) { 
+            return (el.checked ? 'checked' : ''); 
+        }
+    );
+
     Dom.get("includeAllProbes").value = includeAllProbes;
     Dom.get("searchFilter").value = searchFilter;
 

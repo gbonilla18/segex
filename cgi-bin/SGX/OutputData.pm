@@ -241,7 +241,7 @@ SELECT
     $experiment_field
     probe.reporter        AS 'Probe ID',
 group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
-group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene',
+group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol',
     $gene_info
     microarray.ratio      AS 'Ratio',
     microarray.foldchange AS 'Fold Change',

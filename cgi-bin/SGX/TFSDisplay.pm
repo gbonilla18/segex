@@ -431,7 +431,7 @@ SELECT
     dir_fs, 
     probe.reporter AS Probe,
     GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
-    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene Symbol',
     $selectSQL
 FROM (
     SELECT 
