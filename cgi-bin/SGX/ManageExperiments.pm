@@ -120,16 +120,17 @@ sub new {
                 ],
                 resource => 'experiments',
                 base     => [
-                    qw/sample1 sample2 ExperimentDescription AdditionalInformation pid file/
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation pid file/
                 ],
 
                 # table key to the left, URI param to the right
                 selectors => { pid => 'pid' },
-                names     => [qw/sample1 sample2/],
+                names     => [qw/eid sample1 sample2/],
                 meta      => {
                     file => {
                         label          => 'Upload Data File',
                         __type__       => 'filefield',
+                        __optional__   => 1,
                         __special__    => 1,
                         __extra_html__ => $q->div(
                             file_opts_html( $q, 'fileOpts' ),
