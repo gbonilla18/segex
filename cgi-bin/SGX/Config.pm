@@ -6,7 +6,7 @@ use base qw/Exporter/;
 
 use Readonly ();
 use File::Basename qw/dirname/;
-use SGX::Util qw/replace/;
+use SGX::Util qw/replace uniq/;
 require Config::General;
 
 # :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are
@@ -77,14 +77,12 @@ Readonly::Scalar our $YUI_BUILD_ROOT => $SEGEX_CONFIG{yui_build_root};
 #---------------------------------------------------------------------------
 $ENV{PATH} = join(
     ':',
-    keys %{
-        +{
-            map {
-                ( my $key = $_ ) =~ s/\/*$//;
-                $key => undef;
-              } ( $SEGEX_CONFIG{mailer_path} )
-        }
-      }
+    uniq(
+        map {
+            ( my $key = $_ ) =~ s/\/*$//;
+            $key
+          } ( $SEGEX_CONFIG{mailer_path} )
+    )
 );
 
 #===  FUNCTION  ================================================================

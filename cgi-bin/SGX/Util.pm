@@ -11,12 +11,27 @@ use Scalar::Util qw/looks_like_number/;
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
   equal bind_csv_handle notp file_opts_html file_opts_columns distinct
-  dec2indexes32 locationAsTextToCanon abbreviate coord2int writeFlags count_bits before_dot/;
+  dec2indexes32 locationAsTextToCanon abbreviate coord2int writeFlags count_bits
+  before_dot uniq/;
 
+#===  FUNCTION  ================================================================
+#         NAME:  uniq
+#      PURPOSE:  Extract unique elements from an array
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub uniq {
+    my %seen;
+    return grep { !$seen{$_}++ } @_;
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  before_dot
-#      PURPOSE:  
+#      PURPOSE:
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  ????
@@ -26,9 +41,10 @@ our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
 #===============================================================================
 sub before_dot {
     my $x = shift;
-    my @arr = split('\.', "$x");
+    my @arr = split( '\.', "$x" );
     return $arr[0];
 }
+
 #===  FUNCTION  ================================================================
 #         NAME:  writeFlags
 #      PURPOSE:
@@ -398,7 +414,7 @@ sub array2hash {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub count_bits {
-    return unpack('%32b*', pack('I', shift));
+    return unpack( '%32b*', pack( 'I', shift ) );
 }
 
 #===  FUNCTION  ================================================================

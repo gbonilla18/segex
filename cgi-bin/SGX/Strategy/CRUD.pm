@@ -8,7 +8,7 @@ use base qw/SGX::Strategy::Base/;
 require Tie::IxHash;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
-use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal/;
+use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal uniq/;
 use SGX::Abstract::Exception ();
 use SGX::Debug;
 
@@ -1604,11 +1604,15 @@ sub _readrow_command {
 
     my $table = $table_info->{table} || $table_alias;
     my $predicate = join( ' AND ', map { "$_=?" } @key );
+
     my $read_fields = join(
         ',',
         $self->_select_fields(
-            table    => $table_info,
-            fieldset => 'base',
+            table => $table_info,
+
+            # concatenate name and base field sets, eliminating duplicates
+            fieldset =>
+              [ uniq( @{ $table_info->{base} }, @{ $table_info->{names} } ) ],
             omitting => '__special__',
             dealias  => '__sql__'
         )
@@ -1624,7 +1628,7 @@ sub _readrow_command {
     my @params = ( $id, ( map { $q->param($_) } cdr @key ) );
 
     #warn $query;
-    #warn Dumper(\@params);
+    #warn Dumper( \@params );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.

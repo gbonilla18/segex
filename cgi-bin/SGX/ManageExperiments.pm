@@ -119,7 +119,7 @@ sub new {
                 ],
                 resource => 'experiments',
                 base     => [
-                    qw/eid sample1 sample2 ExperimentDescription
+                    qw/sample1 sample2 ExperimentDescription
                     AdditionalInformation pid stid file/
                 ],
 
