@@ -612,6 +612,11 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 END_loadTermDefs
         push @param_symbols, [$filename_symbols];
 
+        # WARNING: block below means that both gene symbols and accession
+        # numbers are deleted for the particular subset of probes uploaded
+        # before they are updated, which means that, on a second upload, both
+        # old and new gene symbols *and* accession numbers must be present for
+        # the probes uploaded.
         push @sth_symbols, <<"END_delete";
 DELETE ProbeGene 
 FROM ProbeGene 
@@ -692,6 +697,10 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 END_loadTermDefs
         push @param_maploci, [$filename_maploci];
 
+        # WARNING: block below means that mapping locations are deleted for the
+        # particular subset of probes uploaded before they are updated, which
+        # means that, on a second upload, both old and new locations must be
+        # provided in case the probe maps to two locations.
         push @sth_maploci, <<"END_delete";
 DELETE locus 
 FROM locus 

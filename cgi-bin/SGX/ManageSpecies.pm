@@ -371,6 +371,7 @@ END_loadTermDefs
         );
         push @param_genes, [$filename_genes];
 
+        # Note: on duplicate key, gtype is changed to '1' (gene symbol)
         push @sth_genes, sprintf(
             <<"END_insertUpdate",
 INSERT INTO gene (%s)
@@ -389,12 +390,13 @@ END_insertUpdate
                 ( $upload_gdesc ? 'gdesc' : () ) ),
             join(
                 ',',
+                'gtype=1',
                 (
-                    $upload_gname ? 'gene.gname=temptable.gname'
+                    $upload_gname ? 'gname=temptable.gname'
                     : ()
                 ),
                 (
-                    $upload_gdesc ? 'gene.gdesc=temptable.gdesc'
+                    $upload_gdesc ? 'gdesc=temptable.gdesc'
                     : ()
                 )
             )
@@ -440,6 +442,10 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 END_loadTermDefs
         push @param_terms, [$filename_terms];
 
+        # WARNING: block below means that links to GO terms are deleted for the
+        # particular subset of genes uploaded before they are updated, which
+        # means that, on a second upload, both old and new GO ids must be
+        # present for the genes uploaded.
         push @sth_terms, <<"END_delete";
 DELETE GeneGO 
 FROM GeneGO
@@ -448,11 +454,16 @@ FROM GeneGO
 END_delete
         push @param_terms, [$species_id];
 
-        push @sth_terms, sprintf(<<"END_insertUpdate");
+        if ( !$update_genes ) {
+
+            # no need to insert gene symbols afresh if gene names or gene
+            # descriptions were also uploaded.
+            push @sth_terms, sprintf(<<"END_insertUpdate");
 INSERT IGNORE INTO gene (sid, gsymbol, gtype)
 SELECT ? AS sid, gsymbol, 1 AS gtype FROM $terms_table
 END_insertUpdate
-        push @param_terms, [$species_id];
+            push @param_terms, [$species_id];
+        }
 
         push @sth_terms, <<"END_insert_gene";
 INSERT IGNORE INTO GeneGO (gid, go_acc)
