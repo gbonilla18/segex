@@ -103,7 +103,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=146 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -124,7 +124,7 @@ CREATE TABLE `gene` (
   UNIQUE KEY `sid_gsymbol` (`sid`,`gsymbol`),
   KEY `sid` (`sid`),
   FULLTEXT KEY `full` (`gsymbol`,`gname`,`gdesc`)
-) ENGINE=MyISAM AUTO_INCREMENT=174422 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=174436 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -203,12 +203,12 @@ CREATE TABLE `platform` (
   `pname` varchar(120) NOT NULL,
   `def_p_cutoff` double DEFAULT NULL,
   `def_f_cutoff` double DEFAULT NULL,
-  `sid` int(10) unsigned NOT NULL,
+  `sid` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`pid`),
   UNIQUE KEY `pname` (`pname`),
   KEY `sid` (`sid`),
-  CONSTRAINT `platform_ibfk_1` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
+  CONSTRAINT `platform_ibfk_1` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -228,7 +228,7 @@ CREATE TABLE `probe` (
   UNIQUE KEY `pid_reporter` (`pid`,`reporter`),
   KEY `pid` (`pid`),
   CONSTRAINT `probe_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=316999 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=349766 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -276,7 +276,7 @@ CREATE TABLE `species` (
   `sname` varchar(64) NOT NULL,
   `slatin` varchar(64) DEFAULT NULL,
   PRIMARY KEY (`sid`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -330,4 +330,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-04-29 15:41:00
+-- Dump completed on 2012-04-30  8:46:19

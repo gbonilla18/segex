@@ -238,7 +238,7 @@ sub _delete_command {
     my @sth = map { $dbh->prepare($_) } (
 'DELETE GeneGO FROM GeneGO INNER JOIN gene ON gene.sid=? AND gene.gid=GeneGO.gid',
 'DELETE ProbeGene FROM ProbeGene INNER JOIN gene ON gene.sid=? AND gene.gid=ProbeGene.gid',
-        'DELETE gene WHERE sid=?'
+        'DELETE FROM gene WHERE sid=?'
     );
 
     my $default_behavior = $self->SUPER::_delete_command();

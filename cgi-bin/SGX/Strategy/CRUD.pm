@@ -2146,9 +2146,9 @@ sub _ajax_process_request {
           : $self->$command_factory();
     } or do {
         my $exception = $@;
-        $self->add_message( { -class => 'error' }, "$exception" )
-          if $exception
-              and $exception->isa('SGX::Exception::User');
+        $self->add_message( { -class => 'error' },
+            ( $exception ? "$exception" : 'Unknown error' ) );
+
         $self->set_header(
             -status => 400,    # 400 Bad Request
             -cookie => undef
@@ -2163,16 +2163,8 @@ sub _ajax_process_request {
     eval { ( $rows_affected = ( $command->() || 0 ) ) == 1; } or do {
         my $exception = $@;
         if ( $exception or $rows_affected != 0 ) {
-
-            if (    $exception
-                and $exception->isa('SGX::Exception::User') )
-            {
-                $self->add_message( { -class => 'error' }, "$exception" );
-            }
-            else {
-                $self->add_message( { -class => 'error' },
-                    'Database could not execute this command' );
-            }
+            $self->add_message( { -class => 'error' },
+                ( $exception ? "$exception" : 'Unknown error' ) );
 
             # Unexpected condition: either error occured or the number of
             # updated rows is unknown ($rows_affected == -1) or the number of
@@ -2184,7 +2176,6 @@ sub _ajax_process_request {
             return 1;
         }
         else {
-
             $self->add_message(
                 { -class => 'error' },
                 'The record you are trying to modify has been deleted or moved'
@@ -2419,7 +2410,10 @@ sub readrow_body {
                     { -id => $self->pluralize_noun($readrow_table) },
                     $q->p($extra_actions_html),
                     $q->div(
-                        { -class => 'clearfix', -id => $self->{dom_table_id} },
+                        {
+                            -class => 'clearfix',
+                            -id    => $self->{dom_table_id}
+                        },
                         ''
                     )
                   ) : ()
@@ -2666,7 +2660,7 @@ sub body_edit_fields {
                                 ),
                                 -title => "Click to add a new $item_name first",
                             },
-                            "(add new $item_name)"
+                            "(set up new $item_name)"
                           )
                         : ()
                     ),

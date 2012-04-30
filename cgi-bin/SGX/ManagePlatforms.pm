@@ -55,7 +55,7 @@ sub new {
                     sid => {
                         label        => 'Species',
                         __type__     => 'popup_menu',
-                        __readonly__ => 1,
+                        __optional__ => 1,
                         __tie__      => [ species => 'sid' ]
                     },
                     file => {
@@ -581,7 +581,7 @@ sub UploadAnnot_head {
     #  add gene symbols
     #---------------------------------------------------------------------------
 
-    if ($upload_accnums || $upload_symbols) {
+    if ( $upload_accnums || $upload_symbols ) {
         $self->add_message('Loading accession numbers/gene symbols:');
         my $symbol_table = $ug->to_string( $ug->create() );
         $symbol_table =~ s/-/_/g;
@@ -666,7 +666,7 @@ END_insert_ProbeGene
     #  add mapping locations
     #---------------------------------------------------------------------------
 
-    if ($upload_maploci || $upload_maploci2) {
+    if ( $upload_maploci || $upload_maploci2 ) {
         $self->add_message('Loading mapping locations:');
         my $maploci_table = $ug->to_string( $ug->create() );
         $maploci_table =~ s/-/_/g;
