@@ -404,7 +404,6 @@ COMPARE_SUMMARY
                 $q->hidden(
                     -name  => 'user_selection',
                     -id    => 'user_selection',
-                    -value => ''
                 ),
                 $q->submit(
                     -name  => 'b',
