@@ -203,7 +203,14 @@ sub sanitizeUploadFile {
     close($_) for @OUTPUTTOSERVER;
 
     if ($exception) {
-        $exception->throw();
+        if ( $exception->can('throw') ) {
+            $exception->throw();
+        }
+        else {
+
+            # Internal error details do not diplay to browser window
+            SGX::Exception::Internal->throw( error => "$exception\n" );
+        }
     }
     elsif ( $$recordsValid < 1 ) {
         SGX::Exception::User->throw(

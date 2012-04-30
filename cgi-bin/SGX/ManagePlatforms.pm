@@ -469,7 +469,7 @@ sub UploadAnnot_head {
 
     my $q                 = $self->{_cgi};
     my $upload_maploci    = defined( $q->param('map_loci') );
-    my $upload_chromosome = defined( $q->param('chromosome') );
+    my $upload_chromosome = defined( $q->param('chr') );
     my $upload_start      = defined( $q->param('start') );
     my $upload_end        = defined( $q->param('end') );
     my $upload_maploci2   = $upload_chromosome || $upload_start || $upload_end;
@@ -519,16 +519,15 @@ sub UploadAnnot_head {
             # use (chromosome, start, end)
             my ( $chr, $start, $end );
             if ($upload_chromosome) {
-                $chr = $fields->[$i];
-                $chr =~ s/^chr//;
+                ($chr) = $fields->[$i] =~ /^(?:chr|)(\S+)$/;
                 $i++;
             }
             if ($upload_start) {
-                $start = $fields->[$i];
+                ($start) = $fields->[$i] =~ /^(\d+)$/;
                 $i++;
             }
             if ($upload_end) {
-                $end = $fields->[$i];
+                ($end) = $fields->[$i] =~ /^(\d+)$/;
                 $i++;
             }
             $print_loci->( $probe_id, $chr, $start, $end );
@@ -582,7 +581,7 @@ sub UploadAnnot_head {
     #  add gene symbols
     #---------------------------------------------------------------------------
 
-    if ($upload_symbols) {
+    if ($upload_accnums || $upload_symbols) {
         $self->add_message('Loading accession numbers/gene symbols:');
         my $symbol_table = $ug->to_string( $ug->create() );
         $symbol_table =~ s/-/_/g;
@@ -622,7 +621,7 @@ END_delete
         push @param_symbols, [$pid];
 
         push @sth_symbols, <<"END_insert_gene";
-INSERT IGNORE INTO gene (sid, gtype, gsymbol)
+INSERT INTO gene (sid, gtype, gsymbol)
 SELECT
     ? AS sid,
     temptable.gtype,
@@ -630,7 +629,8 @@ SELECT
 FROM $symbol_table AS temptable
     INNER JOIN probe
         ON probe.pid=?
-        AND temptable.reporter=probe.reporter 
+        AND temptable.reporter=probe.reporter
+ON DUPLICATE KEY UPDATE gtype=temptable.gtype
 END_insert_gene
         push @param_symbols, [ $species_id, $pid ];
 
@@ -661,7 +661,7 @@ END_insert_ProbeGene
     #  add mapping locations
     #---------------------------------------------------------------------------
 
-    if ($upload_maploci) {
+    if ($upload_maploci || $upload_maploci2) {
         $self->add_message('Loading mapping locations:');
         my $maploci_table = $ug->to_string( $ug->create() );
         $maploci_table =~ s/-/_/g;
@@ -1043,9 +1043,9 @@ sub readrow_body {
                 )
             ),
             $q->p(<<"END_info"),
-Only information for the probe ids that are included in the file will be
-updated. If you wish to fully replace annotation for all existing probes, clear
-the annotation first by pressing "clear" above.
+Only genomic information for the probe ids that are included in the file will be
+updated. If you wish to fully replace genomic annotation for all existing
+probes, first clear the existing annotation by pressing "clear" above.
 END_info
             $q->start_form(
                 -accept_charset => 'utf-8',
