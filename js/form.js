@@ -385,6 +385,9 @@ function getFirstParentOfName(id, parentName) {
 // build dropdown
 //==============================================================================
 function buildDropDown(obj, tuples, selected, old) {
+    if (obj === null) {
+        return;
+    }
     function setMinWidth(el, width, old) {
         // sets minimum width for an element with content
 
@@ -418,6 +421,9 @@ function buildDropDown(obj, tuples, selected, old) {
 //==============================================================================
 function clearDropDown(obj) {
     // capture old width
+    if (obj === null) {
+        return { clientWidth: 0, offsetWidth: 0, scrollWidth: 0 };
+    }
     var oldWidth = { 
         clientWidth: obj.clientWidth, 
         offsetWidth: obj.offsetWidth, 

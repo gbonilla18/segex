@@ -119,7 +119,8 @@ sub new {
                 ],
                 resource => 'experiments',
                 base     => [
-                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation pid file/
+                    qw/eid sample1 sample2 ExperimentDescription
+                    AdditionalInformation pid stid file/
                 ],
 
                 # table key to the left, URI param to the right
@@ -196,19 +197,29 @@ sub new {
                         -size        => 55,
                         __optional__ => 1
                     },
+
+                    # stid here is needed for Study popup in Upload Data page
+                    stid => {
+                        label          => 'Study',
+                        parser         => 'number',
+                        __type__       => 'popup_menu',
+                        __special__    => 1,
+                        __optional__   => 1,
+                        __createonly__ => 1
+                    },
                     pid => {
                         label    => 'Platform',
                         parser   => 'number',
                         __type__ => 'popup_menu',
                         (
-                              ( $pid =~ /^\d+$/ )
+                              ( defined($pid) && $pid =~ /^\d+$/ )
                             ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
                         ),
 
                         #__tie__  => [
                         #    (
-                        #        ($pid =~ /^\d+$/)
+                        #        (defined($pid) && $pid =~ /^\d+$/)
                         #        ? ()
                         #        : ( platform => 'pid' )
                         #    )
@@ -223,7 +234,8 @@ sub new {
                         # No need to display platform column if specific
                         # platform is requested.
                         (
-                            $pid =~ /^\d+$/
+                                 defined($pid)
+                              && $pid =~ /^\d+$/
                               && !$self->get_dispatch_action() eq 'form_create'
                         ) ? ()
                         : ( 'platform' => [ 'pid' => 'pid' ] )
@@ -343,7 +355,9 @@ sub get_id_data {
         }
         my $pid_from_stid = $pse->getPlatformFromStudy($stid);
         $pid = $pid_from_stid if not defined $pid;
-        if (   $pid_from_stid =~ /^\d+$/
+        if (   defined($pid_from_stid)
+            && $pid_from_stid =~ /^\d+$/
+            && defined($pid)
             && $pid =~ /^\d+$/
             && $pid_from_stid != $pid )
         {

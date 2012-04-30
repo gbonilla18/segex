@@ -78,14 +78,14 @@ sub new {
                         parser       => 'number',
                         __readonly__ => 1,
                         (
-                              ( $pid =~ /^\d+$/ )
+                              ( defined($pid) && $pid =~ /^\d+$/ )
                             ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
                         ),
 
                         #__tie__      => [
                         #    (
-                        #        ( $pid =~ /^\d+$/ ) ? ()
+                        #        ( defined($pid) && $pid =~ /^\d+$/ ) ? ()
                         #        : ( platform => 'pid' )
                         #    )
                         #],
@@ -93,7 +93,7 @@ sub new {
                 },
                 lookup => [
                     (
-                          ( $pid =~ /^\d+$/ ) ? ()
+                          ( defined($pid) && $pid =~ /^\d+$/ ) ? ()
                         : ( platform => [ pid => 'pid' ] )
                     )
                 ],
