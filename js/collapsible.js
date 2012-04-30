@@ -4,6 +4,14 @@
 
 exports.setupCheckboxes = function(obj) {
     var count_checked = 0;
+    var state;
+    var state_element = dom.get(obj.idPrefix + '_state');
+    // try to recover state
+    try {
+        state = JSON.parse(state_element.value);
+    } catch (e) {
+        state = {};
+    }
     var buttons = forEach(
         YAHOO.util.Dom.getElementsBy(
             function(obj) { return (obj.type === 'checkbox'); }, 
@@ -12,7 +20,22 @@ exports.setupCheckboxes = function(obj) {
         ),
         function(el) {
             var button = new YAHOO.widget.Button(el);
-            if (button.get('checked')) { count_checked++; }
+            var btnId = button.get('name');
+            if (state.hasOwnProperty(btnId)) {
+                if (state[btnId]) {
+                    button.set('checked', true);
+                    count_checked++;
+                } else {
+                    button.set('checked', false);
+                }
+            } else {
+                if (button.get('checked')) {
+                    count_checked++;
+                    state[btnId] = true;
+                } else {
+                    state[btnId] = false;
+                }
+            }
             this.push(button);
         },
         []
@@ -37,13 +60,19 @@ exports.setupCheckboxes = function(obj) {
         banner.innerHTML = 
             '<p>The file should contain the following columns:</p><ol>' + 
             forEach(buttons, function(button) {
+                var btnId = button.get('name');
                 if (button.get('checked')) {
+                    state[btnId] = true;
                     this.push("<li>" + button.get('title') + "</li>");
+                } else {
+                    state[btnId] = false;
                 }
             }, []).join('') + 
             '</ol>';
+        state_element.value = JSON.stringify(state);
     }
     updateBanner();
+    return buttons;
 }
 
 YAHOO.util.Event.addListener(window, 'load', function() {

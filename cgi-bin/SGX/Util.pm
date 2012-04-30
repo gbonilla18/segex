@@ -306,18 +306,23 @@ sub file_opts_columns {
       $q->div(
         { -id => "${id}_container", -class => 'dd_collapsible' },
         (
-            map {
-                my ( $key, $val ) = @$_;
-                my $title = $val->{-title} || ( $val->{-value} || $key );
-                $q->input(
-                    {
-                        -type  => 'checkbox',
-                        -name  => $key,
-                        -title => $title,
-                        %$val
-                    }
-                  )
-              } tuples($items)
+            (
+                map {
+                    my ( $key, $val ) = @$_;
+                    my $title = $val->{-title} || ( $val->{-value} || $key );
+                    $q->input(
+                        {
+                            -type  => 'checkbox',
+                            -name  => $key,
+                            -title => $title,
+                            %$val
+                        }
+                      )
+                  } tuples($items)
+            ),
+
+            # preserve state of radio buttons
+            $q->input( { -type => 'hidden', -id => "${id}_state" } )
         ),
         $q->div(
             {
