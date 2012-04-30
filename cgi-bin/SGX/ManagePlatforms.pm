@@ -107,7 +107,7 @@ sub new {
                                   && $val <= 1 )
                               or SGX::Exception::User->throw( error =>
                                   'P-value must be a number from 0.0 to 1.0' );
-                            return $val;
+                            return $val + 0.0;
                         },
                     },
 
@@ -124,7 +124,7 @@ sub new {
                               or SGX::Exception::User->throw( error =>
 'Fold change must be a number <= -1.0 or >= 1.0'
                               );
-                            return $val;
+                            return $val + 0.0;
                         },
                     },
                 },

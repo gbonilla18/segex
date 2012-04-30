@@ -6,7 +6,6 @@ use warnings;
 use base qw/SGX::Strategy::CRUD/;
 
 use SGX::Debug;
-use Scalar::Util qw/looks_like_number/;
 use SGX::Util qw/file_opts_html file_opts_columns/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;
@@ -202,14 +201,14 @@ sub new {
                         parser   => 'number',
                         __type__ => 'popup_menu',
                         (
-                            looks_like_number($pid)
+                              ( $pid =~ /^\d+$/ )
                             ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
                         ),
 
                         #__tie__  => [
                         #    (
-                        #        looks_like_number( $pid )
+                        #        ($pid =~ /^\d+$/)
                         #        ? ()
                         #        : ( platform => 'pid' )
                         #    )
@@ -224,7 +223,7 @@ sub new {
                         # No need to display platform column if specific
                         # platform is requested.
                         (
-                            looks_like_number($pid)
+                            $pid =~ /^\d+$/
                               && !$self->get_dispatch_action() eq 'form_create'
                         ) ? ()
                         : ( 'platform' => [ 'pid' => 'pid' ] )
@@ -344,9 +343,9 @@ sub get_id_data {
         }
         my $pid_from_stid = $pse->getPlatformFromStudy($stid);
         $pid = $pid_from_stid if not defined $pid;
-        if (    looks_like_number($pid_from_stid)
-            and looks_like_number($pid)
-            and $pid_from_stid != $pid )
+        if (   $pid_from_stid =~ /^\d+$/
+            && $pid =~ /^\d+$/
+            && $pid_from_stid != $pid )
         {
             $stid = undef;
         }

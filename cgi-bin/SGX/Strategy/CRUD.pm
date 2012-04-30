@@ -6,7 +6,6 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 require Tie::IxHash;
-use Scalar::Util qw/looks_like_number/;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
 use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal/;
@@ -1367,7 +1366,7 @@ sub _build_predicate {
                 push @constr, ( "$table_alias.$special_field" => undef );
                 delete $selectors{$special_field};
             }
-            elsif ( !defined($val) || !looks_like_number($val) ) {
+            elsif ( !defined($val) || $val !~ /^\d+$/ ) {
 
                 # find all records
                 $mod_join_type = 'LEFT';
@@ -1900,7 +1899,7 @@ sub _process_val {
     $clean_val = '' unless defined $clean_val;
 
     # for numeric types, interpret empty strings as NULL
-    if (defined($parser)
+    if (   defined($parser)
         && $parser eq 'number'
         && $clean_val eq '' )
     {

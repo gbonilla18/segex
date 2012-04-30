@@ -5,7 +5,6 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
-use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car/;
 require SGX::Model::PlatformStudyExperiment;
@@ -79,14 +78,14 @@ sub new {
                         parser       => 'number',
                         __readonly__ => 1,
                         (
-                            looks_like_number($pid)
+                              ( $pid =~ /^\d+$/ )
                             ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
                         ),
 
                         #__tie__      => [
                         #    (
-                        #        looks_like_number( $pid ) ? ()
+                        #        ( $pid =~ /^\d+$/ ) ? ()
                         #        : ( platform => 'pid' )
                         #    )
                         #],
@@ -94,7 +93,7 @@ sub new {
                 },
                 lookup => [
                     (
-                        looks_like_number($pid) ? ()
+                          ( $pid =~ /^\d+$/ ) ? ()
                         : ( platform => [ pid => 'pid' ] )
                     )
                 ],

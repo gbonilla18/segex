@@ -30,7 +30,7 @@ my %parse_types = (
        # assigns it to $x (untainting is important when perl -T option is used).
         my ($x) = shift =~ /(.*)/;
         if ( looks_like_number($x) && $x >= 0 ) {
-            return $x;
+            return $x + 0.0;
         }
         else {
             SGX::Exception::User->throw(
@@ -40,7 +40,7 @@ my %parse_types = (
     fchange => sub {
         my ($x) = shift =~ /(.*)/;
         if ( looks_like_number($x) && abs($x) >= 1.0 ) {
-            return $x;
+            return $x + 0.0;
         }
         else {
             SGX::Exception::User->throw(
@@ -50,7 +50,7 @@ my %parse_types = (
     intensity => sub {
         my ($x) = shift =~ /(.*)/;
         if ( looks_like_number($x) && $x >= 0.0 ) {
-            return $x;
+            return $x + 0.0;
         }
         else {
             SGX::Exception::User->throw(
@@ -60,7 +60,7 @@ my %parse_types = (
     pvalue => sub {
         my ($x) = shift =~ /(.*)/;
         if ( looks_like_number($x) && $x >= 0.0 && $x <= 1.0 ) {
-            return $x;
+            return $x + 0.0;
         }
         else {
             SGX::Exception::User->throw(
