@@ -73,22 +73,37 @@ sub new {
             species => {
                 item_name => 'species',
                 key       => [qw/sid/],
-                base      => [qw/sname slatin/],
-                view      => [qw/sname slatin/],
+                base      => [qw/sname sncbi slatin sversion/],
+                view      => [qw/sname sncbi slatin sversion/],
                 resource  => 'species',
                 names     => [qw/sname/],
                 meta      => {
                     sname => {
-                        label => 'Short Name',
+                        label => 'Species id',
+                        -size => 20,
                         __extra_html__ =>
-'<p class="hint visible">Should be the same as NCBI organism name. Examples: Mouse, Rat, Human, etc.</p>',
-                        -size => 20
+'<p class="hint visible">Yor own unique identifier for the species (e.g: Mouse mm9)</p>'
+                    },
+                    sncbi => {
+                        label        => 'NCBI name',
+                        -size        => 20,
+                        __optional__ => 1,
+                        __extra_html__ =>
+'<p class="hint visible">Should be the same as NCBI organism name. (e.g.: Mouse, Rat, Human)</p>'
+                    },
+                    sversion => {
+                        label        => 'BLAT db version',
+                        -size        => 10,
+                        __optional__ => 1,
+                        __extra_html__ =>
+'<p class="hint visible">BLAT database version for probe sequence mapping (e.g.: mm9, hg18)</p>'
                     },
                     slatin => {
-                        label => 'Scientific Name',
-                        -size => 30,
+                        label        => 'Scientific name (Ensembl)',
+                        -size        => 30,
+                        __optional__ => 1,
                         __extra_html__ =>
-'<p class="hint visible">Used for Ensembl lookups. Examples: Mus musculus, Rattus norvegicus, Homo sapiens, etc.</p>'
+'<p class="hint visible">Used for Ensembl lookups. (e.g.: Mus musculus, Rattus norvegicus, Homo sapiens)</p>'
                     }
                 },
                 lookup => [
@@ -116,15 +131,15 @@ sub new {
                 view  => [qw/id_count gtype_count/],
                 meta  => {
                     id_count => {
-                        __sql__ => 'COUNT(gid)',
-                        label   => 'Annotation Records',
+
+                        #__sql__ => '(COUNT(gid) - SUM(gtype))',
+                        __sql__ => 'SUM(IF(gtype=1, 0, 1))',
+                        label   => 'Acession Nos.',
                         parser  => 'number'
                     },
                     gtype_count => {
-
-                        # __sql__ => 'SUM(IF(gtype=1, 1, 0))',
                         __sql__ => 'SUM(gtype)',
-                        label   => 'Genes',
+                        label   => 'Gene Symbols',
                         parser  => 'number'
                     }
                 },

@@ -229,18 +229,18 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
     var formatAccNum = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
-            var species = oRecord.getData(dataFields.species);
+            var sncbi = oRecord.getData(dataFields.sncbi);
             var slatin = oRecord.getData(dataFields.slatin);
-            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapAccNum, [species, slatin]);
+            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapAccNum, [sncbi, slatin]);
         } else {
             elCell.innerHTML = ''
         }
     };
     var formatGene = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
-            var species = oRecord.getData(dataFields.species);
+            var sncbi = oRecord.getData(dataFields.sncbi);
             var slatin = oRecord.getData(dataFields.slatin);
-            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapGeneSymbol, [species, slatin]);
+            elCell.innerHTML = formatSymbols(oData, oColumn.key, wrapGeneSymbol, [sncbi, slatin]);
         } else {
             elCell.innerHTML = ''
         }
@@ -254,8 +254,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
     };
     var formatPlatform = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
-            var species = oRecord.getData(dataFields.species);
-            elCell.innerHTML = (oData.match(new RegExp('^' + species))) ? oData : species + ' / ' + oData;
+            var sncbi = oRecord.getData(dataFields.sncbi);
+            var version = oRecord.getData(dataFields.sversion);
+            version = (version === null) ? ' ' : ' (' + version + ')';
+            var newData = oData.replace(new RegExp(sncbi, 'ig'), function(match) { return match + version; } );
+            elCell.innerHTML = (newData.match(new RegExp(sncbi, 'i'))) ? newData : sncbi + version + ' / ' + newData;
         } else {
             elCell.innerHTML = ''
         }
@@ -263,14 +266,18 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var formatSequence = function(elCell, oRecord, oColumn, oData) {
         if (oData !== null) {
             dom.addClass(elCell, 'sgx-dt-sequence');
-            var organism = oRecord.getData(dataFields.species);
+            var organism = oRecord.getData(dataFields.sncbi);
+            var version = oRecord.getData(dataFields.sversion);
             var uri = 'http://genome.ucsc.edu/cgi-bin/hgBlat?' +
             object_forEach({
                 userSeq : oData,
                 type    : 'DNA',
-                org     : organism
+                org     : organism,
+                db      : version,
             }, function(key, val) {
-                this.push(key + '=' + encodeURIComponent(val));
+                if (val !== null) {
+                    this.push(key + '=' + encodeURIComponent(val));
+                }
             }, []).join('&');
 
             elCell.innerHTML = '<a class="external" href="' + uri + '" title="Map this sequence to ' + organism + ' genome with BLAT (genome.ucsc.edu)" target="_blank">' + oData + '</a>';
@@ -335,14 +342,15 @@ YAHOO.util.Event.addListener(window, "load", function() {
     // extra_fields > 0
     if (extra_fields > 0) {
         forEach(
-            ['pid', 'reporter', 'species', 'slatin', 'platform_name', 'accnum', 'gsymbol'],
+            ['pid', 'reporter', 'sncbi', 'sversion', 'slatin', 'platform_name', 'accnum', 'gsymbol'],
             function(val) { this.self[val] = String(this.index++) },
             { self: dataFields, index: countOwnProperties(dataFields) }
         );
         myColumnList.push(
             {key:dataFields.pid, parser:"number"},
             {key:dataFields.reporter},
-            {key:dataFields.species},
+            {key:dataFields.sncbi},
+            {key:dataFields.sversion},
             {key:dataFields.slatin},
             {key:dataFields.platform_name},
             {key:dataFields.accnum},

@@ -1348,10 +1348,11 @@ END_sql_subset_by_project
         push @select_fields,
           (
             'platform.pid',
-            "probe.reporter  AS 'Probe ID'",
-            "species.sname   AS 'Species'",
-            "species.slatin  AS 'Species Official Name'",
-            "platform.pname  AS 'Platform'",
+            "probe.reporter   AS 'Probe ID'",
+            "species.sncbi    AS 'NCBI Organism Name'",
+            "species.sversion AS 'Species Version'",
+            "species.slatin   AS 'Species Ensembl Name'",
+            "platform.pname   AS 'Platform'",
 "group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.'",
 "group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol'",
           );
