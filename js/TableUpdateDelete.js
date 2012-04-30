@@ -331,7 +331,7 @@ exports.createResourceURIBuilder = function(uriPrefix, columnMapping) {
 exports.createRowNameBuilder = function(nameColumns, item_class) {
     function getCleanFieldValue(oRecord, field) {
         /* getData() takes name of column that contains record names */
-        return oRecord.getData(field).replace('"', "").replace("'","");
+        return String(oRecord.getData(field)).replace('"', "").replace("'","");
     }
     return function (oRecord) {
         return item_class + ' `' + forEach(nameColumns, function(el) {
