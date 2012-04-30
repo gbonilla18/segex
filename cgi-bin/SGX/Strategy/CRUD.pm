@@ -1892,17 +1892,22 @@ sub _process_val {
     if ( my $encoder = $this_meta->{__encode__} ) {
         return $encoder->($val);
     }
-    elsif (defined($parser)
-        && defined($val)
-        && $parser eq 'number'
-        && $val eq '' )
-    {
 
-        # for numeric types, interpret empty strings as NULL
+    # strip spaces from beginning and end
+    return undef unless defined $val;
+    $val =~ m/^\s*(.+)\s*/;
+    my $clean_val = $1;
+    $clean_val = '' unless defined $clean_val;
+
+    # for numeric types, interpret empty strings as NULL
+    if (defined($parser)
+        && $parser eq 'number'
+        && $clean_val eq '' )
+    {
         return undef;
     }
     else {
-        return $val;
+        return $clean_val;
     }
 }
 

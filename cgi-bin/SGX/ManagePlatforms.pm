@@ -1079,23 +1079,37 @@ END_info
                             map_loci => {
                                 -checked => 'checked',
                                 -value   => 'Mapping Locations',
-                                -title =>
-'Mapping Locations (format: chrX:1,283,237-1,283,277 chr15:12,004,558-12,004,599)'
+                                -title   => <<"END_LOCI_TITLE",
+Mapping Locations (example: chrX:1,283,237-1,283,277). Multiple locations should
+be separated by spaces.
+END_LOCI_TITLE
                             },
-                            chr    => { -value => 'Chromosome' },
-                            start  => { -value => 'Start' },
-                            end    => { -value => 'End' },
+                            chr => {
+                                -value => 'Chromosome',
+                                -title =>
+'Chromosome: Used only if "Mapping Locations" column is absent'
+                            },
+                            start => {
+                                -value => 'Start',
+                                -title =>
+'Locus Start: Used only if "Mapping Locations" column is absent'
+                            },
+                            end => {
+                                -value => 'End',
+                                -title =>
+'Locus End: Used only if "Mapping Locations" column is absent'
+                            },
                             accnum => {
                                 -checked => 'checked',
                                 -value   => 'Accession Numbers',
                                 -title =>
-'Accession Numbers (if multiple, must be separated by either commas, semicolons, or white space)'
+'Accession Numbers (if multiple, must be separated by either commas, semicolons, or spaces)'
                             },
                             gene_symbols => {
                                 -checked => 'checked',
                                 -value   => 'Gene Symbols',
                                 -title =>
-'Gene Symbols (if multiple, must be separated by either commas, semicolons, or white space)'
+'Gene Symbols (if multiple, must be separated by either commas, semicolons, or spaces)'
                             }
                         ]
                     )

@@ -91,6 +91,15 @@ sub new {
                     level => {
                         label           => 'Permissions',
                         __type__        => 'popup_menu',
+                        __extra_html__  => <<"END_EXTRA",
+<p class="hint visible">
+An <strong>administrator</strong> has complete access; a <strong>user</strong>
+is allowed to do everything an administrator is except to create/manage other
+users; <strong>read-only user</strong> is only allowed to view and query
+database but not to modify any data; a <strong>user with no grants</strong> only
+has access to his/her profile but cannot view or change any data.
+</p>
+END_EXTRA
                         dropdownOptions => [
                             {
                                 value => 'nogrants',
