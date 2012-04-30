@@ -6,7 +6,7 @@ use warnings;
 use SGX::Debug;
 use SGX::Config;
 
-my $softwareVersion = '0.4.1.3';
+my $softwareVersion = '0.4.1.4';
 
 my $all_resources = {
 
