@@ -359,7 +359,7 @@ END_insertResponse
     #---------------------------------------------------------------------------
     #   write PValFlag
     #---------------------------------------------------------------------------
-    push @sth, 'UPDATE experiment SET PValFlag=? WHERE eid=?';
+    push @sth, 'UPDATE experiment SET PValFlag = (PValFlag | ?) WHERE eid=?';
     push @param,
       [
         writeFlags(

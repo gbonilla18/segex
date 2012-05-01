@@ -299,7 +299,7 @@ sub getSessionOverrideCGI {
 #      RETURNS:  ????
 #  DESCRIPTION:  LOAD TFS DATA
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  This code is very old... Refactoring it would be desirable.
 #     SEE ALSO:  n/a
 #===============================================================================
 sub loadDataHTML {
@@ -323,49 +323,47 @@ sub loadDataHTML {
       ? " WHERE rid IN (" . $self->{_searchFilter} . ") "
       : '';
 
-    my $i = 1;
-
     my @query_proj;
     my @query_join;
     my @query_body;
 
     my $allProbes = $self->{_allProbes};
+    my $i         = 1;
     foreach my $row ( @{ $self->{_xExpList} } ) {
-        my $currentSTID = $row->{stid};
-        my $currentEID  = $row->{eid};
-        my $fc          = $row->{fchange};
-        my $pval        = $row->{pval};
-        my $pValClass   = $row->{pValClass};
-        my $pval_sql    = "pvalue$pValClass";
-        my $reverse     = $row->{reverse};
+        my $eid       = $row->{eid};
+        my $fc        = $row->{fchange};
+        my $pval      = $row->{pval};
+        my $pValClass = $row->{pValClass};
+        my $pval_sql  = "pvalue$pValClass";
+        my $reverse   = $row->{reverse};
 
         my $abs_flag = 1 << $i - 1;
         my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
         push @query_proj,
           (
             $reverse
-            ? "1/m$i.ratio AS \'$i: Ratio\', m$i.$pval_sql AS \'$i: P-value\'"
-            : "m$i.ratio AS \'$i: Ratio\', m$i.$pval_sql AS \'$i: P-value\'"
+            ? "1/m$eid.ratio AS '$eid: Ratio', m$eid.$pval_sql AS '$eid: P-$pValClass'"
+            : "m$eid.ratio AS '$eid: Ratio', m$eid.$pval_sql AS '$eid: P-$pValClass'"
           );
 
         if ( $self->{_opts} ne 'basic' ) {
             push @query_proj,
               (
                 $reverse
-                ? "-m$i.foldchange AS \'$i: Fold Change\'"
-                : "m$i.foldchange AS \'$i: Fold Change\'"
+                ? "-m$eid.foldchange AS '$eid: FC'"
+                : "m$eid.foldchange AS '$eid: FC'"
               );
             push @query_proj,
               (
                 $reverse
-                ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
-                : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'"
+                ? "IFNULL(m$eid.intensity2,0) AS '$eid: Intensity-1', IFNULL(m$eid.intensity1,0) AS '$eid: Intensity-2'"
+                : "IFNULL(m$eid.intensity1,0) AS '$eid: Intensity-1', IFNULL(m$eid.intensity2,0) AS '$eid: Intensity-2'"
               );
-            push @query_proj, "m$i.$pval_sql AS \'$i: P-value\'";
+            push @query_proj, "m$eid.$pval_sql AS '$eid: P-$pValClass'";
         }
 
         push @query_join,
-          "LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID";
+          "LEFT JOIN microarray m$eid ON m$eid.rid=d2.rid AND m$eid.eid=$eid";
 
         #This is part of the query when we are including all probes.
         push @query_body, ($allProbes)
@@ -378,7 +376,7 @@ SELECT
        0
     ) AS dir_flag
 FROM microarray
-WHERE eid=$currentEID
+WHERE eid=$eid
 END_yes_allProbes
           : <<"END_no_allProbes";
 SELECT
@@ -386,7 +384,7 @@ SELECT
     $abs_flag AS abs_flag,
     IF(foldchange > 0, $dir_flag) AS dir_flag
 FROM microarray 
-WHERE eid = $currentEID 
+WHERE eid = $eid 
   AND $pval_sql < $pval 
   AND ABS(foldchange) > $fc
 END_no_allProbes
@@ -429,7 +427,7 @@ qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 
 SELECT
     abs_fs, 
     dir_fs, 
-    probe.reporter AS Probe,
+    probe.reporter AS 'Probe ID',
     GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
     GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene Symbol',
     $selectSQL
@@ -519,7 +517,7 @@ END_LoadQuery
 #      RETURNS:  ????
 #  DESCRIPTION:  LOAD ALL DATA FOR CSV OUTPUT
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  This code is very old... Refactoring it would be desirable.
 #     SEE ALSO:  n/a
 #===============================================================================
 sub loadDataCSV {
@@ -538,13 +536,12 @@ sub loadDataCSV {
 
     my $i = 1;
     foreach my $row ( @{ $self->{_xExpList} } ) {
-        my $currentSTID = $row->{stid};
-        my $currentEID  = $row->{eid};
-        my $fc          = $row->{fchange};
-        my $pval        = $row->{pval};
-        my $reverse     = $row->{reverse};
-        my $pValClass   = $row->{pValClass};
-        my $pval_sql    = "pvalue$pValClass";
+        my $eid       = $row->{eid};
+        my $fc        = $row->{fchange};
+        my $pval      = $row->{pval};
+        my $reverse   = $row->{reverse};
+        my $pValClass = $row->{pValClass};
+        my $pval_sql  = "pvalue$pValClass";
 
         my $abs_flag = 1 << $i - 1;
         my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
@@ -552,28 +549,28 @@ sub loadDataCSV {
         push @query_proj,
           (
             $reverse
-            ? "1/m$i.ratio AS \'$i: Ratio\'"
-            : "m$i.ratio AS \'$i: Ratio\'"
+            ? "1/m$eid.ratio AS '$eid: Ratio'"
+            : "m$eid.ratio AS '$eid: Ratio'"
           );
 
         push @query_proj,
           (
             $reverse
-            ? "-m$i.foldchange AS \'$i: Fold Change\'"
-            : "m$i.foldchange AS \'$i: Fold Change\'"
+            ? "-m$eid.foldchange AS '$eid: FC'"
+            : "m$eid.foldchange AS '$eid: FC'"
           );
 
         push @query_proj,
           (
             $reverse
-            ? "IFNULL(m$i.intensity2,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity1,0) AS \'$i: Intensity-2\'"
-            : "IFNULL(m$i.intensity1,0) AS \'$i: Intensity-1\', IFNULL(m$i.intensity2,0) AS \'$i: Intensity-2\'"
+            ? "IFNULL(m$eid.intensity2,0) AS '$eid: Intensity-1', IFNULL(m$eid.intensity1,0) AS '$eid: Intensity-2'"
+            : "IFNULL(m$eid.intensity1,0) AS '$eid: Intensity-1', IFNULL(m$eid.intensity2,0) AS '$eid: Intensity-2'"
           );
 
-        push @query_proj, "m$i.$pval_sql AS \'$i: P\'";
+        push @query_proj, "m$eid.$pval_sql AS '$eid: P-$pValClass'";
 
         push @query_join,
-          "LEFT JOIN microarray m$i ON m$i.rid=d2.rid AND m$i.eid=$currentEID";
+          "LEFT JOIN microarray m$eid ON m$eid.rid=d2.rid AND m$eid.eid=$eid";
 
         push @query_body, ( $self->{_allProbes} )
           ? <<"END_yes_allProbesCSV"
@@ -582,7 +579,7 @@ SELECT
     IF($pval_sql < $pval AND ABS(foldchange) > $fc, $abs_flag, 0) AS abs_flag,
     IF($pval_sql < $pval AND ABS(foldchange) > $fc, IF(foldchange > 0, $dir_flag), 0) AS dir_flag
 FROM microarray
-WHERE eid=$currentEID
+WHERE eid=$eid
 END_yes_allProbesCSV
           : <<"END_no_allProbesCSV";
 SELECT
@@ -590,7 +587,7 @@ SELECT
     $abs_flag AS abs_flag,
     IF(foldchange > 0, $dir_flag) AS dir_flag
 FROM microarray 
-WHERE eid = $currentEID 
+WHERE eid = $eid 
   AND $pval_sql < $pval 
   AND ABS(foldchange) > $fc
 END_no_allProbesCSV
@@ -619,9 +616,9 @@ qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 
 SELECT
     abs_fs, 
     dir_fs, 
-    probe.reporter AS Probe, 
+    probe.reporter AS 'Probe ID', 
     GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
-    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene Symbol',
     $selectSQL
 FROM (
     SELECT
@@ -683,6 +680,12 @@ sub displayDataCSV {
 
     my $sth_records = $self->{_Records};
 
+    # get name array from statement handle
+    my $record_names = $sth_records->{NAME};
+    shift @$record_names;
+    shift @$record_names;
+    unshift @$record_names, 'TFS';
+
     # Report Header
     $print->( [ 'Compare Experiments Report', scalar localtime() ] );
     $print->( [ 'Generated By',               $self->{_UserFullName} ] );
@@ -695,22 +698,12 @@ sub displayDataCSV {
     $print->();
 
     # Print Experiment info header.
-    $print->(
-        [ 'Experiment Number', 'Experiment Heading', '|Fold Change| >', 'P' ] );
+    $print->( [ 'Experiment Number', 'Experiment Heading', '|FC| >', 'P' ] );
 
-    # This is the line with the experiment name and eid above the data columns.
-    my @annot_field_headers = (
-        'TFS',
-        'Probe ID',
-        'Accession Number',
-        'Gene',
-        'Probe Sequence',
-        'Gene Name'
-    );
-    my @data_field_headers =
-      ( 'Ratio', 'Fold Change', 'Intensity-1', 'Intensity-2', 'P' );
-
-    my @experimentNameHeader = (undef) x scalar(@annot_field_headers);
+    # The line with the experiment name and eid above the data columns has 6
+    # fields: TFS, Probe ID, Accession No., Gene Symbol, Probe Sequence, Gene
+    # Name
+    my @experimentNameHeader = (undef) x 6;
 
     # Print Experiment info.
     my $headerRecords = $self->{_headerRecords};
@@ -723,9 +716,10 @@ sub displayDataCSV {
         my $eid_node = $headerRecords->{$eid};
 
         # Form the line that displays experiment names above data columns.
+        # Offsetting by 4 fields: FC, Intensity-1, Intensity-2, P-value
         push @experimentNameHeader,
           $eid . ':' . $eid_node->{experimentHeading},
-          (undef) x ( scalar(@data_field_headers) - 1 );
+          (undef) x 4;
 
         my $signCell = '';
         if ( defined $currFS ) {
@@ -813,16 +807,7 @@ sub displayDataCSV {
     $print->( \@experimentNameHeader );
 
     # Experiment Data header.
-
-    $print->(
-        [
-            @annot_field_headers,
-            map {
-                my $eid = $_->{eid};
-                map { "$eid: $_" } @data_field_headers;
-              } @$data_rows
-        ]
-    );
+    $print->($record_names);
 
     # Print Experiment data sorting by TFS in descending order, then by gene
     # name in ascending order.
