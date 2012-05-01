@@ -9,7 +9,7 @@ use base qw/SGX::Strategy::Base/;
 use JSON qw/encode_json decode_json/;
 require SGX::FindProbes;
 require SGX::Abstract::JSEmitter;
-require SGX::DBLists;
+require SGX::DBHelper;
 require SGX::Model::PlatformStudyExperiment;
 
 #use SGX::Abstract::Exception ();
@@ -68,8 +68,10 @@ PlatfformStudy_sql
         _title                   => 'Compare Experiments',
         _permission_level        => 'readonly',
         _PlatformStudyExperiment => $pse,
-        _FindProbes              => $findProbes
+        _FindProbes              => $findProbes,
+        _dbHelper                => SGX::DBHelper->new( delegate => $self )
     );
+
     $self->register_actions(
         Submit => { head => 'Compare_head', body => 'Compare_body' },
         'Search GO terms' => { body => 'SearchGO_body' }
@@ -90,9 +92,6 @@ PlatfformStudy_sql
 #===============================================================================
 sub Compare_head {
     my $self = shift;
-
-    $self->set_attributes( _dbLists => SGX::DBLists->new( delegate => $self ),
-    );
 
     my $q = $self->{_cgi};
     $self->{_chkAllProbes}  = car $q->param('chkAllProbes');
@@ -133,7 +132,7 @@ sub Compare_head {
     #---------------------------------------------------------------------------
     if ( $self->{_specialFilter} ) {
         my $findProbes = $self->{_FindProbes};
-        $findProbes->getSessionOverrideCGI();
+        $findProbes->{_dbHelper}->getSessionOverrideCGI();
         my $next_action = $findProbes->FindProbes_init();
         if ( $next_action == 1 ) {
 
@@ -146,7 +145,7 @@ sub Compare_head {
                 "Could not execute query. Database response was: %s"
             );
             $self->{_ProbeList} = [ map { int( $_->[0] ) } @$records ];
-            my $dbLists = $self->{_dbLists};
+            my $dbLists = $self->{_dbHelper};
             $self->{_ProbeTmpTable} = $dbLists->createTempList(
                 items     => $self->{_ProbeList},
                 name_type => [ 'rid', 'int(10) unsigned' ]
@@ -402,8 +401,8 @@ COMPARE_SUMMARY
                     -id   => 'user_pse',
                 ),
                 $q->hidden(
-                    -name  => 'user_selection',
-                    -id    => 'user_selection',
+                    -name => 'user_selection',
+                    -id   => 'user_selection',
                 ),
                 $q->submit(
                     -name  => 'b',

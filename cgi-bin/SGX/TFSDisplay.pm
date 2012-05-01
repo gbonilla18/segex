@@ -12,6 +12,7 @@ use JSON qw/decode_json/;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car bind_csv_handle count_bits before_dot/;
+require SGX::DBHelper;
 
 #===  FUNCTION  ================================================================
 #         NAME:  get_tfs
@@ -36,27 +37,6 @@ sub get_tfs {
 }
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::TFSDisplay
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-    my ( $class, @param ) = @_;
-    my $self = $class->SUPER::new(@param);
-
-    # find out what the current project is set to
-    $self->getSessionOverrideCGI();
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
 #        CLASS:  TFSDisplay
 #       METHOD:  init
 #   PARAMETERS:  ????
@@ -72,7 +52,13 @@ sub init {
 
     $self->loadDataFromSubmission();    # sets _format attribute
 
-    $self->set_attributes( _title => $self->get_subset_name() );
+    $self->set_attributes(
+        _title    => $self->get_subset_name(),
+        _dbHelper => SGX::DBHelper->new( delegate => $self )
+    );
+
+    # find out what the current project is set to
+    $self->{_dbHelper}->getSessionOverrideCGI();
 
     # two lines below modify action value and therefore affect which hook will
     # get called
@@ -219,76 +205,6 @@ sub loadDataFromSubmission {
     $self->{_expected} = decode_json( car( $q->param('selectedExp') ) || '{}' );
     $self->{_format} = car $q->param('get');
 
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  getSessionOverrideCGI
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Gets full user name from session and full project name from CGI
-#                parameters or session in that order. Also sets project id.
-#       THROWS:  SGX::Exception::Internal, Class::Exception::DBI
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getSessionOverrideCGI {
-    my $self = shift;
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
-
-    # For user name, just look it up from the session
-    $self->{_UserFullName} =
-      ( defined $s )
-      ? $s->{session_cookie}->{full_name}
-      : '';
-
-    # :TRICKY:06/28/2011 13:47:09:es: We implement the following behavior: if,
-    # in the URI option string, "proj" is set to some value (e.g. "proj=32") or
-    # to an empty string (e.g. "proj="), we set the data field _WorkingProject
-    # to that value; if the "proj" option is missing from the URI, we use the
-    # value of "curr_proj" from session data. This allows us to have all
-    # portions of the data accessible via a REST-style interface regardless of
-    # current user preferences.
-    if ( defined( my $cgi_proj = $q->param('proj') ) ) {
-        $self->{_WorkingProject} = $cgi_proj;
-        if ( $cgi_proj ne '' ) {
-
-            # now need to obtain project name from the database
-            my $sth =
-              $dbh->prepare(qq{SELECT prname FROM project WHERE prid=?});
-            my $rc = $sth->execute($cgi_proj);
-            if ( $rc == 1 ) {
-
-                # project exists in the database
-                $self->{_WorkingProject} = $cgi_proj;
-                ( $self->{_WorkingProjectName} ) = $sth->fetchrow_array;
-            }
-            elsif ( $rc < 1 ) {
-
-                # project doesn't exist in the database
-                $self->{_WorkingProject}     = '';
-                $self->{_WorkingProjectName} = '';
-            }
-            else {
-                SGX::Exception::Internal->throw( error =>
-"More than one result returned where unique was expected\n"
-                );
-            }
-            $sth->finish;
-        }
-        else {
-            $self->{_WorkingProjectName} = '';
-        }
-    }
-    elsif ( defined $s ) {
-        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
-        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
-    }
-    else {
-        $self->{_WorkingProject}     = '';
-        $self->{_WorkingProjectName} = '';
-    }
     return 1;
 }
 

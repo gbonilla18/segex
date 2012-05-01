@@ -5,7 +5,7 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-require SGX::DBLists;
+require SGX::DBHelper;
 require Tie::IxHash;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
@@ -85,7 +85,8 @@ sub init {
 
     $self->set_attributes(
         _title            => 'Find Probes',
-        _permission_level => 'readonly'
+        _permission_level => 'readonly',
+        _dbHelper         => SGX::DBHelper->new( delegate => $self )
     );
     $self->register_actions(
         'Search' => { head => 'Search_head', body => 'Search_body' },
@@ -135,7 +136,7 @@ YAHOO.util.Event.addListener(window, 'load', function() {
 });
 END_onload
 
-    $self->getSessionOverrideCGI();
+    $self->{_dbHelper}->getSessionOverrideCGI();
     push @$js_src_code,
       ( { -src => 'collapsible.js' }, { -src => 'FormFindProbes.js' } );
 
@@ -183,7 +184,7 @@ sub get_species {
 sub GetCSV_head {
     my $self = shift;
     my $q    = $self->{_cgi};
-    $self->getSessionOverrideCGI();
+    $self->{_dbHelper}->getSessionOverrideCGI();
 
     $self->{_SeachParams} = {
         query_text => car( $q->param('q_old') ),
@@ -214,7 +215,7 @@ sub GetCSV_head {
 sub Search_head {
     my $self = shift;
 
-    $self->getSessionOverrideCGI();
+    $self->{_dbHelper}->getSessionOverrideCGI();
     my $next_action = $self->FindProbes_init();
 
     if ( !$next_action ) {
@@ -478,11 +479,6 @@ sub FindProbes_init {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    #---------------------------------------------------------------------------
-    #  initialization code (moved from new() constructor)
-    #---------------------------------------------------------------------------
-    $self->set_attributes( _dbLists => SGX::DBLists->new( delegate => $self ) );
-
     my $action        = car $q->param('b');
     my $text          = trim( car $q->param('q') );
     my $filefield_val = car $q->param('file');
@@ -597,7 +593,7 @@ sub FindProbes_init {
     #----------------------------------------------------------------------
     #  now load into temporary table
     #----------------------------------------------------------------------
-    my $dbLists = $self->{_dbLists};
+    my $dbLists = $self->{_dbHelper};
     $self->{_TempTable} =
       ( defined $outputFileName )
       ? $dbLists->uploadFileToTemp(
@@ -609,76 +605,6 @@ sub FindProbes_init {
         name_type => [ $sqlNames{$scope}, $sqlTypes{$scope} ]
       );
 
-    return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  FindProbes
-#       METHOD:  getSessionOverrideCGI
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Gets full user name from session and full project name from CGI
-#                parameters or session in that order. Also sets project id.
-#       THROWS:  SGX::Exception::Internal, Class::Exception::DBI
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub getSessionOverrideCGI {
-    my ($self) = @_;
-    my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
-
-    # For user name, just look it up from the session
-    $self->{_UserFullName} =
-      ( defined $s )
-      ? $s->{session_cookie}->{full_name}
-      : '';
-
-    # :TRICKY:06/28/2011 13:47:09:es: We implement the following behavior: if,
-    # in the URI option string, "proj" is set to some value (e.g. "proj=32") or
-    # to an empty string (e.g. "proj="), we set the data field _WorkingProject
-    # to that value; if the "proj" option is missing from the URI, we use the
-    # value of "curr_proj" from session data. This allows us to have all
-    # portions of the data accessible via a REST-style interface regardless of
-    # current user preferences.
-    if ( defined( my $cgi_proj = $q->param('proj') ) ) {
-        $self->{_WorkingProject} = $cgi_proj;
-        if ( $cgi_proj ne '' ) {
-
-            # now need to obtain project name from the database
-            my $sth =
-              $dbh->prepare(qq{SELECT prname FROM project WHERE prid=?});
-            my $rc = $sth->execute($cgi_proj);
-            if ( $rc == 1 ) {
-
-                # project exists in the database
-                $self->{_WorkingProject} = $cgi_proj;
-                ( $self->{_WorkingProjectName} ) = $sth->fetchrow_array;
-            }
-            elsif ( $rc < 1 ) {
-
-                # project doesn't exist in the database
-                $self->{_WorkingProject}     = '';
-                $self->{_WorkingProjectName} = '';
-            }
-            else {
-                SGX::Exception::Internal->throw( error =>
-"More than one result returned where unique was expected\n"
-                );
-            }
-            $sth->finish;
-        }
-        else {
-            $self->{_WorkingProjectName} = '';
-        }
-    }
-    elsif ( defined $s ) {
-        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
-        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
-    }
-    else {
-        $self->{_WorkingProject}     = '';
-        $self->{_WorkingProjectName} = '';
-    }
     return 1;
 }
 
@@ -886,8 +812,7 @@ sub getReportExperiments {
     # in another query, get attributes for all experiments in which the probes
     # are found
     #---------------------------------------------------------------------------
-    $self->{_dbLists} ||= SGX::DBLists->new( delegate => $self );
-    my $exp_temp_table = $self->{_dbLists}->createTempList(
+    my $exp_temp_table = $self->{_dbHelper}->createTempList(
         items     => $search_terms,
         name_type => [ 'rid', 'int(10) unsigned' ]
     );
@@ -969,7 +894,7 @@ sub getReportData {
     my $self         = shift;
     my $search_terms = shift;
     my $dbh          = $self->{_dbh};
-    my $dbLists      = $self->{_dbLists};
+    my $dbLists      = $self->{_dbHelper};
 
     #---------------------------------------------------------------------------
     #  in another, get all annotation
