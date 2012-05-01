@@ -698,7 +698,16 @@ sub displayDataCSV {
     $print->();
 
     # Print Experiment info header.
-    $print->( [ 'Experiment Number', 'Experiment Heading', '|FC| >', 'P' ] );
+    $print->(
+        [
+            'Experiment No.',
+            'Experiment Heading',
+            '|FC| >',
+            'P-value used',
+            'P <',
+            'Significant in'
+        ]
+    );
 
     # The line with the experiment name and eid above the data columns has 6
     # fields: TFS, Probe ID, Accession No., Gene Symbol, Probe Sequence, Gene
@@ -740,8 +749,8 @@ sub displayDataCSV {
         }
         my $currLine = [
             $eid,            $eid_node->{experimentHeading},
-            $row->{fchange}, $row->{pval},
-            $signCell
+            $row->{fchange}, $row->{pValClass},
+            $row->{pval},    $signCell
         ];
         $print->($currLine);
     }

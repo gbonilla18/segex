@@ -245,9 +245,12 @@ group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'G
     $gene_info
     microarray.ratio      AS 'Ratio',
     microarray.foldchange AS 'Fold Change',
-    microarray.pvalue1     AS 'P-value 1',
     microarray.intensity1 AS 'Intensity 1',
-    microarray.intensity2 AS 'Intensity 2'
+    microarray.intensity2 AS 'Intensity 2',
+    microarray.pvalue1    AS 'P-1',
+    microarray.pvalue2    AS 'P-2',
+    microarray.pvalue3    AS 'P-3',
+    microarray.pvalue4    AS 'P-4'
 FROM experiment
 INNER JOIN microarray USING(eid)
 LEFT JOIN probe USING(rid)
