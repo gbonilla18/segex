@@ -271,7 +271,8 @@ sub getSessionOverrideCGI {
         $self->{_WorkingProject} = '';
     }
     $self->{_WorkingProjectName} = '@All Projects'
-      if $self->{_WorkingProject} eq '';
+      if ( !defined( $self->{_WorkingProject} )
+        || $self->{_WorkingProject} eq '' );
     return 1;
 }
 1;

@@ -11,7 +11,7 @@ use Scalar::Util qw/looks_like_number/;
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr
   equal bind_csv_handle notp file_opts_html file_opts_columns distinct
-  dec2indexes32 locationAsTextToCanon abbreviate coord2int writeFlags count_bits
+  dec2indexes32 abbreviate coord2int writeFlags count_bits
   before_dot uniq/;
 
 #===  FUNCTION  ================================================================
@@ -66,43 +66,6 @@ sub writeFlags {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  locationAsTextToCanon
-#      PURPOSE:
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Converts results of MySQL AsText() function describing a
-#                location on a one-dimensional chromosome as an interval on
-#                a plane into the canonic form chrX:213434-213788. Example:
-#
-#                GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':',
-#                AsText(locus.zinterval)) separator ' ')
-#
-#                returns:
-#
-#                X:LINESTRING(0 35424740,0 35424799)
-#
-#                we transform it into:
-#
-#                chrX:35424740-35424799
-#
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub locationAsTextToCanon {
-    my $loc_data = shift;
-    return if not defined $loc_data;
-
-    my @loc_transform;
-    while ( $loc_data =~
-        m/\b([^\s]+):LINESTRING\(\d+\s+(\d+)\s*,\s*\d+\s+(\d+)\)/gi )
-    {
-        push @loc_transform, "chr$1:" . int2coord($2) . '-' . int2coord($3);
-    }
-    return join( ' ', @loc_transform );
-}
-
-#===  FUNCTION  ================================================================
 #         NAME:  coord2int
 #      PURPOSE:  Convert string coordinate into unsigned integer
 #   PARAMETERS:  ????
@@ -122,23 +85,6 @@ sub coord2int {
     else {
         return;
     }
-}
-
-#===  FUNCTION  ================================================================
-#         NAME:  coord2int
-#      PURPOSE:  Convert unsigned integer into coordinate string (basically
-#                add thousand separator commas).
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub int2coord {
-    my $number = shift;
-    $number =~ s/(\d{1,3}?)(?=(\d{3})+$)/$1,/g;
-    return $number;
 }
 
 #===  FUNCTION  ================================================================

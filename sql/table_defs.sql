@@ -24,7 +24,7 @@ DROP TABLE IF EXISTS `GeneGO`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `GeneGO` (
   `gid` int(10) unsigned NOT NULL,
-  `go_acc` int(10) unsigned NOT NULL,
+  `go_acc` int(7) unsigned zerofill NOT NULL,
   PRIMARY KEY (`gid`,`go_acc`),
   KEY `gid` (`gid`),
   KEY `go_acc` (`go_acc`)
@@ -103,7 +103,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=146 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -135,7 +135,7 @@ DROP TABLE IF EXISTS `go_term`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `go_term` (
-  `go_acc` int(10) unsigned NOT NULL,
+  `go_acc` int(7) unsigned zerofill NOT NULL,
   `go_term_type` varchar(55) NOT NULL,
   `go_name` varchar(255) NOT NULL DEFAULT '',
   `go_term_definition` text,
@@ -323,6 +323,33 @@ CREATE TABLE `users` (
   UNIQUE KEY `uname` (`uname`)
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping routines for database 'segex_dev'
+--
+/*!50003 DROP FUNCTION IF EXISTS `format_locus` */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = latin1 */ ;
+/*!50003 SET character_set_results = latin1 */ ;
+/*!50003 SET collation_connection  = latin1_swedish_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = '' */ ;
+DELIMITER ;;
+/*!50003 CREATE*/ /*!50020 DEFINER=`root`@`localhost`*/ /*!50003 FUNCTION `format_locus`(chr varchar(127), zinterval geometry) RETURNS varchar(255) CHARSET latin1
+    NO SQL
+    DETERMINISTIC
+BEGIN
+DECLARE tuple_content varchar(127);
+SET tuple_content = SUBSTRING_INDEX(SUBSTRING_INDEX(AsText(zinterval), '(', -1),')',1);
+RETURN CONCAT('chr', chr, ':', FORMAT(SUBSTRING_INDEX(TRIM(SUBSTRING_INDEX(tuple_content, ',', 1)), ' ', -1), 0), '-', FORMAT(SUBSTRING_INDEX(TRIM(SUBSTRING_INDEX(tuple_content, ',', -1)), ' ', -1), 0));
+    END */;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -333,4 +360,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-04-30 12:56:42
+-- Dump completed on 2012-05-01 13:15:37

@@ -265,17 +265,37 @@ END_ExperimentQuery
     #  get data itself
     #---------------------------------------------------------------------------
     # for CSV reports, we include additional fields
-    my $gene_fields = ( $self->{_format} eq 'csv' ) ? <<"END_EXTRA" : '';
-gene.gname      AS 'Gene Name',
-gene.gdesc      AS 'Gene Description',
+    my $gene_fields  = '';
+    my $gene_join    = '';
+    my $probe_fields = '';
+    my $probe_join   = '';
+    if ( $self->{_format} eq 'csv' ) {
+
+        # extra info for genes
+        $gene_fields = <<"END_EXTRA";
+GROUP_CONCAT(DISTINCT concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.',
+GROUP_CONCAT(DISTINCT CONCAT(go_term.go_name, ' (GO:', go_term.go_acc, ')' ) ORDER BY go_term.go_acc SEPARATOR '; ') AS 'GO terms',
 END_EXTRA
+        $gene_join =
+          'LEFT JOIN GeneGO USING(gid) LEFT JOIN go_term USING(go_acc)';
+
+        # extra info for probes
+        $probe_fields = <<"END_EXTRALOCUS";
+probe.probe_sequence AS 'Probe Sequence',
+probe.probe_comment  AS 'Probe Note',
+GROUP_CONCAT(DISTINCT format_locus(locus.chr, locus.zinterval) separator ' ') AS 'Mapping Location(s)',
+END_EXTRALOCUS
+        $probe_join = 'LEFT JOIN locus USING(rid)';
+    }
+
     my $query_data = sprintf(
         <<"END_ReportQuery",
 SELECT
     microarray.eid AS 'Exp. ID',
     probe.reporter        AS 'Probe ID',
-    group_concat(distinct if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
-    group_concat(distinct if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol',
+    $probe_fields
+    GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
+    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol',
     $gene_fields
     microarray.ratio      AS 'Ratio',
     microarray.foldchange AS 'Fold Change',
@@ -292,6 +312,8 @@ INNER JOIN microarray USING(eid)
 LEFT JOIN probe USING(rid)
 LEFT JOIN ProbeGene USING(rid)
 LEFT JOIN gene USING(gid)
+$probe_join
+$gene_join
 GROUP BY microarray.eid, microarray.rid
 ORDER BY microarray.eid, probe.reporter
 END_ReportQuery

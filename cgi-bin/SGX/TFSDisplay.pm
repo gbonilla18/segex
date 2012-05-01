@@ -517,12 +517,6 @@ END_no_allProbesCSV
       ? "HAVING abs_fs=$self->{_fs}"
       : '';
 
-    unshift @query_proj,
-      (
-        qq{probe.probe_sequence AS 'Probe Sequence'},
-qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 'Gene Description'}
-      );
-
     my $d1SubQuery   = join( ' UNION ALL ', @query_body );
     my $selectSQL    = join( ',',           @query_proj );
     my $predicateSQL = join( "\n",          @query_join );
@@ -532,9 +526,14 @@ qq{GROUP_CONCAT(DISTINCT IF(gene.gname='', NULL, gene.gname) SEPARATOR '; ') AS 
 SELECT
     abs_fs, 
     dir_fs, 
-    probe.reporter AS 'Probe ID', 
-    GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
-    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene Symbol',
+    probe.reporter       AS 'Probe ID', 
+    probe.probe_sequence AS 'Probe Sequence',
+    probe.probe_comment  AS 'Probe Note',
+    GROUP_CONCAT(DISTINCT format_locus(locus.chr, locus.zinterval) separator ' ') AS 'Mapping Location(s)',
+    GROUP_CONCAT(DISTINCT IF(gene.gtype=0, gene.gsymbol, NULL) separator ' ') AS 'Accession No.',
+    GROUP_CONCAT(DISTINCT IF(gene.gtype=1, gene.gsymbol, NULL) separator ' ') AS 'Gene Symbol',
+    GROUP_CONCAT(DISTINCT CONCAT(gene.gname, IF(ISNULL(gene.gdesc), '', CONCAT(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.',
+    GROUP_CONCAT(DISTINCT CONCAT(go_term.go_name, ' (GO:', go_term.go_acc, ')' ) ORDER BY go_term.go_acc SEPARATOR '; ') AS 'GO terms',
     $selectSQL
 FROM (
     SELECT
@@ -546,9 +545,12 @@ FROM (
     GROUP BY rid $having
 ) AS d2
 $predicateSQL
-LEFT JOIN probe     ON d2.rid        = probe.rid
-LEFT JOIN ProbeGene ON d2.rid        = ProbeGene.rid
-LEFT JOIN gene      ON ProbeGene.gid = gene.gid
+LEFT JOIN probe     ON d2.rid = probe.rid
+LEFT JOIN ProbeGene ON d2.rid = ProbeGene.rid
+LEFT JOIN locus     ON d2.rid = locus.rid
+LEFT JOIN gene      USING(gid)
+LEFT JOIN GeneGO    USING(gid) 
+LEFT JOIN go_term   USING(go_acc)
 LEFT JOIN (select platform.pid, species.sname FROM platform LEFT JOIN species USING(sid)) AS platform_species USING(pid)
 GROUP BY probe.rid
 ORDER BY abs_fs DESC
@@ -628,7 +630,7 @@ sub displayDataCSV {
     # The line with the experiment name and eid above the data columns has 6
     # fields: TFS, Probe ID, Accession No., Gene Symbol, Probe Sequence, Gene
     # Name
-    my @experimentNameHeader = (undef) x 6;
+    my @experimentNameHeader = (undef) x 9;
 
     # Print Experiment info.
     my $headerRecords = $self->{_headerRecords};

@@ -16,7 +16,7 @@ function zeroPad(num, places) {
     return arr.join("0") + num;
 }
 //==============================================================================
-// zeroPad
+// formatCommas
 // will add commas every three decimals to an integer representation of string
 //==============================================================================
 function formatCommas(numString) {

@@ -78,7 +78,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         };
 
     // checkbox formatter
-    YAHOO.widget.DataTable.Formatter.formatGOCheck = function(elCell, oRecord, oColumn, oData) {
+    var formatGOCheck = function(elCell, oRecord, oColumn, oData) {
         // remove all children nodes if any exist
         if ( elCell.hasChildNodes() ) {
             while ( elCell.childNodes.length > 0 ) {
@@ -116,26 +116,26 @@ YAHOO.util.Event.addListener(window, "load", function() {
             }
         });
         label.appendChild(checkbox);
-        label.appendChild(document.createTextNode('GO:' + zeroPad(oData, 7)));
+        label.appendChild(document.createTextNode(oData));
         elCell.appendChild(label);
     };
 
     // label formatter: if searching for names only, only highlight names, not
     // descriptions.
     var wrapGONameDesc = (scope === 'GO Names') ? function(oData, oRecord) { 
-            var goID = 'GO:' + zeroPad(oRecord.getData('0'), 7);
+            var goID = oRecord.getData('0');
             return '<a target="_blank" title="Search EBI QuickGO database for ' + goID + '" href="http://www.ebi.ac.uk/QuickGO/GTerm?id=' + goID + '" class="TicketName">' + highlightWords(oData) + '</a><br/><span >' + oRecord.getData('2') + '</span>';
             } : function(oData, oRecord) { 
-            var goID = 'GO:' + zeroPad(oRecord.getData('0'), 7);
+            var goID = oRecord.getData('0');
             return '<a target="_blank" title="Search EBI QuickGO database for ' + goID + '" href="http://www.ebi.ac.uk/QuickGO/GTerm?id=' + goID + '" class="TicketName">' + highlightWords(oData) + '</a><br/><span >' + highlightWords(oRecord.getData('2')) + '</span>';
             };
 
-    YAHOO.widget.DataTable.Formatter.formatGOName = function(elCell, oRecord, oColumn, oData) {
+    var formatGOName = function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = wrapGONameDesc(oData, oRecord);
     };
 
     // type formatter: replace all underscores with spaces
-    YAHOO.widget.DataTable.Formatter.formatGOType = function(elCell, oRecord, oColumn, oData) {
+    var formatGOType = function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = oData.replace(/_/, ' ');
     };
 
@@ -143,7 +143,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
     myDataSource.responseSchema = {
         fields: [
-            {key:"0", parser:"number"},
+            {key:"0"},
             {key:"1"},
             {key:"2"},
             {key:"3"},
@@ -153,11 +153,11 @@ YAHOO.util.Event.addListener(window, "load", function() {
 
     var myColumnDefs = [
         {key:"0", sortable:true, resizeable:true,
-            parser:'number', label:data.headers[0], formatter:"formatGOCheck"},
+            parser:'number', label:data.headers[0], formatter:formatGOCheck},
         {key:"1", sortable:true, resizeable:true, 
-            label:data.headers[1], formatter:"formatGOName"} ,
+            label:data.headers[1], formatter:formatGOName} ,
         {key:"3", sortable:true, resizeable:true, 
-            label:data.headers[3], formatter:"formatGOType"},
+            label:data.headers[3], formatter:formatGOType},
         {key:"4", sortable:true, resizeable:true,
             parser:'number', label:data.headers[4]}
     ];

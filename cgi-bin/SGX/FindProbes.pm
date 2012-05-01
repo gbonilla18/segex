@@ -10,7 +10,7 @@ require Tie::IxHash;
 require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car cdr trim min bind_csv_handle distinct file_opts_html
-  dec2indexes32 locationAsTextToCanon coord2int/;
+  dec2indexes32 coord2int/;
 use SGX::Debug;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
@@ -438,7 +438,7 @@ sub getGOTerms {
 
     my $sql = <<"END_query1";
 SELECT
-    go_acc                        AS 'GO Acc. No.',
+    CONCAT('GO:', go_acc)         AS 'GO Acc. No.',
     go_name                       AS 'Term Name and Description',
     go_term_definition            AS 'Go Term Def.',
     go_term_type                  AS 'Term Type',
@@ -897,7 +897,7 @@ sub getReportData {
     my $dbLists      = $self->{_dbHelper};
 
     #---------------------------------------------------------------------------
-    #  in another, get all annotation
+    #  get all annotation
     #---------------------------------------------------------------------------
     my $annot_temp_table = $dbLists->createTempList(
         items     => $search_terms,
@@ -907,18 +907,22 @@ sub getReportData {
 SELECT
     probe.rid,
     probe.pid,
-    probe.reporter AS 'Probe ID',
+    probe.reporter       AS 'Probe ID',
     probe.probe_sequence AS 'Probe Sequence',
-    GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator ' ') AS 'Locus',
-    GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
-    GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol',
-    GROUP_CONCAT(DISTINCT concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'
+    probe.probe_comment  AS 'Probe Note',
+    GROUP_CONCAT(DISTINCT format_locus(locus.chr, locus.zinterval) separator ' ') AS 'Mapping Location(s)',
+    GROUP_CONCAT(DISTINCT IF(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
+    GROUP_CONCAT(DISTINCT IF(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol',
+    GROUP_CONCAT(DISTINCT CONCAT(gene.gname, IF(ISNULL(gene.gdesc), '', CONCAT(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.',
+    GROUP_CONCAT(DISTINCT CONCAT(go_term.go_name, ' (GO:', go_term.go_acc, ')' ) ORDER BY go_term.go_acc SEPARATOR '; ') AS 'GO terms'
 
 FROM $annot_temp_table AS tmp
 INNER JOIN probe USING(rid)
 LEFT JOIN locus USING(rid)
 LEFT JOIN ProbeGene USING(rid)
 LEFT JOIN gene USING(gid)
+LEFT JOIN GeneGO USING(gid)
+LEFT JOIN go_term USING(go_acc)
 GROUP BY probe.rid
 END_ExperimentDataQuery
 
@@ -928,19 +932,14 @@ END_ExperimentDataQuery
     shift @annot_names;
     shift @annot_names;
 
-    #---------------------------------------------------------------------------
-    #  Translate location data at column with zero-based index 3
-    #---------------------------------------------------------------------------
-    my %annot_hash;
-    while ( my @row = $annot_sth->fetchrow_array() ) {
-        my $rid = shift @row;
-        $row[3] = locationAsTextToCanon( $row[3] );
-        $annot_hash{$rid} = { annot => \@row };
-    }
+    # fetch query result
+    my %annot_hash =
+      map { ( shift @$_ ) => +{ annot => $_ } }
+      @{ $annot_sth->fetchall_arrayref() };
     $annot_sth->finish();
 
     #---------------------------------------------------------------------------
-    #  in yet another, get data
+    #  get data
     #---------------------------------------------------------------------------
     my $data_temp_table = $dbLists->createTempList(
         items     => $search_terms,
@@ -1286,10 +1285,10 @@ END_sql_subset_by_project
         push @select_fields,
           (
             "probe.probe_sequence AS 'Probe Sequence'",
-"GROUP_CONCAT(DISTINCT CONCAT(locus.chr, ':', AsText(locus.zinterval)) separator '; ') AS 'Locus'",
+"GROUP_CONCAT(DISTINCT format_locus(locus.chr, locus.zinterval) separator '; ') AS 'Locus'",
 "group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
           );
-        if ( !defined( $self->{_loc_chr} ) ) {
+        if ( !defined( $self->{_loc_chr} ) || $self->{_loc_chr} eq '' ) {
 
             # do a left join on locus (note that if _loc_chr is defined then
             # we are already joining the locus table anyway
@@ -1440,19 +1439,13 @@ sub SearchGO_body {
         )
     );
 
-    my $textToShow = (
-        $self->{_scope} eq 'GO IDs'
-        ? join( ', ',
-            map { 'GO:' . sprintf( '%07d', $_ ) } @{ $self->{_QueryTextProc} } )
-        : join( ', ', @{ $self->{_QueryTextProc} } )
-    );
-
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
         $q->p(
             { -id => 'subcaption' },
             sprintf( '%s search on %s', $self->{_match}, $self->{_scope}, )
-              . ": $textToShow"
+              . ': '
+              . join( ', ', @{ $self->{_QueryTextProc} } )
         ),
         $q->start_form(
             -accept_charset => 'utf-8',
@@ -1597,19 +1590,13 @@ sub Search_body {
         )
     );
 
-    my $textToShow = (
-        $self->{_scope} eq 'GO IDs'
-        ? join( ', ',
-            map { 'GO:' . sprintf( '%07d', $_ ) } @{ $self->{_QueryTextProc} } )
-        : join( ', ', @{ $self->{_QueryTextProc} } )
-    );
-
     my @ret = (
         $q->h2( { -id => 'caption' }, '' ),
         $q->p(
             { -id => 'subcaption' },
             sprintf( '%s search on %s', $self->{_match}, $self->{_scope}, )
-              . ": $textToShow"
+              . ': '
+              . join( ', ', @{ $self->{_QueryTextProc} } )
         ),
         $q->start_form(
             -accept_charset => 'utf-8',
