@@ -254,8 +254,7 @@ sub getSessionOverrideCGI {
             elsif ( $rc < 1 ) {
 
                 # project doesn't exist in the database
-                $self->{_WorkingProject}     = '';
-                $self->{_WorkingProjectName} = '@All Projects';
+                $self->{_WorkingProject} = '';
             }
             else {
                 SGX::Exception::Internal->throw( error =>
@@ -264,18 +263,15 @@ sub getSessionOverrideCGI {
             }
             $sth->finish;
         }
-        else {
-            $self->{_WorkingProjectName} = '@All Projects';
-        }
     }
     elsif ( defined $s ) {
-        $self->{_WorkingProject}     = $s->{session_cookie}->{curr_proj};
-        $self->{_WorkingProjectName} = $s->{session_cookie}->{proj_name};
+        $self->{_WorkingProject} = $s->{session_cookie}->{curr_proj};
     }
     else {
-        $self->{_WorkingProject}     = '';
-        $self->{_WorkingProjectName} = '@All Projects';
+        $self->{_WorkingProject} = '';
     }
+    $self->{_WorkingProjectName} = '@All Projects'
+      if $self->{_WorkingProject} eq '';
     return 1;
 }
 1;
