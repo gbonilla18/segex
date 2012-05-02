@@ -184,7 +184,7 @@ sub session_delete {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Base
-#       METHOD:  expire_session
+#       METHOD:  expire
 #   PARAMETERS:  ????
 #      RETURNS:  1 if session was non-expired, 0 otherwise
 #  DESCRIPTION:  Expires current session by setting time-to-live (ttl) to the
@@ -193,7 +193,7 @@ sub session_delete {
 #     COMMENTS:  Only deals with session_obj
 #     SEE ALSO:  n/a
 #===============================================================================
-sub expire_session {
+sub expire {
     my $self      = shift;
     my $obj       = $self->{session_obj};
     my $curr_time = now();

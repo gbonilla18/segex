@@ -55,12 +55,10 @@ sub delegate_fileUpload {
 
         1;
     } or do {
-        my $exception = $@;
-        $dbh->rollback;
-        unlink $filename if defined $filename;
-        $_->finish() for @statements;
-
-        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+        my $exception;
+        if ( $exception =
+            Exception::Class->caught('Exception::Class::DBI::STH') )
+        {
 
             # catch dbi::sth exceptions. note: this block catches duplicate
             # key record exceptions.
@@ -75,9 +73,10 @@ END_dbi_sth_exception
                 )
             );
         }
-        elsif ($exception) {
+        elsif ( $exception = Exception::Class->caught() ) {
+            my $msg = eval { $exception->error } || "$exception";
             $self->add_message( { -class => 'error' },
-                "$exception\n\n No changes to the database were stored." );
+                "$msg\n\n No changes to the database were stored." );
         }
         else {
             $self->add_message(
@@ -85,6 +84,10 @@ END_dbi_sth_exception
 'Unknown error occured when loading data into the database. No changes to the database were stored.'
             );
         }
+        $dbh->rollback;
+        unlink $filename if defined $filename;
+        $_->finish() for @statements;
+
         $dbh->{AutoCommit} = $old_AutoCommit;
         return;
     };
@@ -133,17 +136,16 @@ sub sanitizeUploadWithMessages {
       eval { sanitizeUploadFile( $q, $inputField, \$recordsValid, %args ); }
       || [];
 
-    if ( my $exception = $@ ) {
+    my $exception;
+    if ( $exception = Exception::Class->caught('SGX::Exception::User') ) {
 
         # Notify user of User exception; rethrow Internal and other types of
         # exceptions.
-        if ( $exception->isa('SGX::Exception::User') ) {
-            $delegate->add_message( { -class => 'error' },
-                'There was a problem with your input: ' . $exception->error );
-        }
-        else {
-            $exception->throw();
-        }
+        $delegate->add_message( { -class => 'error' },
+            'There was a problem with your input: ' . $exception->error );
+    }
+    elsif ( $exception = Exception::Class->caught() ) {
+        $exception->rethrow();
     }
     elsif ( $recordsValid == 0 ) {
         $delegate->add_message( { -class => 'error' },
@@ -198,13 +200,13 @@ sub sanitizeUploadFile {
       eval { csv_rewrite( $uploadedFile, \@OUTPUTTOSERVER, %args ); }
       || 0;
 
-    # In case of error, close files first and rethrow the exception
-    my $exception = $@;
-    close($_) for @OUTPUTTOSERVER;
+    if ( my $exception = Exception::Class->caught() ) {
 
-    if ($exception) {
-        if ( $exception->can('throw') ) {
-            $exception->throw();
+        # In case of error, close files first and rethrow the exception
+        close($_) for @OUTPUTTOSERVER;
+
+        if ( eval { $exception->can('rethrow') } ) {
+            $exception->rethrow();
         }
         else {
 
@@ -346,11 +348,14 @@ sub csv_rewrite {
             );
             1;
         } or do {
-            my $exception = $@;
+            my $exception;
+            if ( $exception = Exception::Class->caught('SGX::Exception::Skip') )
+            {
 
-            # only skip 'Skip' exception (which mean: skip line)
-            if ( !$exception->isa('SGX::Exception::Skip') ) {
-                $exception->throw();
+                # only skip 'Skip' exception (which means: skip line)
+            }
+            elsif ( $exception = Exception::Class->caught() ) {
+                $exception->rethrow();
             }
         };
         return 1;

@@ -6,7 +6,7 @@ use base qw/Exporter/;
 
 use Readonly ();
 use File::Basename qw/dirname/;
-use SGX::Util qw/replace uniq/;
+use SGX::Util qw/replace/;
 require Config::General;
 
 # :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are
@@ -72,17 +72,22 @@ Readonly::Scalar our $CSS_DIR        => "$DOCUMENTS_ROOT/css";
 Readonly::Scalar our $YUI_BUILD_ROOT => $SEGEX_CONFIG{yui_build_root};
 
 #---------------------------------------------------------------------------
-#  Set $ENV{PATH} by transforming an input list of symbols in qw//. This also
-#  strips all trailing slashes from individual paths.
+#  Untaint $ENV{PATH} by transforming an input list of symbols in qw//. This 
+#  also strips all trailing slashes from individual paths.
+#
+#  WARNING: if you remove the block below, everything will seem to work OK,
+#  but Segex will be unable to send out user registration emails!
 #---------------------------------------------------------------------------
 $ENV{PATH} = join(
     ':',
-    uniq(
-        map {
-            ( my $key = $_ ) =~ s/\/*$//;
-            $key
-          } ( $SEGEX_CONFIG{mailer_path} )
-    )
+    keys %{
+        {
+            map {
+                ( my $key = $_ ) =~ s/\/*$//;
+                $key => undef
+              } ($SEGEX_CONFIG{mailer_path})
+        }
+      }
 );
 
 #===  FUNCTION  ================================================================
@@ -153,7 +158,7 @@ sub init_context {
             }
         );
     } or do {
-        my $exception = $@;
+        my $exception = Exception::Class->caught();
         push @init_messages, [ { -class => 'error' }, "$exception" ];
     };
 

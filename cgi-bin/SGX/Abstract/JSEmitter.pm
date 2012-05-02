@@ -462,7 +462,7 @@ sub encode {
 
         # try to use JSON module first and fail on error
         my $ret = eval { $self->json_encode($value); };
-        if ( my $error = $@ ) {
+        if ( my $error = Exception::Class->caught() ) {
             SGX::Exception::Internal::JS->throw( error => $error );
         }
         return $ret;

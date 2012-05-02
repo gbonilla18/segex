@@ -314,14 +314,14 @@ CREATE TABLE `users` (
   `pwd` char(40) NOT NULL,
   `email` varchar(127) NOT NULL DEFAULT '',
   `full_name` varchar(255) NOT NULL DEFAULT '',
-  `address` varchar(255) NOT NULL DEFAULT '',
-  `phone` varchar(127) NOT NULL DEFAULT '',
+  `address` varchar(255) DEFAULT NULL,
+  `phone` varchar(127) DEFAULT NULL,
   `level` enum('nogrants','readonly','user','admin') NOT NULL DEFAULT 'nogrants',
   `email_confirmed` tinyint(1) DEFAULT '0',
   `udate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`),
   UNIQUE KEY `uname` (`uname`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -360,4 +360,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-05-01 13:15:37
+-- Dump completed on 2012-05-01 14:22:06

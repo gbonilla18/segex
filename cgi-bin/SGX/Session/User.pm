@@ -30,7 +30,7 @@ Readonly::Hash my %user_rank => (
     # :TODO:10/14/2011 11:54:35:es: This mapping will be replaced by actual
     # numeric values in the database.
     'anonym'   => -1,
-    'nogrants'   => 0,
+    'nogrants' => 0,
     'readonly' => 1,
     'user'     => 2,
     'admin'    => 3
@@ -552,11 +552,14 @@ sub change_email {
 
     if ( $rows_affected == 1 ) {
         return $self->send_verify_email(
-            project_name => $project_name,
-            full_name    => $full_name,
-            username     => $username,
-            email        => $email_address,
-            login_uri    => $login_uri
+            {
+                project_name    => $project_name,
+                full_name       => $full_name,
+                username        => $username,
+                email_address   => $email_address,
+                login_uri       => $login_uri,
+                hours_to_expire => 48
+            }
         );
     }
     elsif ( $rows_affected == 0 ) {
@@ -604,47 +607,41 @@ END_change_email_text
 sub register_user {
     my ( $self, %param ) = @_;
 
-    my (
-        $username, $passwords,    $emails,    $full_name, $address,
-        $phone,    $project_name, $login_uri, $error
-      )
+    my ( $username, $passwords, $emails, $full_name, $address, $phone,
+        $project_name, $login_uri )
       = @param{
         qw/username passwords emails full_name address phone project_name login_uri error/
       };
 
     if ( !defined($username) || $username eq '' ) {
-        $$error = 'Username not specified';
-        return;
+        SGX::Exception::User->throw( error => 'Username not specified' );
     }
 
     if ( @$passwords < 2 ) {
-        $$error =
-'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.';
-        return;
+        SGX::Exception::User->throw( error =>
+'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.'
+        );
     }
     if ( not equal @$passwords ) {
-        $$error = 'New password and its confirmation do not match';
-        return;
+        SGX::Exception::User->throw(
+            error => 'New password and its confirmation do not match' );
     }
     my $password = car @$passwords;
     if ( length($password) < $MIN_PWD_LENGTH ) {
-        $$error =
-          "New password must be at least $MIN_PWD_LENGTH characters long";
-        return;
+        SGX::Exception::User->throw( error =>
+              "New password must be at least $MIN_PWD_LENGTH characters long" );
     }
     if ( !defined($full_name) || $full_name eq '' ) {
-        $$error = 'Full name not specified';
-        return;
+        SGX::Exception::User->throw( error => 'Full name not specified' );
     }
     if ( @$emails < 2 ) {
-        $$error =
-'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.';
-        return;
+        eGX::Exception::User->throw( error =>
+'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.'
+        );
     }
     if ( not equal @$emails ) {
-        $$error =
-          'Email address you entered and its confirmation do not match.';
-        return;
+        SGX::Exception::User->throw( error =>
+              'Email address you entered and its confirmation do not match.' );
     }
     my $email = car @$emails;
 
@@ -655,39 +652,68 @@ sub register_user {
     # mode with -T switch).
     my ($email_handle) = Email::Address->parse($email);
     if ( !defined($email_handle) ) {
-        $$error =
-'You did not provide an email address or the email address entered is not in a valid format.';
-        return;
+        SGX::Exception::User->throw( error =>
+'You did not provide an email address or the email address entered is not in a valid format.'
+        );
     }
     my $email_address = $email_handle->address;
 
-    my $sth       = $dbh->prepare('select count(*) from users where uname=?');
-    my $row_count = $sth->execute($username);
-    my ($user_found) = $sth->fetchrow_array;
-    $sth->finish();
+    my $sth_check = $dbh->prepare('select count(*) from users where uname=?');
+    $sth_check->execute($username);
+    my ($user_found) = $sth_check->fetchrow_array;
+    $sth_check->finish();
     if ($user_found) {
-        $$error = "The user $username already exists in the database";
-        return;
+        SGX::Exception::User->throw(
+            error => "The user $username already exists in the database" );
     }
 
-    my $rows_affected = $dbh->do(
-'insert into users set uname=?, pwd=?, email=?, full_name=?, address=?, phone=?',
-        undef,
-        $username,
-        sha1_hex($password),
-        $email_address,
-        $full_name,
-        $address,
-        $phone
+    #---------------------------------------------------------------------------
+    #  User is inserted simultaneously as message is sent. In case of error,
+    #  no data are stored to the database (rollback occurs).
+    #---------------------------------------------------------------------------
+    my $sth_insert = $dbh->prepare(
+'insert into users set uname=?, pwd=?, email=?, full_name=?, address=?, phone=?'
     );
 
-    return $self->send_verify_email(
-        project_name => $project_name,
-        full_name    => $full_name,
-        username     => $username,
-        email        => $email_address,
-        login_uri    => $login_uri
-    );
+    my $errors_encountered = 0;
+    eval {
+        $self->send_verify_email(
+            {
+                project_name    => $project_name,
+                full_name       => $full_name,
+                username        => $username,
+                email_address   => $email_address,
+                login_uri       => $login_uri,
+                hours_to_expire => 48
+            }
+        );
+    } or do {
+        if ( my $exception = Exception::Class->caught() ) {
+            $errors_encountered++;
+            if ( eval { $exception->can('rethrow') } ) {
+                $exception->rethrow();
+            }
+            else {
+                SGX::Exception::Internal->throw( error => "$exception" );
+            }
+        }
+        else {
+            $errors_encountered++;
+            SGX::Exception::Internal->throw(
+                error => 'Email could not be sent' );
+        }
+    };
+
+    if ( !$errors_encountered ) {
+        my $rows_affected =
+          $sth_insert->execute( $username, sha1_hex($password), $email_address,
+            $full_name, $address, $phone );
+        $sth_insert->finish();
+        return 1;
+    }
+    else {
+        return;
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -722,60 +748,92 @@ END_register_user_text
 #     SEE ALSO:  n/a
 #===============================================================================
 sub send_verify_email {
-    my ( $self, %param ) = @_;
+    my $self = shift;
+    my $data = shift;
 
-    my ( $project_name, $full_name, $username, $email, $login_uri ) =
-      @param{qw{project_name full_name username email login_uri}};
+    # defaults
+    my $hours_to_expire = ( $data->{hours_to_expire} + 0 ) || 48;
 
-    my $hours_to_expire = 48;
-
+    # create/initialize session object; nothing is done yet at this point
     my $s = SGX::Session::Base->new(
         dbh       => $self->{dbh},
         expire_in => 3600 * $hours_to_expire,
         check_ip  => 1
     );
 
+    #---------------------------------------------------------------------------
+    #  attempt to email the confirmation link
+    #---------------------------------------------------------------------------
+
+    # set up mailer and make sure it's okay
+    my $fh = eval {
+        my $msg = Mail::Send->new(
+            Subject =>
+              "Please confirm your email address with $data->{project_name}",
+            To => $data->{email_address}
+        );
+        $msg->add( 'From', 'no-reply' );
+        $msg->open();
+    } or do {
+        if ( my $exception = Exception::Class->caught() ) {
+            if ( eval { $exception->can('rethrow') } ) {
+                $exception->rethrow();
+            }
+            else {
+                SGX::Exception::Internal::Mail->throw( error => "$exception" );
+            }
+        }
+        else {
+
+            # $fh is false
+            SGX::Exception::Internal::Mail->throw(
+                error => 'Could not set up mailer' );
+        }
+    };
+
+    # start new session
     $s->start();
 
-    # make the session object store the username
-    $s->session_store( username => $username );
-
-    return unless $s->commit();
+    # get id of the new session
     my $session_id = $s->get_session_id();
+    if ( !defined($session_id) ) {
+        $fh->close();
+        SGX::Exception::Internal::Session->throw(
+            error => 'Undefined session id' );
+    }
 
-    #---------------------------------------------------------------------------
-    #  email the confirmation link
-    #---------------------------------------------------------------------------
-
-    my $msg = Mail::Send->new(
-        Subject => "Please confirm your email address with $project_name",
-        To      => $email
-    );
-    $msg->add( 'From', 'no-reply' );
-    my $fh = $msg->open()
-      or SGX::Exception::Internal::Mail->throw(
-        error => 'Failed to open default mailer' );
     print $fh <<"END_CONFIRM_EMAIL_MSG";
-Hi $full_name,
+Hi $data->{full_name},
 
-You have recently applied for user access to $project_name. Please click on the
-link below to confirm your email address with $project_name.
+You have recently applied for user access to $data->{project_name}. Please click on the
+link below to confirm your email address with $data->{project_name}.
 
-$login_uri&sid=$session_id
+$data->{login_uri}&sid=$session_id
 
 This link will expire in $hours_to_expire hours.
 
 If you think you have received this email by mistake, please notify the
-$project_name administrator.
+$data->{project_name} administrator.
 
-- $project_name automatic mailer
+- $data->{project_name} automatic mailer
 
 END_CONFIRM_EMAIL_MSG
 
-    $fh->close()
-      or SGX::Exception::Internal::Mail->throw(
-        error => 'Failed to send email message' );
+    # an exception gets thrown at this point in case of failure to send
+    if ( !$fh->close() ) {
+        SGX::Exception::Internal::Mail->throw(
+            error => 'Failed to send email message' );
+    }
 
+    # Now back to dealing with session
+    # store the username in the session object
+    $s->session_store( username => $data->{username} );
+
+    # commit session to database/storage
+    if ( !$s->commit() ) {
+        SGX::Exception::Internal::Session->throw(
+            error => 'Cannot store session data' );
+    }
     return 1;
 }
 
@@ -963,7 +1021,6 @@ sub static_auth {
     return SGX::Exception::Internal->throw(
         error => 'Unknown reference type in argument to User::is_authorized' );
 }
-
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User

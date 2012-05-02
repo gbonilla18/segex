@@ -519,8 +519,8 @@ sub registerUser_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    my $error_string;
-    if (
+    my $errors_encountered = 0;
+    eval {
         $s->register_user(
             username     => car( $q->param('username') ),
             passwords    => [ $q->param('password') ],
@@ -529,19 +529,26 @@ sub registerUser_head {
             address      => car( $q->param('address') ),
             phone        => car( $q->param('phone') ),
             project_name => 'Segex',
-            login_uri    => $q->url( -full => 1 ) . '?a=profile&b=verifyEmail',
-            error        => \$error_string
-        )
-      )
-    {
-        $self->add_message( $s->register_user_text() );
-        $self->set_action('');    # default page: profile
+            login_uri    => $q->url( -full => 1 ) . '?a=profile&b=verifyEmail'
+        );
+    } or do {
+        if ( my $exception = Exception::Class->caught() ) {
+            my $msg = eval { $exception->error } || "$exception";
+            $self->add_message( { -class => 'error' }, $msg );
+        }
+        else {
+            $self->add_message( { -class => 'error' },
+                'No user record created' );
+        }
+        $errors_encountered++;
+    };
+
+    if ($errors_encountered) {
+        $self->set_action('form_registerUser');  # show corresponding form again
     }
     else {
-
-        # error: show corresponding form again
-        $self->add_message( { -class => 'error' }, $error_string );
-        $self->set_action('form_registerUser');
+        $self->add_message( $s->register_user_text() );
+        $self->set_action('');                   # show default/profile page
     }
     return 1;
 }
@@ -571,7 +578,12 @@ sub form_registerUser_body {
 "return validate_fields(this, ['username','password1','password2','email1','email2']);"
       ),
       $q->dl(
-        $q->dt( $q->label( { -class => 'optional', -for => 'full_name' }, 'Your Full Name:' ) ),
+        $q->dt(
+            $q->label(
+                { -class => 'optional', -for => 'full_name' },
+                'Your Full Name:'
+            )
+        ),
         $q->dd(
             $q->textfield(
                 -name  => 'full_name',
@@ -622,23 +634,6 @@ sub form_registerUser_body {
                 -title => 'Type your email address again for confirmation'
             )
         ),
-
-        #$q->dt( $q->label( { -for => 'address' }, 'Address:' ) ),
-        #$q->dd(
-        #    $q->textarea(
-        #        -name  => 'address',
-        #        -id    => 'address',
-        #        -title => 'Enter your contact address (optional)'
-        #    )
-        #),
-        #$q->dt( $q->label( { -for => 'phone' }, 'Contact Phone:' ) ),
-        #$q->dd(
-        #    $q->textfield(
-        #        -name  => 'phone',
-        #        -id    => 'phone',
-        #        -title => 'Enter your contact phone number (optional)'
-        #    )
-        #),
         $q->dt('&nbsp;'),
         $q->dd(
 

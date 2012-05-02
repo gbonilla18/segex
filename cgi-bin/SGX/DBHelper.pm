@@ -108,10 +108,10 @@ sub createTempList {
         $sth->execute_array( { ArrayTupleStatus => \@tuple_status }, $items ) +
           0;
     } or do {
-        my $exception = $@;
-        if ($exception) {
+        if ( my $exception = Exception::Class->caught() ) {
+            my $msg = eval { $exception->error } || "$exception";
             $delegate->add_message( { -class => 'error' },
-                sprintf( "Encountered error: %s\n", $exception->error ) );
+                "Encountered error: $msg\n" );
             return $temp_table;
         }
     };
@@ -171,9 +171,10 @@ LINES TERMINATED BY '\n' STARTING BY '' ($name)
 END_loadData
 
     my $rc = eval { $sth->execute($filename) } or do {
-        my $exception = $@;
-        $sth->finish();
-        if ( $exception and $exception->isa('Exception::Class::DBI::STH') ) {
+        my $exception;
+        if ( $exception =
+            Exception::Class->caught('Exception::Class::DBI::STH') )
+        {
 
             # Note: this block catches duplicate key record exceptions among
             # others
@@ -184,13 +185,13 @@ END_loadData
                     $exception->error )
             );
         }
-        elsif ($exception) {
+        elsif ( $exception = Exception::Class->caught() ) {
 
             # Other types of exceptions
+            my $msg = eval { $exception->error } || "$exception";
             $delegate->add_message(
                 { -class => 'error' },
-                sprintf( "Unknown error. The database response was: %s",
-                    $exception->error )
+                "Unknown error. The database response was: $msg",
             );
         }
         else {
@@ -199,6 +200,7 @@ END_loadData
             $delegate->add_message( { -class => 'error' },
                 'No records loaded' );
         }
+        $sth->finish();
         unlink $filename if $delete_file;
         return $temp_table;
     };

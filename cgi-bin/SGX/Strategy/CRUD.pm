@@ -709,8 +709,9 @@ sub get_id {
 sub default_delete {
     my $self = shift;
     eval { $self->_delete_command()->() == 1; } or do {
-        my $exception = $@;
-        $self->add_message( { -class => 'error' }, "$exception" );
+        my $exception = Exception::Class->caught();
+        my $msg = eval { $exception->error } || "$exception";
+        $self->add_message( { -class => 'error' }, $msg );
         $self->set_action('');    # show body for "readall"
         return;
     };
@@ -730,8 +731,9 @@ sub default_delete {
 sub default_update {
     my $self = shift;
     eval { $self->_update_command()->() == 1; } or do {
-        my $exception = $@;
-        $self->add_message( { -class => 'error' }, "$exception" );
+        my $exception = Exception::Class->caught();
+        my $msg = eval { $exception->error } || "$exception";
+        $self->add_message( { -class => 'error' }, $msg );
         $self->set_action('');    # show body for "readrow"
         return;
     };
@@ -769,8 +771,9 @@ sub default_create {
     return if defined $self->{_id};
 
     eval { $self->_create_command()->() == 1; } or do {
-        my $exception = $@;
-        $self->add_message( { -class => 'error' }, "$exception" );
+        my $exception = Exception::Class->caught();
+        my $msg = eval { $exception->error } || "$exception";
+        $self->add_message( { -class => 'error' }, $msg );
         $self->set_action('form_create');    # show body for form_create again
         return;
     };
@@ -1682,12 +1685,17 @@ sub _delete_command {
     # error messages to user depending on where the error has occurred.
     return sub {
         my $rc = eval { $sth->execute(@params) } or do {
-            my $exception = $@;
+            my $exception = Exception::Class->caught();
             $dbh->rollback;
             $sth->finish;
             $dbh->{AutoCommit} = $old_AutoCommit;
             if ($exception) {
-                $exception->throw();
+                if ( eval { $exception->can('rethrow') } ) {
+                    $exception->rethrow();
+                }
+                else {
+                    SGX::Exception::Internal->throw( error => "$exception" );
+                }
             }
             else {
                 return 0;
@@ -2145,10 +2153,9 @@ sub _ajax_process_request {
           ? $command_factory->($self)
           : $self->$command_factory();
     } or do {
-        my $exception = $@;
-        $self->add_message( { -class => 'error' },
-            ( $exception ? "$exception" : 'Unknown error' ) );
-
+        my $exception = Exception::Class->caught();
+        my $msg = eval { $exception->error } || "$exception";
+        $self->add_message( { -class => 'error' }, $msg );
         $self->set_header(
             -status => 400,    # 400 Bad Request
             -cookie => undef
@@ -2161,10 +2168,12 @@ sub _ajax_process_request {
     #---------------------------------------------------------------------------
     my $rows_affected = 0;
     eval { ( $rows_affected = ( $command->() || 0 ) ) == 1; } or do {
-        my $exception = $@;
+        my $exception = Exception::Class->caught();
         if ( $exception or $rows_affected != 0 ) {
-            $self->add_message( { -class => 'error' },
-                ( $exception ? "$exception" : 'Unknown error' ) );
+            if ($exception) {
+                my $msg = eval { $exception->error } || "$exception";
+                $self->add_message( { -class => 'error' }, $msg );
+            }
 
             # Unexpected condition: either error occured or the number of
             # updated rows is unknown ($rows_affected == -1) or the number of

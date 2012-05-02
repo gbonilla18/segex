@@ -673,7 +673,7 @@ sub default_update {
             $self->{_upload_completed} =
               $data->uploadData( filefield => 'file', update => 1 );
         } or do {
-            my $exception = $@;
+            my $exception = Exception::Class->caught();
             my $msg = ( defined $exception ) ? "$exception" : '';
             $self->add_message( { -class => 'error' },
                 "No records loaded. $msg" );
@@ -707,7 +707,7 @@ sub default_create {
         $self->{_upload_completed} =
           $data->uploadData( filefield => 'file', update => 0 );
     } or do {
-        my $exception = $@;
+        my $exception = Exception::Class->caught();
         my $msg = ( defined $exception ) ? "$exception" : '';
         $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
     };

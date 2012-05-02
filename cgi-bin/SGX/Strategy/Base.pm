@@ -62,16 +62,24 @@ sub safe_execute {
         $lambda->();
         1;
     } or do {
-        my $exception = $@;
-        if ( $exception->isa('Exception::Class::DBI::STH') ) {
+        my $exception;
+        if ( $exception =
+            Exception::Class->caught('Exception::Class::DBI::STH') )
+        {
 
             # catch execute exceptions only
-            $self->add_message( { -class => 'error' },
-                sprintf( $message, "$exception" ) );
-
+            $self->add_message( { -class => 'error' }, $exception->error );
+        }
+        elsif ( $exception = Exception::Class->caught() ) {
+            if ( eval { $exception->can('rethrow') } ) {
+                $exception->rethrow();
+            }
+            else {
+                SGX::Exception::Internal->throw( error => "$exception" );
+            }
         }
         else {
-            $exception->throw();
+            SGX::Exception::Internal->throw( error => 'Unknown error' );
         }
     };
     return 1;
@@ -343,11 +351,13 @@ sub is_authorized {
     my $s    = $self->{_UserSession};
 
     if ( defined $s ) {
-        return $s->is_authorized(level => $args{level});
+        return $s->is_authorized( level => $args{level} );
     }
     else {
         require SGX::Session::User;
-        return SGX::Session::User::static_auth( undef, $args{level} ) ? 1 : 0;
+        return SGX::Session::User::static_auth( undef, $args{level} )
+          ? 1
+          : 0;
     }
 }
 
@@ -363,7 +373,8 @@ sub is_authorized {
 #===============================================================================
 sub _dispatch_by {
     my $self   = shift;
-    my $action = shift || '';
+    my $action = shift;
+    $action = '' if not defined $action;
     my $hook   = shift;
 
     # execute methods that are in the intersection of those found in the
@@ -376,7 +387,7 @@ sub _dispatch_by {
       ? $meta->{perm}
       : $self->{_permission_level};
 
-    my $is_auth = $self->is_authorized(level => $perm);
+    my $is_auth = $self->is_authorized( level => $perm );
     if ( $is_auth == 1 ) {
 
         # execute hook
@@ -415,7 +426,7 @@ sub _dispatch_by {
                   . uri_escape( $self->request_uri() ) )
               unless $self->{_ResourceName} eq 'profile'
                   and $action eq 'form_login';
-            return 1;              # don't show body
+            return;              # don't show body
         }
         elsif ( $is_auth == -1 and $hook eq 'head' and $action ) {
 
@@ -428,7 +439,7 @@ sub _dispatch_by {
             $self->redirect( $self->url( -absolute => 1 ) )
               if $self->{_ResourceName}
                   or $action;
-            return 1;    # don't show body
+            return;    # don't show body
         }
     }
 }
@@ -470,7 +481,7 @@ sub dispatch_js {
     # otherwise we always do one of the three things: (1) dispatch to readall
     # (id not present), (2) dispatch to readrow (id present), (3) redirect if
     # preliminary processing routine (e.g. create request handler) tells us so.
-    
+
     # do not show body
     return
       if $self->_dispatch_by( $self->get_dispatch_action() => 'redirect' );
