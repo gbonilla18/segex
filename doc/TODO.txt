@@ -29,17 +29,6 @@ prefix from File::Temp or some other way.
 segex_user. segex_user is granted UPDATE, INSERT, DELETE, and CREATE TEMPOARY
 privileges, while segex_basic is only granted SELECT.
 
-*) When comparing experiments 60-64 (Mouse Agilent 44K_v1) and filtering on gene
-prefix Kcne, the filter probe list (hidden field) becomes very long. This is (a)
-inefficient, (b) prevents us from using RESTful queries for getTFS slices. Need
-to have code that "knows" the shortest way to request the necessary information
-from getTFS. It should "remember" that user queried for Kcne prefix and use that
-query if probe list is too long (longer than original query).
-
-*) For Manage Studies, use YUI buttons for switching between forms for (a)
-editing study fields, (b) assigning existing experiment, (c) adding new
-experiment.
-
 *) Consider using a Tree View instead of multiple levels of dropdown boxes. YUI
 has a Tree View control available. Doing so would make sense -- consider the
 following hierarchy:
