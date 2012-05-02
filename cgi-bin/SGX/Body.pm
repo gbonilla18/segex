@@ -162,7 +162,7 @@ sub cgi_start_html {
             -src  => "$YUI_BUILD_ROOT/$_"
           };
     }
-    foreach ( +{ -src => 'form.js' }, @$js_src_code ) {
+    foreach ( +{ -src => 'Util.js' }, @$js_src_code ) {
         $_->{-type} = 'text/javascript';
         if ( defined( $_->{-src} ) ) {
             $_->{-src} = "$JS_DIR/" . $_->{-src};

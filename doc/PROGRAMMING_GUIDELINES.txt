@@ -2,30 +2,22 @@
 
 1.1 SEPARATING MODEL AND VIEW - Model
 
-Separation of concerns is achieved by minimizing the number of points of contact
-between two functionally different parts of code (decoupling), which in turn is
-achieved by minimization and formalization of points of communication. This may
-seem obvious, but for some reason seems stressed more rarely than it should be
-(i.e. perfect decoupling of code is almost always impossible, otherwise few
-programmers would produce it in entangled form in the first place, so decoupling
-typically comes down to refining points of communication).
-
-The separation of model (data in SQL tables) and view (in-browser HTML) is
-achieved via two intermediaries: Perl and JSON/Javascript. The data flow is as
+We achieve separation of concerns by minimizing and refining points of
+communication between different layers in the program. The layers we use are as
 follows:
 
-    SQL -> Perl -> JSON -> HTML
+    Data source: SQL database, plain-text files -> 
+    Server-side: Perl -> 
+    Intermediate data representation: JSON (recommended), XML -> 
+    Client-side transformation: Javascript (recommended), XSLT ->
+    View layer: HTML (recommended), XHTML
 
-We do this intentionally, to avoid the obvious shortcut:
+We do this intentionally, to avoid the traditional shortcut:
 
-    SQL -> Perl -> HTML
+    Database layer -> Server-side code -> HTML
 
-Skipping the JSON intermediary is not recommended because (1) it complicates
-implementation of dynamic interfaces, and (2) when dynamic interfaces are
-implemented, they have to deal with absence of clear separation between data and
-presentation (i.e. between model and view). The second point becomes more clear
-when we think in terms of the client page and what represents model, view and
-controller there:
+By using JSON intermediary, we embed an MVC substructure within what was
+traditionally seen as "View":
 
    --------   HTTP   -------                        ------
   | SERVER | =====> | JSON  | ===================> | HTML |
@@ -40,42 +32,34 @@ controller there:
 
                    |________________ VIEW ________________|
 
-The above is a "zoomed-in" view focusing on the client. There is a whole new
-separate MVC subsystem on the client, with its own model, view, and controller
--- and this subsystem is embedded within the "view" part of the overall MVC
-superstructure.
+The diagram above is a "zoomed-in" view focusing on the client. See Two-Step
+View pattern from Martin Fowler's book for a better discussion:
+http://martinfowler.com/eaaCatalog/twoStepView.html
 
-If we were to directly write data model to HTML (for example, by filling in a
-select box with dynamic data), dynamic interactions on the user's side would
-require either constant HTTP requests or looking up data from the DOM tree. We
-want to avoid this because such lookups are (1) inefficient, (2) can easily lead
-to corruption of view because they introduce circular dependencies where HTML is
-updated with data collected from previous HTML state and so on. Writing model as
-JSON introduces directionality and avoids such "incestuous" dependencies of
-content on itself.  Doing so also lends itself to easy introduction of AJAX
-where need for it exists.
+JSON intermediary is obviously the way to go because dynamic funtionality
+otherwise would require either constant server-side (database) lookups (bad) or
+DOM parsing (worse).
 
-All dynamic data (i.e. contents of tables, dropdown lists, etc.) should be
-written as JSON to page header (never inside <BODY> tag!). The JSON data should
-be formed first as native Perl data structures and converted to JSON with the
-use of JSON::XS module. For example, we do not want this:
+Currently, we write dynamic data (i.e. contents of tables, dropdown lists, etc.)
+as JSON to page header (never inside <BODY> tag!). The JSON data should be
+formed first as native Perl data structures and converted to JSON with the use
+of JSON::XS module. For example, we *do not want* to do this:
 
     my $out = 'var contents = ';
     for (@result_array) {
         my $col1 = $_->[3];
         my $col2 = $_->[1];
-        # backslash double quotes
-        $col1 =~ s/"/\\"/g;
+        $col1 =~ s/"/\\"/g; # backslashing double quotes
         $col2 =~ s/"/\\"/g;
         $out .= '{"probe":"' . $col1 . '","gene":"' . $col2 . '"}' . ',';
     }
     $out =~ s/,\s*$//;
     return "$out;\n";
 
-Such code increases coupling between Perl and Javascript, which is bad, because,
-when writing it, we have to worry about the different syntaxes of these two
-languages at once, which makes our code more error prone and our coding slower.
-Instead, we write:
+Such code is very bad, evil, and generally awful. It increases coupling between
+Perl and Javascript, which is bad, because, when writing it, we have to worry
+about the different syntaxes of these two languages at once, which makes our
+code more error prone and our coding slower.  Instead, we write:
 
     use JSON::XS;
 
@@ -88,14 +72,14 @@ Instead, we write:
         encode_json(\@tmp)
     );
 
-Or using functional style,
+Or using a more functional style,
 
     use JSON::XS;
 
     return sprintf(
         "var contents = %s;\n",
         encode_json([ 
-            map { { probe => $_->[3], gene => $_->[1] } } 
+            map { +{ probe => $_->[3], gene => $_->[1] } } 
             @result_array
         ])
     );
@@ -105,23 +89,12 @@ typo, for example, Perl will let us know about it right away. Similarly,
 JSON::XS ensures that the Perl data structure is encoded as valid Javascript
 without needing to backslash double quotes manually.
 
-Note 1: The pattern discussed above is basically the Two-Step View pattern from
-Martin Fowler's book:
-http://martinfowler.com/eaaCatalog/twoStepView.html
-
-Note 2: Another commonly-used pattern in web applications is Template View. Our
-current architecture actually discourages the use of Template View, and for a
-good reason: forming AJAX data on the server and then filling them into view
-using Javascript and element IDs actually gives us better guarantees about view
-correctness than filling in placeholders into an HTML template on the server and
-then sending it to the client. This is so for two reasons: (1) we use CGI.pm to
-first form an abstract representation of the HTML view using native Perl data
-structures which ensures that different types of HTML (HTML, XHTML, etc) can be
-formed correctly, (2) Filling in values using Javascript and element IDs
-requires correct DOM tree to begin with and is therefore more robust than
-filling in placeholders in a text-blob template.
-
-
+Note: Another commonly-used pattern in web applications is Template View. Our
+current architecture actually discourages the use of Template View, for the
+following reason: forming AJAX data on the server and then filling them into
+view using Javascript and element IDs actually gives us better guarantees about
+view correctness than filling in placeholders into an HTML template on the
+server and then sending it to the client.
 
 
 1.2 CONTROLLER
@@ -162,50 +135,10 @@ When passing arguments to module constructors, prefer named arguments. For
 example: my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q, session
 => $s). (Note: this was replaced with %controller_context hash).
 
-The SGX::CRUD abstract class will be a composite class, containing controller,
-model, and basic view methods (though those methods could be abstracted away
-into their own MVC classes).
-
-See CatalystX::CRUD perldoc for an example of how we want this to be:
-http://search.cpan.org/search?query=crud+catalystx
-
-
 
 1.3 VIEW
 
-1.3.1 VIEW - The "right" way
-
-The "right" way to deal with View, according to some CGI::Application
-documentation, is to use HTML::Template. Right now I am leaning strongly against
-using any kind of HTML templates. The reasoning is that the HTML we use is very
-basic and unlikely to change, while all the "meat" of the view is handled by the
-YUI Javascript framework and by Javascript files in the js/ folder. The
-CGI::Application documentation was written in an era before AJAX and does not
-consider the modern way of building web apps. So all the "view" complexity is
-already removed from HTML and delegated to Javascript, for which we do have
-template-like individual files (albeit in .js format) in the js/ folder.
-
-Another argument against HTML::Template is that the whole idea of an HTML
-template is to reduce coupling between Perl and HTML. However, if we confine
-ourselves to pure CGI.pm, we do not have any coupling -- all HTML is represented
-as Perl objects in a one-to-one correspondence before being generated by CGI.
-From this point of view, we do not reduce coupling by using an HTML template --
-we increase it instead. It seems to me that templates were designed in a world
-where programmers and designers had difficulties conceptualizing that HTML could
-be represented as a tree-like Perl object; probably because templates were
-originally meant for non-interpreted languages that did not allow such tree-like
-structures. This would explain why Common Lisp and Clojure people use a
-CGI.pm-like approach by representing HTML first in Lisp.
-
-The third and final argument against HTML::Template is that it is inflexible --
-for example, if we wanted to change from XHTML 1.1 to HTML 4.0, we would need to
-rewrite a bunch of template files, while with CGI.pm the changeover involves
-setting a small switch at the construction/initialization of the CGI object.
-
-To conclude, it appears that we will be using CGI::Application with CGI.pm and
-custom classes for model.
-
-1.3.2. HTML
+1.3.1. HTML
 
 Generated HTML should be valid. Since most pages being worked on are private, it
 is cumbersome to validate their source using the W3C service. This can be worked
@@ -213,22 +146,19 @@ around by using Total Validator Firefox plugin and the accompanying Mac or
 Windows application.
 
 
-1.3.3 Dynamic elements
+1.3.2 Dynamic elements
 
 Avoid using 'onclick' and 'onchange' attributes of DOM elements. Instead, use
 the addListener function from the YUI library and place corresponding code in
 the <HEAD> element.
 
-1.3.4 Data visualization
+1.3.3 Data visualization
 
 Consider using g.Raphael Javascript framework for drawing graphs inside the
 client browser window from JSON data obtained from the server (as opposed to
 generating SVG files on the server as it is set up currently).
 https://github.com/mobz/g.raphael
 https://github.com/alexyoung/ico
-
-
-
 
 
 2. RESTful ARCHITECTURE
@@ -348,9 +278,8 @@ computer he or she uses. To achieve this goal, all state information should be
 expressly specified in the form of hidden fields in the form performing the GET
 request.
 
-"The REST cookbook –- a fantastic write-up which I do strongly recommend –-
-suggests to identify commonly used search criteria and expose those queries as
-separate resources."
+"The REST cookbook –- a fantastic by the way –- suggests to identify commonly
+used search criteria and expose those queries as separate resources."
 http://nicksda.apotomo.de/2011/06/rails-misapprehensions-query-parameters-are-restful/
 
 Perl documentation suggests that for GET forms, URL query string in the 'action'
@@ -436,6 +365,8 @@ CSV format should be supported in addition to tab-delimited. The idea is that
 the same formats that are supported for output should also be supported for
 input.
 
+Note: Have since switched to using CSV/CSV::XS module from CPAN.
+
 4.5 DEFAULT ARGUMENTS TO PERL SUBROUTINES
 
 The following snippet is from the constructor to File::Temp in default Perl
@@ -462,16 +393,16 @@ If the named argument defaulted to "no", we could simply assign it:
   my $unlink = $args{UNLINK};
 
 
-
 6. SQL
 
 6.1. SQL - Design issues - Views
 
 Avoid repeating data. For example, if columns A and B are combined to produce
 some value over large number of rows, do not cache the result in column C -- use
-SQL views instead. A specific example where SQL views are needed is the
+SQL views instead. A specific example where SQL views could be useful is the
 corrected P-value column in the main data/response table.
 
+Note: still not using views for anything...
 
 6.2 SQL - Graph traversal
 
@@ -528,7 +459,7 @@ prepare(). (13) indexes on columns that may contain long text are suboptimal.
 
 Partial word matches in databases do not use indexes, so do not use REGEXP
 '^(word1|word2)$' for matching "word1" and "word2", and instead either use WHERE
-IN predicate or JOIN with a TEMPORARY table.
+IN predicate (faster) or JOIN with a TEMPORARY table (fastest).
 
 6 THEORY
 
@@ -538,6 +469,35 @@ Compare Experiments produces a list of significant probes in the selected
 experiments. A probe is called significant if it satisfies P<0.05 and
 |foldchange|>x in at least one of the selected experiments.
 
+6.2 THEORY - Compare Experiments
+
+Log odds ratio of observed over expected -- this is a statistic that can be
+useful for gauging concordance of probe lists. Given a combination of
+experiments, say 101 (three experiments from left to right, 1 corresponds to
+significant in experiment, 0 corresponds to not significant), we would expect
+to see the following number of probes:
+
+	E_101 = [ S1/A1 * (A2 - S2)/A2 * S3 / A3 ] * (A1 + A2 + A3)
+
+Where Ax stands for "all probes in experiment x", and Sx stands for "significant
+probes in experiment x". When we compare experiments from the same platform
+(actually we *only* compare experiments from the same platform), A1 = A2 = A3,
+adn we can rewrite the above as:
+
+	E_101 = 3 * S1 * (A - S2) * S3 / A^2
+
+If the probes were classified as significant by a random process independently
+in each experiment, we would expect the observed number of probes in group 101
+(called O_101) to be similar to E_101 in magnitude. We measure the discrepancy
+as follows:
+
+	LOR = log (O_101 / E_101)
+
+Where LOR is the Log-Odds Ratio statistic. LOR is high when the experiments
+chosen were measured under similar conditions (same probes became up- or
+downregulated) and low when experiments chosen were measured under very
+dissimilar conditions (different probes become up- or downregulated).
+
 
 7. UI/UX
 
@@ -545,7 +505,7 @@ experiments. A probe is called significant if it satisfies P<0.05 and
 
 Use tooltips for all controls (set "title" attribute).
 
-Do not use grayed-out text in forms -- gray color should be reserved for
+Avoid using grayed-out text in forms -- gray color should be reserved for
 controls that are disabled. Instead, use either (a) text in a different color,
 or (b) HTML tooltips using "title" attribute on controls, or (c ) YUI tooltips.
 

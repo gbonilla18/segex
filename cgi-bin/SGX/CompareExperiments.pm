@@ -58,12 +58,16 @@ PlatfformStudy_sql
     push @{ $pse->{_Platform}->{attr} }, ( 'def_p_cutoff', 'def_f_cutoff' );
     push @{ $pse->{_Experiment}->{attr} }, 'PValFlag';
 
+    # Using FindProbes module
     my $findProbes = SGX::FindProbes->new(
         _dbh         => $self->{_dbh},
         _cgi         => $q,
         _UserSession => $self->{_UserSession}
     );
+    $findProbes->set_attributes(
+        _dbHelper => SGX::DBHelper->new( delegate => $findProbes ) );
 
+    # usual initialization stuff
     $self->set_attributes(
         _title                   => 'Compare Experiments',
         _permission_level        => 'readonly',
@@ -71,7 +75,6 @@ PlatfformStudy_sql
         _FindProbes              => $findProbes,
         _dbHelper                => SGX::DBHelper->new( delegate => $self )
     );
-
     $self->register_actions(
         Submit => { head => 'Compare_head', body => 'Compare_body' },
         'Search GO terms' => { body => 'SearchGO_body' }
