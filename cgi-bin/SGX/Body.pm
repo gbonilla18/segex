@@ -285,7 +285,7 @@ sub build_sidemenu {
 
     my @menu;
     my $url_prefix = $q->url( -absolute => 1 );
-    if ( $obj->is_authorized( level => 'unauth' ) == 1 ) {
+    if ( $obj->is_authorized( level => 'nogrants' ) == 1 ) {
 
         my $proj_name = $obj->get_volatile('session_cookie')->{proj_name};
         my $curr_proj = $obj->get_volatile('session_cookie')->{curr_proj};

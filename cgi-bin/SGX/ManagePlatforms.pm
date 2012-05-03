@@ -1057,7 +1057,7 @@ updated. If you wish to fully replace genomic annotation for all existing
 probes, first clear the existing annotation by pressing "clear" above.
 END_info
             $q->start_form(
-                -accept_charset => 'utf-8',
+                -accept_charset => 'ISO-8859-1',
                 -method         => 'POST',
                 -enctype        => 'multipart/form-data',
                 -onsubmit => 'return validate_fields(this, ["fileProbeLoci"]);',

@@ -92,8 +92,6 @@ instance could be set up on the same machine.
   touch segex_dev_log
   sudo chown nobody:nobody segex_dev_log
 
-TODO: create an interactive-prompt type interface for entering log path.
-
 2. Check Perl dependencies. Tie::IxHash and JSON are not included in the default
 Perl installation on Linux Cent OS. The commands below upgrade and reload the
 cpan executable before installing the packages on which Segex depends:
@@ -139,11 +137,6 @@ file for both CGI_ROOT and DOCUMENTS_ROOT directories.
    # /segex_dev/images
    sudo cp -R ~/segex/images .
 
-TODO: automate file copying: have user provide only two directories: CGI_ROOT
-and DOCUMENTS_ROOT. Create the subtree containing css/, images/, and js/
-directories under DOCUMENTS_ROOT and the subtree corresponding to cgi-bin under
-CGI_ROOT.
-
 4. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
 modify your main Apache configuration file (usually /etc/httpd/conf/httpd.conf)
 to allow .htaccess overrides. On Linux Cent OS, this means:
@@ -178,8 +171,6 @@ instance could be set up on the same machine.
   cd  ~/log/apache2
   touch segex_dev_log
   sudo chown www:wheel segex_dev_log
-
-TODO: create an interactive-prompt type interface for entering log path.
 
 2. Check Perl dependencies. Apache::Session, DBD::mysql, Tie::IxHash, and JSON
 are not included in the default Perl installation on Mac OS X Snow Leopard. The

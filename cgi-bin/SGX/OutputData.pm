@@ -367,7 +367,7 @@ sub default_body {
 
       # now start the form element
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'GET',
         -enctype        => 'application/x-www-form-urlencoded',
         -action         => $q->url( -absolute => 1 ) . '?a=outputData'

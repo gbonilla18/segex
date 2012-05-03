@@ -22,7 +22,8 @@ sub init {
 
     $self->set_attributes( _permission_level => 'anonym' );
     $self->register_actions(
-        about  => { body => 'about_body' },
+        help   => { body => 'help_body' },
+        about  => { body => 'default_body' },
         schema => { body => 'schema_body' }
     );
 
@@ -31,7 +32,7 @@ sub init {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Static
-#       METHOD:  default_body
+#       METHOD:  help_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -39,7 +40,7 @@ sub init {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub default_body {
+sub help_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
@@ -86,7 +87,7 @@ sub schema_body {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Static
-#       METHOD:  about_body
+#       METHOD:  default_body
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:
@@ -94,7 +95,7 @@ sub schema_body {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub about_body {
+sub default_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 

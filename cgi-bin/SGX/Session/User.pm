@@ -1,9 +1,5 @@
 package SGX::Session::User;
 
-# :TODO:07/31/2011 15:38:04:es: scan this module for error handling mechanisms
-# that involve setting $$error dereferenced variable.  Replace all those cases
-# with exceptions.
-#
 use strict;
 use warnings;
 
@@ -86,7 +82,6 @@ sub commit {
 #   PARAMETERS:  $self - reference to object instance
 #                $username - user name string
 #                $password - password string
-#                $error - reference to error string
 #      RETURNS:  1 on success, 0 on failure
 #
 #  DESCRIPTION:  Queries the `users' table in the database for matching username
@@ -105,49 +100,20 @@ sub commit {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub authenticate {
-    my ( $self, $username, $password, $error ) = @_;
-
-    if ( !defined($username) || $username eq '' ) {
-        $$error = 'No username specified';
-        return;
-    }
-    if ( !defined($password) || $password eq '' ) {
-        $$error = 'No password specified';
-        return;
-    }
-    return $self->authenticateFromDB(
-        {
-            username => $username,
-            password => $password
-        },
-        reset_session => 1,
-        error_string  => $error
-    );
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session::User
-#       METHOD:  authenticateFromDB
-#   PARAMETERS:  ????
-#      RETURNS:  True value on success, false value on failure
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub authenticateFromDB {
     my ( $self, $login, %args ) = @_;
 
     my ( $username, $password ) = @$login{qw(username password)};
+    ( defined($username) && $username ne '' )
+      or SGX::Exception::User->throw( error => 'No username specified' );
+
+    #( defined($password) && $password ne '' )
+    # or SGX::Exception::User->throw( error => 'No password specified' );
 
     # default: true
     my $reset_session =
       ( exists $args{reset_session} )
       ? $args{reset_session}
       : 1;
-
-    my $error_string;
-    my $error = ( $args{error_string} ) ? $args{error_string} : \$error_string;
 
     #---------------------------------------------------------------------------
     #  get user info triple from the database
@@ -170,7 +136,7 @@ sub authenticateFromDB {
         # user not found in the database
         $sth->finish;
         $self->destroy();
-        $$error = 'Login incorrect';
+        SGX::Exception::User->throw( error => 'Login incorrect' );
         return;
     }
     elsif ( $row_count > 1 ) {
@@ -179,7 +145,7 @@ sub authenticateFromDB {
         $sth->finish;
         $self->destroy();
         SGX::Exception::Internal::Duplicate->throw(
-            error => "Expected one user record but encountered $row_count.\n" );
+            error => "$row_count records found where one was expected" );
     }
 
     # user found in the database
@@ -257,8 +223,7 @@ sub restore {
     #---------------------------------------------------------------------------
     #  authenticate from username
     #---------------------------------------------------------------------------
-    return $self->authenticateFromDB( { username => $username },
-        reset_session => 0 );
+    return $self->authenticate( { username => $username }, reset_session => 0 );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -269,7 +234,6 @@ sub restore {
 #                $project_name
 #                $login_uri - the full URI of the login script plus the command
 #                to show the form to change a password
-#                $error - reference to error string
 #      RETURNS:  1 on success, 0 on failure
 #  DESCRIPTION:  Issues a new password and emails it to the user's email address.
 #                The email address must be marked as "confirmed" in the "users"
@@ -285,8 +249,8 @@ sub reset_password {
     my $self  = shift;
     my %param = @_;
 
-    my ( $username_or_email, $project_name, $login_uri, $error ) =
-      @param{qw{username_or_email project_name login_uri error}};
+    my ( $username_or_email, $project_name, $login_uri ) =
+      @param{qw{username_or_email project_name login_uri}};
 
     my ($email_handle) = Email::Address->parse($username_or_email);
     my ( $lvalue => $rvalue ) =
@@ -294,14 +258,13 @@ sub reset_password {
       ? ( 'email' => $email_handle->address )
       : ( 'uname' => $username_or_email );
 
-    if ( !defined($rvalue) || $rvalue eq '' ) {
-        $$error = 'You did not provide your login ID or a valid email address.';
-        return;
-    }
+    ( defined($rvalue) && $rvalue ne '' )
+      or SGX::Exception::User->throw( error =>
+          'You did not provide your login ID or a valid email address.' );
 
     # :TODO:08/08/2011 13:57:26:es: Can abstract out a method
     # $self->getSingleUser($uname, {pwd => '...', email_confirmed => 0..1}) --
-    # see similar code in $self->authenticateFromDB().
+    # see similar code in $self->authenticate().
     my $dbh = $self->{dbh};
     my $sth = $dbh->prepare(
 "select uid, uname, level, full_name, email from users where $lvalue=? and email_confirmed=1"
@@ -311,18 +274,17 @@ sub reset_password {
 
         # user not found in the database
         $sth->finish;
-        $$error =
-'The user does not exist in the database or user email address has not been verified';
-        return;
+        SGX::Exception::Internal->throw( error =>
+'The user does not exist in the database or user email address has not been verified'
+        );
     }
     elsif ( $rows_found > 1 ) {
 
         # several users found (e.g. when two or more users share the same email
         # address).
         $sth->finish;
-        $$error =
-"Cannot fulfill the request to reset password: more than one user were found matching $lvalue=$rvalue.\n";
-        return;
+        SGX::Exception::Internal::Duplicate->throw(
+            error => "$rows_found records were found where one was expected" );
     }
 
     # single user found in the database
@@ -422,38 +384,35 @@ sub change_password {
 
     my $require_old = !defined( $self->{session_stash}->{change_pwd} );
 
-    my ( $old_password, $new_passwords, $error ) =
-      @param{qw{old_password new_passwords error}};
+    my ( $old_password, $new_passwords ) =
+      @param{qw{old_password new_passwords}};
 
-    if ( $require_old && !defined($old_password) ) {
-        $$error = 'You did not provide your current password';
-        return;
-    }
-    if ( @$new_passwords < 2 ) {
-        $$error =
-'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.';
-        return;
-    }
-    if ( not equal @$new_passwords ) {
-        $$error = 'New password and its confirmation do not match';
-        return;
-    }
+    ( !$require_old || defined($old_password) )
+      or SGX::Exception::User->throw(
+        error => 'You did not provide your current password' );
+
+    ( @$new_passwords > 1 )
+      or SGX::Exception::User->throw( error =>
+'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.'
+      );
+
+    ( equal @$new_passwords )
+      or SGX::Exception::User->throw(
+        error => 'New password and its confirmation do not match' );
+
     my $new_password = car @$new_passwords;
-    if ( length($new_password) < $MIN_PWD_LENGTH ) {
-        $$error =
-          "New password must be at least $MIN_PWD_LENGTH characters long";
-        return;
-    }
-    if ( $require_old and $new_password eq $old_password ) {
-        $$error = 'The new and the old passwords you entered are the same.';
-        return;
-    }
+    ( length($new_password) >= $MIN_PWD_LENGTH )
+      or SGX::Exception::User->throw( error =>
+          "New password must be at least $MIN_PWD_LENGTH characters long" );
+
+    ( !$require_old || $new_password ne $old_password )
+      or SGX::Exception::User->throw(
+        error => 'The new and the old passwords you entered are the same.' );
+
     my $username = $self->{session_stash}->{username};
-    if ( !defined($username) || $username eq '' ) {
-        SGX::Exception::Internal->throw( error =>
-"Expected to see a defined username in session data but none was found\n"
-        );
-    }
+    ( defined($username) && $username ne '' )
+      or SGX::Exception::Internal->throw( error =>
+          "Expected a defined username in session data but none was found\n" );
 
     my $query =
       ($require_old)
@@ -469,14 +428,13 @@ sub change_password {
     my $rows_affected = $dbh->do( $query, undef, @params );
 
     if ( $rows_affected < 1 ) {
-        $$error =
-'The password was not changed. Please try again and make sure you entered your old password correctly.';
-        return;
+        SGX::Exception::User->throw( error =>
+'The password was not changed. Please try again and make sure you entered your old password correctly.'
+        );
     }
     elsif ( $rows_affected > 1 ) {
         SGX::Exception::Internal::Duplicate->throw( error =>
               "Expected one user record but encountered $rows_affected.\n" );
-        return;
     }
 
     # We try to shorten the time window where the user is allowed to change his
@@ -505,43 +463,36 @@ sub change_email {
     my ( $self, %param ) = @_;
 
     # extract values from a hash of named arguments and place them into an array
-    my ( $password, $emails, $project_name, $login_uri, $error ) =
-      @param{qw{password emails project_name login_uri error}};
+    my ( $password, $emails, $project_name, $login_uri ) =
+      @param{qw{password emails project_name login_uri}};
 
-    if ( !defined($password) ) {
-        $$error = 'Password not specified';
-        return;
-    }
-    if ( @$emails < 2 ) {
-        $$error =
-'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.';
-        return;
-    }
-    if ( not equal @$emails ) {
-        $$error =
-          'Email address you entered and its confirmation do not match.';
-        return;
-    }
+    defined($password)
+      or SGX::Exception::User->throw( error => 'Password not specified' );
+    ( @$emails > 1 )
+      or SGX::Exception::User->throw( error =>
+'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.'
+      );
+    ( equal @$emails )
+      or SGX::Exception::User->throw( error =>
+          'Email address you entered and its confirmation do not match.' );
     my $email = car @$emails;
 
     # Parsing email address with Email::Address->parse() has the side effect of
     # untainting user-entered email (applicable when CGI script is run in taint
     # mode with -T switch).
     my ($email_handle) = Email::Address->parse($email);
-    if ( !defined($email_handle) ) {
-        $$error =
-'You did not provide an email address or the email address entered is not in a valid format.';
-        return;
-    }
+    defined($email_handle)
+      or SGX::Exception::User->throw( error =>
+'You did not provide an email address or the email address entered is not in a valid format.'
+      );
     my $email_address = $email_handle->address;
 
     $password = sha1_hex($password);
     my $username = $self->{session_stash}->{username};
-    if ( !defined($username) || $username eq '' ) {
-        SGX::Exception::Internal->throw( error =>
+    ( defined($username) && $username ne '' )
+      or SGX::Exception::Internal->throw( error =>
 "Expected to see a defined username in session data but none was found\n"
-        );
-    }
+      );
 
     my $full_name = $self->{session_cookie}->{full_name};
 
@@ -563,16 +514,17 @@ sub change_email {
         );
     }
     elsif ( $rows_affected == 0 ) {
-        $$error = <<"END_noEmailChangeMsg";
+        return SGX::Exception::User->throw( error => <<"END_noEmailChangeMsg");
 The email was not changed. Please make sure you entered your password correctly
 and that your new email address is different from your old one.
 END_noEmailChangeMsg
-        return;
     }
+    else {
 
-    # should never happen
-    return SGX::Exception::Internal::Duplicate->throw(
-        error => "Expected one user record but encountered $rows_affected.\n" );
+        # should never happen
+        return SGX::Exception::Internal::Duplicate->throw( error =>
+              "Expected one user record but encountered $rows_affected.\n" );
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -613,36 +565,35 @@ sub register_user {
         qw/username passwords emails full_name address phone project_name login_uri error/
       };
 
-    if ( !defined($username) || $username eq '' ) {
-        SGX::Exception::User->throw( error => 'Username not specified' );
-    }
+    ( defined($username) && $username ne '' )
+      or SGX::Exception::User->throw( error => 'Username not specified' );
 
-    if ( @$passwords < 2 ) {
-        SGX::Exception::User->throw( error =>
+    ( @$passwords > 1 )
+      or SGX::Exception::User->throw( error =>
 'You did not provide a new password. You need to enter a new password twice to prevent an accidental typo.'
-        );
-    }
-    if ( not equal @$passwords ) {
-        SGX::Exception::User->throw(
-            error => 'New password and its confirmation do not match' );
-    }
+      );
+
+    ( equal @$passwords )
+      or SGX::Exception::User->throw(
+        error => 'New password and its confirmation do not match' );
+
     my $password = car @$passwords;
-    if ( length($password) < $MIN_PWD_LENGTH ) {
-        SGX::Exception::User->throw( error =>
-              "New password must be at least $MIN_PWD_LENGTH characters long" );
-    }
-    if ( !defined($full_name) || $full_name eq '' ) {
-        SGX::Exception::User->throw( error => 'Full name not specified' );
-    }
-    if ( @$emails < 2 ) {
-        eGX::Exception::User->throw( error =>
+    ( length($password) >= $MIN_PWD_LENGTH )
+      or SGX::Exception::User->throw( error =>
+          "New password must be at least $MIN_PWD_LENGTH characters long" );
+
+    ( defined($full_name) && $full_name ne '' )
+      or SGX::Exception::User->throw( error => 'Full name not specified' );
+
+    ( @$emails > 1 )
+      or SGX::Exception::User->throw( error =>
 'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.'
-        );
-    }
-    if ( not equal @$emails ) {
-        SGX::Exception::User->throw( error =>
-              'Email address you entered and its confirmation do not match.' );
-    }
+      );
+
+    ( equal @$emails )
+      or SGX::Exception::User->throw( error =>
+          'Email address you entered and its confirmation do not match.' );
+
     my $email = car @$emails;
 
     my $dbh = $self->{dbh};
@@ -651,21 +602,19 @@ sub register_user {
     # untainting user-entered email (applicable when CGI script is run in taint
     # mode with -T switch).
     my ($email_handle) = Email::Address->parse($email);
-    if ( !defined($email_handle) ) {
-        SGX::Exception::User->throw( error =>
+    defined($email_handle)
+      or SGX::Exception::User->throw( error =>
 'You did not provide an email address or the email address entered is not in a valid format.'
-        );
-    }
+      );
     my $email_address = $email_handle->address;
 
     my $sth_check = $dbh->prepare('select count(*) from users where uname=?');
     $sth_check->execute($username);
     my ($user_found) = $sth_check->fetchrow_array;
     $sth_check->finish();
-    if ($user_found) {
-        SGX::Exception::User->throw(
-            error => "The user $username already exists in the database" );
-    }
+    ( !$user_found )
+      or SGX::Exception::User->throw(
+        error => "The user $username already exists in the database" );
 
     #---------------------------------------------------------------------------
     #  User is inserted simultaneously as message is sent. In case of error,
@@ -675,7 +624,6 @@ sub register_user {
 'insert into users set uname=?, pwd=?, email=?, full_name=?, address=?, phone=?'
     );
 
-    my $errors_encountered = 0;
     eval {
         $self->send_verify_email(
             {
@@ -689,7 +637,6 @@ sub register_user {
         );
     } or do {
         if ( my $exception = Exception::Class->caught() ) {
-            $errors_encountered++;
             if ( eval { $exception->can('rethrow') } ) {
                 $exception->rethrow();
             }
@@ -697,23 +644,13 @@ sub register_user {
                 SGX::Exception::Internal->throw( error => "$exception" );
             }
         }
-        else {
-            $errors_encountered++;
-            SGX::Exception::Internal->throw(
-                error => 'Email could not be sent' );
-        }
+        SGX::Exception::Internal->throw( error => 'Email could not be sent' );
     };
 
-    if ( !$errors_encountered ) {
-        my $rows_affected =
-          $sth_insert->execute( $username, sha1_hex($password), $email_address,
-            $full_name, $address, $phone );
-        $sth_insert->finish();
-        return 1;
-    }
-    else {
-        return;
-    }
+    $sth_insert->execute( $username, sha1_hex($password), $email_address,
+        $full_name, $address, $phone );
+    $sth_insert->finish();
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -764,9 +701,9 @@ sub send_verify_email {
     #---------------------------------------------------------------------------
     #  attempt to email the confirmation link
     #---------------------------------------------------------------------------
-
-    # set up mailer and make sure it's okay
     my $fh = eval {
+
+        # set up mailer and make sure it's okay
         my $msg = Mail::Send->new(
             Subject =>
               "Please confirm your email address with $data->{project_name}",
@@ -783,30 +720,27 @@ sub send_verify_email {
                 SGX::Exception::Internal::Mail->throw( error => "$exception" );
             }
         }
-        else {
 
-            # $fh is false
-            SGX::Exception::Internal::Mail->throw(
-                error => 'Could not set up mailer' );
-        }
+        # email filehandle evaluated to false
+        SGX::Exception::Internal::Mail->throw(
+            error => 'Could not set up mailer' );
     };
 
     # start new session
     $s->start();
 
     # get id of the new session
-    my $session_id = $s->get_session_id();
-    if ( !defined($session_id) ) {
+    defined( my $session_id = $s->get_session_id() ) or do {
         $fh->close();
         SGX::Exception::Internal::Session->throw(
             error => 'Undefined session id' );
-    }
+    };
 
     print $fh <<"END_CONFIRM_EMAIL_MSG";
 Hi $data->{full_name},
 
-You have recently applied for user access to $data->{project_name}. Please click on the
-link below to confirm your email address with $data->{project_name}.
+Please confirm your email address with $data->{project_name} by clicking on the
+link below:
 
 $data->{login_uri}&sid=$session_id
 
@@ -816,24 +750,21 @@ If you think you have received this email by mistake, please notify the
 $data->{project_name} administrator.
 
 - $data->{project_name} automatic mailer
-
 END_CONFIRM_EMAIL_MSG
 
     # an exception gets thrown at this point in case of failure to send
-    if ( !$fh->close() ) {
-        SGX::Exception::Internal::Mail->throw(
-            error => 'Failed to send email message' );
-    }
+    $fh->close()
+      or SGX::Exception::Internal::Mail->throw(
+        error => 'Failed to send email message' );
 
     # Now back to dealing with session
     # store the username in the session object
     $s->session_store( username => $data->{username} );
 
     # commit session to database/storage
-    if ( !$s->commit() ) {
-        SGX::Exception::Internal::Session->throw(
-            error => 'Cannot store session data' );
-    }
+    $s->commit()
+      or SGX::Exception::Internal::Session->throw(
+        error => 'Cannot store session data' );
     return 1;
 }
 
@@ -856,11 +787,10 @@ sub verify_email {
       $self->{dbh}->do( 'update users set email_confirmed=1 WHERE uname=?',
         undef, $username );
 
-    if ( $rows_affected != 1 ) {
-        SGX::Exception::Internal->throw( error =>
+    ( $rows_affected == 1 )
+      or SGX::Exception::Internal->throw( error =>
 "Expected to find one user record for login $username but $rows_affected were found.\n"
-        );
-    }
+      );
     return $rows_affected;
 }
 
@@ -968,7 +898,7 @@ sub is_authorized {
 
     return static_auth( $session_level, $req_user_level )
       ? 1
-      : ( ( defined $session_level ) ? -1 : 0 );
+      : ( defined($session_level) ? -1 : 0 );
 }
 
 #===  FUNCTION  ================================================================
@@ -1088,11 +1018,11 @@ user logs out, for example:
 
     $s->destroy;
 
-    $s->authenticate($username, $password, \$error_string);
+    $s->authenticate({username => $uname, password => $pwd});
 
 Note: $login_uri must be in this form: /cgi-bin/my/path/index.cgi?a=login
 
-    $s->reset_password($username, $project_name, $login_uri, \$error_string);
+    $s->reset_password($username, $project_name, $login_uri);
 
 To make a cookie and flush session data:
     $s->commit;

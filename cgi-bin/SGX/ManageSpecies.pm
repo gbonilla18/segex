@@ -600,7 +600,7 @@ platform before using this form to update annotation (gene symbols not that were
 not already uploaded will be ignored).
 END_info
             $q->start_form(
-                -accept_charset => 'utf-8',
+                -accept_charset => 'ISO-8859-1',
                 -method         => 'POST',
                 -enctype        => 'multipart/form-data',
                 -onsubmit => 'return validate_fields(this, ["fileGene"]);',

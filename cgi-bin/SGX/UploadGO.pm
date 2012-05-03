@@ -255,7 +255,7 @@ you can still use GO annotation, but your text searches will be limited to GO
 names.
 END_info
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -enctype        => 'multipart/form-data',
         -action         => $q->url( absolute => 1 ) . '?a=uploadGO'
@@ -367,7 +367,7 @@ sub default_body {
         )
       ),
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -enctype        => 'multipart/form-data',
         -action         => $q->url( absolute => 1 ) . '?a=uploadGO'

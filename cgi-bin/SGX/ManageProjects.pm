@@ -252,7 +252,7 @@ sub form_assign_body {
 
       # Resource URI: /projects/id
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -action         => $self->get_resource_uri()
       ),

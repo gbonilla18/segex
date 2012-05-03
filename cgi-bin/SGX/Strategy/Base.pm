@@ -612,7 +612,7 @@ sub view_start_get_form {
     my $self = shift;
     my $q    = $self->{_cgi};
     return $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'GET',
         -enctype        => 'application/x-www-form-urlencoded',
         -action         => $self->url( -absolute => 1 )

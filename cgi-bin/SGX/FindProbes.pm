@@ -1448,7 +1448,7 @@ sub SearchGO_body {
               . join( ', ', @{ $self->{_QueryTextProc} } )
         ),
         $q->start_form(
-            -accept_charset => 'utf-8',
+            -accept_charset => 'ISO-8859-1',
             -id             => 'main_form',
             -method         => 'POST',
             -action         => $action_a,
@@ -1522,7 +1522,7 @@ sub SearchGO_body {
         ),
         $q->endform,
         $q->start_form(
-            -accept_charset => 'utf-8',
+            -accept_charset => 'ISO-8859-1',
             -id             => 'get_csv',
             -method         => 'POST',
             -action         => $q->url( absolute => 1 ) . '?a=findProbes',
@@ -1599,7 +1599,7 @@ sub Search_body {
               . join( ', ', @{ $self->{_QueryTextProc} } )
         ),
         $q->start_form(
-            -accept_charset => 'utf-8',
+            -accept_charset => 'ISO-8859-1',
             -id             => 'get_csv',
             -method         => 'POST',
             -action         => $q->url( absolute => 1 ) . '?a=findProbes',
@@ -1937,7 +1937,7 @@ You can enter here a list of probes, accession numbers, or gene names.
 The results will contain probes that are related to the search terms.
 END_H2P_TEXT
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -id             => 'main_form',
         -method         => 'POST',
         -action         => $q->url( absolute => 1 ) . '?a=findProbes',

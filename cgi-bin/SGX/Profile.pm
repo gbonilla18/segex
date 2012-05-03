@@ -348,24 +348,52 @@ sub changeEmail_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    my $error_string;
-    if (
+    eval {
         $s->change_email(
             password     => car( $q->param('password') ),
             emails       => [ $q->param('email') ],
             project_name => 'Segex',
-            login_uri    => $q->url( -full => 1 ) . '?a=verifyEmail',
-            error        => \$error_string
-        )
-      )
-    {
-        $self->set_action('');    # default page: profile
-        $self->add_message( $s->change_email_text() );
-    }
-    else {
-        $self->add_message( { -class => 'error' }, $error_string );
-        $self->set_action('form_changeEmail');    # change email form
-    }
+            login_uri    => $q->url( -full => 1 ) . '?a=profile&b=verifyEmail'
+        );
+    } or do {
+
+    #---------------------------------------------------------------------------
+    #  changing email failed
+    #---------------------------------------------------------------------------
+        my $exception;
+        if ( $exception = Exception::Class->caught('SGX::Exception::User') ) {
+
+            # User error: show corresponding form again
+            $self->add_message( { -class => 'error' }, $exception->error );
+            $self->set_action('form_changeEmail');    # change email form
+            return 1;
+        }
+        elsif ( $exception = Exception::Class->caught() ) {
+
+            # Internal error
+            warn $exception->error;
+            $self->add_message(
+                { -class => 'error' },
+'Failed to change email. If you are an administrator, see error log for details of this error.'
+            );
+            $self->set_action('');
+            return 1;
+        }
+        else {
+
+            # No error
+            $self->add_message( { -class => 'error' },
+                'Failed to change email.' );
+            $self->set_action('');
+            return 1;
+        }
+    };
+
+    #---------------------------------------------------------------------------
+    #  changed email address OK
+    #---------------------------------------------------------------------------
+    $self->set_action('');    # default page: profile
+    $self->add_message( $s->change_email_text() );
     return 1;
 }
 
@@ -383,48 +411,77 @@ sub login_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    my $error_string;
-    if (
+    #---------------------------------------------------------------------------
+    #  Attempt login
+    #---------------------------------------------------------------------------
+    my $login_ok = eval {
         defined($s)
-        and $s->authenticate(
-            car( $q->param('username') ),
-            car( $q->param('password') ),
-            \$error_string
-        )
-        and $self->is_authorized() == 1
-      )
-    {
+          && $s->authenticate(
+            {
+                username => car( $q->param('username') ),
+                password => car( $q->param('password') )
+            }
+          ) && $self->is_authorized() == 1;
+    } or do {
 
-        my $destination =
-          ( defined( $q->url_param('next') ) )
-          ? uri_unescape( $q->url_param('next') )
-          : undef;
-        if (   defined($destination)
-            && $destination ne $q->url( -absolute => 1 )
-            && $destination !~ m/(?:&|\?|&amp;)b=login(?:\z|&|#)/
-            && $destination !~ m/(?:&|\?|&amp;)b=form_login(?:\z|&|#)/ )
-        {
+    #---------------------------------------------------------------------------
+    #  Login failed
+    #---------------------------------------------------------------------------
+        my $exception;
+        if ( $exception = Exception::Class->caught('SGX::Exception::User') ) {
 
-            # will send a redirect header, so commit the session to data
-            # store now
-            $s->commit() if defined $s;
+            # User error: show corresponding form again
+            $self->add_message( { -class => 'error' }, $exception->error );
+            $self->set_action('form_login');
+            return 1;
+        }
+        elsif ( $exception = Exception::Class->caught() ) {
 
-            # if the user is heading to a specific placce, pass him/her
-            # along, otherwise continue to the main page (script_name)
-            # do not add nph=>1 parameter to redirect() because that
-            # will cause it to crash
-            $self->redirect( $q->url( -base => 1 ) . $destination );
+            # Internal error
+            warn $exception->error;
+            $self->add_message(
+                { -class => 'error' },
+'Failed to process you login. If you are an administrator, see error log for details of this error.'
+            );
+            $self->set_action('');
+            return 1;
         }
         else {
-            $self->set_action('');    # default page: profile
+
+            # No error
+            $self->add_message( { -class => 'error' }, 'Login failed.' );
+            $self->set_action('form_login');
+            return 1;
         }
+    };
+
+    #---------------------------------------------------------------------------
+    #  Login OK
+    #---------------------------------------------------------------------------
+    my $destination =
+      ( defined( $q->url_param('next') ) )
+      ? uri_unescape( $q->url_param('next') )
+      : undef;
+    if (   defined($destination)
+        && $destination ne $q->url( -absolute => 1 )
+        && $destination !~ m/(?:&|\?|&amp;)b=login(?:\z|&|#)/
+        && $destination !~ m/(?:&|\?|&amp;)b=form_login(?:\z|&|#)/ )
+    {
+
+        # will send a redirect header, so commit the session to data
+        # store now
+        $s->commit() if defined $s;
+
+        # if the user is heading to a specific placce, pass him/her
+        # along, otherwise continue to the main page (script_name)
+        # do not add nph=>1 parameter to redirect() because that
+        # will cause it to crash
+        $self->redirect( $q->url( -base => 1 ) . $destination );
     }
     else {
-
-        # error: show corresponding form again
-        $self->add_message( { -class => 'error' }, $error_string );
-        $self->set_action('form_login');
+        $self->set_action('');    # default page: profile
     }
+
     return 1;
 }
 
@@ -454,7 +511,7 @@ sub form_login_body {
     );
     return $q->h2('Login to Segex'),
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -action         => $q->url( -absolute => 1 )
           . "?a=profile&b=login&next=$destination",
@@ -482,8 +539,6 @@ sub form_login_body {
         ),
         $q->dt('&nbsp;'),
         $q->dd(
-
-            #form_error($error_string),
             $q->submit(
                 -name  => 'login',
                 -id    => 'login',
@@ -571,7 +626,7 @@ sub form_registerUser_body {
     # user cannot be logged in
     return $q->h2('Apply for Access to Segex'),
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=profile&b=registerUser',
         -onsubmit =>
@@ -653,8 +708,6 @@ sub form_registerUser_body {
         ),
         $q->dt('&nbsp;'),
         $q->dd(
-
-            #form_error($error_string),
             $q->submit(
                 -name  => 'registerUser',
                 -id    => 'registerUser',
@@ -681,26 +734,52 @@ sub resetPassword_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    my $error_string;
-    if (
+    eval {
         $s->reset_password(
             username_or_email => car( $q->param('username') ),
             project_name      => 'Segex',
             login_uri         => $q->url( -full => 1 )
-              . '?a=profile&b=form_changePassword',
-            error => \$error_string
-        )
-      )
-    {
-        $self->set_action('form_login');
-        $self->add_message( $s->reset_password_text() );
-    }
-    else {
+              . '?a=profile&b=form_changePassword'
+        );
+    } or do {
 
-        # error: show corresponding form again
-        $self->add_message( { -class => 'error' }, $error_string );
-        $self->set_action('form_resetPassword');
-    }
+    #---------------------------------------------------------------------------
+    #  Reset failed
+    #---------------------------------------------------------------------------
+        my $exception;
+        if ( $exception = Exception::Class->caught('SGX::Exception::User') ) {
+
+            # User error: show corresponding form again
+            $self->set_action('form_resetPassword');
+            $self->add_message( { -class => 'error' }, $exception->error );
+            return 1;
+        }
+        elsif ( $exception = Exception::Class->caught() ) {
+
+            # Internal error
+            warn $exception->error;
+            $self->add_message(
+                { -class => 'error' },
+'Failed to process password reset. If you are an administrator, see error log for details of this error.'
+            );
+            $self->set_action('');
+            return 1;
+        }
+        else {
+
+            # No error
+            $self->add_message( { -class => 'error' },
+                'Failed to reset password.' );
+            $self->set_action('form_login');
+            return 1;
+        }
+    };
+
+    #---------------------------------------------------------------------------
+    #  Reset OK
+    #---------------------------------------------------------------------------
+    $self->set_action('form_login');
+    $self->add_message( $s->reset_password_text() );
     return 1;
 }
 
@@ -720,7 +799,7 @@ sub form_resetPassword_body {
 
     return $q->h2('I Forgot My Password'),
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -action   => $q->url( -absolute => 1 ) . '?a=profile&b=resetPassword',
         -onsubmit => 'return validate_fields(this, [\'username\']);'
@@ -738,8 +817,6 @@ sub form_resetPassword_body {
         ),
         $q->dt('&nbsp;'),
         $q->dd(
-
-            #form_error($error_string),
             $q->submit(
                 -name  => 'resetPassword',
                 -id    => 'resetPassword',
@@ -775,8 +852,13 @@ sub verifyEmail_head {
         expire_in => 3600 * 48,
         check_ip  => 0
     );
-    if ( $t->restore( car( $q->param('sid') ) ) ) {
-        if ( $s->verify_email( $t->{session_stash}->{username} ) ) {
+    if ( $t->restore( car $q->param('sid') ) ) {
+        my $username = $t->{session_stash}->{username};
+        if ( $s->verify_email( $username ) ) {
+            #my $new_address = car $q->param('address');
+            # now we are free to set the new address by using the variables:
+            # $username and $new_address.
+
             $self->add_message('Success! You email address has been verified.');
         }
         $self->set_action('');    # default page: profile
@@ -805,20 +887,41 @@ sub changePassword_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    my $error_string;
-    if (
-        !$s->change_password(
+    eval {
+        $s->change_password(
             old_password  => car( $q->param('old_password') ),
-            new_passwords => [ $q->param('new_password') ],
-            error         => \$error_string
-        )
-      )
-    {
-        $self->add_message( { -class => 'error' }, $error_string );
-        $self->set_action('form_changePassword');    # change password form
-        return 1;
-    }
-    $self->set_action('');                           # default page: profile
+            new_passwords => [ $q->param('new_password') ]
+        );
+    } or do {
+        my $exception;
+        if ( $exception = Exception::Class->caught('SGX::Exception::User') ) {
+
+            # User error: show corresponding form again
+            $self->add_message( { -class => 'error' }, $exception->error );
+            $self->set_action('form_changePassword');    # change password form
+            return 1;
+        }
+        elsif ( $exception = Exception::Class->caught() ) {
+
+            # Internal error
+            warn $exception->error;
+            $self->add_message(
+                { -class => 'error' },
+'Failed to change password. If you are an administrator, see error log for details of this error.'
+            );
+            $self->set_action('');
+            return 1;
+        }
+        else {
+
+            # No error
+            $self->add_message( { -class => 'error' },
+                'Changing password failed.' );
+            $self->set_action('form_login');
+            return 1;
+        }
+    };
+    $self->set_action('');    # default page: profile
     $self->add_message(
         'Success! Your password has been changed to the one you provided.');
     return 1;
@@ -842,7 +945,7 @@ sub form_changePassword_body {
     my $require_old = !defined( $s->{session_stash}->{change_pwd} );
     return $q->h2('Change Password'),
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -action   => $q->url( -absolute => 1 ) . '?a=profile&b=changePassword',
         -onsubmit => (
@@ -887,8 +990,6 @@ sub form_changePassword_body {
         ),
         $q->dt('&nbsp;'),
         $q->dd(
-
-            #form_error($error_string),
             $q->submit(
                 -class => 'button black bigrounded',
                 -value => 'Change password',
@@ -916,7 +1017,7 @@ sub form_changeEmail_body {
     # user has to be logged in
     return $q->h2('Change Email Address'),
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -action => $q->url( -absolute => 1 ) . '?a=profile&b=changeEmail',
         -onsubmit =>
@@ -950,8 +1051,6 @@ sub form_changeEmail_body {
         ),
         $q->dt('&nbsp;'),
         $q->dd(
-
-            #form_error($error_string),
             $q->submit(
                 -class => 'button black bigrounded',
                 -value => 'Change email',
@@ -1126,7 +1225,7 @@ sub chooseProject_body {
     #Load the study dropdown to choose which experiments to load into table.
     return $q->h2('Select working project'),
       $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -action  => $q->url( -absolute => 1 ) . '?a=profile&b=changeProjectTo',
         -enctype => 'application/x-www-form-urlencoded'

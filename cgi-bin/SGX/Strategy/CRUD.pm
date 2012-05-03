@@ -2541,7 +2541,7 @@ sub body_create_update_form {
 
     # form
     return $q->start_form(
-        -accept_charset => 'utf-8',
+        -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
         -action         => $self->get_resource_uri(),
         -onsubmit       => $onsubmit,
