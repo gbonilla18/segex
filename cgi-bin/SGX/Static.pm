@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use base qw/SGX::Strategy::Base/;
-use SGX::Config;
+use SGX::Config qw/$IMAGES_DIR/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Static
@@ -95,6 +95,16 @@ sub about_body {
       ),
       $q->p(
 'Initial work on the database was done by Katrina Steiling. Niraj Trivedi contributed some visualization code.'
+      ),
+      $q->p(
+        $q->a(
+            {
+                -href  => "$IMAGES_DIR/segex_schema.pdf",
+                -title => 'Download a PDF of the Segex database schema'
+            },
+            'Click here'
+        ),
+        'to download a PDF of Segex database schema.'
       );
 }
 
