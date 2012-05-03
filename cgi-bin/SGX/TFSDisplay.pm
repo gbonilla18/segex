@@ -255,31 +255,33 @@ sub loadDataHTML {
 
         my $abs_flag = 1 << $i - 1;
         my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
+
+        my $table = "m${eid}_${pValClass}";
         push @query_proj,
           (
             $reverse
-            ? "1/m$eid.ratio AS '$eid: Ratio', m$eid.$pval_sql AS '$eid: P-$pValClass'"
-            : "m$eid.ratio AS '$eid: Ratio', m$eid.$pval_sql AS '$eid: P-$pValClass'"
+            ? "1/$table.ratio AS '$eid: Ratio', $table.$pval_sql AS '$eid: P-$pValClass'"
+            : "$table.ratio AS '$eid: Ratio', $table.$pval_sql AS '$eid: P-$pValClass'"
           );
 
         if ( $self->{_opts} ne 'basic' ) {
             push @query_proj,
               (
                 $reverse
-                ? "-m$eid.foldchange AS '$eid: FC'"
-                : "m$eid.foldchange AS '$eid: FC'"
+                ? "-$table.foldchange AS '$eid: FC'"
+                : "$table.foldchange AS '$eid: FC'"
               );
             push @query_proj,
               (
                 $reverse
-                ? "IFNULL(m$eid.intensity2,0) AS '$eid: Intensity-1', IFNULL(m$eid.intensity1,0) AS '$eid: Intensity-2'"
-                : "IFNULL(m$eid.intensity1,0) AS '$eid: Intensity-1', IFNULL(m$eid.intensity2,0) AS '$eid: Intensity-2'"
+                ? "IFNULL($table.intensity2,0) AS '$eid: Intensity-1', IFNULL($table.intensity1,0) AS '$eid: Intensity-2'"
+                : "IFNULL($table.intensity1,0) AS '$eid: Intensity-1', IFNULL($table.intensity2,0) AS '$eid: Intensity-2'"
               );
-            push @query_proj, "m$eid.$pval_sql AS '$eid: P-$pValClass'";
+            push @query_proj, "$table.$pval_sql AS '$eid: P-$pValClass'";
         }
 
         push @query_join,
-          "LEFT JOIN microarray m$eid ON m$eid.rid=d2.rid AND m$eid.eid=$eid";
+"LEFT JOIN microarray $table ON $table.rid=d2.rid AND $table.eid=$eid";
 
         #This is part of the query when we are including all probes.
         push @query_body, ($allProbes)
@@ -462,31 +464,32 @@ sub loadDataCSV {
         my $abs_flag = 1 << $i - 1;
         my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
 
+        my $table = "m${eid}_${pValClass}";
         push @query_proj,
           (
             $reverse
-            ? "1/m$eid.ratio AS '$eid: Ratio'"
-            : "m$eid.ratio AS '$eid: Ratio'"
+            ? "1/$table.ratio AS '$eid: Ratio'"
+            : "$table.ratio AS '$eid: Ratio'"
           );
 
         push @query_proj,
           (
             $reverse
-            ? "-m$eid.foldchange AS '$eid: FC'"
-            : "m$eid.foldchange AS '$eid: FC'"
+            ? "-$table.foldchange AS '$eid: FC'"
+            : "$table.foldchange AS '$eid: FC'"
           );
 
         push @query_proj,
           (
             $reverse
-            ? "IFNULL(m$eid.intensity2,0) AS '$eid: Intensity-1', IFNULL(m$eid.intensity1,0) AS '$eid: Intensity-2'"
-            : "IFNULL(m$eid.intensity1,0) AS '$eid: Intensity-1', IFNULL(m$eid.intensity2,0) AS '$eid: Intensity-2'"
+            ? "IFNULL($table.intensity2,0) AS '$eid: Intensity-1', IFNULL($table.intensity1,0) AS '$eid: Intensity-2'"
+            : "IFNULL($table.intensity1,0) AS '$eid: Intensity-1', IFNULL($table.intensity2,0) AS '$eid: Intensity-2'"
           );
 
-        push @query_proj, "m$eid.$pval_sql AS '$eid: P-$pValClass'";
+        push @query_proj, "$table.$pval_sql AS '$eid: P-$pValClass'";
 
         push @query_join,
-          "LEFT JOIN microarray m$eid ON m$eid.rid=d2.rid AND m$eid.eid=$eid";
+"LEFT JOIN microarray $table ON $table.rid=d2.rid AND $table.eid=$eid";
 
         push @query_body, ( $self->{_allProbes} )
           ? <<"END_yes_allProbesCSV"
@@ -700,7 +703,7 @@ sub displayDataCSV {
     $print->( [ 'TFS', 'Probe Count', 'Log Odds Over Expected' ] );
     $print->(
         [
-            $currFS,
+            undef,
             $observed,
 
             # log_odds

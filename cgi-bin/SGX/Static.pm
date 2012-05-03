@@ -88,6 +88,9 @@ sub about_body {
 
     return $q->h2('About'),
       $q->p(
+'Segex is a data management and visualization system for storage, basic analysis, and retrieval of gene expression data.'
+      ),
+      $q->p(
 'Segex was conceived by David J. Waxman (Boston University) and developed primarily by Eugene Scherba and Michael McDuffie.'
       ),
       $q->p(

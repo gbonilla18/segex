@@ -159,6 +159,9 @@ a#logo:active {
 	background:transparent;
 }
 /************* forms ***************/
+label {
+	font-family:'Helvetica Neue',Helvetica,Arial,Tahoma,sans-serif;
+}
 dl {
 	font-family:'Helvetica Neue',Helvetica,Arial,Tahoma,sans-serif;
 	overflow:visible;

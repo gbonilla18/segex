@@ -254,7 +254,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
                 key: 'eid' + val.eid,
                 sortable: true,
                 resizeable: false,
-                label: '#' + val.eid,
+                label: '#' + val.eid + ' (' + val.pValClass + ')',
                 sortOptions: {
                     defaultDir: YAHOO.widget.DataTable.CLASS_DESC
                 },
@@ -264,7 +264,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
 { key: 'fs', sortable:true, resizeable:false, label: 'Probe Subset', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterFlagsum},
 { key: 'probe_count', sortable:true, resizeable: false, label:'Probes', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }}
         ]).concat(
-{ key: 'significant_in', sortable:true, resizeable: false, label:'Sign. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterSignIn},
+{ key: 'significant_in', sortable:true, resizeable: false, label:'Signif. in', sortOptions: { defaultDir: YAHOO.widget.DataTable.CLASS_DESC }, formatter:formatterSignIn},
 { key: 'log_odds', sortable:true, resizeable: true, label:'Log Odds Ratio' }
         )
     };
@@ -289,7 +289,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"pValClass", sortable:true, resizeable:false, label:'P-value'},
         {key:"pval", sortable:true, resizeable:false, label:'P <'},
         {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >'},
-        {key:"probe_count", sortable:true, resizeable:false, label:'Sign. Probes', formatter:formatterProbeCounts}
+        {key:"probe_count", sortable:true, resizeable:false, label:'Signif. Probes', formatter:formatterProbeCounts}
     ];
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 

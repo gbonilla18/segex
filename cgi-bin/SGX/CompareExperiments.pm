@@ -623,13 +623,13 @@ sub Compare_body {
       $q->h2('Probes significant in different experiment combinations'),
       $q->p(<<"END_MATRIX"),
 Rows correspond to experiment combinations, and columns labeled with pound signs
-correspond to experiments. Other columns: <strong>Probe Subset</strong> -
-subsets enumerated by flagsum, <strong>Probes</strong> - observed number of
-probes in the given subset, <strong>Sign. in</strong> - number of experiments in
-which probes from the given subset are significant, <strong>Log Odds
-Ratio</strong> - natural logarithm of the number of observed probes (in the
-given subset) over the expected (calculated assuming probes for each subset are
-drawn at random).
+correspond to experiments (P-value used indicated in parentheses). Other
+columns: <strong>Probe Subset</strong> - subsets enumerated by flagsum,
+<strong>Probes</strong> - observed number of probes in the given subset,
+<strong>Signif. in</strong> - number of experiments in which probes from the
+given subset are significant, <strong>Log Odds Ratio</strong> - natural
+logarithm of the number of observed probes (in the given subset) over the
+expected (calculated assuming probes for each subset are drawn at random).
 END_MATRIX
       $q->dl(
         $q->dt( $q->strong('Report format:') ),

@@ -590,6 +590,10 @@ sub form_registerUser_body {
                 -id    => 'full_name',
                 -size  => 30,
                 -title => 'Enter your first and last names here (optional)'
+            ),
+            $q->p(
+                { -class => 'hint visible' },
+                'Enter your first and last names here'
             )
         ),
         $q->dt( $q->label( { -for => 'username' }, 'Login name:' ) ),
@@ -598,6 +602,10 @@ sub form_registerUser_body {
                 -name  => 'username',
                 -id    => 'username',
                 -title => 'Enter your future login id'
+            ),
+            $q->p(
+                { -class => 'hint visible' },
+                'Choose a short name for login purposes'
             )
         ),
         $q->dt( $q->label( { -for => 'password1' }, 'Password:' ) ),
@@ -607,15 +615,21 @@ sub form_registerUser_body {
                 -id        => 'password1',
                 -maxlength => 40,
                 -title     => 'Enter your future password'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'password2' }, 'Confirm Password:' ) ),
-        $q->dd(
+            ),
+            '&nbsp;&nbsp;',
+            $q->label(
+                { for => 'password2' },
+                $q->strong('Retype to confirm:')
+            ),
             $q->password_field(
                 -name      => 'password',
                 -id        => 'password2',
                 -maxlength => 40,
                 -title     => 'Type your password again for confirmation'
+            ),
+            $q->p(
+                { -class => 'hint visible' },
+'Passwords must be at least 6 characters long. Please choose a password that is hard to guess and which contains letters as well as digits.'
             )
         ),
         $q->dt( $q->label( { -for => 'email1' }, 'Email:' ) ),
@@ -624,14 +638,17 @@ sub form_registerUser_body {
                 -name  => 'email',
                 -id    => 'email1',
                 -title => 'Enter your email address here (must be valid)'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'email2' }, 'Confirm Email:' ) ),
-        $q->dd(
+            ),
+            '&nbsp;&nbsp;',
+            $q->label( { -for => 'email2' }, $q->strong('Retype to confirm:') ),
             $q->textfield(
                 -name  => 'email',
                 -id    => 'email2',
                 -title => 'Type your email address again for confirmation'
+            ),
+            $q->p(
+                { -class => 'hint visible' },
+'Registering your email address with Segex will allow you to retrieve your password in case you forget it.'
             )
         ),
         $q->dt('&nbsp;'),
