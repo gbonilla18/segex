@@ -43,12 +43,8 @@ sub default_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    return $q->p(
-'The SEGEX database will provide public access to previously released datasets from the Waxman laboratory, and data mining and visualization modules to query gene expression across several studies and experimental conditions.'
-      ),
-      $q->p(
-'This database was developed at Boston University as part of the BE768 Biological Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.'
-      );
+    return $q->h2('Help'),
+      $q->p('Help pages will be written in parallel with the publication...');
 }
 
 #===  CLASS METHOD  ============================================================
@@ -92,13 +88,10 @@ sub about_body {
 
     return $q->h2('About'),
       $q->p(
-'The mammalian liver functions in the stress response, immune response, drug metabolism and protein synthesis. Sex-dependent responses to hepatic stress are mediated by pituitary secretion of growth hormone (GH) and the GH-responsive nuclear factors STAT5a, STAT5b and HNF4-alpha. Whole-genome expression arrays were used to examine sexually dimorphic gene expression in mouse livers.'
+'Segex was conceived by David J. Waxman (Boston University) and developed primarily by Eugene Scherba and Michael McDuffie.'
       ),
       $q->p(
-'This SEGEX database provides public access to previously released datasets from the Waxman laboratory, and provides data mining tools and data visualization to query gene expression across several studies and experimental conditions.'
-      ),
-      $q->p(
-'Developed at Boston University as part of the BE768 Biologic Databases course, Spring 2009, G. Benson instructor. Student developers: Anna Badiee, Eugene Scherba, Katrina Steiling and Niraj Trivedi. Faculty advisor: David J. Waxman.'
+'Initial work on the database was done by Katrina Steiling. Niraj Trivedi contributed some visualization code.'
       );
 }
 

@@ -22,7 +22,7 @@ my $all_resources = {
           'Search for probes by probe ids, gene symbols, accession numbers',
         perm => 'readonly'
     },
-    outputData  => { label => 'Output Data',  perm => 'readonly' },
+    outputData => { label => 'Output Data', perm => 'readonly' },
 
     # Manage
     platforms   => { label => 'Manage Platforms' },
@@ -49,7 +49,7 @@ sub make_link_creator {
         foreach my $action (@_) {
             if ( my $properties = $resource_table->{$action} ) {
                 my $perm = $properties->{perm} || 'user';
-                next if $obj->is_authorized(level => $perm) != 1;
+                next if $obj->is_authorized( level => $perm ) != 1;
                 my $label = $properties->{label} || $action;
                 my $title = $properties->{title} || $label;
                 my $link_class =
@@ -285,7 +285,7 @@ sub build_sidemenu {
 
     my @menu;
     my $url_prefix = $q->url( -absolute => 1 );
-    if ( $obj->is_authorized() == 1 ) {
+    if ( $obj->is_authorized( level => 'unauth' ) == 1 ) {
 
         my $proj_name = $obj->get_volatile('session_cookie')->{proj_name};
         my $curr_proj = $obj->get_volatile('session_cookie')->{curr_proj};
@@ -361,24 +361,20 @@ sub build_sidemenu {
           );
     }
     push @menu,
-      $q->span(
-        { -style => 'color:#999' },
-        $q->a(
-            {
-                -href  => "$url_prefix?b=about",
-                -title => 'About this site'
-            },
-            'About'
-          )
-          . ' / '
-          . $q->a(
-            {
-                -href   => "$url_prefix?b=help",
-                -title  => 'Help pages',
-                -target => 'new'
-            },
-            'Help'
-          )
+      $q->a(
+        {
+            -href  => "$url_prefix?b=about",
+            -title => 'About Segex'
+        },
+        'About'
+      )
+      . $q->span( { -class => 'separator' }, ' / ' )
+      . $q->a(
+        {
+            -href  => "$url_prefix?b=help",
+            -title => 'Help pages'
+        },
+        'Help'
       );
     return \@menu;
 }
@@ -398,7 +394,7 @@ sub build_sidemenu {
 sub build_menu {
     my $obj = shift;
     my $q   = $obj->{_cgi};
-    return '&nbsp;' if ($obj->is_authorized(level => 'readonly') != 1);
+    return '&nbsp;' if ( $obj->is_authorized( level => 'readonly' ) != 1 );
 
     my $link_creator =
       make_link_creator( $all_resources, $obj, $q, $q->url_param('a') );
