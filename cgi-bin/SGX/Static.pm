@@ -44,7 +44,19 @@ sub default_body {
     my $q    = $self->{_cgi};
 
     return $q->h2('Help'),
-      $q->p('Help pages will be written in parallel with the publication...');
+      $q->p('Help pages will be written in parallel with the publication...'),
+      $q->p(
+        'For detailed installation instructions, see README file in the
+          Segex directory (you can also view it ',
+        $q->a(
+            {
+                -title => 'Segex README on Github',
+                -href  => 'https://github.com/escherba/segex/blob/master/README'
+            },
+            'on Github'
+        ),
+        ')'
+      );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -87,15 +99,27 @@ sub about_body {
     my $q    = $self->{_cgi};
 
     return $q->h2('About'),
-      $q->p(
-'Segex is a data management and visualization system for storage, basic analysis, and retrieval of gene expression data.'
-      ),
-      $q->p(
-'Segex was conceived by David J. Waxman (Boston University) and developed primarily by Eugene Scherba and Michael McDuffie.'
-      ),
-      $q->p(
-'Initial work on the database was done by Katrina Steiling. Niraj Trivedi contributed some visualization code.'
-      ),
+
+      # ==== ABOUT SEGEX =====
+      $q->h3('About Segex'), $q->p(<<"END_paragraph1"),
+Segex was designed to help your lab store, view, and retrieve gene expression
+data in one centralized location via the web. 
+END_paragraph1
+      $q->p(<<"END_paragraph2"),
+You can use Segex to visualize
+responses of your microarray probes via basic graphs, enter and search probe-
+and gene-specific annotation, or you can perform sophisticated comparisons of
+probe sets under different experimental conditions.
+END_paragraph2
+      $q->p(<<"END_paragraph3"),
+Segex was conceived by David J. Waxman (Boston University) and developed
+primarily by Eugene Scherba and Michael McDuffie. Initial work on the database
+was done by Eugene Scherba and Katrina Steiling.  Some visualization code was
+contributed by Niraj Trivedi.
+END_paragraph3
+
+      # ====== MORE =======
+      $q->h3('More'),
       $q->p(
         $q->a(
             {
@@ -105,6 +129,17 @@ sub about_body {
             'Click here'
         ),
         'to download a PDF of Segex database schema.'
+      ),
+      $q->p(
+        'Visit Segex on',
+        $q->a(
+            {
+                -href  => 'http://github.com/escherba/segex',
+                -title => 'Segex on Github'
+            },
+            'Github'
+        ),
+        '.'
       );
 }
 
