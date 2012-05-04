@@ -102,9 +102,9 @@ sub default_body {
     return $q->h2('About'),
 
       # ==== ABOUT SEGEX =====
-      $q->h3('About Segex'), $q->p(<<"END_paragraph1"),
-Segex was designed to help your lab store, view, and retrieve gene expression
-data in one centralized location via the web. 
+      $q->h3('What is Segex?'), $q->p(<<"END_paragraph1"),
+Segex is an online data management system designed to help your lab store, view,
+and retrieve gene expression data in one centralized location via the web.
 END_paragraph1
       $q->p(<<"END_paragraph2"),
 You can use Segex to visualize

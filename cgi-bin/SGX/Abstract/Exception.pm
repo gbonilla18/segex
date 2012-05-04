@@ -22,9 +22,13 @@ use Exception::Class (
         isa         => 'SGX::Exception::Internal',
         description => 'Mailer error'
     },
-    'SGX::Exception::Internal::Session' => {
+    'SGX::Exception::Session' => {
         isa         => 'SGX::Exception::Internal',
         description => 'Session-related error'
+    },
+    'SGX::Exception::Session::Expired' => {
+        isa         => 'SGX::Exception::User',
+        description => 'Expired or invalid user session'
     },
     'SGX::Exception::Internal::Duplicate' => {
         isa         => 'SGX::Exception::Internal',

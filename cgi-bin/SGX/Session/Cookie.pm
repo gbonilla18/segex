@@ -5,11 +5,12 @@ use warnings;
 
 use vars qw($VERSION);
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 use base qw/SGX::Session::Base/;
 
 use Readonly ();
+require Digest::SHA1;
 require CGI::Cookie;
 use File::Basename qw/dirname/;
 
@@ -52,6 +53,23 @@ sub session_cookie_store {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Cookie
+#       METHOD:  encrypt
+#   PARAMETERS:  string
+#      RETURNS:  SHA1 hash of input string
+#  DESCRIPTION:  Generate a sha1_hex hash of an input string. If input is
+#                undefined, returns an undefined value as well.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub encrypt {
+    my $self  = shift;
+    my $input = shift;
+    return defined($input) ? Digest::SHA1::sha1_hex($input) : undef;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::Cookie
 #       METHOD:  restore
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -90,6 +108,108 @@ sub restore {
     }
 
     return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::Base
+#       METHOD:  authenticate
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub authenticate {
+    my ( $self, $args ) = @_;
+    my ( $session_id, $username, $password ) =
+      @$args{qw(session_id username password)};
+
+    # default: true
+    my $reset_session =
+      ( exists $args->{reset_session} )
+      ? $args->{reset_session}
+      : 1;
+
+    ( defined($session_id) && $session_id ne '' )
+      or SGX::Exception::Session->throw( error => 'No session id provided' );
+    ( defined($username) && $username ne '' )
+      or SGX::Exception::User->throw( error => 'No username provided' );
+    ( defined($password) && $password ne '' )
+      or SGX::Exception::User->throw( error => 'No password provided' );
+
+    # convert password to SHA1 hash right away
+    $password = $self->encrypt($password);
+
+    #---------------------------------------------------------------------------
+    #  authenticate
+    #---------------------------------------------------------------------------
+    # :TRICKY:08/08/2011 10:09:29:es: We invalidate previous session id by
+    # calling destroy() followed by start() to prevent Session Fixation
+    # vulnerability: https://www.owasp.org/index.php/Session_Fixation
+
+    SGX::Exception::Session::Expired->throw(
+        error => 'Your session has expired' )
+      unless $self->SUPER::restore($session_id);
+
+    my $stash              = $self->{session_stash};
+    my $session_username   = $stash->{username};
+    my $session_password   = $stash->{password};
+    my $session_user_level = $stash->{user_level};
+    my $session_full_name  = $stash->{full_name};
+    my $session_email      = $stash->{email};
+
+    if ( !defined($session_username) || !defined($session_password) ) {
+
+        # Eat up this session; we are not keen on keeping session info in the
+        # database
+        $self->destroy();
+        SGX::Exception::Session->throw( error => 'Bad session' );
+    }
+
+    SGX::Exception::User->throw( error => 'Login incorrect' )
+      unless ( $session_username eq $username
+        && $session_password eq $password );
+
+    #---------------------------------------------------------------------------
+    #  authenticated OK
+    #---------------------------------------------------------------------------
+    if ($reset_session) {
+
+        # get a new session handle.
+        $self->destroy();
+        $self->start();
+    }
+
+    # Login username and user level are sensitive data: we only store them
+    # remotely as part of session data. Note: by setting user_level field in
+    # session data, we grant the owner of the current session access to the site
+    # under that specific authorization level. In other words, this is the
+    # specific line where the "magic" act of granting access happens. Note that
+    # we only grant access to a new session handle, destroying the old one.
+    SGX::Exception::Session->throw( error => 'Could not store session info' )
+      unless $self->session_store(
+        username   => $username,
+        user_level => $session_user_level
+      );
+
+    # Note: read permanent cookie before setting session cookie fields here:
+    # this helps preserve the flow: database -> session -> (session_cookie,
+    # perm_cookie), since reading permanent cookie synchronizes everything in it
+    # with the session cookie.
+    $self->read_perm_cookie($username);
+
+    # Full user name is not sensitive from database perspective and can be
+    # stored on the cliend in a can be stored on the client in a session cookie.
+    # Note that there is no need to store it in a permanent cookie on the client
+    # because the authentication process will involve a database transaction
+    # anyway and a full name can be looked up from there.
+    $self->session_cookie_store(
+        full_name => $session_full_name,
+        email     => $session_email
+    );
+
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================

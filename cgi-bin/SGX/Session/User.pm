@@ -4,19 +4,18 @@ use strict;
 use warnings;
 
 use vars qw($VERSION);
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 use base qw/SGX::Session::Cookie/;
 
 use Readonly ();
-use Digest::SHA1 qw/sha1_hex/;
 require Mail::Send;
 require Email::Address;
 
 use SGX::Debug;
 use SGX::Abstract::Exception ();
 require SGX::Session::Base;    # for email confirmation
-use SGX::Util qw/car equal/;
+use SGX::Util qw/car equal list_keys list_values/;
 
 # minimum password length (in characters)
 Readonly::Scalar my $MIN_PWD_LENGTH => 6;
@@ -67,7 +66,7 @@ sub commit {
         my $username = $self->{session_stash}->{username};
         return unless defined($username);
         $self->add_cookie(
-            -name    => sha1_hex($username),
+            -name    => $self->encrypt($username),
             -value   => $self->{perm_cookie},
             -expires => '+3M'
         );
@@ -79,9 +78,31 @@ sub commit {
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
 #       METHOD:  authenticate
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  Overrides Session::Base::authenticate
+#     SEE ALSO:  n/a
+#===============================================================================
+sub authenticate {
+    my ( $self, $args ) = @_;
+    my $session_id = $args->{session_id};
+    return ( defined( $args->{session_id} ) && $session_id ne '' )
+      ? $self->SUPER::authenticate($args)
+      : $self->authenticateFromDB($args);
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
+#       METHOD:  authenticateFromDB
 #   PARAMETERS:  $self - reference to object instance
-#                $username - user name string
-#                $password - password string
+#               {
+#                username => user name string
+#                password => password string
+#                reset_session => whether to destroy existing session and start
+#                               a new one on successful login
+#                }
 #      RETURNS:  1 on success, 0 on failure
 #
 #  DESCRIPTION:  Queries the `users' table in the database for matching username
@@ -99,33 +120,33 @@ sub commit {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub authenticate {
-    my ( $self, $login, %args ) = @_;
+sub authenticateFromDB {
+    my ( $self, $args ) = @_;
 
-    my ( $username, $password ) = @$login{qw(username password)};
+    my ( $username, $password ) = @$args{qw(username password)};
     ( defined($username) && $username ne '' )
-      or SGX::Exception::User->throw( error => 'No username specified' );
+      or SGX::Exception::User->throw( error => 'No username provided' );
 
-    #( defined($password) && $password ne '' )
-    # or SGX::Exception::User->throw( error => 'No password specified' );
+    # convert password to SHA1 hash right away
+    $password = $self->encrypt($password);
 
     # default: true
     my $reset_session =
-      ( exists $args{reset_session} )
-      ? $args{reset_session}
+      ( exists $args->{reset_session} )
+      ? $args->{reset_session}
       : 1;
 
     #---------------------------------------------------------------------------
     #  get user info triple from the database
     #---------------------------------------------------------------------------
     my $query =
-      ( defined $password )
+      defined($password)
       ? 'select uid, level, full_name, email from users where uname=? and pwd=?'
       : 'select uid, level, full_name, email from users where uname=?';
 
     my @params =
-        ( defined $password )
-      ? ( $username, sha1_hex($password) )
+      defined($password)
+      ? ( $username, $password )
       : ($username);
 
     my $dbh       = $self->{dbh};
@@ -137,11 +158,11 @@ sub authenticate {
         $sth->finish;
         $self->destroy();
         SGX::Exception::User->throw( error => 'Login incorrect' );
-        return;
     }
     elsif ( $row_count > 1 ) {
 
-        # throw Internal::Duplicate exception
+        # should never end up here if uname field has a unique index on it in
+        # the database
         $sth->finish;
         $self->destroy();
         SGX::Exception::Internal::Duplicate->throw(
@@ -149,10 +170,9 @@ sub authenticate {
     }
 
     # user found in the database
-    my ( $user_id, $user_level, $user_full_name, $user_email ) =
-      $sth->fetchrow_array;
+    my $udata = $sth->fetchrow_hashref;
     $sth->finish;
-    $self->{_user_id} = $user_id;
+    $self->{_user_id} = $udata->{uid};
 
     #---------------------------------------------------------------------------
     #  authenticate
@@ -174,10 +194,10 @@ sub authenticate {
     # under that specific authorization level. In other words, this is the
     # specific line where the "magic" act of granting access happens. Note that
     # we only grant access to a new session handle, destroying the old one.
-    return
+    SGX::Exception::Session->throw( error => 'Could not store session info' )
       unless $self->session_store(
         username   => $username,
-        user_level => $user_level
+        user_level => $udata->{level},
       );
 
     # Note: read permanent cookie before setting session cookie fields here:
@@ -192,8 +212,8 @@ sub authenticate {
     # because the authentication process will involve a database transaction
     # anyway and a full name can be looked up from there.
     $self->session_cookie_store(
-        full_name => $user_full_name,
-        email     => $user_email
+        full_name => $udata->{full_name},
+        email     => $udata->{email}
     );
 
     return 1;
@@ -217,13 +237,12 @@ sub restore {
     # restored from cookies (i.e. for which no session id was provided).
     return 1 unless defined($id);
 
-    # confirm username
+    #---------------------------------------------------------------------------
+    #  authenticate against database
+    #---------------------------------------------------------------------------
     my $username = $self->{session_stash}->{username};
-
-    #---------------------------------------------------------------------------
-    #  authenticate from username
-    #---------------------------------------------------------------------------
-    return $self->authenticate( { username => $username }, reset_session => 0 );
+    return $self->authenticateFromDB(
+        { username => $username, reset_session => 0 } );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -262,73 +281,60 @@ sub reset_password {
       or SGX::Exception::User->throw( error =>
           'You did not provide your login ID or a valid email address.' );
 
-    # :TODO:08/08/2011 13:57:26:es: Can abstract out a method
-    # $self->getSingleUser($uname, {pwd => '...', email_confirmed => 0..1}) --
-    # see similar code in $self->authenticate().
     my $dbh = $self->{dbh};
     my $sth = $dbh->prepare(
 "select uid, uname, level, full_name, email from users where $lvalue=? and email_confirmed=1"
     );
+
+    # Do not check for duplicates: duplicates could only mean that there are two
+    # usernames for the same email address. In that case, pick the first user
+    # record returned by the DBI and send an email.
     my $rows_found = $sth->execute($rvalue);
     if ( $rows_found < 1 ) {
 
         # user not found in the database
         $sth->finish;
-        SGX::Exception::Internal->throw( error =>
-'The user does not exist in the database or user email address has not been verified'
+        SGX::Exception::User->throw( error =>
+'User name does not exist in the database or user email address has not been verified'
         );
     }
-    elsif ( $rows_found > 1 ) {
 
-        # several users found (e.g. when two or more users share the same email
-        # address).
-        $sth->finish;
-        SGX::Exception::Internal::Duplicate->throw(
-            error => "$rows_found records were found where one was expected" );
-    }
-
-    # single user found in the database
-    my ( $user_id, $username, $user_level, $user_full_name, $user_email ) =
-      $sth->fetchrow_array;
+    # fetch data for the first user
+    my $udata = $sth->fetchrow_hashref;
     $sth->finish;
-    $self->{_user_id} = $user_id;
+    $self->{_user_id} = $udata->{uid};
 
     #---------------------------------------------------------------------------
-    #  email a temporary access link
+    # Set up a new session for data store
     #---------------------------------------------------------------------------
-
     my $hours_to_expire = 48;
-
-    my $s = SGX::Session::Base->new(
+    my $s               = SGX::Session::Base->new(
         dbh       => $self->{dbh},
         expire_in => 3600 * $hours_to_expire,
         check_ip  => 1
     );
-
     $s->start();
-
-    # :TRICKY:08/08/2011 12:29:42:es: This is were we grant previously existing
-    # access level to a special URL and then send this URL to the user's email
-    # address.
     $s->session_store(
-        username   => $username,
-        user_level => $user_level,
+        username   => $udata->{uname},
+        user_level => $udata->{level},
         change_pwd => 1
     );
-
     return unless $s->commit();
     my $session_id = $s->get_session_id();
 
+    #---------------------------------------------------------------------------
+    #  email a temporary access link
+    #---------------------------------------------------------------------------
     my $msg = Mail::Send->new(
         Subject => "Your Request to Change Your $project_name Password",
-        To      => $user_email
+        To      => $udata->{email}
     );
     $msg->add( 'From', 'no-reply' );
     my $fh = $msg->open()
       or SGX::Exception::Internal::Mail->throw(
         error => 'Failed to open default mailer' );
     print $fh <<"END_RESET_PWD_MSG";
-Hi $user_full_name,
+Hi $udata->{full_name},
 
 Please follow the link below to login to $project_name where you can change your
 password to one of your preference:
@@ -409,6 +415,9 @@ sub change_password {
       or SGX::Exception::User->throw(
         error => 'The new and the old passwords you entered are the same.' );
 
+    $new_password = $self->encrypt($new_password);
+    $old_password = $self->encrypt($old_password);
+
     my $username = $self->{session_stash}->{username};
     ( defined($username) && $username ne '' )
       or SGX::Exception::Internal->throw( error =>
@@ -421,8 +430,8 @@ sub change_password {
 
     my @params =
         ($require_old)
-      ? ( sha1_hex($new_password), $username, sha1_hex($old_password) )
-      : ( sha1_hex($new_password), $username );
+      ? ( $new_password, $username, $old_password )
+      : ( $new_password, $username );
 
     my $dbh = $self->{dbh};
     my $rows_affected = $dbh->do( $query, undef, @params );
@@ -486,8 +495,8 @@ sub change_email {
 'You did not provide an email address or the email address entered is not in a valid format.'
       );
     my $email_address = $email_handle->address;
+    $password = $self->encrypt($password);
 
-    $password = sha1_hex($password);
     my $username = $self->{session_stash}->{username};
     ( defined($username) && $username ne '' )
       or SGX::Exception::Internal->throw( error =>
@@ -508,6 +517,7 @@ sub change_email {
                 full_name       => $full_name,
                 username        => $username,
                 email_address   => $email_address,
+                password_hash   => $password,
                 login_uri       => $login_uri,
                 hours_to_expire => 48
             }
@@ -548,6 +558,28 @@ END_change_email_text
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
+#       METHOD:  create_user
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub create_user {
+    my $self = shift;
+    my $dbh  = $self->{dbh};
+
+    my $sql =
+      'INSERT INTO users SET ' . join( ',', map { "$_=?" } list_keys @_ );
+    my $sth = $dbh->prepare($sql);
+    my $ret = $sth->execute( list_values @_ );
+    $sth->finish;
+    return $ret;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
 #       METHOD:  register_user
 #   PARAMETERS:  ????
 #      RETURNS:  1 on success, 0 on failure
@@ -559,11 +591,8 @@ END_change_email_text
 sub register_user {
     my ( $self, %param ) = @_;
 
-    my ( $username, $passwords, $emails, $full_name, $address, $phone,
-        $project_name, $login_uri )
-      = @param{
-        qw/username passwords emails full_name address phone project_name login_uri error/
-      };
+    my ( $username, $passwords, $emails, $full_name, $project_name, $login_uri )
+      = @param{qw/username passwords emails full_name project_name login_uri/};
 
     ( defined($username) && $username ne '' )
       or SGX::Exception::User->throw( error => 'Username not specified' );
@@ -581,6 +610,7 @@ sub register_user {
     ( length($password) >= $MIN_PWD_LENGTH )
       or SGX::Exception::User->throw( error =>
           "New password must be at least $MIN_PWD_LENGTH characters long" );
+    $password = $self->encrypt($password);
 
     ( defined($full_name) && $full_name ne '' )
       or SGX::Exception::User->throw( error => 'Full name not specified' );
@@ -596,8 +626,6 @@ sub register_user {
 
     my $email = car @$emails;
 
-    my $dbh = $self->{dbh};
-
     # Parsing email address with Email::Address->parse() has the side effect of
     # untainting user-entered email (applicable when CGI script is run in taint
     # mode with -T switch).
@@ -608,6 +636,7 @@ sub register_user {
       );
     my $email_address = $email_handle->address;
 
+    my $dbh       = $self->{dbh};
     my $sth_check = $dbh->prepare('select count(*) from users where uname=?');
     $sth_check->execute($username);
     my ($user_found) = $sth_check->fetchrow_array;
@@ -617,19 +646,15 @@ sub register_user {
         error => "The user $username already exists in the database" );
 
     #---------------------------------------------------------------------------
-    #  User is inserted simultaneously as message is sent. In case of error,
-    #  no data are stored to the database (rollback occurs).
+    #  Send email message
     #---------------------------------------------------------------------------
-    my $sth_insert = $dbh->prepare(
-'insert into users set uname=?, pwd=?, email=?, full_name=?, address=?, phone=?'
-    );
-
     eval {
         $self->send_verify_email(
             {
                 project_name    => $project_name,
                 full_name       => $full_name,
                 username        => $username,
+                password_hash   => $password,        # SHA1 hash
                 email_address   => $email_address,
                 login_uri       => $login_uri,
                 hours_to_expire => 48
@@ -647,9 +672,6 @@ sub register_user {
         SGX::Exception::Internal->throw( error => 'Email could not be sent' );
     };
 
-    $sth_insert->execute( $username, sha1_hex($password), $email_address,
-        $full_name, $address, $phone );
-    $sth_insert->finish();
     return 1;
 }
 
@@ -732,8 +754,7 @@ sub send_verify_email {
     # get id of the new session
     defined( my $session_id = $s->get_session_id() ) or do {
         $fh->close();
-        SGX::Exception::Internal::Session->throw(
-            error => 'Undefined session id' );
+        SGX::Exception::Session->throw( error => 'Undefined session id' );
     };
 
     print $fh <<"END_CONFIRM_EMAIL_MSG";
@@ -742,7 +763,7 @@ Hi $data->{full_name},
 Please confirm your email address with $data->{project_name} by clicking on the
 link below:
 
-$data->{login_uri}&sid=$session_id
+$data->{login_uri}&_sid=$session_id
 
 This link will expire in $hours_to_expire hours.
 
@@ -759,12 +780,16 @@ END_CONFIRM_EMAIL_MSG
 
     # Now back to dealing with session
     # store the username in the session object
-    $s->session_store( username => $data->{username} );
+    $s->session_store(
+        username  => $data->{username},
+        password  => $data->{password_hash},    # SHA1 hash
+        email     => $data->{email_address},
+        full_name => $data->{full_name}
+    );
 
     # commit session to database/storage
     $s->commit()
-      or SGX::Exception::Internal::Session->throw(
-        error => 'Cannot store session data' );
+      or SGX::Exception::Session->throw( error => 'Cannot store session data' );
     return 1;
 }
 
@@ -836,7 +861,7 @@ sub read_perm_cookie {
     # given then turn to session data.
     $username = $self->{session_stash}->{username} unless defined($username);
 
-    my $cookie_name = sha1_hex($username);
+    my $cookie_name = $self->encrypt($username);
     my $cookies_ref = $self->{fetched_cookies};
 
     # in hash context, CGI::Cookie::value returns a hash
@@ -977,7 +1002,7 @@ sub get_user_id {
         my $dbh = $self->{dbh};
         my $sth = $dbh->prepare('select uid from users where uname=?');
         my $rc  = $sth->execute($username);
-        $user_id = $sth->fetchrow_array;
+        ($user_id) = $sth->fetchrow_array;
         $sth->finish;
     }
 

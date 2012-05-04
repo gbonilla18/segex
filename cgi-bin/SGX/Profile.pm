@@ -251,13 +251,12 @@ sub init {
         registerUser =>
           { head => 'registerUser_head', perm => [ 'anonym', 'anonym' ] },
         form_login => {
-            head => 'default_head', # cannot leave this field empty since
-                                    # in that case the system will lookup
-                                    # default action ('') for its head hook
-                                    # (default_head), and default action in this
-                                    # module requires user to be logged in and
-                                    # will redirect back to form_login causing
-                                    # an infinite loop.
+
+            # "head" attribute cannot be empty since in that case the system
+            # will lookup default action ('') for its head hook (default_head),
+            # and default action in this module requires user to be logged in
+            # and will redirect back to form_login causing an infinite loop.
+            head => 'default_head',
             body => 'form_login_body',
             perm => [ 'anonym', 'anonym' ]
         },
@@ -414,18 +413,17 @@ sub login_head {
     #---------------------------------------------------------------------------
     #  Attempt login
     #---------------------------------------------------------------------------
-    my $login_ok = eval {
-        defined($s)
-          && $s->authenticate(
+    eval {
+        $s->authenticate(
             {
                 username => car( $q->param('username') ),
-                password => car( $q->param('password') )
+                password => car( $q->param('password') ),
             }
-          ) && $self->is_authorized() == 1;
+        );
     } or do {
 
     #---------------------------------------------------------------------------
-    #  Login failed
+    #  Exception condition
     #---------------------------------------------------------------------------
         my $exception;
         if ( $exception = Exception::Class->caught('SGX::Exception::User') ) {
@@ -435,25 +433,28 @@ sub login_head {
             $self->set_action('form_login');
             return 1;
         }
-        elsif ( $exception = Exception::Class->caught() ) {
+        else {
 
-            # Internal error
-            warn $exception->error;
+            # No error or internal error
+            $exception = Exception::Class->caught();
+            warn( $exception ? $exception->error : 'Unknown error' );
             $self->add_message(
                 { -class => 'error' },
-'Failed to process you login. If you are an administrator, see error log for details of this error.'
+'Failed to process your login. If you are an administrator, see error log for details of this error.'
             );
             $self->set_action('');
             return 1;
         }
-        else {
-
-            # No error
-            $self->add_message( { -class => 'error' }, 'Login failed.' );
-            $self->set_action('form_login');
-            return 1;
-        }
     };
+
+    #---------------------------------------------------------------------------
+    #  Unauthorized
+    #---------------------------------------------------------------------------
+    if ( $self->is_authorized() != 1 ) {
+        $self->add_message( { -class => 'error' }, 'Login failed.' );
+        $self->set_action('form_login');
+        return 1;
+    }
 
     #---------------------------------------------------------------------------
     #  Login OK
@@ -509,12 +510,16 @@ sub form_login_body {
         ? $q->url_param('next')
         : $uri
     );
+    my $form_login_action =
+      defined( $self->{_form_login_action} )
+      ? $self->{_form_login_action}
+      : "?a=profile&b=login&next=$destination";
+
     return $q->h2('Login to Segex'),
       $q->start_form(
         -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
-        -action         => $q->url( -absolute => 1 )
-          . "?a=profile&b=login&next=$destination",
+        -action         => $q->url( -absolute => 1 ) . $form_login_action,
         -onsubmit =>
           'return validate_fields(this, [\'username\',\'password\']);'
       ),
@@ -574,38 +579,148 @@ sub registerUser_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    my $errors_encountered = 0;
-    eval {
-        $s->register_user(
-            username     => car( $q->param('username') ),
-            passwords    => [ $q->param('password') ],
-            emails       => [ $q->param('email') ],
-            full_name    => car( $q->param('full_name') ),
-            address      => car( $q->param('address') ),
-            phone        => car( $q->param('phone') ),
-            project_name => 'Segex',
-            login_uri    => $q->url( -full => 1 ) . '?a=profile&b=verifyEmail'
-        );
-    } or do {
-        if ( my $exception = Exception::Class->caught() ) {
-            my $msg = eval { $exception->error } || "$exception";
-            $self->add_message( { -class => 'error' }, $msg );
+    my $sid = car $q->url_param('_sid');
+    if ( defined $sid ) {
+        if ( defined $q->param('login') ) {
+
+    #---------------------------------------------------------------------------
+    #  Sent here from login form, also have sid
+    #---------------------------------------------------------------------------
+            my $username = car $q->param('username');
+            my $password = car $q->param('password');
+
+            # destroy existing session
+            $s->destroy();
+            eval {
+                $s->authenticate(
+                    {
+                        username   => $username,
+                        password   => $password,
+                        session_id => $sid
+                    }
+                );
+            } or do {
+                my $exception;
+                if (
+                    $exception = Exception::Class->caught(
+                        'SGX::Exception::Session::Expired')
+                  )
+                {
+
+                    # expired session: allow simple login
+                    $self->add_message( { -class => 'error' },
+                        $exception->error );
+                    $self->set_action('form_login');
+                    return 1;
+                }
+                elsif ( $exception =
+                    Exception::Class->caught('SGX::Exception::User') )
+                {
+
+                    # User error: show the same form with the same action URI to
+                    # allow user to reenter his/her credentials.
+                    $self->add_message( { -class => 'error' },
+                        $exception->error );
+                    $self->{_form_login_action} =
+                      '?a=profile&b=registerUser&_sid=' . $sid;
+                    $self->set_action('form_login');
+                    return 1;
+                }
+                else {
+
+                    # No error or internal error
+                    $exception = Exception::Class->caught();
+                    warn( $exception ? $exception->error : 'Unknown error' );
+                    $self->add_message(
+                        { -class => 'error' },
+'Failed to process your login. If you are an administrator, see error log for details of this error.'
+                    );
+                    $self->set_action('');
+                    return 1;
+                }
+            };
+            $self->add_message('User credentials authenticated.');
+
+            # register user
+            eval {
+                $s->create_user(
+                    uname           => $username,
+                    pwd             => $s->encrypt($password),
+                    email           => $s->{session_cookie}->{email},
+                    full_name       => $s->{session_cookie}->{full_name},
+                    email_confirmed => 1
+                );
+            } or do {
+                my $exception;
+                if ( $exception =
+                    Exception::Class->caught('Exception::Class::DBI::STH') )
+                {
+                    $self->add_message( { -class => 'error' },
+                        $exception->error );
+                }
+                else {
+                    warn( $exception ? "$exception" : 'Unknown error' );
+                    $self->add_message(
+                        { -class => 'error' },
+'Failed to process your login. If you are an administrator, see error log for details of this error.'
+                    );
+                }
+                $self->set_action('');
+                return 1;
+            };
+
+            # Grant basic access (we actually call this level 'nogrants' because
+            # it does not let one perform any SQL statements on data).
+            $s->session_store( user_level => 'nogrants' );
+
+            # on success show default page (user profile)
+            $self->add_message('Success! You are now registered with Segex.');
+            $self->set_action('');
+            return 1;
         }
         else {
-            $self->add_message( { -class => 'error' },
-                'No user record created' );
-        }
-        $errors_encountered++;
-    };
 
-    if ($errors_encountered) {
-        $self->set_action('form_registerUser');  # show corresponding form again
+    #---------------------------------------------------------------------------
+    #  Have sid, show login form
+    #---------------------------------------------------------------------------
+            $self->add_message(
+'Please enter your username and password to complete the registration process.'
+            );
+            $self->{_form_login_action} =
+              '?a=profile&b=registerUser&_sid=' . $sid;
+            $self->set_action('form_login');
+            return 1;
+        }
     }
     else {
+        eval {
+            $s->register_user(
+                username     => car( $q->param('username') ),
+                passwords    => [ $q->param('password') ],
+                emails       => [ $q->param('email') ],
+                full_name    => car( $q->param('full_name') ),
+                project_name => 'Segex',
+                login_uri => $q->url( -full => 1 ) . '?a=profile&b=registerUser'
+            );
+        } or do {
+            if ( my $exception = Exception::Class->caught() ) {
+                my $msg = eval { $exception->error } || "$exception";
+                $self->add_message( { -class => 'error' }, $msg );
+            }
+            else {
+                $self->add_message( { -class => 'error' },
+                    'No user record created' );
+            }
+
+            # show corresponding form again
+            $self->set_action('form_registerUser');
+            return 1;
+        };
+
         $self->add_message( $s->register_user_text() );
-        $self->set_action('');                   # show default/profile page
+        $self->set_action('');    # show default/profile page
+        return 1;
     }
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -734,6 +849,7 @@ sub resetPassword_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
+    #$s->restore( car $q->url_param('sid') );
     eval {
         $s->reset_password(
             username_or_email => car( $q->param('username') ),
@@ -854,7 +970,8 @@ sub verifyEmail_head {
     );
     if ( $t->restore( car $q->param('sid') ) ) {
         my $username = $t->{session_stash}->{username};
-        if ( $s->verify_email( $username ) ) {
+        if ( $s->verify_email($username) ) {
+
             #my $new_address = car $q->param('address');
             # now we are free to set the new address by using the variables:
             # $username and $new_address.

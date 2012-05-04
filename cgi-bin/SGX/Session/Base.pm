@@ -5,7 +5,7 @@ use warnings;
 
 use vars qw($VERSION);
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 require Apache::Session::MySQL;
 use Scalar::Util qw/looks_like_number/;
@@ -95,7 +95,7 @@ sub session_is_tied {
 #      RETURNS:  returns 1 if a new session was started or an old one restored *by
 #                this subroutine*, 0 otherwise
 #  DESCRIPTION:
-#       THROWS:  SGX::Exception::Internal::Session
+#       THROWS:  SGX::Exception::Session
 #     COMMENTS:  Deals with session_obj only
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -105,7 +105,7 @@ sub tie_session {
     # throw exception -- attempting to tie a session to a hash that's currently
     # occupied
     if ( $self->session_is_tied() ) {
-        SGX::Exception::Internal::Session->throw( error =>
+        SGX::Exception::Session->throw( error =>
               'Cannot tie to session hash: another session is currently active'
         );
     }
@@ -127,7 +127,7 @@ sub tie_session {
         # :TRICKY:12/01/2011 11:13:44:es: this is triggered whenever a page
         # sends POST parameter named 'sid', so we should avoid naming form
         # elements with 'sid' until this is fixed.
-        SGX::Exception::Internal::Session->throw(
+        SGX::Exception::Session->throw(
             error => 'Generated session id does not match requested' );
     }
     return 1;
@@ -229,7 +229,7 @@ sub checkin {
     if ( !$self->session_is_tied() ) {
 
         # Internal error -- no session tied
-        SGX::Exception::Internal::Session->throw(
+        SGX::Exception::Session->throw(
             error => 'No session attached: cannot checkin' );
     }
 
@@ -289,8 +289,7 @@ sub stash_session {
     my $session_id = $self->get_session_id();
 
     if ( !defined($session_id) ) {
-        SGX::Exception::Internal::Session->throw(
-            error => 'Undefined session id' );
+        SGX::Exception::Session->throw( error => 'Undefined session id' );
     }
     return 1;
 }
@@ -317,7 +316,7 @@ sub get_session_id {
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Attempt to attach to a session. On fail, return false.
-#       THROWS:  SGX::Exception::Internal::Session
+#       THROWS:  SGX::Exception::Session
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
@@ -325,7 +324,7 @@ sub restore {
     my ( $self, $id ) = @_;
 
     if ( !defined($id) ) {
-        SGX::Exception::Internal::Session->throw(
+        SGX::Exception::Session->throw(
             error => 'Cannot restore session from unspecified id' );
     }
 
@@ -409,7 +408,7 @@ sub cleanse {
 #   PARAMETERS:  ????
 #      RETURNS:  True value on success
 #  DESCRIPTION:  Initialize a freshly tied session object with values
-#       THROWS:  SGX::Exception::Internal::Session
+#       THROWS:  SGX::Exception::Session
 #     COMMENTS:  Call after opening a new session. After initialization,
 #                checkin(), if called, must return true.
 #     SEE ALSO:  n/a
@@ -418,11 +417,11 @@ sub init_session {
     my $self = shift;
 
     if ( !defined( $self->{session_obj}->{_session_id} ) ) {
-        SGX::Exception::Internal::Session->throw( error =>
+        SGX::Exception::Session->throw( error =>
               'Session hash does not contain required field _session_id' );
     }
     if ( !$self->session_is_tied() ) {
-        SGX::Exception::Internal::Session->throw(
+        SGX::Exception::Session->throw(
             error => 'Cannot initialize untied session hash' );
     }
 
@@ -438,7 +437,7 @@ sub init_session {
     my $ok = $self->checkin();
 
     if ( !$ok ) {
-        SGX::Exception::Internal::Session->throw( error => 'Cannot checkin' );
+        SGX::Exception::Session->throw( error => 'Cannot checkin' );
     }
 
     return $ok;

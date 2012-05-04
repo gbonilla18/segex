@@ -509,3 +509,15 @@ Avoid using grayed-out text in forms -- gray color should be reserved for
 controls that are disabled. Instead, use either (a) text in a different color,
 or (b) HTML tooltips using "title" attribute on controls, or (c ) YUI tooltips.
 
+8. Debugging
+
+In the development version, you can use croak and carp from CGI::Carp (they
+replace die and warn respectively) to send error messages to the browser.
+
+To display stacktrace for a function call, place the following inside the
+function:
+
+	use Devel::StackTrace;
+	my $trace = Devel::StackTrace->new;
+	warn $trace->as_string;
+
