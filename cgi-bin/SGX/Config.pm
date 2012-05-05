@@ -160,24 +160,35 @@ sub get_config {
         );
     } or do {
         my $exception;
-        if ( $exception =
-            Exception::Class->caught('Exception::Class::DBI::DRH') )
-        {
+        if ( $exception = Exception::Class->caught('Exception::Class::DBI') ) {
 
-            # This exception gets thrown when MySQL server is not running. Using
-            # here errstr() function instead of error() because the latter gives
-            # out too much information, such as MySQL user name.
+# Since we know this is a DBI exception, we can use Exception::Class::DBI
+# methods err() and errstr() to return error code and error message,
+# respectively. The error() method inherited from Exception::Class gives out too
+# much information (such as code snipped containing MySQL user name), so we are
+# not using it. More on err() and errstr() methods:
+# http://search.cpan.org/~dwheeler/Exception-Class-DBI-1.01/lib/Exception/Class/DBI.pm#Exception::Class::DBI
+            if ( $exception->isa('Exception::Class::DBI::DRH') ) {
+                push @init_messages,
+                  [ {}, 'The database server doesn\'t appear to be running' ];
+            }
             push @init_messages,
-              [ {}, 'The database is not available or is currently down:' ],
-              [ { -class => 'error' }, $exception->errstr ];
+              [
+                { -class => 'error' },
+                sprintf(
+                    'DBI Error %d: %s',
+                    $exception->err, $exception->errstr
+                )
+              ];
         }
         elsif ( $exception = Exception::Class->caught() ) {
 
             # any other exception
-            my $msg = $exception->errstr;
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
             push @init_messages,
               [ {}, "Can't connect to the database" ],
-              ( defined($msg) ? [ { -class => 'error' }, $msg ] : () );
+              [ { -class => 'error' }, $msg ];
         }
         else {
 

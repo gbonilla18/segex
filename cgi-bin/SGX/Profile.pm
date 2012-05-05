@@ -24,13 +24,13 @@ require SGX::Model::DropDownData;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ($class, %args) = @_;
+    my ( $class, %args ) = @_;
 
     my $config = $args{config} || {};
-    my $q = $config->{_cgi};
-    my $self  = $class->SUPER::new(
-        config => $config,
-        restore_session_from => (car $q->param('sid'))
+    my $q      = $config->{_cgi};
+    my $self   = $class->SUPER::new(
+        config               => $config,
+        restore_session_from => ( car $q->param('sid') )
     );
 
     bless $self, $class;
@@ -241,7 +241,9 @@ sub changeEmail_head {
         elsif ( $exception = Exception::Class->caught() ) {
 
             # Internal error
-            warn $exception->error;
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            warn $msg;
             $self->add_message(
                 { -class => 'error' },
 'Failed to change email. If you are an administrator, see error log for details of this error.'
@@ -308,7 +310,9 @@ sub login_head {
 
             # No error or internal error
             $exception = Exception::Class->caught();
-            warn( $exception ? $exception->error : 'Unknown error' );
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            warn $msg;
             $self->add_message(
                 { -class => 'error' },
 'Failed to process your login. If you are an administrator, see error log for details of this error.'
@@ -501,7 +505,11 @@ sub registerUser_head {
 
                     # No error or internal error
                     $exception = Exception::Class->caught();
-                    warn( $exception ? $exception->error : 'Unknown error' );
+                    my $msg =
+                         eval { $exception->error }
+                      || "$exception"
+                      || 'Unknown error';
+                    warn $msg;
                     $self->add_message(
                         { -class => 'error' },
 'Failed to process your login. If you are an administrator, see error log for details of this error.'
@@ -522,20 +530,16 @@ sub registerUser_head {
                     email_confirmed => 1
                 );
             } or do {
-                my $exception;
-                if ( $exception =
-                    Exception::Class->caught('Exception::Class::DBI::STH') )
-                {
-                    $self->add_message( { -class => 'error' },
-                        $exception->error );
-                }
-                else {
-                    warn( $exception ? "$exception" : 'Unknown error' );
-                    $self->add_message(
-                        { -class => 'error' },
+                my $exception = Exception::Class->caught();
+                my $msg =
+                     eval { $exception->error }
+                  || "$exception"
+                  || 'Unknown error';
+                warn $msg;
+                $self->add_message(
+                    { -class => 'error' },
 'Failed to process your login. If you are an administrator, see error log for details of this error.'
-                    );
-                }
+                );
                 $self->set_action('');
                 return 1;
             };
@@ -574,14 +578,11 @@ sub registerUser_head {
                 login_uri => $q->url( -full => 1 ) . '?a=profile&b=registerUser'
             );
         } or do {
-            if ( my $exception = Exception::Class->caught() ) {
-                my $msg = eval { $exception->error } || "$exception";
-                $self->add_message( { -class => 'error' }, $msg );
-            }
-            else {
-                $self->add_message( { -class => 'error' },
-                    'No user record created' );
-            }
+            my $exception = Exception::Class->caught();
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            $self->add_message( { -class => 'error' },
+                "Could not create user: $msg" );
 
             # show corresponding form again
             $self->set_action('form_registerUser');
@@ -743,7 +744,9 @@ sub resetPassword_head {
         elsif ( $exception = Exception::Class->caught() ) {
 
             # Internal error
-            warn $exception->error;
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            warn $msg;
             $self->add_message(
                 { -class => 'error' },
 'Failed to process password reset. If you are an administrator, see error log for details of this error.'
@@ -891,7 +894,9 @@ sub changePassword_head {
         elsif ( $exception = Exception::Class->caught() ) {
 
             # Internal error
-            warn $exception->error;
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            warn $msg;
             $self->add_message(
                 { -class => 'error' },
 'Failed to change password. If you are an administrator, see error log for details of this error.'

@@ -108,12 +108,10 @@ sub createTempList {
         $sth->execute_array( { ArrayTupleStatus => \@tuple_status }, $items ) +
           0;
     } or do {
-        if ( my $exception = Exception::Class->caught() ) {
-            my $msg = eval { $exception->error } || "$exception";
-            $delegate->add_message( { -class => 'error' },
-                "Encountered error: $msg\n" );
-            return $temp_table;
-        }
+        my $exception = Exception::Class->caught();
+        my $msg = eval { $exception->error } || "$exception" || 'Empty list';
+        $delegate->add_message( { -class => 'error' }, $msg );
+        0;
     };
     $sth->finish();
     if ( !$rc ) {
@@ -181,24 +179,21 @@ END_loadData
             $delegate->add_message(
                 { -class => 'error' },
                 sprintf(
-"Error loading data into the database. The database response was: %s",
-                    $exception->error )
-            );
-        }
-        elsif ( $exception = Exception::Class->caught() ) {
-
-            # Other types of exceptions
-            my $msg = eval { $exception->error } || "$exception";
-            $delegate->add_message(
-                { -class => 'error' },
-                "Unknown error. The database response was: $msg",
+                    'DBI Error %d: %s',
+                    $exception->err, $exception->errstr
+                )
             );
         }
         else {
 
-            # no exceptions but no records loaded
+            # Other types of exceptions
+            $exception = Exception::Class->caught();
+            my $msg =
+                 eval { $exception->error }
+              || "$exception"
+              || 'File appears to be empty';
             $delegate->add_message( { -class => 'error' },
-                'No records loaded' );
+                "No records loaded: $msg" );
         }
         $sth->finish();
         unlink $filename if $delete_file;

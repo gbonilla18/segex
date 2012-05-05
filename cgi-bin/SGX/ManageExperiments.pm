@@ -126,7 +126,7 @@ sub init {
                 resource => 'experiments',
                 base     => [
                     qw/sample1 sample2 ExperimentDescription
-                    AdditionalInformation pid stid file/
+                      AdditionalInformation pid stid file/
                 ],
 
                 # table key to the left, URI param to the right
@@ -656,9 +656,12 @@ sub default_update {
               $data->uploadData( filefield => 'file', update => 1 );
         } or do {
             my $exception = Exception::Class->caught();
-            my $msg = ( defined $exception ) ? "$exception" : '';
+            my $msg =
+              eval { $exception->error }
+              ? "$exception"
+              : 'File appears to be empty';
             $self->add_message( { -class => 'error' },
-                "No records loaded. $msg" );
+                "No records loaded: $msg" );
         };
     }
 
@@ -690,8 +693,9 @@ sub default_create {
           $data->uploadData( filefield => 'file', update => 0 );
     } or do {
         my $exception = Exception::Class->caught();
-        my $msg = ( defined $exception ) ? "$exception" : '';
-        $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
+        my $msg = eval { $exception->error }
+          || "$exception" : 'File appears to be empty';
+        $self->add_message( { -class => 'error' }, "No records loaded: $msg" );
     };
 
     # show body for form_create again

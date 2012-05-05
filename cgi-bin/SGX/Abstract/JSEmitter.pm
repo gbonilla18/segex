@@ -168,6 +168,7 @@ sub false {
 #---------------------------------------------------------------------------
 sub register_var {
     my ( $self, $prefix, $ids ) = @_;
+
     #tie my %barewords => 'Safe::Hash';
     my %barewords =
         ( $self->{pretty} )
@@ -331,7 +332,8 @@ sub defun {
             join(
                 $self->{line_terminator},
                 map { $self->encode($_) } @$statements
-            ) . $self->{line_terminator}
+              )
+              . $self->{line_terminator}
         );
     };
 }
@@ -462,8 +464,10 @@ sub encode {
 
         # try to use JSON module first and fail on error
         my $ret = eval { $self->json_encode($value); };
-        if ( my $error = Exception::Class->caught() ) {
-            SGX::Exception::Internal::JS->throw( error => $error );
+        if ( my $exception = Exception::Class->caught() ) {
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            SGX::Exception::Internal::JS->throw( error => $msg );
         }
         return $ret;
     }

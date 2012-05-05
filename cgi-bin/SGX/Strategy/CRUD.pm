@@ -690,7 +690,7 @@ sub default_delete {
     my $self = shift;
     eval { $self->_delete_command()->() == 1; } or do {
         my $exception = Exception::Class->caught();
-        my $msg = eval { $exception->error } || "$exception";
+        my $msg = eval { $exception->error } || "$exception" || 'Unknown error';
         $self->add_message( { -class => 'error' }, $msg );
         $self->set_action('');    # show body for "readall"
         return;
@@ -712,7 +712,7 @@ sub default_update {
     my $self = shift;
     eval { $self->_update_command()->() == 1; } or do {
         my $exception = Exception::Class->caught();
-        my $msg = eval { $exception->error } || "$exception";
+        my $msg = eval { $exception->error } || "$exception" || 'Unknown error';
         $self->add_message( { -class => 'error' }, $msg );
         $self->set_action('');    # show body for "readrow"
         return;
@@ -752,7 +752,7 @@ sub default_create {
 
     eval { $self->_create_command()->() == 1; } or do {
         my $exception = Exception::Class->caught();
-        my $msg = eval { $exception->error } || "$exception";
+        my $msg = eval { $exception->error } || "$exception" || 'Unknown error';
         $self->add_message( { -class => 'error' }, $msg );
         $self->set_action('form_create');    # show body for form_create again
         return;
@@ -2137,9 +2137,11 @@ sub _ajax_process_request {
           ? $command_factory->($self)
           : $self->$command_factory();
     } or do {
-        my $exception = Exception::Class->caught();
-        my $msg = eval { $exception->error } || "$exception";
-        $self->add_message( { -class => 'error' }, $msg );
+        if ( my $exception = Exception::Class->caught() ) {
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            $self->add_message( { -class => 'error' }, $msg );
+        }
         $self->set_header(
             -status => 400,    # 400 Bad Request
             -cookie => undef
@@ -2155,7 +2157,8 @@ sub _ajax_process_request {
         my $exception = Exception::Class->caught();
         if ( $exception or $rows_affected != 0 ) {
             if ($exception) {
-                my $msg = eval { $exception->error } || "$exception";
+                my $msg =
+                  eval { $exception->error } || "$exception" || 'Unknown error';
                 $self->add_message( { -class => 'error' }, $msg );
             }
 

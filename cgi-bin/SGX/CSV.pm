@@ -52,7 +52,6 @@ sub delegate_fileUpload {
                 $validator->( \@return_codes ) if defined $validator;
             }
         }
-
         1;
     } or do {
         my $exception;
@@ -62,19 +61,18 @@ sub delegate_fileUpload {
 
             # catch dbi::sth exceptions. note: this block catches duplicate
             # key record exceptions.
+            $self->add_message( {}, 'No changes to the database were stored' );
             $self->add_message(
                 { -class => 'error' },
                 sprintf(
-                    <<"END_dbi_sth_exception",
-Error loading data into the database. The database response was:\n\n%s.\n
-No changes to the database were stored.
-END_dbi_sth_exception
-                    $exception->error
+                    'DBI Error %d: %s',
+                    $exception->err, $exception->errstr
                 )
             );
         }
         elsif ( $exception = Exception::Class->caught() ) {
-            my $msg = eval { $exception->error } || "$exception";
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
             $self->add_message( { -class => 'error' },
                 "$msg\n\n No changes to the database were stored." );
         }
@@ -355,7 +353,14 @@ sub csv_rewrite {
                 # only skip 'Skip' exception (which means: skip line)
             }
             elsif ( $exception = Exception::Class->caught() ) {
-                $exception->rethrow();
+                if ( eval { $exception->can('rethrow') } ) {
+                    $exception->rethrow();
+                }
+                else {
+
+                    # Internal error details do not diplay to browser window
+                    SGX::Exception::Internal->throw( error => "$exception\n" );
+                }
             }
         };
         return 1;

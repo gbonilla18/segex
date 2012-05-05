@@ -732,6 +732,8 @@ sub send_verify_email {
         # email filehandle evaluated to false
         SGX::Exception::Internal::Mail->throw(
             error => 'Could not set up mailer' );
+
+        undef;
     };
 
     # start new session
@@ -861,12 +863,12 @@ sub read_perm_cookie {
         # so we don't have to read permanent cookie every time
         $self->session_cookie_store(%val);
 
-        # for each key/value combo, execute appropriate subroutine if "entailer"
+        # for each key/value combo, execute appropriate subroutine if code block
         # is found in the perm2cookie table
         my $perm2session = $self->{perm2session};
         while ( my ( $key, $value ) = each(%val) ) {
-            if ( my $entailer = $perm2session->{$key} ) {
-                $self->session_cookie_store( $entailer->($value) );
+            if ( my $lambda = $perm2session->{$key} ) {
+                $self->session_cookie_store( $lambda->($value) );
             }
         }
 

@@ -20,15 +20,15 @@ use SGX::Debug;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ($class, %args) = @_;
+    my ( $class, %args ) = @_;
 
     # copy configuration attributes
     my $self = +{ %{ $args{config} || {} } };
 
     # start session from cookie or (if no cookie found) a new one
-    if (exists $args{restore_session_from}) {
+    if ( exists $args{restore_session_from} ) {
         my $s = $self->{_UserSession};
-        $s->restore($args{restore_session_from});
+        $s->restore( $args{restore_session_from} ) if defined $s;
     }
 
     bless $self, $class;
@@ -133,7 +133,13 @@ sub safe_execute {
         {
 
             # catch execute exceptions only
-            $self->add_message( { -class => 'error' }, $exception->error );
+            $self->add_message(
+                { -class => 'error' },
+                sprintf(
+                    'DBI Error %d: %s',
+                    $exception->err, $exception->errstr
+                )
+            );
         }
         elsif ( $exception = Exception::Class->caught() ) {
             if ( eval { $exception->can('rethrow') } ) {
