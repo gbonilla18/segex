@@ -9,7 +9,6 @@ use SGX::Debug;
 require Math::BigInt;
 require Math::BigFloat;
 use JSON qw/decode_json/;
-require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car bind_csv_handle count_bits before_dot/;
 require SGX::DBHelper;
@@ -829,7 +828,7 @@ sub displayDataHTML {
     unshift( @$_, get_tfs( shift @$_, shift @$_, $eid_count ) )
       for @$data_array;
 
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    my $js = $self->{_js_emitter};
     return '' . $js->let(
         [
             _xExpList => $self->{_xExpList},

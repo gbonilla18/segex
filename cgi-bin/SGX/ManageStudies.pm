@@ -11,20 +11,23 @@ require SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageStudies
-#       METHOD:  new
+#       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Override parent constructor; add attributes to object instance
+#  DESCRIPTION:  Overrides CRUD::init
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub new {
+sub init {
     my $class = shift;
-    my $self  = $class->SUPER::new(@_);
+    my $self  = $class->SUPER::init(@_);
+    
+    $self->register_actions( form_assign =>
+          { head => 'form_assign_head', body => 'form_assign_body' } );
+
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
     my $curr_proj = $s->{session_cookie}->{curr_proj};
-
     my $pid = car $q->param('pid');
     $self->set_attributes(
 
@@ -186,27 +189,6 @@ sub new {
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
     );
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageStudies
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my $self = shift;
-    $self->SUPER::init();
-
-    $self->register_actions( form_assign =>
-          { head => 'form_assign_head', body => 'form_assign_body' } );
 
     return $self;
 }

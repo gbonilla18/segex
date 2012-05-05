@@ -8,7 +8,6 @@ use base qw/SGX::Strategy::Base/;
 use SGX::Util qw/car cdr bind_csv_handle/;
 use JSON qw/encode_json/;
 require SGX::Model::PlatformStudyExperiment;
-require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 require SGX::DBHelper;
 
@@ -425,7 +424,7 @@ sub default_body {
 sub getDropDownJS {
     my $self = shift;
 
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    my $js = $self->{_js_emitter};
     return $js->let(
         [
             PlatfStudyExp =>

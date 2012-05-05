@@ -31,21 +31,6 @@ Readonly::Hash my %user_rank => (
     'admin'    => 3
 );
 
-#===  FUNCTION  ================================================================
-#         NAME:  get_user_rank
-#      PURPOSE:
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_user_rank {
-    my $level = shift;
-    return $user_rank{$level};
-}
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
 #       METHOD:  commit

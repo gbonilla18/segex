@@ -5,23 +5,24 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
-#use SGX::Session::User qw/get_user_rank/;
 use SGX::Abstract::Exception ();
 use Digest::SHA1 qw/sha1_hex/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageUsers
-#       METHOD:  new
+#       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Override parent constructor; add attributes to object instance
+#  DESCRIPTION:  Overrides CRUD::init
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub new {
+sub init {
     my ( $class, @param ) = @_;
-    my $self = $class->SUPER::new(@param);
+    my $self = $class->SUPER::init(@param);
+
+    $self->set_attributes( _permission_level => 'admin' );
 
     $self->set_attributes(
         _table_defs => {
@@ -134,26 +135,6 @@ END_EXTRA
         },
         _default_table => 'users',
     );
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageUsers
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my $self = shift;
-    $self->SUPER::init();
-
-    $self->set_attributes( _permission_level => 'admin' );
 
     return $self;
 }

@@ -14,44 +14,10 @@ use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Override _init
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-    my ( $class, @param ) = @_;
-
-    # Call the constructor of the parent class
-    my $self = $class->SUPER::new(@param);
-
-    require SGX::Abstract::JSEmitter;
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
-    $self->set_attributes(
-        dom_table_id       => 'crudTable',
-        dom_export_link_id => 'crudTable_astext',
-
-        _js_emitter => $js,
-        _js_env     => $js->register_var( '_glob', [qw/lookupTables/] ),
-        _js_buffer  => [],
-
-        _other   => {},
-        _id      => undef,
-        _id_data => {}
-    );
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::CRUD
 #       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Initialize parts that deal with responding to CGI queries
+#  DESCRIPTION:  Overrides Base::init
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -60,7 +26,22 @@ sub init {
     my $self = shift;
     $self->SUPER::init();
 
-    $self->set_attributes( _permission_level => 'user' );
+    my $js = $self->{_js_emitter};
+    $self->set_attributes(
+
+        # Overridden Base attributes
+        _permission_level => 'user',
+        _js_env           => $js->register_var( '_glob', [qw/lookupTables/] ),
+
+        # Read-only CRUD-specific attributes
+        dom_table_id       => 'crudTable',
+        dom_export_link_id => 'crudTable_astext',
+
+        # Read-write CRUD-specific attributes
+        _id      => undef,
+        _id_data => {},
+        _other   => {}
+    );
 
     # :TODO:10/06/2011 16:29:20:es: Include GET/POST dispatching?
     # E.g.:
@@ -1906,9 +1887,13 @@ sub _process_val {
 
     # strip spaces from beginning and end
     return undef unless defined $val;
-    $val =~ m/^\s*(.+)\s*/;
-    my $clean_val = $1;
-    $clean_val = '' unless defined $clean_val;
+    my $clean_val;
+    if ( $val =~ m/^\s*(.+)\s*$/ ) {
+        $clean_val = $1;
+    }
+    else {
+        $clean_val = '';
+    }
 
     # for numeric types, interpret empty strings as NULL
     if (   defined($parser)

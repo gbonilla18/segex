@@ -8,7 +8,6 @@ use base qw/SGX::Strategy::Base/;
 #use Benchmark;
 use JSON qw/encode_json decode_json/;
 require SGX::FindProbes;
-require SGX::Abstract::JSEmitter;
 require SGX::DBHelper;
 require SGX::Model::PlatformStudyExperiment;
 
@@ -507,7 +506,7 @@ END_query_fs
     my $probes_in_platform = int( $sth_total->fetchrow_arrayref()->[0] );
     $sth_total->finish;
 
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    my $js = $self->{_js_emitter};
     return ''
       . $js->let(
         [
@@ -537,7 +536,7 @@ END_query_fs
 sub getDropDownJS {
     my $self = shift;
 
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    my $js = $self->{_js_emitter};
     return $js->let(
         [
             PlatfStudyExp =>

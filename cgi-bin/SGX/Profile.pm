@@ -8,173 +8,29 @@ use base qw/SGX::Strategy::Base/;
 use SGX::Debug;
 use URI::Escape qw/uri_unescape uri_escape/;
 use SGX::Util qw/car/;
-
-{
-
-    package SGX::DropDownData;
-
-    use strict;
-    use warnings;
-
-    #use SGX::Debug
-    use SGX::Abstract::Exception ();
-    require Tie::IxHash;
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  DropDownData
-#       METHOD:  new
-#   PARAMETERS:  0) $self  - object instance
-#                1) $dbh   - database handle
-#                2) $query - SQL query string (with or without placeholders)
-#      RETURNS:  $self
-#  DESCRIPTION:  This is the constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  :NOTE:06/01/2011 03:32:37:es: preparing query once during
-#                  construction
-#     SEE ALSO:  n/a
-#===============================================================================
-    sub new {
-        my ( $class, $dbh, $query ) = @_;
-
-        my $sth = $dbh->prepare($query)
-          or SGX::Exception::Internal->throw( error => $dbh->errstr );
-
-        my $self = {
-            _dbh  => $dbh,
-            _sth  => $sth,
-            _tied => undef,
-            _hash => {},
-        };
-
-        # Tying the hash using Tie::IxHash module allows us to keep hash
-        # keys ordered
-        $self->{_tied} = tie( %{ $self->{_hash} }, 'Tie::IxHash' );
-
-        bless $self, $class;
-        return $self;
-    }
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  DropDownData
-#       METHOD:  clone
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is a copy constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-    sub clone {
-        my $self = shift;
-
-        my $clone = {
-            _dbh  => $self->{_dbh},
-            _sth  => $self->{_sth},
-            _tied => undef,
-            _hash => {},
-        };
-
-        # Tying the hash using Tie::IxHash module allows us to keep hash
-        # keys ordered
-        $clone->{_tied} = tie( %{ $clone->{_hash} }, 'Tie::IxHash' );
-
-        # now fill the new hash
-        $clone->{_tied}->Push( %{ $self->{_hash} } );
-
-        bless $clone, ref $self;
-        return $clone;
-    }
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  DropDownData
-#       METHOD:  loadDropDownValues
-#   PARAMETERS:  $self
-#                @params - array of parameters to be used to fill placeholders
-#                in the query statement
-#      RETURNS:  reference to drop down data stored in key-value format (hash)
-#  DESCRIPTION:  loads values by executing query
-#       THROWS:  no exceptions
-#     COMMENTS:  :NOTE:06/01/2011 03:31:28:es: allowing this method to be
-#                 executed more than once
-#     SEE ALSO:  http://search.cpan.org/~chorny/Tie-IxHash-1.22/lib/Tie/IxHash.pm
-#===============================================================================
-    sub loadDropDownValues {
-        my ( $self, @params ) = @_;
-
-        my $rc = $self->{_sth}->execute(@params)
-          or SGX::Exception::Internal->throw( error => $self->{_dbh}->errstr );
-
-        my @sthArray = @{ $self->{_sth}->fetchall_arrayref };
-
-        $self->{_sth}->finish;
-
-        my $hash_ref = $self->{_hash};
-        foreach (@sthArray) {
-            my $k = $_->[0];
-            SGX::Exception::Internal->throw(
-                error => "Conflicting key '$k' in output hash" )
-              if exists $hash_ref->{$k};
-            $hash_ref->{$k} = $_->[1];
-        }
-
-        return $hash_ref;
-    }
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  DropDownData
-#       METHOD:  Push
-#   PARAMETERS:  0) $self
-#                1) list of key-value pairs, e.g. Push('0' => 'All Values', ...)
-#      RETURNS:  Same as Tie::IxHash::Push
-#  DESCRIPTION:  Add key-value array to hash using Tie::IxHash object
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-    sub Push {
-        my ( $self, @rest ) = @_;
-        return $self->{_tied}->Push(@rest);
-    }
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  DropDownData
-#       METHOD:  Unshift
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Wraps the Unshift method in Tie::IxHash
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-    sub Unshift {
-        my ( $self, @rest ) = @_;
-        return $self->{_tied}->Unshift(@rest);
-    }
-
-    1;
-}
+require SGX::Model::DropDownData;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  Profile
 #       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
+#  DESCRIPTION:  Overrides Strategy::Base::new
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:  n/a
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my ( $class, @param ) = @_;
-    my $self = $class->SUPER::new(@param);
+    my $class = shift;
+    my $self  = {@_};
 
-    $self->set_attributes(
-        _title => 'My Profile',
+    # recover session from id in the sid CGI parameter, otherwise (when CGI
+    # parameter is not set) from cookie, otherwise (when no cookie was found),
+    # start a new one.
+    my $s = $self->{_UserSession};
+    my $q = $self->{_cgi};
+    $s->restore( car $q->param('sid') );
 
-        # model
-        _curr_proj   => '',
-        _projectList => {}
-    );
     bless $self, $class;
     return $self;
 }
@@ -192,13 +48,30 @@ sub new {
 sub init {
     my $self = shift;
     $self->SUPER::init();
+    my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    $self->set_attributes( _permission_level => 'anonym' );
+    # restore old session if it exists
+    #my $sid = car $q->param('sid');
+    #warn "Restoring session from sid=$sid in init";
+    #$s->restore( $sid ) if defined $sid;
+
+    $self->set_attributes(
+        _title            => 'My Profile',
+        _permission_level => 'anonym'
+    );
+
+    # :TRICKY:05/04/2012 14:08:38:es: For all actions in this module, "head"
+    # attribute cannot be empty unless their permission level is "nogrants".
+    # This is because, if the head attribute of an action is empty/undefined,
+    # the dispatcher code will lookup default action ('') and use its head hook
+    # "default_head". The default action is currently set to "nogrants" (user
+    # has to be logged in), and thus having empty "head" attribute will result
+    # in dispatcher redirecting back to form_login causing an infinite loop.
     $self->register_actions(
 
-       # default profile page is useless at any level below nogrants.
-       # change/verify email and password is useless at any level below nogrants
         '' => {
+
+            # default profile page is useless at any level below nogrants.
             head => 'default_head',
             body => 'default_body',
             perm => 'nogrants'
@@ -252,10 +125,6 @@ sub init {
           { head => 'registerUser_head', perm => [ 'anonym', 'anonym' ] },
         form_login => {
 
-            # "head" attribute cannot be empty since in that case the system
-            # will lookup default action ('') for its head hook (default_head),
-            # and default action in this module requires user to be logged in
-            # and will redirect back to form_login causing an infinite loop.
             head => 'default_head',
             body => 'form_login_body',
             perm => [ 'anonym', 'anonym' ]
@@ -849,7 +718,6 @@ sub resetPassword_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    #$s->restore( car $q->url_param('sid') );
     eval {
         $s->reset_password(
             username_or_email => car( $q->param('username') ),
@@ -1289,7 +1157,7 @@ sub loadProjectData {
     my $self = shift;
 
     my $sql = 'SELECT prid, prname FROM project ORDER BY prname ASC';
-    my $projectDropDown = SGX::DropDownData->new( $self->{_dbh}, $sql );
+    my $projectDropDown = SGX::Model::DropDownData->new( $self->{_dbh}, $sql );
 
     $projectDropDown->Push( '' => '@All Projects' );
     $self->{_projectList} = $projectDropDown->loadDropDownValues();

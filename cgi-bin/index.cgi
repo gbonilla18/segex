@@ -4,17 +4,20 @@ use strict;
 use warnings;
 
 #---------------------------------------------------------------------------
-#  Perl library includes
+#  Library includes
 #---------------------------------------------------------------------------
-# CGI options: -nosticky option prevents CGI.pm from printing hidden .cgifields
-# inside a form. By default, CGI.pm versions 2.69 and higher emit XHTML. The
-# -no_xhtml pragma disables this feature.
-#use CGI::Pretty 2.47 qw/-nosticky -private_tempfiles -no_xhtml/;
+# :TRICKY:05/04/2012 16:55:21:es:
+# -nosticky: Prevent CGI.pm from printing hidden .cgifields inside a form
+# without us specifically asking it so.
+# -no_xhtml: By default, CGI.pm versions 2.69 and higher emit XHTML. This pragma
+# disables this feature.
+# use CGI::Pretty 2.47 qw/-nosticky -private_tempfiles -no_xhtml/;
+#
 use CGI 2.47 qw/-nosticky -private_tempfiles/;
 use Carp qw/croak/;
 
 #---------------------------------------------------------------------------
-# Custom modules in SGX directory
+#  SGX directory
 #---------------------------------------------------------------------------
 use lib qw/./;
 use SGX::Debug;
@@ -24,18 +27,16 @@ use SGX::Session::User 0.07 ();
 #---------------------------------------------------------------------------
 #  This is our own super-cool custom dispatcher and dynamic loader
 #---------------------------------------------------------------------------
-my $q              = CGI->new();
-my ($action_param) = $q->url_param('a');
-my $action         = ( defined $action_param ) ? $action_param : '';
+my $q = CGI->new();
+my ($action) = $q->url_param('a');
+$action = ( defined $action ) ? $action : '';
 
 # :TODO:10/15/2011 23:07:12:es: throw 404 error here if cannot find a module
 # that corresponds to the given action.
 my $module = get_module_from_action($action)
   or croak "Invalid action name $action";
 
-#---------------------------------------------------------------------------
-#  first get the Perl module needed
-#---------------------------------------------------------------------------
+# get the Perl module needed
 my $obj = eval {
 
     # convert Perl path to system path and load the file
@@ -47,7 +48,7 @@ my $obj = eval {
 };
 
 #---------------------------------------------------------------------------
-#  next, prepare header and body
+# next, prepare and print header and body
 #---------------------------------------------------------------------------
 my $show_html = $obj->prepare_head();
 
@@ -63,10 +64,11 @@ my %header_command = (
     $obj->get_header()
 );
 
+# Show headers and cookies sent to user
 #warn Dumper( \%header_command );
 
-# Below is the only statement in the entire application that prints HTML
-# body.
+# :TRICKY:05/04/2012 16:53:32:es: Below is the only statement in the entire
+# application that prints HTML body.
 print
 
   # HTTP response header

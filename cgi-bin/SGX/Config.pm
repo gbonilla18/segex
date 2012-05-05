@@ -6,7 +6,7 @@ use base qw/Exporter/;
 
 use Readonly ();
 use File::Basename qw/dirname/;
-use SGX::Util qw/replace/;
+use SGX::Util qw/replace car/;
 require Config::General;
 
 # :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are
@@ -30,8 +30,8 @@ sub get_module_from_action {
     Readonly::Hash my %dispatch_table => (
 
         # :TODO:08/07/2011 20:39:03:es: come up with nouns to replace verbs for
-        # better RESTfulness
-        #
+        # better RESTfulness ('a='-level actions indicate resources...)
+
         # verbs
         uploadData => 'SGX::UploadData',
         uploadGO   => 'SGX::UploadGO',
@@ -71,13 +71,10 @@ Readonly::Scalar our $JS_DIR         => "$DOCUMENTS_ROOT/js";
 Readonly::Scalar our $CSS_DIR        => "$DOCUMENTS_ROOT/css";
 Readonly::Scalar our $YUI_BUILD_ROOT => $SEGEX_CONFIG{yui_build_root};
 
-#---------------------------------------------------------------------------
-#  Untaint $ENV{PATH} by transforming an input list of symbols in qw//. This 
-#  also strips all trailing slashes from individual paths.
-#
-#  WARNING: if you remove the block below, everything will seem to work OK,
-#  but Segex will be unable to send out user registration emails!
-#---------------------------------------------------------------------------
+# :TRICKY:05/04/2012 16:46:23:es: Untaint $ENV{PATH} by transforming an input
+# list of symbols in qw//. This also strips all trailing slashes from individual
+# paths. WARNING: if you remove the block below, everything will seem to work
+# OK, but Segex will be unable to send out user registration emails!
 $ENV{PATH} = join(
     ':',
     keys %{
@@ -85,7 +82,7 @@ $ENV{PATH} = join(
             map {
                 ( my $key = $_ ) =~ s/\/*$//;
                 $key => undef
-              } ($SEGEX_CONFIG{mailer_path})
+              } ( $SEGEX_CONFIG{mailer_path} )
         }
       }
 );
@@ -122,15 +119,15 @@ sub require_path {
 sub init_context {
     my $q = shift;
 
-    # :TRICKY:08/09/2011 13:30:40:es:
-
+ # :TRICKY:08/09/2011 13:30:40:es:
+ #
  # When key/value pairs are copied from a permanent cookie to a session cookie,
  # we may want to execute some code, depending on which symbols we encounter in
  # the permanent cookie. The code executed would, in its turn, produce key/value
  # tuples that would be then stored in the session cookie. At the same time, the
  # code directly copying the key/value pairs may not know which symbols it will
  # encounter.
-
+ #
  # This is similar to the Visitor pattern except that Visitor operates on
  # objects (and executes methods depending on the classes of objects it
  # encounters), and our class operates on key-value pairs (which of course can
@@ -144,10 +141,12 @@ sub init_context {
     my $dbh = eval {
         require DBI;
         require Exception::Class::DBI;
-        DBI->connect(
 
- # :TODO:07/13/2011 15:20:26:es: Consider allowing "mysql_local_infile" only for
- # special kinds of users (ones who have permission to upload data/annotation)
+        # :TODO:07/13/2011 15:20:26:es: Consider allowing "mysql_local_infile"
+        # only for special category of users (ones who have permission to upload
+        # data/annotation). This would require two different databases, one for
+        # user authentication data, another for actual data.
+        DBI->connect(
             "dbi:mysql:$SEGEX_CONFIG{dbname};mysql_local_infile=1",
             $SEGEX_CONFIG{dbuser},
             $SEGEX_CONFIG{dbpassword},
@@ -158,23 +157,50 @@ sub init_context {
             }
         );
     } or do {
-        my $exception = Exception::Class->caught();
-        push @init_messages, [ { -class => 'error' }, "$exception" ];
+        my $exception;
+        if ( $exception =
+            Exception::Class->caught('Exception::Class::DBI::DRH') )
+        {
+
+            # This exception gets thrown when MySQL server is not running. We
+            # are using here errstr() function instead of error() because
+            # error() gives out too much information, such as MySQL user name.
+            push @init_messages,
+              [ {}, 'The database is not available or is currently down:' ],
+              [ { -class => 'error' }, $exception->errstr ];
+        }
+        elsif ( $exception = Exception::Class->caught() ) {
+
+            # any other exception
+            my $msg = $exception->errstr;
+            push @init_messages,
+              [ {}, "Can't connect to the database" ],
+              ( defined($msg) ? [ { -class => 'error' }, $msg ] : () );
+        }
+        else {
+
+            # unknown error
+            push @init_messages, [ {}, "Can't connect to the database" ];
+        }
+
+        # set database handle to undefined value on error
+        undef;
     };
 
-    # now setup session
-    my $s;
-    if ( defined $dbh ) {
+    # setup session if have database handle
+    my $s = defined($dbh)
+      ? do {
         require SGX::Session::User;
-        $s = SGX::Session::User->new(
+        SGX::Session::User->new(
             dbh          => $dbh,
             expire_in    => $SEGEX_CONFIG{timeout},
             check_ip     => 1,
             perm2session => {
                 curr_proj => sub {
 
-            # note that we are not using dbh from within User class -- in theory
-            # user and session tables could be stored in a separate database.
+                    # Not using database handle from within User class --
+                    # ideally user and session tables should be stored in a
+                    # separate database from the rest of the data.
                     my $value = shift;
                     return ( proj_name => '' ) unless defined($value);
                     my $sth =
@@ -190,8 +216,8 @@ sub init_context {
                   }
             }
         );
-        $s->restore( $q->param('sid') );    # restore old session if it exists
-    }
+      }
+      : undef;
 
     return (
         _cgi         => $q,

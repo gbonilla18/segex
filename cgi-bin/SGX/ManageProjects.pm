@@ -10,18 +10,20 @@ require SGX::Model::ProjectStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageProjects
-#       METHOD:  new
+#       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Override parent constructor; add attributes to object instance
+#  DESCRIPTION:  Overrides CRUD::init
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub new {
+sub init {
     my ( $class, @param ) = @_;
+    my $self = $class->SUPER::init(@param);
 
-    my $self = $class->SUPER::new(@param);
+    $self->register_actions( form_assign =>
+          { head => 'form_assign_head', body => 'form_assign_body' } );
 
     $self->set_attributes(
 
@@ -136,27 +138,6 @@ sub new {
         _ProjectStudyExperiment =>
           SGX::Model::ProjectStudyExperiment->new( dbh => $self->{_dbh} ),
     );
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my $self = shift;
-    $self->SUPER::init();
-
-    $self->register_actions( form_assign =>
-          { head => 'form_assign_head', body => 'form_assign_body' } );
 
     return $self;
 }

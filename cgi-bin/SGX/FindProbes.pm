@@ -7,7 +7,6 @@ use base qw/SGX::Strategy::Base/;
 
 require SGX::DBHelper;
 require Tie::IxHash;
-require SGX::Abstract::JSEmitter;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car cdr trim min bind_csv_handle distinct file_opts_html
   dec2indexes32 coord2int/;
@@ -287,7 +286,7 @@ sub goTerms_js {
     );
 
     my ( $scope, $match ) = @$self{qw/_scope _match/};
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    my $js = $self->{_js_emitter};
     return ''
       . $js->let(
         [
@@ -1383,7 +1382,7 @@ sub findProbes_js {
     );
 
     my ( $scope, $match ) = @$self{qw/_scope _match/};
-    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    my $js = $self->{_js_emitter};
     return ''
       . $js->let(
         [

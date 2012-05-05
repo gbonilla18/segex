@@ -6,7 +6,68 @@ use warnings;
 use URI::Escape qw/uri_escape/;
 require Lingua::EN::Inflect;
 require Text::Autoformat;
+require SGX::Abstract::JSEmitter;
 use SGX::Debug;
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Strategy::Base
+#       METHOD:  new
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is the constructor
+#       THROWS:  no exceptions
+#     COMMENTS:  n/a
+#     SEE ALSO:  n/a
+#===============================================================================
+sub new {
+    my $class = shift;
+    my $self  = {@_};
+
+    # start session from cookie or (if no cookie found) a new one
+    my $s = $self->{_UserSession};
+    $s->restore(undef);
+
+    bless $self, $class;
+    return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Base
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Initialize parts that deal with responding to CGI queries
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my $self = shift;
+
+    my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
+    $self->set_attributes(
+        _title            => '',
+        _permission_level => 'user',
+
+        _js_emitter => $js,
+        _js_buffer  => [],
+        _js_env     => {},
+
+        _js_src_yui  => ['yahoo-dom-event/yahoo-dom-event.js'],
+        _js_src_code => [],
+
+        _css_src_yui  => [],
+        _css_src_code => [],
+
+        _header => {}
+    );
+
+    # default action is identified simply by empty string
+    $self->register_actions(
+        '' => { head => 'default_head', body => 'default_body' } );
+
+    return $self;
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  format_title
@@ -83,63 +144,6 @@ sub safe_execute {
         }
     };
     return 1;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  new
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is the constructor
-#       THROWS:  no exceptions
-#     COMMENTS:  In Perl, class attributes cannot be inherited, which means we
-#                should not use them for anything that is very specific to the
-#                problem domain of the given class.
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new {
-    my $class = shift;
-
-    my $self = {
-        _js_src_yui   => [],
-        _js_src_code  => [],
-        _css_src_yui  => [],
-        _css_src_code => [],
-        _header       => {},
-        _title        => '',
-
-        @_
-    };
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Base
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Initialize parts that deal with responding to CGI queries
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my $self = shift;
-    push @{ $self->{_js_src_yui} }, 'yahoo-dom-event/yahoo-dom-event.js';
-    $self->set_attributes(
-
-        # :TODO:10/20/2011 11:12:05:es: change 'user' to 'guest' here...
-        _permission_level => 'user'
-    );
-    $self->register_actions(
-
-        # default action
-        '' => { head => 'default_head', body => 'default_body' }
-
-    );
-    return $self;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -375,7 +379,7 @@ sub _dispatch_by {
     my $self   = shift;
     my $action = shift;
     $action = '' if not defined $action;
-    my $hook   = shift;
+    my $hook = shift;
 
     # execute methods that are in the intersection of those found in the
     # requested dispatch table and those which can actually be executed.
@@ -426,7 +430,7 @@ sub _dispatch_by {
                   . uri_escape( $self->request_uri() ) )
               unless $self->{_ResourceName} eq 'profile'
                   and $action eq 'form_login';
-            return;              # don't show body
+            return;                # don't show body
         }
         elsif ( $is_auth == -1 and $hook eq 'head' and $action ) {
 

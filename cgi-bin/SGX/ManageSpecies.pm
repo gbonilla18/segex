@@ -56,17 +56,22 @@ my $process_go = sub {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageUsers
-#       METHOD:  new
+#       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Override parent constructor; add attributes to object instance
+#  DESCRIPTION:  Overrides CRUD::init
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub new {
+sub init {
     my ( $class, @param ) = @_;
-    my $self = $class->SUPER::new(@param);
+    my $self = $class->SUPER::init(@param);
+
+    $self->register_actions(
+        clearAnnot => { redirect => 'ajax_clear_annot' },
+        uploadAnnot => { head => 'UploadAnnot_head', body => 'readrow_body' }
+    );
 
     $self->set_attributes(
         _table_defs => {
@@ -164,29 +169,6 @@ sub new {
         _default_table => 'species',
         _readrow_tables =>
           [ 'platform' => { heading => 'Platforms for this Species' } ],
-    );
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageSpecies
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my $self = shift;
-    $self->SUPER::init();
-
-    $self->register_actions(
-        clearAnnot => { redirect => 'ajax_clear_annot' },
-        uploadAnnot => { head => 'UploadAnnot_head', body => 'readrow_body' }
     );
 
     return $self;

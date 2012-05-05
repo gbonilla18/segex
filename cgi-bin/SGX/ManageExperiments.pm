@@ -12,22 +12,28 @@ require SGX::Model::PlatformStudyExperiment;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageExperiments
-#       METHOD:  new
+#       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Override parent constructor; add attributes to object instance
+#  DESCRIPTION:  Overrides CRUD::init
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub new {
+sub init {
     my $class = shift;
-    my $self  = $class->SUPER::new(@_);
+    my $self  = $class->SUPER::init(@_);
+
+    $self->register_actions(
+        form_assign => {
+            head => 'form_assign_head',
+            body => 'form_assign_body'
+        }
+    );
+
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
     my $curr_proj = $s->{session_cookie}->{curr_proj};
-
     my ( $pid, $stid ) = $self->get_id_data();
-
     $self->set_attributes(
 
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
@@ -300,30 +306,6 @@ sub new {
     $self->{_id_data}->{pid}  = $pid;
     $self->{_id_data}->{stid} = $stid;
 
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageExperiments
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Initialize parts that deal with responding to CGI queries
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my $self = shift;
-    $self->SUPER::init();
-
-    $self->register_actions(
-        form_assign => {
-            head => 'form_assign_head',
-            body => 'form_assign_body'
-        }
-    );
     return $self;
 }
 
@@ -815,7 +797,6 @@ sub get_pse_dropdown_js {
     $self->{_id_data}->{stid} = $stid;
 
     my ( $q, $js ) = @$self{qw/_cgi _js_emitter/};
-
     return $js->let(
         [
             PlatfStudyExp =>

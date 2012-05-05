@@ -15,19 +15,26 @@ use SGX::Config qw/$YUI_BUILD_ROOT/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManagePlatforms
-#       METHOD:  new
+#       METHOD:  init
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Override parent constructor; add attributes to object instance
+#  DESCRIPTION:  Overrides CRUD::init
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub new {
+sub init {
     my $class = shift;
-    my $self  = $class->SUPER::new(@_);
-    my $q     = $self->{_cgi};
+    my $self  = $class->SUPER::init(@_);
 
+    $self->register_actions(
+        clearAnnot => { redirect => 'ajax_clear_annot' },
+        uploadAnnot => { head => 'UploadAnnot_head', body => 'readrow_body' },
+        form_assign =>
+          { head => 'form_assign_head', body => 'form_assign_body' },
+    );
+
+    my $q     = $self->{_cgi};
     $self->set_attributes(
 
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
@@ -243,35 +250,6 @@ sub new {
         _readrow_tables =>
           [ 'study' => { heading => 'Studies on this Platform' } ],
 
-    );
-
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManagePlatforms
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my $self = shift;
-    $self->SUPER::init();
-
-    $self->register_actions(
-        clearAnnot => { redirect => 'ajax_clear_annot' },
-        uploadAnnot => { head => 'UploadAnnot_head', body => 'readrow_body' },
-        form_assign =>
-          { head => 'form_assign_head', body => 'form_assign_body' },
-
-       #uploadGene   => { head => 'UploadGene_head',   body => 'readrow_body' },
-       #uploadGO     => { head => 'UploadGO_head',     body => 'readrow_body' },
-       #uploadAccNum => { head => 'UploadAccNum_head', body => 'readrow_body' }
     );
 
     return $self;
