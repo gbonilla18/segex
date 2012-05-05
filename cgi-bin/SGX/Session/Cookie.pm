@@ -13,6 +13,7 @@ use Readonly ();
 require Digest::SHA1;
 require CGI::Cookie;
 use File::Basename qw/dirname/;
+use SGX::Abstract::Exception ();
 
 # some (constant) globals
 Readonly::Scalar my $SESSION_NAME => 'session';
@@ -132,7 +133,8 @@ sub authenticate {
       : 1;
 
     ( defined($session_id) && $session_id ne '' )
-      or SGX::Exception::Session->throw( error => 'No session id provided' );
+      or SGX::Exception::Internal::Session->throw(
+        error => 'No session id provided' );
     ( defined($username) && $username ne '' )
       or SGX::Exception::User->throw( error => 'No username provided' );
     ( defined($password) && $password ne '' )
@@ -148,7 +150,7 @@ sub authenticate {
     # calling destroy() followed by start() to prevent Session Fixation
     # vulnerability: https://www.owasp.org/index.php/Session_Fixation
 
-    SGX::Exception::Session::Expired->throw(
+    SGX::Exception::Internal::Session::Expired->throw(
         error => 'Your session has expired' )
       unless $self->SUPER::restore($session_id);
 
@@ -164,7 +166,7 @@ sub authenticate {
         # Eat up this session; we are not keen on keeping session info in the
         # database
         $self->destroy();
-        SGX::Exception::Session->throw( error => 'Bad session' );
+        SGX::Exception::Internal::Session->throw( error => 'Bad session' );
     }
 
     SGX::Exception::User->throw( error => 'Login incorrect' )
@@ -187,7 +189,8 @@ sub authenticate {
     # under that specific authorization level. In other words, this is the
     # specific line where the "magic" act of granting access happens. Note that
     # we only grant access to a new session handle, destroying the old one.
-    SGX::Exception::Session->throw( error => 'Could not store session info' )
+    SGX::Exception::Internal::Session->throw(
+        error => 'Could not store session info' )
       unless $self->session_store(
         username   => $username,
         user_level => $session_user_level

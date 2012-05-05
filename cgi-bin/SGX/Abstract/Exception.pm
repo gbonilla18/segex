@@ -22,7 +22,7 @@ use Exception::Class (
         isa         => 'SGX::Exception::Internal',
         description => 'Mailer error'
     },
-    'SGX::Exception::Session' => {
+    'SGX::Exception::Internal::Session' => {
         isa         => 'SGX::Exception::Internal',
         description => 'Session-related error'
     },

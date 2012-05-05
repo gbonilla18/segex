@@ -179,7 +179,8 @@ sub authenticateFromDB {
     # under that specific authorization level. In other words, this is the
     # specific line where the "magic" act of granting access happens. Note that
     # we only grant access to a new session handle, destroying the old one.
-    SGX::Exception::Session->throw( error => 'Could not store session info' )
+    SGX::Exception::Internal::Session->throw(
+        error => 'Could not store session info' )
       unless $self->session_store(
         username   => $username,
         user_level => $udata->{level},
@@ -739,7 +740,8 @@ sub send_verify_email {
     # get id of the new session
     defined( my $session_id = $s->get_session_id() ) or do {
         $fh->close();
-        SGX::Exception::Session->throw( error => 'Undefined session id' );
+        SGX::Exception::Internal::Session->throw(
+            error => 'Undefined session id' );
     };
 
     print $fh <<"END_CONFIRM_EMAIL_MSG";
@@ -774,7 +776,8 @@ END_CONFIRM_EMAIL_MSG
 
     # commit session to database/storage
     $s->commit()
-      or SGX::Exception::Session->throw( error => 'Cannot store session data' );
+      or SGX::Exception::Internal::Session->throw(
+        error => 'Cannot store session data' );
     return 1;
 }
 

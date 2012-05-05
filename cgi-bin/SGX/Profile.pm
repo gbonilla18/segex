@@ -6,6 +6,7 @@ use warnings;
 use base qw/SGX::Strategy::Base/;
 
 use SGX::Debug;
+use SGX::Abstract::Exception ();
 use URI::Escape qw/uri_unescape uri_escape/;
 use SGX::Util qw/car/;
 require SGX::Model::DropDownData;
