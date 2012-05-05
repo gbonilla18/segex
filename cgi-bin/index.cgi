@@ -21,7 +21,7 @@ use Carp qw/croak/;
 #---------------------------------------------------------------------------
 use lib qw/./;
 use SGX::Debug;
-use SGX::Config qw/init_context get_module_from_action require_path/;
+use SGX::Config qw/get_config get_module_from_action require_path/;
 use SGX::Session::User 0.07 ();
 
 #---------------------------------------------------------------------------
@@ -41,7 +41,10 @@ my $obj = eval {
 
     # convert Perl path to system path and load the file
     require_path($module);
-    $module->new( _ResourceName => $action, init_context($q) )->init();
+    $module->new(
+        config               => { _ResourceName => $action, get_config($q) },
+        restore_session_from => undef
+    )->init();
 } or do {
     my $error = $@;
     croak "Error loading module $module. The message returned was:\n\n$error";

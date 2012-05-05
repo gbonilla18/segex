@@ -58,10 +58,12 @@ PlatfformStudy_sql
     push @{ $pse->{_Experiment}->{attr} }, 'PValFlag';
 
     # Using FindProbes module
-    my $findProbes = SGX::FindProbes->new_lite(
-        _dbh         => $self->{_dbh},
-        _cgi         => $q,
-        _UserSession => $self->{_UserSession}
+    my $findProbes = SGX::FindProbes->new(
+        config => {
+            _dbh         => $self->{_dbh},
+            _cgi         => $q,
+            _UserSession => $self->{_UserSession}
+        }
     );
     $findProbes->set_attributes(
         _dbHelper => SGX::DBHelper->new( delegate => $findProbes ) );

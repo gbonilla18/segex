@@ -20,12 +20,16 @@ use SGX::Debug;
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my $class = shift;
-    my $self  = {@_};
+    my ($class, %args) = @_;
+
+    # copy configuration attributes
+    my $self = +{ %{ $args{config} || {} } };
 
     # start session from cookie or (if no cookie found) a new one
-    my $s = $self->{_UserSession};
-    $s->restore(undef);
+    if (exists $args{restore_session_from}) {
+        my $s = $self->{_UserSession};
+        $s->restore($args{restore_session_from});
+    }
 
     bless $self, $class;
     return $self;

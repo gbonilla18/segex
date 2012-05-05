@@ -47,9 +47,8 @@ sub init {
     # E.g.:
     #       form_create => { GET => form_create_head, POST => create_default },
     #       form_assign => { _default => form_assign }
-    #
-    # dispatch table for other requests (returning 1 results in response
-    # without a body)
+
+    # dispatch table for other requests
     $self->register_actions(
 
         # default action

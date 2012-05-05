@@ -14,7 +14,7 @@ require Config::General;
 # explicitely specified (@EXPORT_OK).
 our @EXPORT = qw/$YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR/;
 our @EXPORT_OK =
-  qw/init_context get_module_from_action require_path %SEGEX_CONFIG/;
+  qw/get_config get_module_from_action require_path %SEGEX_CONFIG/;
 
 #---------------------------------------------------------------------------
 #  Dispatch table that associates action symbols ('?a=' URL parameter) with
@@ -107,8 +107,8 @@ sub require_path {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  init_context
-#      PURPOSE:
+#         NAME:  get_config
+#      PURPOSE:  Keep configurations options in one place
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  ????
@@ -116,10 +116,12 @@ sub require_path {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub init_context {
+sub get_config {
     my $q = shift;
 
  # :TRICKY:08/09/2011 13:30:40:es:
+ #
+ # Regarding perm2session attribute being set a few blocks below:
  #
  # When key/value pairs are copied from a permanent cookie to a session cookie,
  # we may want to execute some code, depending on which symbols we encounter in
@@ -162,9 +164,9 @@ sub init_context {
             Exception::Class->caught('Exception::Class::DBI::DRH') )
         {
 
-            # This exception gets thrown when MySQL server is not running. We
-            # are using here errstr() function instead of error() because
-            # error() gives out too much information, such as MySQL user name.
+            # This exception gets thrown when MySQL server is not running. Using
+            # here errstr() function instead of error() because the latter gives
+            # out too much information, such as MySQL user name.
             push @init_messages,
               [ {}, 'The database is not available or is currently down:' ],
               [ { -class => 'error' }, $exception->errstr ];
@@ -198,9 +200,9 @@ sub init_context {
             perm2session => {
                 curr_proj => sub {
 
-                    # Not using database handle from within User class --
-                    # ideally user and session tables should be stored in a
-                    # separate database from the rest of the data.
+                    # Not using database handle from within User class; ideally
+                    # user and session tables should be stored in a separate
+                    # database from the rest of the data.
                     my $value = shift;
                     return ( proj_name => '' ) unless defined($value);
                     my $sth =

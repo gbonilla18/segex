@@ -69,25 +69,6 @@ my %sqlNames = (
 );
 
 #===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Strategy::Base
-#       METHOD:  new_lite
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  This is an alternative constructor which, unlike the default
-#                constructor new(), will not attempt to restore/create a user
-#                session.
-#       THROWS:  no exceptions
-#     COMMENTS:  n/a
-#     SEE ALSO:  n/a
-#===============================================================================
-sub new_lite {
-    my $class = shift;
-    my $self  = {@_};
-    bless $self, $class;
-    return $self;
-}
-
-#===  CLASS METHOD  ============================================================
 #        CLASS:  FindProbes
 #       METHOD:  init
 #   PARAMETERS:  ????

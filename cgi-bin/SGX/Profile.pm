@@ -18,19 +18,20 @@ require SGX::Model::DropDownData;
 #      RETURNS:  ????
 #  DESCRIPTION:  Overrides Strategy::Base::new
 #       THROWS:  no exceptions
-#     COMMENTS:  n/a
+#     COMMENTS:  Recover session from id in the sid CGI parameter, or, if the
+#     sid parameter is not set, from cookie, or, if cookie is not found, start a
+#     new session.
 #     SEE ALSO:  n/a
 #===============================================================================
 sub new {
-    my $class = shift;
-    my $self  = {@_};
+    my ($class, %args) = @_;
 
-    # recover session from id in the sid CGI parameter, otherwise (when CGI
-    # parameter is not set) from cookie, otherwise (when no cookie was found),
-    # start a new one.
-    my $s = $self->{_UserSession};
-    my $q = $self->{_cgi};
-    $s->restore( car $q->param('sid') );
+    my $config = $args{config} || {};
+    my $q = $config->{_cgi};
+    my $self  = $class->SUPER::new(
+        config => $config,
+        restore_session_from => (car $q->param('sid'))
+    );
 
     bless $self, $class;
     return $self;
