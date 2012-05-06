@@ -132,7 +132,7 @@ END_paragraph3
         'to download a PDF of Segex database schema.'
       ),
       $q->p(
-        'Visit Segex on',
+        'You can download Segex source code from',
         $q->a(
             {
                 -href  => 'http://github.com/escherba/segex',

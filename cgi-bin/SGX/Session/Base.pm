@@ -124,9 +124,10 @@ sub tie_session {
     my $generated_id = $self->{session_obj}->{_session_id};
     if ( defined($id) and $id ne $generated_id ) {
 
-        # :TRICKY:12/01/2011 11:13:44:es: this is triggered whenever a page
-        # sends POST parameter named 'sid', so we should avoid naming form
-        # elements with 'sid' until this is fixed.
+        # :TRICKY:05/06/2012 00:17:00:es: Because SGX::Profile module
+        # automatically tries to restore session from sid= parameter, this
+        # exception can be triggered if we use input elements in that module
+        # with name attribute set to 'sid' for example.
         SGX::Exception::Internal::Session->throw(
             error => 'Generated session id does not match requested' );
     }
@@ -370,7 +371,7 @@ sub start {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Base
-#       METHOD:  refresh_session_id
+#       METHOD:  cleanse
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  "Untaint" (cleanse) impure session (one whose id has been
@@ -480,6 +481,30 @@ sub commit {
         return 1;
     }
     return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::Base
+#       METHOD:  detach
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Detach session
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub detach {
+    my $self = shift;
+
+    # Note: this does place everything currently stored in session_obj to data
+    # store.
+    if ( $self->session_is_tied() ) {
+        untie( %{ $self->{session_obj} } );
+    }
+
+    # clear session data (results in empty anonymous hash)
+    undef %{ $self->{session_stash} };
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================

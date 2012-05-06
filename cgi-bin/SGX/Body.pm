@@ -287,8 +287,10 @@ sub build_sidemenu {
     my $url_prefix = $q->url( -absolute => 1 );
     if ( $obj->is_authorized( level => 'nogrants' ) == 1 ) {
 
-        my $proj_name = $obj->get_volatile('session_cookie')->{proj_name};
-        my $curr_proj = $obj->get_volatile('session_cookie')->{curr_proj};
+        my $session_cookie = $obj->get_volatile('session_cookie');
+        my $session_stash  = $obj->get_volatile('session_stash');
+        my $proj_name      = $session_cookie->{proj_name};
+        my $curr_proj      = $session_cookie->{curr_proj};
         if ( defined($curr_proj) and $curr_proj ne '' ) {
             $proj_name = $q->a(
                 {
@@ -303,6 +305,11 @@ sub build_sidemenu {
         }
 
         # add  options
+        my $full_name = $session_cookie->{full_name};
+        $full_name = '' if not defined $full_name;
+        my $username = $session_stash->{username};
+        $username = '' if not defined $username;
+
         push @menu,
           $q->span(
             { -style => 'color:#999' },
@@ -312,15 +319,14 @@ sub build_sidemenu {
                     -href  => "$url_prefix?a=profile",
                     -title => 'My Profile'
                 },
-                $obj->get_volatile('session_cookie')->{full_name}
+                $full_name
               )
               . ' ('
               . $q->a(
                 {
-                    -href  => "$url_prefix?a=profile&b=logout",
-                    -title => 'You are signed in as '
-                      . $obj->get_volatile('session_stash')->{username}
-                      . '. Click on this link to log out.'
+                    -href => "$url_prefix?a=profile&b=logout",
+                    -title =>
+"You are signed in as $username. Click on this link to log out."
                 },
                 'log out'
               )

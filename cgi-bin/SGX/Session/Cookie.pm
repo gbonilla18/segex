@@ -146,11 +146,7 @@ sub authenticate {
     #---------------------------------------------------------------------------
     #  authenticate
     #---------------------------------------------------------------------------
-    # :TRICKY:08/08/2011 10:09:29:es: We invalidate previous session id by
-    # calling destroy() followed by start() to prevent Session Fixation
-    # vulnerability: https://www.owasp.org/index.php/Session_Fixation
-
-    SGX::Exception::Internal::Session::Expired->throw(
+    SGX::Exception::Session::Expired->throw(
         error => 'Your session has expired' )
       unless $self->SUPER::restore($session_id);
 
@@ -168,17 +164,20 @@ sub authenticate {
         $self->destroy();
         SGX::Exception::Internal::Session->throw( error => 'Bad session' );
     }
-
-    SGX::Exception::User->throw( error => 'Login incorrect' )
-      unless ( $session_username eq $username
-        && $session_password eq $password );
+    elsif ( $session_username ne $username || $session_password ne $password ) {
+        $self->detach();
+        SGX::Exception::User->throw( error => 'Login incorrect' );
+    }
 
     #---------------------------------------------------------------------------
     #  authenticated OK
     #---------------------------------------------------------------------------
     if ($reset_session) {
 
-        # get a new session handle.
+        # :TRICKY:08/08/2011 10:09:29:es: We invalidate previous session id by
+        # calling destroy() followed by start() to prevent Session Fixation
+        # vulnerability: https://www.owasp.org/index.php/Session_Fixation
+
         $self->destroy();
         $self->start();
     }

@@ -52,11 +52,6 @@ sub init {
     $self->SUPER::init();
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    # restore old session if it exists
-    #my $sid = car $q->param('sid');
-    #warn "Restoring session from sid=$sid in init";
-    #$s->restore( $sid ) if defined $sid;
-
     $self->set_attributes(
         _title            => 'My Profile',
         _permission_level => 'anonym'
@@ -92,10 +87,9 @@ sub init {
         },
         changeEmail => {
             head => 'changeEmail_head',
-            perm => 'nogrants'
+            perm => 'anonym'
         },
-        verifyEmail => { head => 'verifyEmail_head', perm => 'nogrants' },
-        logout      => { head => 'logout_head',      perm => 'nogrants' },
+        logout => { head => 'logout_head', perm => 'nogrants' },
 
         # projects are useless at any level below readonly
         chooseProject => {
@@ -218,55 +212,156 @@ sub changeEmail_head {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    eval {
-        $s->change_email(
-            password     => car( $q->param('password') ),
-            emails       => [ $q->param('email') ],
-            project_name => 'Segex',
-            login_uri    => $q->url( -full => 1 ) . '?a=profile&b=verifyEmail'
-        );
-    } or do {
+    my $sid = car $q->url_param('_sid');
+    if ( defined $sid ) {
 
-    #---------------------------------------------------------------------------
-    #  changing email failed
-    #---------------------------------------------------------------------------
-        my $exception;
-        if ( $exception = Exception::Class->caught('SGX::Exception::User') ) {
-
-            # User error: show corresponding form again
-            $self->add_message( { -class => 'error' }, $exception->error );
-            $self->set_action('form_changeEmail');    # change email form
-            return 1;
+        # destroy existing session if its id doesn't match
+        my $current_sid = $s->get_session_id();
+        if ( !defined($current_sid) || $current_sid ne $sid ) {
+            $s->destroy();
         }
-        elsif ( $exception = Exception::Class->caught() ) {
 
-            # Internal error
-            my $msg =
-              eval { $exception->error } || "$exception" || 'Unknown error';
-            warn $msg;
-            $self->add_message(
-                { -class => 'error' },
+        if ( defined $q->param('login') ) {
+
+    #---------------------------------------------------------------------------
+    #  Sent here from login form, also have sid
+    #---------------------------------------------------------------------------
+            my $username = car $q->param('username');
+            my $password = car $q->param('password');
+
+            eval {
+                $s->authenticate(
+                    {
+                        username   => $username,
+                        password   => $password,
+                        session_id => $sid
+                    }
+                );
+            } or do {
+                my $exception;
+                if (
+                    $exception = Exception::Class->caught(
+                        'SGX::Exception::Session::Expired')
+                  )
+                {
+
+                    # Give more specific reason error message instead of the
+                    # default 'Your session has expired.'
+                    $self->add_message(
+                        { -class => 'error' },
+'Your session has expired. Please log in to Segex to continue.'
+                    );
+                    $self->set_action('form_login');
+                    return 1;
+                }
+                elsif ( $exception =
+                    Exception::Class->caught('SGX::Exception::User') )
+                {
+
+                    # User error: show the same form with the same action URI to
+                    # allow user to reenter his/her credentials.
+                    $self->add_message( { -class => 'error' },
+                        $exception->error );
+                    $self->{_form_login_action} =
+                      '?a=profile&b=changeEmail&_sid=' . $sid;
+                    $self->set_action('form_login');
+                    return 1;
+                }
+                else {
+
+                    # No error or internal error
+                    $exception = Exception::Class->caught();
+                    my $msg =
+                         eval { $exception->error }
+                      || "$exception"
+                      || 'Unknown error';
+                    warn $msg;
+                    $self->add_message(
+                        { -class => 'error' },
+'Failed to process your login. If you are an administrator, see error log for details of this error.'
+                    );
+                    $self->set_action('');
+                    return 1;
+                }
+            };
+            $self->add_message('User credentials authenticated.');
+
+    #---------------------------------------------------------------------------
+    #  now actually change email
+    #---------------------------------------------------------------------------
+            eval {
+                $s->update_user(
+                    set => {
+                        email_confirmed => 1,
+                        email           => $s->{session_cookie}->{email}
+                    },
+                    where => {
+                        uname => $username,
+                        pwd   => $s->encrypt($password)
+                    }
+                );
+            } or do {
+                my $exception = Exception::Class->caught();
+                my $msg =
+                     eval { $exception->error }
+                  || "$exception"
+                  || 'Unknown error';
+                warn $msg;
+                $self->add_message(
+                    { -class => 'error' },
 'Failed to change email. If you are an administrator, see error log for details of this error.'
+                );
+                $self->set_action('');
+                return 1;
+            };
+
+            # restore session
+            $s->cleanse();
+
+            # on success show default page (user profile)
+            $self->add_message(
+'Success! You have changed your email address registered with Segex.'
             );
             $self->set_action('');
             return 1;
         }
         else {
 
-            # No error
-            $self->add_message( { -class => 'error' },
-                'Failed to change email.' );
-            $self->set_action('');
+    #---------------------------------------------------------------------------
+    #  Have sid, show login form
+    #---------------------------------------------------------------------------
+            $self->add_message(
+'Please enter your username and password to finish changing your email address.'
+            );
+            $self->{_form_login_action} =
+              '?a=profile&b=changeEmail&_sid=' . $sid;
+            $self->set_action('form_login');
             return 1;
         }
-    };
+    }
+    else {
+        eval {
+            $s->change_email(
+                passwords    => [ $q->param('password') ],
+                emails       => [ $q->param('email') ],
+                project_name => 'Segex',
+                login_uri => $q->url( -full => 1 ) . '?a=profile&b=changeEmail'
+            );
+        } or do {
+            my $exception = Exception::Class->caught();
+            my $msg =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            $self->add_message( { -class => 'error' }, $msg );
 
-    #---------------------------------------------------------------------------
-    #  changed email address OK
-    #---------------------------------------------------------------------------
-    $self->set_action('');    # default page: profile
-    $self->add_message( $s->change_email_text() );
-    return 1;
+            # show corresponding form again
+            $self->set_action('form_changeEmail');
+            return 1;
+        };
+
+        $self->add_message( $s->change_email_text() );
+        $self->set_action('');    # default page: profile
+        return 1;
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -456,6 +551,13 @@ sub registerUser_head {
 
     my $sid = car $q->url_param('_sid');
     if ( defined $sid ) {
+
+        # destroy existing session if its id doesn't match
+        my $current_sid = $s->get_session_id();
+        if ( !defined($current_sid) || $current_sid ne $sid ) {
+            $s->destroy();
+        }
+
         if ( defined $q->param('login') ) {
 
     #---------------------------------------------------------------------------
@@ -464,8 +566,6 @@ sub registerUser_head {
             my $username = car $q->param('username');
             my $password = car $q->param('password');
 
-            # destroy existing session
-            $s->destroy();
             eval {
                 $s->authenticate(
                     {
@@ -482,9 +582,12 @@ sub registerUser_head {
                   )
                 {
 
-                    # expired session: allow simple login
-                    $self->add_message( { -class => 'error' },
-                        $exception->error );
+                    # Give more specific reason error message instead of the
+                    # default 'Your session has expired.'
+                    $self->add_message(
+                        { -class => 'error' },
+'Your session has expired. Please log in to Segex to continue.'
+                    );
                     $self->set_action('form_login');
                     return 1;
                 }
@@ -520,14 +623,18 @@ sub registerUser_head {
             };
             $self->add_message('User credentials authenticated.');
 
-            # register user
+    #---------------------------------------------------------------------------
+    #  now actually register the user
+    #---------------------------------------------------------------------------
             eval {
-                $s->create_user(
-                    uname           => $username,
-                    pwd             => $s->encrypt($password),
-                    email           => $s->{session_cookie}->{email},
-                    full_name       => $s->{session_cookie}->{full_name},
-                    email_confirmed => 1
+                $s->insert_user(
+                    set => {
+                        uname           => $username,
+                        pwd             => $s->encrypt($password),
+                        email           => $s->{session_cookie}->{email},
+                        full_name       => $s->{session_cookie}->{full_name},
+                        email_confirmed => 1
+                    }
                 );
             } or do {
                 my $exception = Exception::Class->caught();
@@ -547,6 +654,7 @@ sub registerUser_head {
             # Grant basic access (we actually call this level 'nogrants' because
             # it does not let one perform any SQL statements on data).
             $s->session_store( user_level => 'nogrants' );
+            $s->cleanse();
 
             # on success show default page (user profile)
             $self->add_message('Success! You are now registered with Segex.');
@@ -581,8 +689,7 @@ sub registerUser_head {
             my $exception = Exception::Class->caught();
             my $msg =
               eval { $exception->error } || "$exception" || 'Unknown error';
-            $self->add_message( { -class => 'error' },
-                "Could not create user: $msg" );
+            $self->add_message( { -class => 'error' }, $msg );
 
             # show corresponding form again
             $self->set_action('form_registerUser');
@@ -660,7 +767,7 @@ sub form_registerUser_body {
             ),
             '&nbsp;&nbsp;',
             $q->label(
-                { for => 'password2' },
+                { -for => 'password2' },
                 $q->strong('Retype to confirm:')
             ),
             $q->password_field(
@@ -819,48 +926,6 @@ END_forgotPassword
         )
       ),
       $q->end_form;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Profile
-#       METHOD:  verifyEmail_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub verifyEmail_head {
-    my $self = shift;
-    my ( $dbh, $q, $s ) = @$self{qw/_dbh _cgi _UserSession/};
-
-    require SGX::Session::Base;
-    my $t = SGX::Session::Base->new(
-        dbh       => $dbh,
-        expire_in => 3600 * 48,
-        check_ip  => 0
-    );
-    if ( $t->restore( car $q->param('sid') ) ) {
-        my $username = $t->{session_stash}->{username};
-        if ( $s->verify_email($username) ) {
-
-            #my $new_address = car $q->param('address');
-            # now we are free to set the new address by using the variables:
-            # $username and $new_address.
-
-            $self->add_message('Success! You email address has been verified.');
-        }
-        $self->set_action('');    # default page: profile
-        $t->destroy();
-        return 1;
-    }
-    else {
-
-        # redirect to main page
-        $self->redirect( $self->url( -absolute => 1 ) );
-        return;
-    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -1031,10 +1096,9 @@ sub form_changeEmail_body {
                 -name  => 'email',
                 -id    => 'email1',
                 -title => 'Enter your new email address'
-            )
-        ),
-        $q->dt( $q->label( { -for => 'email2' }, 'Confirm New Address:' ) ),
-        $q->dd(
+            ),
+            '&nbsp;&nbsp;',
+            $q->label( { -for => 'email2' }, $q->strong('Retype to confirm:') ),
             $q->textfield(
                 -name  => 'email',
                 -id    => 'email2',
