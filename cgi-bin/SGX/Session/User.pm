@@ -15,7 +15,7 @@ require Email::Address;
 use SGX::Debug;
 use SGX::Abstract::Exception ();
 require SGX::Session::Base;    # for email confirmation
-use SGX::Util qw/car equal list_keys list_values/;
+use SGX::Util qw/car equal list_keys list_values uniq/;
 
 # minimum password length (in characters)
 Readonly::Scalar my $MIN_PWD_LENGTH => 6;
@@ -122,41 +122,40 @@ sub authenticateFromDB {
       : 1;
 
     #---------------------------------------------------------------------------
-    #  get user info triple from the database
+    #  get user record
     #---------------------------------------------------------------------------
-    my $query =
-      defined($password)
-      ? 'select uid, level, full_name, email from users where uname=? and pwd=?'
-      : 'select uid, level, full_name, email from users where uname=?';
-
-    my @params =
-      defined($password)
-      ? ( $username, $password )
-      : ($username);
-
-    my $dbh       = $self->{dbh};
-    my $sth       = $dbh->prepare($query);
-    my $row_count = $sth->execute(@params);
-    if ( $row_count < 1 ) {
-
-        # user not found in the database
-        $sth->finish;
+    my $udata = eval {
+        $self->select_users(
+            select => [qw/uid level full_name email/],
+            where  => {
+                uname => $username,
+                ( defined($password) ? ( pwd => $password ) : () )
+            },
+            ensure_single => 1
+        )->[0];
+    };
+    my $exception;
+    if ( $exception =
+        Exception::Class->caught('SGX::Exception::Internal::Duplicate') )
+    {
         $self->destroy();
-        SGX::Exception::User->throw( error => 'Login incorrect' );
+        if ( $exception->{records_found} == 0 ) {
+            SGX::Exception::User->throw( error => 'Login incorrect' );
+        }
+        else {
+            $exception->rethrow;
+        }
     }
-    elsif ( $row_count > 1 ) {
-
-        # should never end up here if uname field has a unique index on it in
-        # the database
-        $sth->finish;
+    elsif ( $exception = Exception::Class->caught() ) {
         $self->destroy();
-        SGX::Exception::Internal::Duplicate->throw(
-            error => "$row_count records found where one was expected" );
+        if ( eval { $exception->can('rethrow') } ) {
+            $exception->rethrow;
+        }
+        else {
+            SGX::Exception::Internal->throw( error => "$exception" );
+        }
     }
 
-    # user found in the database
-    my $udata = $sth->fetchrow_hashref;
-    $sth->finish;
     $self->{_user_id} = $udata->{uid};
 
     #---------------------------------------------------------------------------
@@ -267,27 +266,40 @@ sub reset_password {
       or SGX::Exception::User->throw( error =>
           'You did not provide your login ID or a valid email address.' );
 
-    my $dbh = $self->{dbh};
-    my $sth = $dbh->prepare(
-"select uid, uname, level, full_name, email from users where $lvalue=? and email_confirmed=1"
-    );
-
     # Do not check for duplicates: duplicates could only mean that there are two
     # usernames for the same email address. In that case, pick the first user
     # record returned by the DBI and send an email.
-    my $rows_found = $sth->execute($rvalue);
-    if ( $rows_found < 1 ) {
-
-        # user not found in the database
-        $sth->finish;
-        SGX::Exception::User->throw( error =>
+    my $udata = eval {
+        $self->select_users(
+            select        => [qw/uid uname level full_name email/],
+            where         => { $lvalue => $rvalue, email_confirmed => 1 },
+            ensure_single => 1
+        )->[0];
+    };
+    my $exception;
+    if ( $exception =
+        Exception::Class->caught('SGX::Exception::Internal::Duplicate') )
+    {
+        if ( $exception->{records_found} < 1 ) {
+            SGX::Exception::User->throw( error =>
 'User name does not exist in the database or user email address has not been verified'
-        );
+            );
+        }
+        else {
+
+            # at least one user found
+            $udata = $exception->{data}->[0];
+        }
+    }
+    elsif ( $exception = Exception::Class->caught() ) {
+        if ( eval { $exception->can('rethrow') } ) {
+            $exception->rethrow;
+        }
+        else {
+            SGX::Exception::Internal->throw( error => "$exception" );
+        }
     }
 
-    # fetch data for the first user
-    my $udata = $sth->fetchrow_hashref;
-    $sth->finish;
     $self->{_user_id} = $udata->{uid};
 
     #---------------------------------------------------------------------------
@@ -414,7 +426,8 @@ sub change_password {
         where => {
             uname => $username,
             ( $require_old ? ( pwd => $old_password ) : () )
-        }
+        },
+        ensure_single => 1
     );
 
     # We try to shorten the time window where the user is allowed to change his
@@ -528,6 +541,54 @@ END_change_email_text
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
+#       METHOD:  select_users
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Primitive ORM-like mechanism for returning record objects as an
+#                ordered list.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub select_users {
+    my ( $self, %args ) = @_;
+
+    # arguments
+    my $select_fields = $args{select};
+    my $where_fields  = $args{where};
+    my $ensure_single = $args{ensure_single};
+
+    # SQL statement
+    my $sql =
+        'SELECT '
+      . join( ',', uniq @$select_fields )
+      . ' FROM users WHERE '
+      . join( ' AND ', map { "$_=?" } keys %$where_fields );
+
+    # database handle
+    my $dbh = $self->{dbh};
+    my $sth = $dbh->prepare($sql);
+
+    # fill out @data array with row records
+    $sth->execute( values(%$where_fields) );
+    my @data;
+    while ( my $row = $sth->fetchrow_hashref ) {
+        push @data, $row;
+    }
+    my $records_found = scalar(@data);
+    $sth->finish;
+    if ( $ensure_single && $records_found != 1 ) {
+        SGX::Exception::Internal::Duplicate->throw(
+            error => "Expected to find one user but $records_found were found",
+            records_found => $records_found,
+            data          => \@data
+        );
+    }
+    return \@data;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
 #       METHOD:  insert_user
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -538,13 +599,18 @@ END_change_email_text
 #===============================================================================
 sub insert_user {
     my ( $self, %args ) = @_;
-    my $set_fields = $args{set};
-    my $dbh        = $self->{dbh};
 
+    # arguments
+    my $set_fields = $args{set};
+
+    # SQL statement
     my $sql = 'INSERT INTO users SET '
       . join( ',', map { "$_=?" } list_keys %$set_fields );
+
+    # database handle
+    my $dbh           = $self->{dbh};
     my $sth           = $dbh->prepare($sql);
-    my $rows_affected = $sth->execute( list_values %$set_fields );
+    my $rows_affected = int( $sth->execute( list_values %$set_fields ) );
     $sth->finish;
 
     if ( $rows_affected == 0 ) {
@@ -552,11 +618,12 @@ sub insert_user {
               'Can\'t add user: user may already exist in the database' );
     }
     elsif ( $rows_affected != 1 ) {
-        SGX::Exception::Internal::Duplicate->throw( error =>
-"Expected to insert one user record but encountered $rows_affected.\n"
+        SGX::Exception::Internal::Duplicate->throw(
+            error =>
+              "Expected to insert one record but $rows_affected were inserted",
+            records_found => $rows_affected
         );
     }
-
     return $rows_affected;
 }
 
@@ -572,35 +639,68 @@ sub insert_user {
 #===============================================================================
 sub update_user {
     my ( $self, %args ) = @_;
-    my $set_fields   = $args{set};
-    my $where_fields = $args{where};
-    my $dbh          = $self->{dbh};
 
+    # arguments
+    my $set_fields    = $args{set};
+    my $where_fields  = $args{where};
+    my $ensure_single = $args{ensure_single};
+
+    # SQL statement
     my $sql =
         'UPDATE users SET '
       . join( ',', map { "$_=?" } keys %$set_fields )
       . ' WHERE '
       . join( ' AND ', map { "$_=?" } keys %$where_fields );
+
+    # database handle
+    my $dbh = $self->{dbh};
     my $sth = $dbh->prepare($sql);
-    my $rows_affected =
-      $sth->execute( values(%$set_fields), values(%$where_fields) );
-    $sth->finish;
 
-    # For a non-SELECT statement, execute returns the number of rows affected,
-    # if known. If no rows were affected, then execute returns "0E0", which Perl
-    # will treat as 0 but will regard as true. Note that it is not an error for
-    # no rows to be affected by a statement. If the number of rows affected is
-    # not known, then execute returns -1.
+    # turn off automatic commits to allow for rollback
+    my $old_AutoCommit = $dbh->{AutoCommit};
+    $dbh->{AutoCommit} = 0;
 
-    if ( $rows_affected == 0 ) {
+    my $rows_affected = eval {
+        int( $sth->execute( values(%$set_fields), values(%$where_fields) ) );
+    };
+    if ( my $exception = Exception::Class->caught() ) {
+        $sth->finish;
+        $dbh->rollback;
+        $dbh->{AutoCommit} = $old_AutoCommit;
+        if ( eval { $exception->can('rethrow') } ) {
+            $exception->rethrow;
+        }
+        else {
+            SGX::Exception::Internal->throw( error => "$exception" );
+        }
+    }
+    elsif ( $rows_affected == 0 ) {
+        $sth->finish;
+        $dbh->rollback;
+        $dbh->{AutoCommit} = $old_AutoCommit;
         SGX::Exception::User->throw(
             error => 'Can\'t update user: User not found' );
     }
-    elsif ( $rows_affected != 1 ) {
-        SGX::Exception::Internal::Duplicate->throw( error =>
-"Expected to find one user record but encountered $rows_affected.\n"
+    elsif ( $ensure_single && $rows_affected != 1 ) {
+
+        # From DBI docs: "For a non-SELECT statement, execute returns the number
+        # of rows affected, if known. If no rows were affected, then execute
+        # returns "0E0", which Perl will treat as 0 but will regard as true.
+        # Note that it is not an error for no rows to be affected by a
+        # statement. If the number of rows affected is not known, then execute
+        # returns -1."
+        $sth->finish;
+        $dbh->rollback;
+        $dbh->{AutoCommit} = $old_AutoCommit;
+        SGX::Exception::Internal::Duplicate->throw(
+            error => "Encountered $rows_affected user records but expected one",
+            records_found => $rows_affected
         );
     }
+
+    $sth->finish;
+    $dbh->commit;
+    $dbh->{AutoCommit} = $old_AutoCommit;
 
     return $rows_affected;
 }
@@ -617,17 +717,22 @@ sub update_user {
 #===============================================================================
 sub count_users {
     my ( $self, %args ) = @_;
-    my $where_fields = $args{where};
-    my $dbh          = $self->{dbh};
 
+    # arguments
+    my $where_fields = $args{where};
+
+    # SQL statement
     my $sql = 'SELECT COUNT(*) FROM users WHERE '
       . join( ' AND ', map { "$_=?" } keys %$where_fields );
+
+    # database handle
+    my $dbh = $self->{dbh};
     my $sth = $dbh->prepare($sql);
     $sth->execute( values(%$where_fields) );
     my ($user_count) = $sth->fetchrow_array;
     $sth->finish;
 
-    return $user_count;
+    return int($user_count);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -863,7 +968,8 @@ sub read_perm_cookie {
 
     # try to get the username from the parameter list first; if no username
     # given then turn to session data.
-    $username = $self->{session_stash}->{username} unless defined($username);
+    $username = $self->{session_stash}->{username}
+      unless defined($username);
 
     my $cookie_name = $self->encrypt($username);
     my $cookies_ref = $self->{fetched_cookies};
@@ -1003,11 +1109,11 @@ sub get_user_id {
     # attempt to retrieve by login name which is stored in session data
     my $username = $self->{session_stash}->{username};
     if ( defined $username ) {
-        my $dbh = $self->{dbh};
-        my $sth = $dbh->prepare('select uid from users where uname=?');
-        my $rc  = $sth->execute($username);
-        ($user_id) = $sth->fetchrow_array;
-        $sth->finish;
+        $user_id = $self->select_users(
+            select        => ['uid'],
+            where         => { uname => $username },
+            ensure_single => 1
+        )->[0]->{uid};
     }
 
     # cache the returned value

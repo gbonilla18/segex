@@ -32,6 +32,7 @@ use Exception::Class (
     },
     'SGX::Exception::Internal::Duplicate' => {
         isa         => 'SGX::Exception::Internal',
+        fields      => ['records_found', 'data'],
         description => 'Two or more records encountered where one was expected'
     },
     'SGX::Exception::Skip' => {

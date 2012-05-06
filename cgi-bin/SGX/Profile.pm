@@ -298,7 +298,8 @@ sub changeEmail_head {
                     where => {
                         uname => $username,
                         pwd   => $s->encrypt($password)
-                    }
+                    },
+                    ensure_single => 1
                 );
             } or do {
                 my $exception = Exception::Class->caught();
