@@ -1,8 +1,104 @@
-============ DATABASE SETUP (MySQL) ===============
+Table of Contents:
+1.   Linux
+1.1. Software Install
+1.2. Database Setup (MySQL)
+2.   Mac OS X
+2.1. Software Install
+2.2. Database Setup (MySQL)
 
-===== A. Linux =======
 
-0. [Optional] To allow for full-text searches on three-letter words and acronyms
+1. Linux
+
+
+1.1. Software Install on Linux
+
+
+1.1.1. Install dependencies. To upgrade CPAN and install/upgrade all of the
+required packages:
+
+	sudo /usr/bin/cpan Bundle::CPAN
+	sudo /usr/bin/cpan Apache::Session::MySQL CGI::Carp CGI::Cookie Carp \
+Config::General DBD::mysql DBI Data::Dumper Data::UUID Digest::SHA1 \
+Email::Address Exception::Class Exception::Class::DBI Hash::Merge JSON \
+JSON::XS Lingua::EN::Inflect List::Util Mail::Send Math::BigFloat Math::BigInt \
+Readonly Scalar::Util Storable Text::Autoformat Text::CSV Text::CSV_XS \
+Tie::IxHash URI::Escape
+
+Running the second command again will let you confirm that you have all of the
+required Perl packages installed.
+
+
+1.1.2. [Development version only] Change log file path in "Debug.pm" to a path
+actually present and writable on the given system. On Linux, the path is
+"/var/www/error_log/error_log". Make sure that a CGI process has write access to
+said file. On Linux, Apache server process is owned by user under username
+"nobody". For debugging purposes, however, it is more convenient to create a
+separate log file so that more than one software/database instance could be set
+up on the same machine:
+
+  mkdir -p ~/log/apache2
+  cd  ~/log/apache2
+  touch segex_log
+  sudo chown nobody:nobody segex_log
+
+
+1.1.3. Copy files. If you choose to create soft links instead, add
+"FollowSymLinks" directive to the Apache configuration file (either local
+.htaccess or global httpd.conf depending on your setup) for both CGI_ROOT and
+DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
+~/tarballs/yui.tgz.
+
+   # CGI_ROOT
+
+   # /cgi-bin/segex
+   cd /var/www/cgi-bin
+   sudo cp -R ~/segex/cgi-bin segex
+   sudo cp ~/segex/segex.conf.sample segex/segex.conf
+
+   # DOCUMENTS_ROOT
+
+   # /yui
+   cd /var/www/
+   tar xvzf ~/tarballs/yui.tgz .
+
+   # /segex/
+   mkdir segex
+   cd segex
+
+   # /segex/css
+   sudo cp -R ~/segex/css .
+
+   # /segex/images
+   sudo cp -R ~/segex/images .
+
+   # /segex/js
+   sudo cp -R ~/segex/js .
+
+
+1.1.4. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
+modify your main Apache configuration file (usually /etc/httpd/conf/httpd.conf)
+to allow .htaccess overrides. On Linux Cent OS, this means:
+
+<Directory "/var/www/cgi-bin">
+    AllowOverride Options FileInfo
+    ...
+
+When URL rewriting is enabled, set correct path in the "cgi-bin/.htaccess" file:
+
+RewriteRule ^$ /cgi-bin/segex/index.cgi
+
+
+1.1.5. Check that path to default mailer program (sendmail, postfix, etc) is set
+correctly in cgi-bin/segex.conf. On Linux Cent OS, this path is /usr/sbin.
+
+mailer_path = "/usr/sbin"
+
+
+
+1.2. Database Setup (MySQL) on Linux
+
+
+1.2.1. [Optional] To allow for full-text searches on three-letter words and acronyms
 such as DNA, RNA, etc., edit file called my.cnf (CentOS: /etc/my.cnf) and add
 the following line(s) under section called "[mysqld]":
 
@@ -14,176 +110,56 @@ Next, restart MySQL server:
 
   sudo service mysqld restart
 
-1. Create empty database and add a dedicated user account. Note: in the default
-MySQL installation, the root password is empty (simply press enter to proceed).
+
+1.2.2. Create empty database and add a dedicated user account. NOTE: in the default
+MySQL installation, the root password is empty (simply hit enter to proceed).
+NOTE: don't forget to change segex_user_password to something different.
 
   mysql -u root -p
-  > CREATE DATABASE segex_dev;
-  > CREATE USER 'segex_dev_user'@'localhost' IDENTIFIED BY 'b00g3yk1d';
+  > CREATE DATABASE segex;
+  > CREATE USER 'segex_user'@'localhost' IDENTIFIED BY 'segex_user_password';
   > GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE, CREATE TEMPORARY TABLES
-    ON segex_dev.* TO 'segex_dev_user'@'localhost';
-
-2. Load database from backup
-
-  gunzip -c segex.sql.gz | mysql segex_dev -u root -p
-
-3. Update cgi-bin/segex.conf file with correct database, user, and password
-information.
-
-==== B. Mac OS X =======
-
-0. [Optional] To allow for full-text searches on three-letter words and acronyms
-such as DNA, RNA, etc., copy file called "my-huge.cnf" from 
-/usr/local/mysql/support-files/ into /etc/, renaming it to "my.cnf":
-
-sudo cp /usr/local/mysql/support-files/my-huge.cnf /etc/my.cnf
-
-Next, add the following line(s) under section called "[mysqld]" to the newly
-created my.cnf file:
-
-   [mysqld]
-   # Allow full-text indexes on three-letter words such as DNA, RNA, etc.
-   ft_min_word_len=3
-
-Next, restart MySQL server via System Preferences.
-
-1. Create empty database and add a dedicated user account. Note: in the default
-MySQL installation, the root password is empty (simply press enter to proceed).
-
-  mysql -u root -p
-  > CREATE DATABASE segex_dev;
-  > CREATE USER 'segex_dev_user'@'localhost' IDENTIFIED BY 'b00g3yk1d';
-  > GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE, CREATE TEMPORARY TABLES
-    ON segex_dev.* TO 'segex_dev_user'@'localhost';
-
-2. Load database from backup
-
-  gunzip -c segex.sql.gz | mysql segex_dev -u root -p
-
-3. Update cgi-bin/segex.conf file with correct database, user, and password
-information.
+    ON segex.* TO 'segex_user'@'localhost';
 
 
-============ SOFTWARE INSTALL ===============
+1.2.3. Load database from backup
 
-==== A. Linux ====
+  gunzip -c segex.2012.05.07.sql.gz | mysql segex -u root -p
 
-1. Change log file path in "Debug.pm" to a path actually present and writable on
-the given system. On Linux, the path is "/var/www/error_log/error_log". Then one
-has to make sure that a CGI process has write access to said file. On Linux,
-Apache server process is owned by user under username "nobody". However, I
-recommend creating a separate log file so that more than one software/database
-instance could be set up on the same machine.
+NOTE: you can use the converse of this comment to backup a database:
 
-  mkdir -p ~/log/apache2
-  cd  ~/log/apache2
-  touch segex_dev_log
-  sudo chown nobody:nobody segex_dev_log
+  mysqldump --routines segex -u root -p | gzip -c > segex.2012.05.07.sql.gz
 
-2. Check Perl dependencies. Tie::IxHash and JSON are not included in the default
-Perl installation on Linux Cent OS. The commands below upgrade and reload the
-cpan executable before installing the packages on which Segex depends:
-
-  sudo /usr/bin/perl -MCPAN -e shell
-    install CPAN
-    reload cpan
-    install Tie::IxHash
-    install JSON
-    install Text::CSV
-    install Text::CSV_XS
-    install Exception::Class::DBI
-    install Email::Address
-    install Readonly
-    install Lingua::EN::Inflect
-    install Text::Autoformat
-    install Email::Address
-    install Hash::Merge
-    install Data::UUID
- 
-3. Copy files. Note: symlinks can be created instead of copying, however that
-would require FollowSymLinks directive to be set in the Apache configuration
-file for both CGI_ROOT and DOCUMENTS_ROOT directories.
-
-   # /cgi-bin/segex_dev
-   cd /var/www/cgi-bin
-   sudo cp -R /home/escherba/segex/cgi-bin segex_dev
-
-   # /yui
-   cd /var/www/
-   tar xvzf ~/tarballs/yui.tgz .
-
-   # /segex_dev/
-   mkdir segex_dev
-   cd segex_dev
-
-   # /segex_dev/css
-   sudo cp -R ~/segex/css .
-
-   # /segex_dev/js
-   sudo cp -R ~/segex/js .
-
-   # /segex_dev/images
-   sudo cp -R ~/segex/images .
-
-4. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
-modify your main Apache configuration file (usually /etc/httpd/conf/httpd.conf)
-to allow .htaccess overrides. On Linux Cent OS, this means:
-
-<Directory "/var/www/cgi-bin">
-    AllowOverride Options FileInfo
-    ...
-
-When URL rewriting is enabled, must set correct path in cgi-bin/.htaccess 
-package file (replace "segex_dev" with whatever directory you installed Segex
-under):
-
-RewriteRule ^$ /cgi-bin/segex_dev/index.cgi
+The --routines option is necessary because otherwise mysqldump command will not
+back up stored MySQL procedures and functions.
 
 
-5. Check that path to default mailer program (sendmail, postfix, etc) is set
-correctly in cgi-bin/segex.conf. On both Mac OS X and Linux Cent OS, this path
-is /usr/sbin.
+1.2.4. Update cgi-bin/segex.conf file with the correct database, user, and password
+info.
 
-mailer_path = "/usr/sbin"
 
-==== B. Mac OS X ====
 
-1. Change log file path in "Debug.pm" to a path actually present and writable on
-the given system. On Mac OS X, the path is "/private/var/log/apache2/error_log".
-Then one has to make sure that a CGI process has write access to said file. On
-Mac OS X, Apache server process is owned by user under username "www". However,
-I recommend creating a separate log file so that more than one software/database
-instance could be set up on the same machine.
 
-  mkdir -p ~/log/apache2
-  cd  ~/log/apache2
-  touch segex_dev_log
-  sudo chown www:wheel segex_dev_log
+2. Mac OS X
 
-2. Check Perl dependencies. Apache::Session, DBD::mysql, Tie::IxHash, and JSON
-are not included in the default Perl installation on Mac OS X Snow Leopard. The
-commands below upgrade and reload the cpan executable before installing packages
-on which Segex depends:
+2.1. Software Install (Mac OS X)
 
-  > sudo /usr/bin/perl -MCPAN -e shell
-    install CPAN
-    reload cpan
-    install Apache::Session
-    install DBD::mysql
-    install Mail::Send
-    install Tie::IxHash
-    install JSON
-    install Text::CSV
-    install Text::CSV_XS
-    install Exception::Class::DBI
-    install Readonly
-    install Lingua::EN::Inflect
-    install Text::Autoformat
-    install Email::Address
-    install Hash::Merge
-    install Data::UUID
+2.1.1. Install dependencies. You need to have a C compiler installed (GCC comes
+with Xcode) and configured. To upgrade CPAN and install/upgrade all of the
+required packages:
 
-Note 1: If you are running Mac OS X 10.6 and have Xcode 4 installed, you no
+	sudo /usr/bin/cpan Bundle::CPAN
+	sudo /usr/bin/cpan Apache::Session::MySQL CGI::Carp CGI::Cookie Carp \
+Config::General DBD::mysql DBI Data::Dumper Data::UUID Digest::SHA1 \
+Email::Address Exception::Class Exception::Class::DBI Hash::Merge JSON \
+JSON::XS Lingua::EN::Inflect List::Util Mail::Send Math::BigFloat Math::BigInt \
+Readonly Scalar::Util Storable Text::Autoformat Text::CSV Text::CSV_XS \
+Tie::IxHash URI::Escape
+
+Running the second command again will let you confirm that you have all of the
+required Perl packages installed.
+
+NOTE: If you are running Mac OS X 10.6 and have Xcode 4 installed, you no
 longer have PPC assembler required to build CPAN packages. To work around this,
 you can either (a) go to the corresponding subdirectory in ~/.cpan/build, remove
 all references to PPC architecture (e.g. "-arch ppc") and reinstall package with
@@ -200,7 +176,22 @@ sudo ln -s \
 /Developer/Platforms/iPhoneOS.platform/Developer/usr/libexec/gcc/darwin/ppc \
 /usr/libexec/gcc/darwin
 
-3. Set up mailer. The Mail::Send module can use either Sendmail or Postfix. The
+
+2.1.2. [Development version only] Change log file path in "Debug.pm" to a path
+actually present and writable on the given system. On Mac OS X, the path is
+"/private/var/log/apache2/error_log". Make sure that a CGI process has write
+access to said file. On Mac OS X, Apache server process is owned by user under
+username "www". For debugging purposes, however, it is more convenient to create
+a separate log file so that more than one software/database instance could be
+set up on the same machine.
+
+  mkdir -p ~/log/apache2
+  cd  ~/log/apache2
+  touch segex_log
+  sudo chown www:wheel segex_log
+
+
+2.1.3. Set up mailer. The Mail::Send module can use either Sendmail or Postfix. The
 current version of Segex relies on a default mailer, which can be either
 Sendmail or Postfix depending on the system. On my Mac OS X Snow Leopard, the
 default mailer is Postfix.
@@ -209,7 +200,7 @@ default mailer is Postfix.
         (Adapted with some changes after: 
         http://www.riverturn.com/blog/?p=239)
 
-   3.1. Create the Simple Authentication and Security Layer (SASL) password
+   2.1.3.1. Create the Simple Authentication and Security Layer (SASL) password
 file.
 
         sudo vi /etc/postfix/sasl_passwd
@@ -218,7 +209,7 @@ file.
 
         smtp.gmail.com:587 your_name@gmail.com:your_password
 
-   3.2. Create a Postfix lookup table for SASL.
+   2.1.3.2. Create a Postfix lookup table for SASL.
 
         sudo postmap /etc/postfix/sasl_passwd
 
@@ -234,7 +225,7 @@ database:
 
         sudo chmod 600 /etc/postfix/sasl_passwd.db
 
-   3.3. Configure Postfix:
+   2.1.3.3. Configure Postfix:
 
         sudo vi /etc/postfix/main.cf
 
@@ -257,37 +248,46 @@ the end of file and then save it:
         smtp_tls_security_level=encrypt
         tls_random_source=dev:/dev/urandom
 
-   3.4. Test that everything is OK with "sudo postfix start" or, if the process
+   2.1.3.4. Test that everything is OK with "sudo postfix start" or, if the process
 is already running, with "sudo postfix reload". If you need to view mail queue,
 type "mailq" in the terminal. To clear the mail queue, run "sudo postsuper -d
 ALL".
 
-4. Copy files. Note: symlinks can be created instead of copying, however that
-would require FollowSymLinks directive to be set in the Apache configuration
-file for both CGI_ROOT and DOCUMENTS_ROOT directories.
 
-   # /cgi-bin/segex_dev
+2.1.4. Copy files. If you wish to set up symlinks instead of copying, add
+FollowSymLinks directive in the Apache configuration file (either local
+.htaccess or global httpd.conf depending on your setup) for both CGI_ROOT and
+DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
+~/tarballs/yui.tgz.
+
+   # CGI_ROOT
+
+   # /cgi-bin/segex
    cd /Library/WebServer/CGI-Executables
-   sudo cp -R ~/segex_dev/cgi-bin segex_dev
+   sudo cp -R ~/segex/cgi-bin segex
+   sudo cp ~/segex/segex.conf.sample segex/segex.conf
+
+   # DOCUMENTS_ROOT
 
    # /yui
    cd /Library/WebServer/Documents
    tar xvzf ~/tarballs/yui.tgz .
 
-   # /segex_dev/
-   mkdir segex_dev
-   cd segex_dev
+   # /segex/
+   mkdir segex
+   cd segex
 
-   # /segex_dev/css
+   # /segex/css
    sudo cp -R ~/segex/css .
 
-   # /segex_dev/images
+   # /segex/images
    sudo cp -R ~/segex/images .
 
-   # /segex_dev/js
+   # /segex/js
    sudo cp -R ~/segex/js .
 
-5. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
+
+2.1.5. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
 modify your main Apache configuration file (usually /etc/apache2/httpd.conf) to
 allow .htaccess overrides. On Mac OS X, this means: 
 
@@ -295,14 +295,60 @@ allow .htaccess overrides. On Mac OS X, this means:
     AllowOverride Options FileInfo
     ...
 
-When URL rewriting is enabled, must set correct path in cgi-bin/.htaccess 
-package file (replace "segex_dev" with whatever directory you installed Segex
-under):
+When URL rewriting is enabled, set correct path in the "cgi-bin/.htaccess" file:
 
-RewriteRule ^$ /cgi-bin/segex_dev/index.cgi
+RewriteRule ^$ /cgi-bin/segex/index.cgi
 
-6. Check that path to default mailer program (sendmail, postfix, etc) is set
-correctly in cgi-bin/segex.conf. On both Mac OS X and Linux Cent OS, this path
-is /usr/sbin.
+
+2.1.6. Check that the path to the default mailer program (sendmail, postfix,
+etc) is set correctly in cgi-bin/segex.conf. On Mac OS X, this path is
+/usr/sbin.
 
 mailer_path = "/usr/sbin"
+
+
+
+2.2. Database setup (MySQL) on Mac OS X
+
+
+2.2.1. [Optional] To allow for full-text searches on three-letter words and acronyms
+such as DNA, RNA, etc., copy file called "my-huge.cnf" from 
+/usr/local/mysql/support-files/ into /etc/, renaming it to "my.cnf":
+
+sudo cp /usr/local/mysql/support-files/my-huge.cnf /etc/my.cnf
+
+Next, add the following line(s) under section called "[mysqld]" to the newly
+created my.cnf file:
+
+   [mysqld]
+   # Allow full-text indexes on three-letter words such as DNA, RNA, etc.
+   ft_min_word_len=3
+
+Next, restart MySQL server via System Preferences.
+
+
+2.2.2. Create empty database and add a dedicated user account. Note: in the default
+MySQL installation, the root password is empty (simply press enter to proceed).
+NOTE: don't forget to change segex_user_password to something different.
+
+  mysql -u root -p
+  > CREATE DATABASE segex;
+  > CREATE USER 'segex_user'@'localhost' IDENTIFIED BY 'segex_user_password';
+  > GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE, CREATE TEMPORARY TABLES
+    ON segex.* TO 'segex_user'@'localhost';
+
+
+2.2.3. Load database from backup
+
+  gunzip -c segex.sql.gz | mysql segex -u root -p
+
+NOTE: you can use the converse of this comment to backup a database:
+
+  mysqldump --routines segex -u root -p | gzip -c > segex.2012.05.07.sql.gz
+
+The --routines option is necessary because otherwise mysqldump command will not
+back up stored MySQL procedures and functions.
+
+
+2.2.4. Update cgi-bin/segex.conf file with correct database, user, and password
+information.

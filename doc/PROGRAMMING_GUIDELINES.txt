@@ -564,24 +564,46 @@ or (b) HTML tooltips using "title" attribute on controls, or (c ) YUI tooltips.
 
 
 
-8. Debugging
+8. Development notes
 
-8.1. CGI::Carp
+8.1. SGX::Debug
 
-In the development version, you can use croak and carp from CGI::Carp (they
-replace die and warn respectively) to send error messages to the browser.
+This module is for debugging purposes only; all references to it should be
+removed once the code goes into production.
 
-8.2. Getting stack trace of function call
+8.2. CGI::Carp
 
-To display stacktrace for a function call, place the following inside the
-function:
+In the development version, you can use "croak" and "carp" from CGI::Carp (they
+replace "die" and "warn" respectively) to send error messages directly to the
+browser insead of the error log.
+
+8.3. Devel::StackTrace
+
+To display stacktrace for a function call, place the following at the top of the
+function body (requires Devel::StackTrace module from CPAN):
 
 	use Devel::StackTrace;
 	my $trace = Devel::StackTrace->new;
 	warn $trace->as_string;
 
-8.3. SGX::Debug
+8.4. Devel::REPL
 
-This module is for debugging purposes only; all references to it should be
-removed once the code goes into production.
+Devel::REPL lets you enter Read-Eval-Print Loop by typing "re.pl" on the command
+line. REPL is a shell-like environment  where you can type Perl commands and
+immediately see results of their execution.
 
+	sudo /usr/bin/cpan Devel::REPL
+	re.pl
+
+8.5. Vim, Perl::Critic, and Perl::Tidy
+
+If you use Vim editor, download and install perl-support.vim plugin from
+http://www.vim.org/scripts/script.php?script_id=556
+
+Next, install the following Perl packages
+	
+	sudo /usr/bin/cpan Perl::Critic
+	sudo /usr/bin/cpan Perl::Tidy
+
+Now whenever you edit a Perl module with Vim, you can type \ry command to
+reformat a file using Perl::Tidy or \rc to run your script through Perl::Critic.
