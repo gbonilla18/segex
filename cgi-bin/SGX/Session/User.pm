@@ -15,14 +15,14 @@ require Email::Address;
 use SGX::Debug;
 use SGX::Abstract::Exception ();
 require SGX::Session::Base;    # for email confirmation
-use SGX::Util qw/car equal list_keys list_values uniq/;
+use SGX::Util qw/car equal uniq/;
 
-# minimum password length (in characters)
+Readonly::Scalar my $TABLE          => 'users';
+Readonly::Scalar my $PRIMARY_KEY    => 'uid';
 Readonly::Scalar my $MIN_PWD_LENGTH => 6;
+Readonly::Hash my %user_rank        => (
 
-Readonly::Hash my %user_rank => (
-
-    # :TODO:10/14/2011 11:54:35:es: This mapping will be replaced by actual
+    # :TODO:10/14/2011 11:54:35:es: This mapping could be replaced by actual
     # numeric values in the database.
     'anonym'   => -1,
     'nogrants' => 0,
@@ -126,7 +126,7 @@ sub authenticateFromDB {
     #---------------------------------------------------------------------------
     my $udata = eval {
         $self->select_users(
-            select => [qw/uid level full_name email/],
+            select => [ $PRIMARY_KEY, qw/level full_name email/ ],
             where  => {
                 uname => $username,
                 ( defined($password) ? ( pwd => $password ) : () )
@@ -156,7 +156,7 @@ sub authenticateFromDB {
         }
     }
 
-    $self->{_user_id} = $udata->{uid};
+    $self->{_user_id} = $udata->{$PRIMARY_KEY};
 
     #---------------------------------------------------------------------------
     #  authenticate
@@ -271,7 +271,7 @@ sub reset_password {
     # record returned by the DBI and send an email.
     my $udata = eval {
         $self->select_users(
-            select        => [qw/uid uname level full_name email/],
+            select => [ $PRIMARY_KEY, qw/uname level full_name email/ ],
             where         => { $lvalue => $rvalue, email_confirmed => 1 },
             ensure_single => 1
         )->[0];
@@ -300,7 +300,7 @@ sub reset_password {
         }
     }
 
-    $self->{_user_id} = $udata->{uid};
+    $self->{_user_id} = $udata->{$PRIMARY_KEY};
 
     #---------------------------------------------------------------------------
     # Set up a new session for data store
@@ -323,15 +323,12 @@ sub reset_password {
     #---------------------------------------------------------------------------
     #  email a temporary access link
     #---------------------------------------------------------------------------
-    my $msg = Mail::Send->new(
-        Subject => "Your Request to Change Your $project_name Password",
-        To      => $udata->{email}
-    );
-    $msg->add( 'From', 'no-reply' );
-    my $fh = $msg->open()
-      or SGX::Exception::Internal::Mail->throw(
-        error => 'Failed to open default mailer' );
-    print $fh <<"END_RESET_PWD_MSG";
+    $self->send_email(
+        config => {
+            Subject => "Your Request to Change Your $project_name Password",
+            To      => $udata->{email}
+        },
+        message => <<"END_RESET_PWD_MSG");
 Hi $udata->{full_name},
 
 Please follow the link below to login to $project_name where you can change your
@@ -341,16 +338,12 @@ $login_uri&sid=$session_id
 
 This link will expire in $hours_to_expire hours.
 
-If you think you have received this email by mistake, please notify the
+If you believe you have received this message by mistake, please notify the
 $project_name administrator.
 
 - $project_name automatic mailer
 
 END_RESET_PWD_MSG
-
-    $fh->close()
-      or SGX::Exception::Internal::Mail->throw(
-        error => 'Failed to send email message' );
 
     return 1;
 }
@@ -562,7 +555,7 @@ sub select_users {
     my $sql =
         'SELECT '
       . join( ',', uniq @$select_fields )
-      . ' FROM users WHERE '
+      . " FROM $TABLE WHERE "
       . join( ' AND ', map { "$_=?" } keys %$where_fields );
 
     # database handle
@@ -602,29 +595,35 @@ sub insert_user {
 
     # arguments
     my $set_fields = $args{set};
+    delete $set_fields->{$PRIMARY_KEY};
 
     # SQL statement
-    my $sql = 'INSERT INTO users SET '
-      . join( ',', map { "$_=?" } list_keys %$set_fields );
+    my $sql =
+      "INSERT INTO $TABLE SET " . join( ',', map { "$_=?" } keys %$set_fields );
 
     # database handle
     my $dbh           = $self->{dbh};
     my $sth           = $dbh->prepare($sql);
-    my $rows_affected = int( $sth->execute( list_values %$set_fields ) );
+    my $rows_affected = int( $sth->execute( values %$set_fields ) );
     $sth->finish;
 
     if ( $rows_affected == 0 ) {
+
+        # no user inserted
         SGX::Exception::User->throw( error =>
               'Can\'t add user: user may already exist in the database' );
     }
     elsif ( $rows_affected != 1 ) {
+
+        # should never get here
         SGX::Exception::Internal::Duplicate->throw(
             error =>
               "Expected to insert one record but $rows_affected were inserted",
             records_found => $rows_affected
         );
     }
-    return $rows_affected;
+
+    return $dbh->last_insert_id( undef, undef, $TABLE, $PRIMARY_KEY );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -647,7 +646,7 @@ sub update_user {
 
     # SQL statement
     my $sql =
-        'UPDATE users SET '
+        "UPDATE $TABLE SET "
       . join( ',', map { "$_=?" } keys %$set_fields )
       . ' WHERE '
       . join( ' AND ', map { "$_=?" } keys %$where_fields );
@@ -722,7 +721,7 @@ sub count_users {
     my $where_fields = $args{where};
 
     # SQL statement
-    my $sql = 'SELECT COUNT(*) FROM users WHERE '
+    my $sql = "SELECT COUNT(*) FROM $TABLE WHERE "
       . join( ' AND ', map { "$_=?" } keys %$where_fields );
 
     # database handle
@@ -828,6 +827,117 @@ END_register_user_text
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::User
+#       METHOD:  open_mailer
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub send_email {
+    my ( $self, %args ) = @_;
+
+    # arguments
+    my $config  = $args{config}  || {};
+    my $message = $args{message} || '';
+
+    # set up file handle
+    my $fh = eval {
+        my $msg = Mail::Send->new(%$config);
+        $msg->add( 'From', 'no-reply' );
+        $msg->open();
+    } or do {
+        if ( my $exception = Exception::Class->caught() ) {
+            if ( eval { $exception->can('rethrow') } ) {
+                $exception->rethrow();
+            }
+            else {
+                SGX::Exception::Internal::Mail->throw( error => "$exception" );
+            }
+        }
+        else {
+
+            # email filehandle evaluated to false
+            SGX::Exception::Internal::Mail->throw(
+                error => 'Could not set up mailer' );
+        }
+    };
+
+    # print body
+    print $fh $message;
+
+    # send message
+    $fh->close()
+      or SGX::Exception::Internal::Mail->throw(
+        error => 'Failed to send email message' );
+
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
+#       METHOD:  notify_admins
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  Mail::Send::close failure
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub notify_admins {
+    my ( $self, %args ) = @_;
+
+    # arguments
+    my $user         = $args{user}         || {};
+    my $user_uri     = $args{user_uri}     || '';
+    my $project_name = $args{project_name} || '';
+
+    my $user_name =
+      ( defined( $user->{full_name} ) && $user->{full_name} ne '' )
+      ? "$user->{full_name} (login name: $user->{uname})"
+      : "$user->{uname}";
+
+    my $admins = $self->select_users(
+        select        => [qw/uname full_name email/],
+        where         => { level => 'admin', email_confirmed => 1 },
+        ensure_single => 0
+    );
+
+    #---------------------------------------------------------------------------
+    #  attempt to email the confirmation link to every admin
+    #---------------------------------------------------------------------------
+    foreach my $admin (@$admins) {
+        my $admin_name =
+          ( defined( $admin->{full_name} ) && $admin->{full_name} ne '' )
+          ? $admin->{full_name}
+          : $admin->{uname};
+        $self->send_email(
+            config => {
+                Subject => "A new user has registered with $project_name",
+                To      => $admin->{email}
+            },
+            message => <<"END_CONFIRM_EMAIL_MSG");
+Hi $admin_name,
+
+A user $user_name has signed up to $project_name. At present, the user cannot
+access or modify any data on $project_name. Please grant this user the
+appropriate permissions by visiting the following page (login may be required):
+
+$user_uri
+
+If you believe you have received this message by mistake, please notify the
+$project_name administrator.
+
+- $project_name automatic mailer
+END_CONFIRM_EMAIL_MSG
+    }
+
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
 #       METHOD:  send_verify_email
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -843,54 +953,27 @@ sub send_verify_email {
     # defaults
     my $hours_to_expire = ( $data->{hours_to_expire} + 0 ) || 48;
 
-    # create/initialize session object; nothing is done yet at this point
+    # start new session and get session id
     my $s = SGX::Session::Base->new(
         dbh       => $self->{dbh},
         expire_in => 3600 * $hours_to_expire,
         check_ip  => 1
     );
+    $s->start();
+    defined( my $session_id = $s->get_session_id() )
+      or SGX::Exception::Internal::Session->throw(
+        error => 'Undefined session id' );
 
     #---------------------------------------------------------------------------
     #  attempt to email the confirmation link
     #---------------------------------------------------------------------------
-    my $fh = eval {
-
-        # set up mailer and make sure it's okay
-        my $msg = Mail::Send->new(
+    $self->send_email(
+        config => {
             Subject =>
               "Please confirm your email address with $data->{project_name}",
             To => $data->{email_address}
-        );
-        $msg->add( 'From', 'no-reply' );
-        $msg->open();
-    } or do {
-        if ( my $exception = Exception::Class->caught() ) {
-            if ( eval { $exception->can('rethrow') } ) {
-                $exception->rethrow();
-            }
-            else {
-                SGX::Exception::Internal::Mail->throw( error => "$exception" );
-            }
-        }
-
-        # email filehandle evaluated to false
-        SGX::Exception::Internal::Mail->throw(
-            error => 'Could not set up mailer' );
-
-        undef;
-    };
-
-    # start new session
-    $s->start();
-
-    # get id of the new session
-    defined( my $session_id = $s->get_session_id() ) or do {
-        $fh->close();
-        SGX::Exception::Internal::Session->throw(
-            error => 'Undefined session id' );
-    };
-
-    print $fh <<"END_CONFIRM_EMAIL_MSG";
+        },
+        message => <<"END_CONFIRM_EMAIL_MSG");
 Hi $data->{full_name},
 
 Please confirm your email address with $data->{project_name} by clicking on the
@@ -900,16 +983,11 @@ $data->{login_uri}&_sid=$session_id
 
 This link will expire in $hours_to_expire hours.
 
-If you think you have received this email by mistake, please notify the
+If you believe you have received this message by mistake, please notify the
 $data->{project_name} administrator.
 
 - $data->{project_name} automatic mailer
 END_CONFIRM_EMAIL_MSG
-
-    # an exception gets thrown at this point in case of failure to send
-    $fh->close()
-      or SGX::Exception::Internal::Mail->throw(
-        error => 'Failed to send email message' );
 
     # Now back to dealing with session
     # store the username in the session object
@@ -925,6 +1003,7 @@ END_CONFIRM_EMAIL_MSG
     $s->commit()
       or SGX::Exception::Internal::Session->throw(
         error => 'Cannot store session data' );
+
     return 1;
 }
 
@@ -1110,10 +1189,10 @@ sub get_user_id {
     my $username = $self->{session_stash}->{username};
     if ( defined $username ) {
         $user_id = $self->select_users(
-            select        => ['uid'],
+            select        => [$PRIMARY_KEY],
             where         => { uname => $username },
             ensure_single => 1
-        )->[0]->{uid};
+        )->[0]->{$PRIMARY_KEY};
     }
 
     # cache the returned value

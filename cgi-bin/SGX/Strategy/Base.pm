@@ -51,7 +51,7 @@ sub init {
     my $js = SGX::Abstract::JSEmitter->new( pretty => 0 );
     $self->set_attributes(
         _title            => '',
-        _permission_level => 'user',
+        _permission_level => 'readonly',
 
         _js_emitter => $js,
         _js_buffer  => [],

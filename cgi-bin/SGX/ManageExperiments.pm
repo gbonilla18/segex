@@ -259,7 +259,7 @@ sub init {
                     (
                         (
                                  defined($curr_proj)
-                              && $curr_proj ne ''
+                              && $curr_proj =~ /^\d+$/ 
                               && ( !defined($stid)
                                 || $stid ne '' )
                         )
@@ -519,7 +519,7 @@ sub default_head {
                 extra_studies     => {
                     all => {
                         description => (
-                            ( defined($curr_proj) && $curr_proj ne '' )
+                            ( defined($curr_proj) && $curr_proj =~ /^\d+$/ )
                             ? '@Assigned Experiments (All Studies)'
                             : '@All Experiments (All Studies)'
                         )

@@ -409,7 +409,7 @@ sub getGOTerms {
     #---------------------------------------------------------------------------
     #    my $curr_proj             = $self->{_WorkingProject};
     #    my $sql_subset_by_project = '';
-    #    if ( defined($curr_proj) && $curr_proj ne '' ) {
+    #    if ( defined($curr_proj) && $curr_proj =~ /^\d+$/ ) {
     #        $curr_proj             = $dbh->quote($curr_proj);
     #        $sql_subset_by_project = <<"END_sql_subset_by_project"
     #INNER JOIN probe    ON ProbeGene.rid=probe.rid
@@ -1250,7 +1250,7 @@ END_no_table_gene
     #---------------------------------------------------------------------------
     my $sql_subset_by_project = '';
     my $curr_proj             = $self->{_WorkingProject};
-    if ( defined($curr_proj) && $curr_proj ne '' ) {
+    if ( defined($curr_proj) && $curr_proj =~ /^\d+$/ ) {
         $sql_subset_by_project = <<"END_sql_subset_by_project";
 INNER JOIN study ON study.pid=platform.pid
 INNER JOIN ProjectStudy ON prid=? AND ProjectStudy.stid=study.stid

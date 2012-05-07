@@ -622,23 +622,20 @@ sub registerUser_head {
                     return 1;
                 }
             };
-            $self->add_message('User credentials authenticated.');
+            $self->add_message('Authentication OK');
 
     #---------------------------------------------------------------------------
     #  now actually register the user
     #---------------------------------------------------------------------------
-            eval {
-                $s->insert_user(
-                    set => {
-                        uname           => $username,
-                        pwd             => $s->encrypt($password),
-                        email           => $s->{session_cookie}->{email},
-                        full_name       => $s->{session_cookie}->{full_name},
-                        email_confirmed => 1
-                    }
-                );
-            } or do {
-                my $exception = Exception::Class->caught();
+            my $user = {
+                uname           => $username,
+                pwd             => $s->encrypt($password),
+                email           => $s->{session_cookie}->{email},
+                full_name       => $s->{session_cookie}->{full_name},
+                email_confirmed => 1
+            };
+            my $user_id = eval { $s->insert_user( set => $user ) };
+            if ( my $exception = Exception::Class->caught() ) {
                 my $msg =
                      eval { $exception->error }
                   || "$exception"
@@ -650,7 +647,14 @@ sub registerUser_head {
                 );
                 $self->set_action('');
                 return 1;
-            };
+            }
+
+            # Notify administrators about this user's registration
+            $s->notify_admins(
+                user         => $user,
+                project_name => 'Segex',
+                user_uri => $q->url( -full => 1 ) . "?a=users&id=$user_id"
+            );
 
             # Grant basic access (we actually call this level 'nogrants' because
             # it does not let one perform any SQL statements on data).
@@ -658,7 +662,11 @@ sub registerUser_head {
             $s->cleanse();
 
             # on success show default page (user profile)
-            $self->add_message('Success! You are now registered with Segex.');
+            $self->add_message(<<"END_notify_comment");
+Success! You are now registered with Segex. Please wait until one of the
+administrators (who have been automatically notified about your registration)
+grants you appropriate permissions so you can access the data on this site.
+END_notify_comment
             $self->set_action('');
             return 1;
         }

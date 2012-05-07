@@ -69,7 +69,7 @@ sub default_head {
     }
 
     # Get the sequence name for the title
-    my $sth = $dbh->prepare(<<"END_SQL1");
+    my $sql1 = <<"END_SQL1";
 SELECT 
 group_concat(if(gtype=1, gsymbol, NULL) separator ', ') AS 'Gene Symb.',
 $sql_cutoff AS cutoff, 
@@ -81,9 +81,10 @@ WHERE rid=? $sql_where_clause
 GROUP BY probe.rid
 END_SQL1
 
-    my $rowcount = $sth->execute(@exec_array_title);
-    $self->{_scc} = $sth->fetchrow_arrayref;
-    $sth->finish;
+    my $sth1 = $dbh->prepare($sql1);
+    my $rowcount = $sth1->execute(@exec_array_title);
+    $self->{_scc} = $sth1->fetchrow_arrayref;
+    $sth1->finish;
 
 ####################################################################
     # Get the data
@@ -91,13 +92,13 @@ END_SQL1
     my $sql_project_clause = 'WHERE microarray.rid=?';
     my @exec_array         = ($reporter);
 
-    if ( defined($curr_proj) and $curr_proj ne '' ) {
+    if ( defined($curr_proj) and $curr_proj =~ m/^\d+$/ ) {
         $sql_project_clause =
 'NATURAL JOIN ProjectStudy WHERE microarray.rid=? AND ProjectStudy.prid=?';
         push @exec_array, $curr_proj;
     }
 
-    $sth = $dbh->prepare(<<"END_SQL2");
+    my $sql2 = <<"END_SQL2";
 SELECT 
 experiment.eid,
 CONCAT(GROUP_CONCAT(study.description SEPARATOR ', '), ': ', experiment.sample2, '/', experiment.sample1) AS label, 
@@ -112,7 +113,8 @@ GROUP BY experiment.eid
 ORDER BY experiment.eid ASC
 END_SQL2
 
-    $rowcount = $sth->execute(@exec_array);
+    my $sth2 = $dbh->prepare($sql2);
+    $rowcount = $sth2->execute(@exec_array);
     return if $rowcount < 1;
 
     my @exp_ids;
@@ -120,14 +122,14 @@ END_SQL2
     my @y;
     my @pvalues;
 
-    while ( my $row = $sth->fetchrow_arrayref ) {
+    while ( my $row = $sth2->fetchrow_arrayref ) {
         push @exp_ids, $row->[0];
         push @labels,  $row->[1];
         push @y,       $row->[2];
         push @pvalues, $row->[3];
     }
     $self->{_data} = [ \@exp_ids, \@labels, \@y, \@pvalues ];
-    $sth->finish;
+    $sth2->finish;
 
     # this is a hack (temporary until we put content wrapping into
     # Strategy::Base): call body to send data to the client but do not do it

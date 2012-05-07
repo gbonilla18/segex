@@ -102,7 +102,7 @@ sub init {
                 ],
                 join => [
                     (
-                        ( defined $curr_proj && $curr_proj ne '' )
+                        ( defined $curr_proj && $curr_proj =~ /^\d+$/ )
                         ? (
                             ProjectStudy => [
                                 stid => 'stid',

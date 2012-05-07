@@ -291,7 +291,7 @@ sub build_sidemenu {
         my $session_stash  = $obj->get_volatile('session_stash');
         my $proj_name      = $session_cookie->{proj_name};
         my $curr_proj      = $session_cookie->{curr_proj};
-        if ( defined($curr_proj) and $curr_proj ne '' ) {
+        if ( defined($curr_proj) and $curr_proj =~ /^\d+$/ ) {
             $proj_name = $q->a(
                 {
                     -href  => "$url_prefix?a=projects&id=$curr_proj",
