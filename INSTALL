@@ -131,7 +131,7 @@ To load tables plus data from backup:
 
   gunzip -c segex.2012.05.07.sql.gz | mysql segex -u root -p
 
-NOTE: you can use the converse of this comment to backup a database:
+NOTE: you can use the converse of this command to backup a database:
 
   mysqldump --routines segex -u root -p | gzip -c > segex.2012.05.07.sql.gz
 
@@ -352,7 +352,7 @@ To load tables plus data from backup:
 
   gunzip -c segex.sql.gz | mysql segex -u root -p
 
-NOTE: you can use the converse of this comment to backup a database:
+NOTE: you can use the converse of this command to backup a database:
 
   mysqldump --routines segex -u root -p | gzip -c > segex.2012.05.07.sql.gz
 
