@@ -566,8 +566,12 @@ or (b) HTML tooltips using "title" attribute on controls, or (c ) YUI tooltips.
 
 8. Debugging
 
+8.1. CGI::Carp
+
 In the development version, you can use croak and carp from CGI::Carp (they
 replace die and warn respectively) to send error messages to the browser.
+
+8.2. Getting stack trace of function call
 
 To display stacktrace for a function call, place the following inside the
 function:
@@ -575,4 +579,9 @@ function:
 	use Devel::StackTrace;
 	my $trace = Devel::StackTrace->new;
 	warn $trace->as_string;
+
+8.3. SGX::Debug
+
+This module is for debugging purposes only; all references to it should be
+removed once the code goes into production.
 
