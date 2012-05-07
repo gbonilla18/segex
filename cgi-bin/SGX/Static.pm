@@ -47,16 +47,15 @@ sub help_body {
     return $q->h2('Help'),
       $q->p('Help pages will be written in parallel with the publication...'),
       $q->p(
-        'For detailed installation instructions, see README file in the
-          Segex directory (you can also view it ',
+        'For detailed installation instructions, see',
         $q->a(
             {
-                -title => 'Segex README on Github',
-                -href  => 'https://github.com/escherba/segex/blob/master/README'
+                -title => 'Installation instructions',
+                -href => 'https://github.com/escherba/segex/blob/master/INSTALL'
             },
-            'on Github'
+            'INSTALL'
         ),
-        ')'
+        'file on Github (you can also find it in the source directory).',
       );
 }
 
@@ -141,6 +140,19 @@ END_paragraph3
             'Github'
         ),
         '.'
+      ),
+
+      # ====== Copyright & License =======
+      $q->h3('License'),
+      $q->p(
+'Copyright (c) 2009-2012, Eugene Scherba. This is free software, licensed under:',
+        $q->a(
+            {
+                -href =>
+                  'http://www.opensource.org/licenses/artistic-license-2.0.php'
+            },
+            'The Artistic License 2.0'
+        )
       );
 }
 
