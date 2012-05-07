@@ -12,18 +12,14 @@ Experiments) more user-friendly.
 http://developer.yahoo.com/yui/examples/container/tooltip.html
 
 *) Raphael is now a plugin for YUI 3: http://yuilibrary.com/gallery/show/raphael
-This is very exciting. Investigate (1) whether changing over to YUI 3 is
-feasible (seems like it should be!) and (2) whether Raphael can be used for easy
-graphing (will probably have to write own Javascript graphing module).
+Find out (1) whether changing over to YUI 3 is feasible (seems like it should
+be!) and (2) whether Raphael can be used for easy graphing (will probably have
+to write own Javascript graphing module).
 
 *) Venn diagrams could be plotted using Raphael. What is needed: optimization
 algorithm (implemented in Javascript) for 3-cirlcle diagrams, and something to
 show text labels (i.e. how many probes are significant). If done, place
 resulting code on Github.
-
-*) Instead of scattering calls to File::Temp throughout the application,
-consider centralizing temporary directory info in Config.pm either by relying on
-prefix from File::Temp or some other way.
 
 *) Eventually, we need at least two types of database users: segex_basic and
 segex_user. segex_user is granted UPDATE, INSERT, DELETE, and CREATE TEMPOARY

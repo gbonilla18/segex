@@ -62,7 +62,6 @@ about the different syntaxes of these two languages at once, which makes our
 code more error prone and our coding slower.  Instead, we write:
 
     use JSON::XS;
-
     my @tmp;
     for (@result_array) {
         push @tmp, { probe => $_->[3], gene => $_->[1] };
@@ -75,7 +74,6 @@ code more error prone and our coding slower.  Instead, we write:
 Or using a more functional style,
 
     use JSON::XS;
-
     return sprintf(
         "var contents = %s;\n",
         encode_json([ 
@@ -161,7 +159,14 @@ https://github.com/mobz/g.raphael
 https://github.com/alexyoung/ico
 
 
-2. RESTful ARCHITECTURE
+
+
+
+
+
+
+
+2. REST (far from fully implemented....)
 
 2.1 Some basic facts:
 
@@ -316,6 +321,16 @@ http://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
 
 
 
+
+
+
+
+
+
+
+
+
+
 4. Perl
 
 4.1 Perl - General
@@ -359,6 +374,7 @@ interface. When you need to communicate a DBI error (e.g. duplicate record) to
 user, do not show DBI exception to user directly -- instead re-throw it as User
 exception with a custom message.
 
+
 4.4 I/O
 
 CSV format should be supported in addition to tab-delimited. The idea is that
@@ -366,6 +382,7 @@ the same formats that are supported for output should also be supported for
 input.
 
 Note: Have since switched to using CSV/CSV::XS module from CPAN.
+
 
 4.5 DEFAULT ARGUMENTS TO PERL SUBROUTINES
 
@@ -393,18 +410,27 @@ If the named argument defaulted to "no", we could simply assign it:
   my $unlink = $args{UNLINK};
 
 
-6. SQL
 
-6.1. SQL - Design issues - Views
+
+
+
+
+
+
+
+5. SQL
+
+
+5.1. SQL - Views (not implemented currently)
 
 Avoid repeating data. For example, if columns A and B are combined to produce
 some value over large number of rows, do not cache the result in column C -- use
 SQL views instead. A specific example where SQL views could be useful is the
 corrected P-value column in the main data/response table.
 
-Note: still not using views for anything...
 
-6.2 SQL - Graph traversal
+
+5.2 SQL - Graph traversal
 
 In Find Probe, we attempt to retrieve all probes related to each other through
 gene symbols or accession numbers. The probe table joined with the annotation
@@ -433,35 +459,46 @@ then combine it using UNION statement with a JOIN of Table A and q.
 
 http://explainextended.com/2009/09/24/adjacency-list-vs-nested-sets-postgresql/
 
-6.3 SQL - Performance
 
-While with Perl code, performance should not be the main consideration, but it
-is the main consideration with SQL, trumping readability (and nearly everything
-else).  Strategies for best database performance: (1) joins are the most
-expensive operations; try to reduce the number of joins if possible; (2) LEFT
-and RIGHT joins are usually more expensive than INNER joins (3) try to minimize
-the number of rows searched early on, using subqueries or INNER joins, (4)
-benchmark all queries, (5) try to rewrite a slow query in several alternative
-ways (for example, using RIGHT joins instead of LEFT etc.) and then benchmark
-all of them, (6) ensure that all commonly performed JOINS operate on indexed
-columns or combinations of columns; create necessary indexes otherwise, (7) use
-query optimizer (EXPLAIN statement) to decide which columns should be indexed
-and to track the progress of the query and the number of rows it operates on.
-(8) avoid using NATURAL joins (this is more of a maintainability issue but may
-affect performance because it obscures what really happens in the query), (9)
-avoid using DISTINCT modifier (prefer GROUP BY clause instead, since it allows
-you to enter specific column names on which to perform grouping; preference
-should go to those columns that are indexed keys). (10) use DBI::Profile to
-monitor performance, (11) use DBI placeholders (more of a security issue but may
-affect performance when the same query is executed repeatedly with different
-input parameters). (12) consider using prepare_cached() DBI function instead of
-prepare(). (13) indexes on columns that may contain long text are suboptimal.
+5.3 SQL - Performance
+
+While with Perl code, performance generally should not be the main
+consideration, it is the main consideration with SQL, trumping readability (and
+nearly everything else).  Strategies for best database performance: (1) joins
+are the most expensive operations; try to reduce the number of joins if
+possible; (2) LEFT and RIGHT joins are usually more expensive than INNER joins
+(3) try to minimize the number of rows searched early on, using subqueries or
+INNER joins, (4) benchmark all queries, (5) try to rewrite a slow query in
+several alternative ways (for example, using RIGHT joins instead of LEFT etc.)
+and then benchmark all of them, (6) ensure that all commonly performed JOINS
+operate on indexed columns or combinations of columns; create necessary indexes
+otherwise, (7) use query optimizer (EXPLAIN statement) to decide which columns
+should be indexed and to track the progress of the query and the number of rows
+it operates on.  (8) avoid using NATURAL joins (this is more of a
+maintainability issue but may affect performance because it obscures what really
+happens in the query), (9) avoid using DISTINCT modifier (prefer GROUP BY clause
+instead, since it allows you to enter specific column names on which to perform
+grouping; preference should go to those columns that are indexed keys). (10) use
+DBI::Profile to monitor performance, (11) use DBI placeholders (more of a
+security issue but may affect performance when the same query is executed
+repeatedly with different input parameters). (12) consider using
+prepare_cached() DBI function instead of prepare(). (13) indexes on columns that
+may contain long text are suboptimal.
 
 Partial word matches in databases do not use indexes, so do not use REGEXP
 '^(word1|word2)$' for matching "word1" and "word2", and instead either use WHERE
 IN predicate (faster) or JOIN with a TEMPORARY table (fastest).
 
+
+
+
+
+
+
+
+
 6 THEORY
+
 
 6.1 THEORY - Compare Experiments
 
@@ -469,7 +506,9 @@ Compare Experiments produces a list of significant probes in the selected
 experiments. A probe is called significant if it satisfies P<0.05 and
 |foldchange|>x in at least one of the selected experiments.
 
-6.2 THEORY - Compare Experiments
+
+
+6.2 THEORY - LOR Statistic
 
 Log odds ratio of observed over expected -- this is a statistic that can be
 useful for gauging concordance of probe lists. Given a combination of
@@ -499,6 +538,13 @@ downregulated) and low when experiments chosen were measured under very
 dissimilar conditions (different probes become up- or downregulated).
 
 
+
+
+
+
+
+
+
 7. UI/UX
 
 7.1. Forms
@@ -508,6 +554,15 @@ Use tooltips for all controls (set "title" attribute).
 Avoid using grayed-out text in forms -- gray color should be reserved for
 controls that are disabled. Instead, use either (a) text in a different color,
 or (b) HTML tooltips using "title" attribute on controls, or (c ) YUI tooltips.
+
+
+
+
+
+
+
+
+
 
 8. Debugging
 

@@ -867,6 +867,7 @@ SGX::TFSDisplay
 =head1 DESCRIPTION
 
 =head1 AUTHORS
+Eugene Scherba
 Michael McDuffie
 
 =head1 SEE ALSO
