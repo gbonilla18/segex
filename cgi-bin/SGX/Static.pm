@@ -45,7 +45,9 @@ sub help_body {
     my $q    = $self->{_cgi};
 
     return $q->h2('Help'),
+      $q->h3('Help Pages'),
       $q->p('Help pages will be written in parallel with the publication...'),
+      $q->h3('Installation'),
       $q->p(
         'For detailed installation instructions, see',
         $q->a(
@@ -56,6 +58,29 @@ sub help_body {
             'INSTALL'
         ),
         'file on Github (you can also find it in the source directory).',
+      ),
+
+      # ====== MORE =======
+      $q->h3('Links and Source Code'),
+      $q->p(
+        $q->a(
+            {
+                -href  => "$IMAGES_DIR/segex_schema.pdf",
+                -title => 'Download a PDF of the Segex database schema'
+            },
+            'Click here'
+        ),
+        'to download a PDF of Segex database schema.'
+      ),
+      $q->p(
+        'You can download Segex source code from',
+        $q->a(
+            {
+                -href  => 'http://github.com/escherba/segex',
+                -title => 'Segex on Github'
+            },
+            'Github'
+        )
       );
 }
 
@@ -111,36 +136,14 @@ responses of your microarray probes via basic graphs, enter and search probe-
 and gene-specific annotation, or you can perform sophisticated comparisons of
 probe sets under different experimental conditions.
 END_paragraph2
-      $q->p(<<"END_paragraph3"),
+
+      # ===== Authors ======
+      $q->h3('Authors'), $q->p(<<"END_paragraph3"),
 Segex was conceived by David J. Waxman (Boston University) and developed
 primarily by Eugene Scherba and Michael McDuffie. Initial work on the database
 was done by Eugene Scherba and Katrina Steiling.  Some visualization code was
 contributed by Niraj Trivedi.
 END_paragraph3
-
-      # ====== MORE =======
-      $q->h3('More'),
-      $q->p(
-        $q->a(
-            {
-                -href  => "$IMAGES_DIR/segex_schema.pdf",
-                -title => 'Download a PDF of the Segex database schema'
-            },
-            'Click here'
-        ),
-        'to download a PDF of Segex database schema.'
-      ),
-      $q->p(
-        'You can download Segex source code from',
-        $q->a(
-            {
-                -href  => 'http://github.com/escherba/segex',
-                -title => 'Segex on Github'
-            },
-            'Github'
-        ),
-        '.'
-      ),
 
       # ====== Copyright & License =======
       $q->h3('License'),
