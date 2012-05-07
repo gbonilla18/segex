@@ -122,7 +122,12 @@ NOTE: don't forget to change segex_user_password to something different.
     ON segex.* TO 'segex_user'@'localhost';
 
 
-1.2.3. Load database from backup
+1.2.3. Load table definitions and data. To set up from scratch (with empty
+tables):
+
+  cat sql/table_defs.sql | mysql segex -u root -p
+
+To load tables plus data from backup:
 
   gunzip -c segex.2012.05.07.sql.gz | mysql segex -u root -p
 
@@ -338,7 +343,12 @@ NOTE: don't forget to change segex_user_password to something different.
     ON segex.* TO 'segex_user'@'localhost';
 
 
-2.2.3. Load database from backup
+2.2.3. Load table definitions and data. To set up from scratch (with empty
+tables):
+
+  cat sql/table_defs.sql | mysql segex -u root -p
+
+To load tables plus data from backup:
 
   gunzip -c segex.sql.gz | mysql segex -u root -p
 
