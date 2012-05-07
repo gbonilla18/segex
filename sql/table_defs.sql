@@ -103,7 +103,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=146 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=141 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -242,11 +242,8 @@ CREATE TABLE `project` (
   `prid` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `prname` varchar(255) NOT NULL DEFAULT '',
   `prdesc` varchar(1023) NOT NULL DEFAULT '',
-  `manager` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`prid`),
-  UNIQUE KEY `prname` (`prname`),
-  KEY `manager` (`manager`),
-  CONSTRAINT `project_ibfk_1` FOREIGN KEY (`manager`) REFERENCES `users` (`uid`) ON DELETE SET NULL
+  UNIQUE KEY `prname` (`prname`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -321,7 +318,7 @@ CREATE TABLE `users` (
   `udate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`),
   UNIQUE KEY `uname` (`uname`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -360,4 +357,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-05-01 14:22:06
+-- Dump completed on 2012-05-07 16:01:26

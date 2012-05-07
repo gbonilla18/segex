@@ -40,22 +40,14 @@ sub init {
                 resource  => 'projects',
                 key       => [qw/prid/],
                 view      => [qw/prname prdesc/],
-                base      => [qw/prname prdesc manager/],
+                base      => [qw/prname prdesc/],
 
                 # table key to the left, URI param to the right
-                selectors => { manager => 'manager' },
                 names     => [qw/prname/],
                 meta      => {
                     prid => {
                         label  => 'No.',
                         parser => 'number'
-                    },
-                    manager => {
-                        label        => 'Created By',
-                        parser       => 'number',
-                        __type__     => 'popup_menu',
-                        __tie__      => [ users => 'uid' ],
-                        __optional__ => 1
                     },
                     prname => {
                         label      => 'Project Name',
@@ -64,12 +56,12 @@ sub init {
                     },
                     prdesc => {
                         label        => 'Description',
+                         __type__     => 'textarea',
                         __optional__ => 1,
                         -maxlength   => 255,
                         -size        => 55
                     }
                 },
-                lookup => [ users => [ manager => 'uid' ] ]
             },
             'study' => {
                 key => [qw/stid/],
@@ -96,18 +88,6 @@ sub init {
                 },
                 lookup => [ platform     => [ pid  => 'pid' ] ],
                 join   => [ ProjectStudy => [ stid => 'stid' ] ]
-            },
-            'users' => {
-                resource  => 'users',
-                item_name => 'user',
-                key       => [qw/uid/],
-                view      => [qw/full_name/],
-                names     => [qw/full_name/],
-                meta      => {
-                    uid       => { label => 'ID', parser => 'number' },
-                    uname     => { label => 'Login ID' },
-                    full_name => { label => 'Created By' }
-                },
             },
             'platform' => {
                 key   => [qw/pid/],
@@ -140,23 +120,6 @@ sub init {
     );
 
     return $self;
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  ManageProjects
-#       METHOD:  form_create_head
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Overrides CRUD form_create_head
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub form_create_head {
-    my $self = shift;
-    my $s    = $self->{_UserSession};
-    $self->{_id_data}->{manager} = $s->get_user_id();
-    return $self->SUPER::form_create_head();
 }
 
 #===  CLASS METHOD  ============================================================
