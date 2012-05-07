@@ -259,7 +259,7 @@ sub init {
                     (
                         (
                                  defined($curr_proj)
-                              && $curr_proj =~ /^\d+$/ 
+                              && $curr_proj =~ /^\d+$/
                               && ( !defined($stid)
                                 || $stid ne '' )
                         )
@@ -693,8 +693,10 @@ sub default_create {
           $data->uploadData( filefield => 'file', update => 0 );
     } or do {
         my $exception = Exception::Class->caught();
-        my $msg = eval { $exception->error }
-          || "$exception" : 'File appears to be empty';
+        my $msg =
+             eval { $exception->error }
+          || "$exception"
+          || 'File appears to be empty';
         $self->add_message( { -class => 'error' }, "No records loaded: $msg" );
     };
 
