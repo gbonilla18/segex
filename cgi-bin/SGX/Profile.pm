@@ -520,7 +520,7 @@ sub form_login_body {
                 -id    => 'login',
                 -class => 'button black bigrounded',
                 -value => 'Login',
-                -title => 'Click submit to login'
+                -title => 'Click to sign in to Segex'
             ),
             $q->span( { -class => 'separator' }, ' / ' ),
             $q->a(
