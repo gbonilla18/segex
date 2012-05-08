@@ -156,8 +156,6 @@ sub authenticateFromDB {
         }
     }
 
-    $self->{_user_id} = $udata->{$PRIMARY_KEY};
-
     #---------------------------------------------------------------------------
     #  authenticate
     #---------------------------------------------------------------------------
@@ -315,8 +313,6 @@ sub reset_password {
             SGX::Exception::Internal->throw( error => "$exception" );
         }
     }
-
-    #$self->{_user_id} = $udata->{$PRIMARY_KEY};
 
     #---------------------------------------------------------------------------
     # Set up a new session for data store
@@ -1191,41 +1187,7 @@ sub static_auth {
         error => 'Unknown reference type in argument to User::is_authorized' );
 }
 
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Session::User
-#       METHOD:  get_user_id
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Session only stores user login name -- not the numeric id which
-#                exists in the database. This function returns the latter given
-#                the former.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub get_user_id {
-    my $self = shift;
-
-    # first see if cached value is available
-    my $user_id = $self->{_user_id};
-    return $user_id if defined $user_id;
-
-    # attempt to retrieve by login name which is stored in session data
-    my $username = $self->{session_stash}->{username};
-    if ( defined $username ) {
-        $user_id = $self->select_users(
-            select        => [$PRIMARY_KEY],
-            where         => { uname => $username },
-            ensure_single => 1
-        )->[0]->{$PRIMARY_KEY};
-    }
-
-    # cache the returned value
-    $self->{_user_id} = $user_id;
-    return $user_id;
-}
-
-1;    # for require
+1;
 
 __END__
 
