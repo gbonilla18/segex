@@ -5,8 +5,8 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
+use SGX::Util qw/car/;
 use SGX::Abstract::Exception ();
-use Digest::SHA1 qw/sha1_hex/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  ManageUsers
@@ -22,19 +22,16 @@ sub init {
     my ( $class, @param ) = @_;
     my $self = $class->SUPER::init(@param);
 
-    $self->set_attributes( _permission_level => 'admin' );
-
     $self->set_attributes(
-        _table_defs => {
+        _permission_level => 'admin',
+        _table_defs       => {
             'users' => {
                 item_name => 'user',
                 key       => [qw/uid/],
 
                 # table key to the left, URI param to the right
                 selectors => { uname => 'uname' },
-                base      => [
-                    qw/uname pwd full_name address phone level email email_confirmed/
-                ],
+                base => [qw/uname email full_name address phone level/],
                 view => [
                     qw/uname full_name address phone level email email_confirmed udate/
                 ],
@@ -44,7 +41,7 @@ sub init {
                     email => {
                         label       => 'Email',
                         formatter   => sub { 'formatEmail' },
-                        -size       => 35,
+                        -size       => 30,
                         __confirm__ => 1,
                         __encode__  => sub {
                             my $value = shift;
@@ -56,21 +53,6 @@ sub init {
                             return $email_handle->address;
                           }
                     },
-                    pwd => {
-                        label      => 'Password',
-                        -size      => 30,
-                        __type__   => 'password_field',
-                        __encode__ => sub {
-                            my $value = shift;
-                            SGX::Exception::User->throw( error =>
-                                  'Passwords must be at least 6 characters long'
-                            ) if length($value) < 6;
-                            return sha1_hex($value);
-                        },
-                        __confirm__    => 1,
-                        __createonly__ => 1,
-                        __special__ => 1
-                    },
                     uid => {
                         label  => 'ID',
                         parser => 'number'
@@ -81,7 +63,7 @@ sub init {
                     },
                     full_name => {
                         label        => 'Full name',
-                        -size        => 55,
+                        -size        => 45,
                         __optional__ => 1
                     },
                     address => {
@@ -89,17 +71,16 @@ sub init {
                         __type__     => 'textarea',
                         __optional__ => 1
                     },
-                    phone => { label => 'Phone', __optional__ => 1 },
+                    phone => { label => 'Contact Phone', __optional__ => 1 },
                     level => {
-                        label           => 'Permissions',
-                        __type__        => 'popup_menu',
-                        __extra_html__  => <<"END_EXTRA",
+                        label          => 'Permissions',
+                        __type__       => 'popup_menu',
+                        __extra_html__ => <<"END_EXTRA",
 <p class="hint visible">
-An <strong>administrator</strong> has complete access; a <strong>user</strong>
-is allowed to do everything an administrator is except to create/manage other
-users; <strong>read-only user</strong> is only allowed to view and query
-database but not to modify any data; a <strong>user with no grants</strong> only
-has access to his/her profile but cannot view or change any data.
+<strong>Not Granted:</strong> plain user account without access to any data.
+<strong>Read Only:</strong> can view and query all data but not to modify it.
+<strong>User:</strong> can do everything except create and manage other users.
+<strong>Administrator:</strong> unlimited account.
 </p>
 END_EXTRA
                         dropdownOptions => [
@@ -122,12 +103,13 @@ END_EXTRA
                         ]
                     },
                     email_confirmed => {
-                        __type__        => 'checkbox',
                         label           => 'Verified email',
                         dropdownOptions => [
                             { value => '0', label => 'No' },
                             { value => '1', label => 'Yes' }
                         ],
+                        __type__     => 'checkbox',
+                        __readonly__ => 1,
                         __optional__ => 1
                     },
                     udate => { label => 'Created on', __readonly__ => 1 }
@@ -138,6 +120,30 @@ END_EXTRA
     );
 
     return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  ManageUsers
+#       METHOD:  default_create
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Overrides CRUD::default_create
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub default_create {
+    my $self = shift;
+    my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
+
+    my $ret = $self->SUPER::default_create();
+    $s->reset_password(
+        new_user          => 1,
+        username_or_email => car( $q->param('uname') ),
+        project_name      => 'Segex',
+        login_uri => $q->url( -full => 1 ) . '?a=profile&b=form_changePassword'
+    ) if $ret;
+    return $ret;
 }
 
 1;

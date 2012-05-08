@@ -2665,8 +2665,7 @@ sub body_edit_fields {
               );
         }
         else {
-            push @tmp,
-              (
+            push @tmp, (
                 $q->dt(
                     { -id => "${symbol}_dt", -class => $label_class },
                     $q->label( { -for => $symbol }, "$label:" )
@@ -2677,35 +2676,27 @@ sub body_edit_fields {
                         -value => $id_data->{$symbol},
                         %cgi_meta
                     ),
-                    $extra_html
-                )
-              );
-            if ( $unlimited_mode && $meta->{__confirm__} ) {
-                my $suffix = '_confirm';
-                push @tmp,
-                  (
-                    $q->dt(
-                        {
-                            -id    => "${symbol}_dt",
-                            -class => $label_class
-                        },
-                        $q->label(
-                            { -for => $symbol . $suffix },
-                            "Confirm $label:"
-                        )
-                    ),
-                    $q->dd(
-                        { -id => "${symbol}_dd" },
-                        $q->$method(
-                            %cgi_meta,
-                            -id    => $cgi_meta{-id} . $suffix,
-                            -title => $cgi_meta{-title}
-                              . ' Again to Prevent Typos'
-                        ),
-                        $extra_html
-                    )
-                  );
-            }
+                    $extra_html,
+                    (
+                        ( $unlimited_mode && $meta->{__confirm__} )
+                        ? (
+                            $q->label(
+                                { -for => "${symbol}_confirm" },
+                                "Retype to confirm:"
+                            ),
+                            $q->$method(
+                                %cgi_meta,
+                                -id    => "$cgi_meta{-id}_confirm",
+                                -title => $cgi_meta{-title}
+                                  . ' Again to Prevent Typos'
+                            ),
+                            $extra_html
+                          )
+                        : ()
+                      )
+
+                ),
+            );
         }
     }
     return @tmp;

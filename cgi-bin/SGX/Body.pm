@@ -305,10 +305,13 @@ sub build_sidemenu {
         }
 
         # add  options
-        my $full_name = $session_cookie->{full_name};
-        $full_name = '' if not defined $full_name;
         my $username = $session_stash->{username};
         $username = '' if not defined $username;
+        my $full_name = $session_cookie->{full_name};
+        $full_name =
+          ( defined($full_name) && $full_name ne '' )
+          ? $full_name
+          : $username;
 
         push @menu,
           $q->span(

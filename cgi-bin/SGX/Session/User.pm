@@ -73,7 +73,7 @@ sub commit {
 sub authenticate {
     my ( $self, $args ) = @_;
     my $session_id = $args->{session_id};
-    return ( defined( $args->{session_id} ) && $session_id ne '' )
+    return ( defined($session_id) && $session_id ne '' )
       ? $self->SUPER::authenticate($args)
       : $self->authenticateFromDB($args);
 }
@@ -226,8 +226,22 @@ sub restore {
     #  authenticate against database
     #---------------------------------------------------------------------------
     my $username = $self->{session_stash}->{username};
-    return $self->authenticateFromDB(
-        { username => $username, reset_session => 0 } );
+    if (
+        my $ret = $self->authenticateFromDB(
+            { username => $username, reset_session => 0 }
+        )
+      )
+    {
+        $self->update_user(
+            set           => { email_confirmed => 1 },
+            where         => { uname           => $username },
+            ensure_single => 1
+        );
+        return $ret;
+    }
+    else {
+        return;
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -250,11 +264,10 @@ sub restore {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub reset_password {
-    my $self  = shift;
-    my %param = @_;
+    my ( $self, %args ) = @_;
 
-    my ( $username_or_email, $project_name, $login_uri ) =
-      @param{qw{username_or_email project_name login_uri}};
+    my ( $username_or_email, $project_name, $login_uri, $new_user ) =
+      @args{qw{username_or_email project_name login_uri new_user}};
 
     my ($email_handle) = Email::Address->parse($username_or_email);
     my ( $lvalue => $rvalue ) =
@@ -271,8 +284,11 @@ sub reset_password {
     # record returned by the DBI and send an email.
     my $udata = eval {
         $self->select_users(
-            select => [ $PRIMARY_KEY, qw/uname level full_name email/ ],
-            where         => { $lvalue => $rvalue, email_confirmed => 1 },
+            select => [qw/uname level full_name email/],
+            where  => {
+                $lvalue => $rvalue,
+                ( $new_user ? () : ( email_confirmed => 1 ) )
+            },
             ensure_single => 1
         )->[0];
     };
@@ -300,7 +316,7 @@ sub reset_password {
         }
     }
 
-    $self->{_user_id} = $udata->{$PRIMARY_KEY};
+    #$self->{_user_id} = $udata->{$PRIMARY_KEY};
 
     #---------------------------------------------------------------------------
     # Set up a new session for data store
@@ -323,20 +339,29 @@ sub reset_password {
     #---------------------------------------------------------------------------
     #  email a temporary access link
     #---------------------------------------------------------------------------
+    my $subject =
+      $new_user
+      ? "Your account was created for you on $project_name"
+      : "Your request to change your $project_name password";
+    my $user_name =
+      ( defined( $udata->{full_name} ) && $udata->{full_name} ne '' )
+      ? $udata->{full_name}
+      : $udata->{uname};
     $self->send_email(
         config => {
-            Subject => "Your Request to Change Your $project_name Password",
+            Subject => $subject,
             To      => $udata->{email}
         },
         message => <<"END_RESET_PWD_MSG");
-Hi $udata->{full_name},
+Hi $user_name,
 
 Please follow the link below to login to $project_name where you can change your
 password to one of your preference:
 
 $login_uri&sid=$session_id
 
-This link will expire in $hours_to_expire hours.
+$project_name keeps your passwords private. This link will expire in
+$hours_to_expire hours.
 
 If you believe you have received this message by mistake, please notify the
 $project_name administrator.
@@ -900,7 +925,7 @@ sub notify_admins {
 
     my $admins = $self->select_users(
         select        => [qw/uname full_name email/],
-        where         => { level => 'admin', email_confirmed => 1 },
+        where         => { level => 'admin' },
         ensure_single => 0
     );
 
