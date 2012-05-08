@@ -53,7 +53,7 @@ sub init {
                             return $email_handle->address;
                         },
                         __extra_html__ =>
-'<p class="hint visible">An email will be sent to the specified address requesting user to pick a password.</p>'
+'<p class="hint visible">When a new user is created, an email is sent to the specified address requesting to choose a password.</p>'
                     },
                     uid => {
                         label  => 'ID',
