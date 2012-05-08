@@ -57,7 +57,7 @@ sub help_body {
             },
             'INSTALL'
         ),
-        'file on Github (you can also find it in the source directory).',
+        'file on GitHub (you can also find it in the source directory).',
       ),
 
       # ====== MORE =======
@@ -77,9 +77,9 @@ sub help_body {
         $q->a(
             {
                 -href  => 'http://github.com/escherba/segex',
-                -title => 'Segex on Github'
+                -title => 'Segex on GitHub'
             },
-            'Github'
+            'GitHub'
         )
       );
 }
