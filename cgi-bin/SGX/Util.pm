@@ -335,7 +335,8 @@ sub bind_csv_handle {
 #===============================================================================
 sub equal {
     my $first = shift;
-    $first eq $_ || return for @_;
+    return unless defined $first;
+    defined($_) && $first eq $_ || return for @_;
     return 1;
 }
 

@@ -267,10 +267,15 @@ sub reset_password {
     my ( $username_or_email, $project_name, $login_uri, $new_user ) =
       @args{qw{username_or_email project_name login_uri new_user}};
 
-    my ($email_handle) = Email::Address->parse($username_or_email);
+    my $email_address = eval {
+        $self->get_valid_email(
+            inputs      => [$username_or_email],
+            num_confirm => 0
+        );
+    };
     my ( $lvalue => $rvalue ) =
-        ( defined $email_handle )
-      ? ( 'email' => $email_handle->address )
+        ( defined $email_address )
+      ? ( 'email' => $email_address )
       : ( 'uname' => $username_or_email );
 
     ( defined($rvalue) && $rvalue ne '' )
@@ -500,23 +505,10 @@ sub change_email {
         );
     }
 
-    ( @$emails > 0 )
-      or SGX::Exception::User->throw(
-        error => 'You did not provide an email address' );
-    ( equal @$emails )
-      or SGX::Exception::User->throw( error =>
-'The email address you entered does not match the confirmation address'
-      );
-    my $email = car @$emails;
-
-    # Parsing email address with Email::Address->parse() has the side effect of
-    # untainting user-entered email (applicable when CGI script is run in taint
-    # mode with -T switch).
-    my ($email_handle) = Email::Address->parse($email);
-    defined($email_handle)
-      or SGX::Exception::User->throw( error =>
-'You did not provide an email address or the email address entered is not in a valid format'
-      );
+    my $email_address = $self->get_valid_email(
+        inputs      => $emails,
+        num_confirm => 1
+    );
 
     #---------------------------------------------------------------------------
     #  Send email message
@@ -526,13 +518,57 @@ sub change_email {
             project_name    => $project_name,
             full_name       => $self->{session_cookie}->{full_name},
             username        => $username,
-            email_address   => $email_handle->address,
+            email_address   => $email_address,
             password_hash   => $password,
             user_level      => ( $self->{session_stash} || {} )->{user_level},
             login_uri       => $login_uri,
             hours_to_expire => 48
         }
     );
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::User
+#       METHOD:  get_valid_email
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_valid_email {
+    my ( $self, %args ) = @_;
+
+    my $inputs = $args{inputs};
+    my $num =
+      ( exists $args{num_confirm} )
+      ? $args{num_confirm}
+      : 1;
+
+    my @emails;
+    foreach my $email (@$inputs) {
+
+     # Parsing email address with Email::Address->parse() has the side effect of
+     # untainting user-entered email (applicable when CGI script is run in taint
+     # mode with -T switch).
+        my ($email_handle) = Email::Address->parse($email);
+        if ( defined $email_handle ) {
+            push @emails, $email_handle->address;
+        }
+    }
+    ( @emails > 0 )
+      or SGX::Exception::User->throw(
+        error => 'You did not provide an email address' );
+    ( @emails > $num )
+      or SGX::Exception::User->throw(
+        error => 'You did not confirm the email address' );
+    ( equal @emails )
+      or SGX::Exception::User->throw( error =>
+          'The email address you typed does not match the confirmation address'
+      );
+
+    return car(@emails);
 }
 
 #===  CLASS METHOD  ============================================================
@@ -791,25 +827,10 @@ sub register_user {
     ( defined($full_name) && $full_name ne '' )
       or SGX::Exception::User->throw( error => 'Full name not specified' );
 
-    ( @$emails > 1 )
-      or SGX::Exception::User->throw( error =>
-'You did not provide an email address. You need to enter an email address twice to prevent an accidental typo.'
-      );
-
-    ( equal @$emails )
-      or SGX::Exception::User->throw( error =>
-          'Email address you entered and its confirmation do not match.' );
-
-    my $email = car @$emails;
-
-    # Parsing email address with Email::Address->parse() has the side effect of
-    # untainting user-entered email (applicable when CGI script is run in taint
-    # mode with -T switch).
-    my ($email_handle) = Email::Address->parse($email);
-    defined($email_handle)
-      or SGX::Exception::User->throw( error =>
-'You did not provide an email address or the email address entered is not in a valid format.'
-      );
+    my $email_address = $self->get_valid_email(
+        inputs      => $emails,
+        num_confirm => 1
+    );
 
     #---------------------------------------------------------------------------
     #  Send email message
@@ -820,7 +841,7 @@ sub register_user {
             full_name       => $full_name,
             username        => $username,
             password_hash   => $self->encrypt($password),    # SHA1 hash
-            email_address   => $email_handle->address,
+            email_address   => $email_address,
             login_uri       => $login_uri,
             hours_to_expire => 48
         }
