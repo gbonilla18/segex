@@ -51,7 +51,9 @@ sub init {
 "Could not parse email address from string '$value'"
                             ) unless defined $email_handle;
                             return $email_handle->address;
-                          }
+                        },
+                        __extra_html__ =>
+'<p class="hint visible">An email will be sent to the specified address requesting user to pick a password.</p>'
                     },
                     uid => {
                         label  => 'ID',

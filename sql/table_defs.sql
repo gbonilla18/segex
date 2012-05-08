@@ -308,7 +308,7 @@ DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `uid` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `uname` varchar(60) NOT NULL DEFAULT '',
-  `pwd` char(40) NOT NULL,
+  `pwd` char(40) DEFAULT NULL,
   `email` varchar(127) NOT NULL DEFAULT '',
   `full_name` varchar(255) NOT NULL DEFAULT '',
   `address` varchar(255) DEFAULT NULL,
@@ -318,7 +318,7 @@ CREATE TABLE `users` (
   `udate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`),
   UNIQUE KEY `uname` (`uname`)
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -357,4 +357,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-05-07 16:01:26
+-- Dump completed on 2012-05-08 11:30:09

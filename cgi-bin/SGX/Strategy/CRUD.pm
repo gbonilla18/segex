@@ -2665,7 +2665,8 @@ sub body_edit_fields {
               );
         }
         else {
-            push @tmp, (
+            push @tmp,
+              (
                 $q->dt(
                     { -id => "${symbol}_dt", -class => $label_class },
                     $q->label( { -for => $symbol }, "$label:" )
@@ -2676,7 +2677,6 @@ sub body_edit_fields {
                         -value => $id_data->{$symbol},
                         %cgi_meta
                     ),
-                    $extra_html,
                     (
                         ( $unlimited_mode && $meta->{__confirm__} )
                         ? (
@@ -2689,14 +2689,13 @@ sub body_edit_fields {
                                 -id    => "$cgi_meta{-id}_confirm",
                                 -title => $cgi_meta{-title}
                                   . ' Again to Prevent Typos'
-                            ),
-                            $extra_html
+                            )
                           )
                         : ()
-                      )
-
+                    ),
+                    $extra_html
                 ),
-            );
+              );
         }
     }
     return @tmp;
