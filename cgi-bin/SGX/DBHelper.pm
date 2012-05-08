@@ -23,6 +23,7 @@ use warnings;
 require Data::UUID;
 use SGX::Debug;
 use SGX::Abstract::Exception ();
+use SGX::Util qw/car/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  DBHelper
@@ -234,42 +235,38 @@ sub getSessionOverrideCGI {
     # value of "curr_proj" from session data. This allows us to have all
     # portions of the data accessible via a REST-style interface regardless of
     # current user preferences.
-    if ( defined( my $cgi_proj = $q->param('proj') ) ) {
-        $self->{_WorkingProject} = $cgi_proj;
-        if ( $cgi_proj ne '' ) {
+    my $cgi_proj = car $q->param('proj');
+    if ( !defined($cgi_proj) && defined($s) ) {
+        $cgi_proj = $s->{session_cookie}->{curr_proj};
+    }
+    if ( !defined($cgi_proj) || $cgi_proj !~ /^\d+$/ ) {
+        $cgi_proj = '';
+    }
+    my $proj_name = '@All Projects';
+    if ( $cgi_proj ne '' ) {
 
-            # now need to obtain project name from the database
-            my $sth =
-              $dbh->prepare(qq{SELECT prname FROM project WHERE prid=?});
-            my $rc = $sth->execute($cgi_proj);
-            if ( $rc == 1 ) {
+        # now need to obtain project name from the database
+        my $sth = $dbh->prepare(qq{SELECT prname FROM project WHERE prid=?});
+        my $rc  = $sth->execute($cgi_proj);
+        if ( $rc == 1 ) {
 
-                # project exists in the database
-                $self->{_WorkingProject} = $cgi_proj;
-                ( $self->{_WorkingProjectName} ) = $sth->fetchrow_array;
-            }
-            elsif ( $rc < 1 ) {
-
-                # project doesn't exist in the database
-                $self->{_WorkingProject} = '';
-            }
-            else {
-                SGX::Exception::Internal->throw( error =>
-"More than one result returned where unique was expected\n"
-                );
-            }
+            # project exists in the database
+            ($proj_name) = $sth->fetchrow_array;
             $sth->finish;
         }
+        elsif ( $rc < 1 ) {
+
+            # project doesn't exist in the database
+            $sth->finish;
+            $cgi_proj = '';
+        }
+        else {
+            $sth->finish;
+            SGX::Exception::Internal->throw( error =>
+                  "More than one result returned where unique was expected\n" );
+        }
     }
-    elsif ( defined $s ) {
-        $self->{_WorkingProject} = $s->{session_cookie}->{curr_proj};
-    }
-    else {
-        $self->{_WorkingProject} = '';
-    }
-    $self->{_WorkingProjectName} = '@All Projects'
-      if ( !defined( $self->{_WorkingProject} )
-        || $self->{_WorkingProject} eq '' );
+    $self->{_WorkingProjectName} = $proj_name;
     return 1;
 }
 1;
