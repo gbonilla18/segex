@@ -68,7 +68,8 @@ sub init {
                             return sha1_hex($value);
                         },
                         __confirm__    => 1,
-                        __createonly__ => 1
+                        __createonly__ => 1,
+                        __special__ => 1
                     },
                     uid => {
                         label  => 'ID',
