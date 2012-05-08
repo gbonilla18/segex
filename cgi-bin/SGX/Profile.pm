@@ -653,7 +653,7 @@ sub registerUser_head {
             $s->notify_admins(
                 user         => $user,
                 project_name => 'Segex',
-                user_uri => $q->url( -full => 1 ) . "?a=users&id=$user_id"
+                user_uri     => $q->url( -full => 1 ) . "?a=users&id=$user_id"
             );
 
             # Grant basic access (we actually call this level 'nogrants' because
@@ -902,7 +902,7 @@ sub form_resetPassword_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    return $q->h2('I Forgot My Password'),
+    return $q->h2('Request to Change Password'),
       $q->start_form(
         -accept_charset => 'ISO-8859-1',
         -method         => 'POST',
@@ -911,7 +911,7 @@ sub form_resetPassword_body {
       ),
       $q->dl(
         $q->dt(
-            $q->label( { -for => 'username' }, 'Login name or email address:' )
+            $q->label( { -for => 'username' }, 'Your login or email address:' )
         ),
         $q->dd(
             $q->textfield(
@@ -926,11 +926,8 @@ sub form_resetPassword_body {
                 -name  => 'resetPassword',
                 -id    => 'resetPassword',
                 -class => 'button black bigrounded',
-                -value => 'Reset my password',
-                -title => <<"END_forgotPassword"
-Click to issue a new password and send a message containing the new password to 
-the email address registered under your login name.
-END_forgotPassword
+                -value => 'Send me a link to change password',
+                -title => 'Click to request to change your password.'
             )
         )
       ),
