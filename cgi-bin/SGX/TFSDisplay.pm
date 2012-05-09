@@ -5,7 +5,6 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use SGX::Debug;
 require Math::BigInt;
 require Math::BigFloat;
 use JSON qw/decode_json/;

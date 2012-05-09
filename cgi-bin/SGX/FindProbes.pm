@@ -10,8 +10,7 @@ require Tie::IxHash;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car cdr trim min bind_csv_handle distinct file_opts_html
   dec2indexes32 coord2int/;
-use SGX::Debug;
-use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
+use SGX::Config qw/$IMAGES_DIR/;
 
 #---------------------------------------------------------------------------
 #  Parsers for lists of IDs/symbols

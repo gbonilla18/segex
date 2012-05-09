@@ -1,6 +1,6 @@
 #---------------------------------------------------------------------------
-#  Absolute path to default mailer executable (sendmail, postfix, etc). On 
-#  both Mac OS X and CentOS Linux, this is /usr/sbin.
+# Absolute path to default mailer executable (sendmail, postfix, etc). On
+# both Mac OS X and CentOS Linux, this is /usr/sbin.
 #---------------------------------------------------------------------------
 mailer_path = "/usr/sbin"
 
@@ -26,3 +26,19 @@ timeout = 3600
 # by running `date' command)
 #---------------------------------------------------------------------------
 timezone = "EST"
+
+#---------------------------------------------------------------------------
+# Whether to send error messages to browser
+#---------------------------------------------------------------------------
+debug_errors_to_browser = "yes"
+
+#---------------------------------------------------------------------------
+# Whether to display caller info for warnings (sends name of the function
+# responsible for the warning to the log file)
+#---------------------------------------------------------------------------
+debug_caller_info = "yes"
+
+#---------------------------------------------------------------------------
+# Whether to send errors to browser and/or error log
+#---------------------------------------------------------------------------
+debug_log_path = "/var/www/error_log/segex_dev_log"

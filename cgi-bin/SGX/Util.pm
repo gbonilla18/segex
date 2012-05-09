@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
-use SGX::Debug;
 use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 
@@ -322,6 +321,21 @@ sub bind_csv_handle {
         return $csv->print( $handle, shift || [] );
     };
 }
+
+#===  FUNCTION  ================================================================
+#         NAME:  print_truth_table
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  For debugging only
+#     SEE ALSO:  n/a
+#===============================================================================
+sub print_truth_table {
+    return join( ' ', map { $_ ? 1 : 0 } @_ );
+}
+
 
 #===  FUNCTION  ================================================================
 #         NAME:  equal

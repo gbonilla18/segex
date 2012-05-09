@@ -7,14 +7,12 @@ use base qw/Exporter/;
 use Readonly ();
 use File::Basename qw/dirname/;
 use SGX::Util qw/replace car/;
-require Config::General;
 
 # :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are
 # exported by default with @EXPORT) with one where symbols need to be
 # explicitely specified (@EXPORT_OK).
-our @EXPORT = qw/$YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR/;
-our @EXPORT_OK =
-  qw/get_config get_module_from_action require_path %SEGEX_CONFIG/;
+our @EXPORT_OK = qw/get_context require_path %SEGEX_CONFIG %DISPATCH_TABLE
+  $YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR carp croak/;
 
 #---------------------------------------------------------------------------
 #  Dispatch table that associates action symbols ('?a=' URL parameter) with
@@ -26,39 +24,94 @@ our @EXPORT_OK =
 #  participating modules inherit from the same abstract class; (b) if possible,
 #  move the dispatcher code into a separate Context class.
 #---------------------------------------------------------------------------
-sub get_module_from_action {
-    Readonly::Hash my %dispatch_table => (
+Readonly::Hash our %DISPATCH_TABLE => (
 
-        # :TODO:08/07/2011 20:39:03:es: come up with nouns to replace verbs for
-        # better RESTfulness ('a='-level actions indicate resources...)
+    # :TODO:08/07/2011 20:39:03:es: come up with nouns to replace verbs for
+    # better RESTfulness ('a='-level actions indicate resources...)
 
-        # verbs
-        uploadData => 'SGX::UploadData',
-        uploadGO   => 'SGX::UploadGO',
+    # verbs
+    uploadData => 'SGX::UploadData',
+    uploadGO   => 'SGX::UploadGO',
 
-        outputData         => 'SGX::OutputData',
-        compareExperiments => 'SGX::CompareExperiments',
-        findProbes         => 'SGX::FindProbes',
-        getTFS             => 'SGX::TFSDisplay',
-        graph              => 'SGX::Graph',
-        ''                 => 'SGX::Static',
+    outputData         => 'SGX::OutputData',
+    compareExperiments => 'SGX::CompareExperiments',
+    findProbes         => 'SGX::FindProbes',
+    getTFS             => 'SGX::TFSDisplay',
+    graph              => 'SGX::Graph',
+    ''                 => 'SGX::Static',
 
-        # nouns
-        platforms   => 'SGX::ManagePlatforms',
-        projects    => 'SGX::ManageProjects',
-        studies     => 'SGX::ManageStudies',
-        experiments => 'SGX::ManageExperiments',
-        users       => 'SGX::ManageUsers',
-        species     => 'SGX::ManageSpecies',
+    # nouns
+    platforms   => 'SGX::ManagePlatforms',
+    projects    => 'SGX::ManageProjects',
+    studies     => 'SGX::ManageStudies',
+    experiments => 'SGX::ManageExperiments',
+    users       => 'SGX::ManageUsers',
+    species     => 'SGX::ManageSpecies',
 
-        profile => 'SGX::Profile',
-    );
-    my $action = shift;
-    return $dispatch_table{$action};
+    profile => 'SGX::Profile',
+);
+
+our %SEGEX_CONFIG;
+
+BEGIN {
+
+    # have to import from CGI::Carp in an extra BEGIN{} block
+    BEGIN {
+
+    #---------------------------------------------------------------------------
+    #  load config options from file
+    #---------------------------------------------------------------------------
+        require Config::General;
+        my $conf = Config::General->new(
+            -ConfigFile => dirname($0) . '/segex.conf',
+            -AutoTrue   => 1
+        );
+        %SEGEX_CONFIG = $conf->getall();
+
+    #---------------------------------------------------------------------------
+    #  figure out which symbols to import from CGI::Carp
+    #---------------------------------------------------------------------------
+        require CGI::Carp;
+        my @carp_imports = qw/croak carp carpout/;
+        if ( $SEGEX_CONFIG{debug_errors_to_browser} ) {
+            push @carp_imports, qw/fatalsToBrowser warningsToBrowser/;
+        }
+        CGI::Carp->import(@carp_imports);
+    }
+
+    #---------------------------------------------------------------------------
+    #  Whether to print to custom error log
+    #---------------------------------------------------------------------------
+    if ( defined $SEGEX_CONFIG{debug_log_path} ) {
+
+        # untaint path
+        my ($debug_log_path) =
+          $SEGEX_CONFIG{debug_log_path} =~ m/([a-z0-9_.-\/]+)/i;
+
+        open( my $LOG, '>>', $debug_log_path )
+          or croak "Unable to append to log file at $debug_log_path $!";
+
+        carpout($LOG);
+    }
+
+    #---------------------------------------------------------------------------
+    # Whether to display caller info for warnings
+    #---------------------------------------------------------------------------
+    if ( $SEGEX_CONFIG{debug_caller_info} ) {
+        $SIG{__WARN__} = sub {
+            my @loc       = caller(1);
+            my $timestamp = scalar localtime();
+            my $header    = "[$timestamp]";
+            my ( $module, $file, $line, $block ) = @loc;
+            $header .= " $file line $line:"    if defined $file;
+            $header .= ' Warning';
+            $header .= " when called $block()" if defined $block;
+            $header .= ':';
+            carp $header, "\n", @_;
+            return 1;
+        };
+    }
 }
-
-Readonly::Hash our %SEGEX_CONFIG =>
-  Config::General->new( dirname($0) . '/segex.conf' )->getall();
 
 #---------------------------------------------------------------------------
 #  Directories
@@ -115,7 +168,7 @@ sub require_path {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  get_config
+#         NAME:  get_context
 #      PURPOSE:  Keep configurations options in one place
 #   PARAMETERS:  ????
 #      RETURNS:  ????
@@ -124,7 +177,7 @@ sub require_path {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub get_config {
+sub get_context {
     my $q = shift;
 
  # :TRICKY:08/09/2011 13:30:40:es:

@@ -10,7 +10,6 @@ use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
 use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal uniq/;
 use SGX::Abstract::Exception ();
-use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::CRUD

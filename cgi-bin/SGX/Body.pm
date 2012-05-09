@@ -3,8 +3,7 @@ package SGX::Body;
 use strict;
 use warnings;
 
-use SGX::Debug;
-use SGX::Config;
+use SGX::Config qw/$YUI_BUILD_ROOT $JS_DIR $CSS_DIR $IMAGES_DIR/;
 
 my $softwareVersion = '0.4.2.1';
 
@@ -135,7 +134,7 @@ sub get_content {
         cgi_start_html($friend_object),
 
         # -- do not delete line below -- useful for debugging cookie sessions
-        #SGX::Debug::dump_cookies_sent_to_user($s),
+        #$s->dump_cookies_sent_to_user(),
         content_header($friend_object),
         $q->div(
             { -id => 'content' }, view_show_messages($friend_object),

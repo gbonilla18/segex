@@ -7,7 +7,6 @@ use URI::Escape qw/uri_escape/;
 require Lingua::EN::Inflect;
 require Text::Autoformat;
 require SGX::Abstract::JSEmitter;
-use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Strategy::Base

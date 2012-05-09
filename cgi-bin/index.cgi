@@ -14,15 +14,12 @@ use warnings;
 # use CGI::Pretty 2.47 qw/-nosticky -private_tempfiles -no_xhtml/;
 #
 use CGI 2.47 qw/-nosticky -private_tempfiles/;
-use Carp qw/croak/;
 
 #---------------------------------------------------------------------------
 #  SGX directory
 #---------------------------------------------------------------------------
 use lib qw/./;
-use SGX::Debug;
-use SGX::Config qw/get_config get_module_from_action require_path/;
-use SGX::Session::User 0.07 ();
+use SGX::Config qw/croak get_context require_path %DISPATCH_TABLE/;
 
 #---------------------------------------------------------------------------
 #  This is our own super-cool custom dispatcher and dynamic loader
@@ -33,7 +30,7 @@ $action = ( defined $action ) ? $action : '';
 
 # :TODO:10/15/2011 23:07:12:es: throw 404 error here if cannot find a module
 # that corresponds to the given action.
-my $module = get_module_from_action($action)
+my $module = $DISPATCH_TABLE{$action}
   or croak "Invalid action name $action";
 
 # get the Perl module needed
@@ -42,7 +39,7 @@ my $obj = eval {
     # convert Perl path to system path and load the file
     require_path($module);
     $module->new(
-        config               => { _ResourceName => $action, get_config($q) },
+        config               => { _ResourceName => $action, get_context($q) },
         restore_session_from => undef
     )->init();
 } or do {

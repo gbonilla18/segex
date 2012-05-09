@@ -21,7 +21,6 @@ use strict;
 use warnings;
 
 require Data::UUID;
-use SGX::Debug;
 use SGX::Abstract::Exception ();
 use SGX::Util qw/car/;
 

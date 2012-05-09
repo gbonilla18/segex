@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use Storable qw/dclone/;
-use SGX::Debug;
 use Hash::Merge qw/merge/;
 use SGX::Abstract::Exception ();
 

@@ -3,7 +3,6 @@ package SGX::UploadData;
 use strict;
 use warnings;
 
-use SGX::Debug;
 use SGX::Abstract::Exception ();
 use Scalar::Util qw/looks_like_number/;
 use SGX::Util qw/writeFlags/;

@@ -11,8 +11,6 @@ require Apache::Session::MySQL;
 use Scalar::Util qw/looks_like_number/;
 use SGX::Abstract::Exception ();
 
-use SGX::Debug;
-
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Base
 #       METHOD:  new

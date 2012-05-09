@@ -8,7 +8,6 @@ require Text::CSV;
 use Benchmark qw/timediff timestr/;
 use SGX::Util qw/all_match car/;
 use SGX::Abstract::Exception ();
-use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CSV

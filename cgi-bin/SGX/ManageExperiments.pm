@@ -5,7 +5,6 @@ use warnings;
 
 use base qw/SGX::Strategy::CRUD/;
 
-use SGX::Debug;
 use SGX::Util qw/file_opts_html file_opts_columns/;
 use SGX::Abstract::Exception ();
 require SGX::Model::PlatformStudyExperiment;

@@ -14,7 +14,6 @@ require SGX::Model::PlatformStudyExperiment;
 #use SGX::Abstract::Exception ();
 use SGX::Util qw/car/;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
-use SGX::Debug;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CompareExperiments

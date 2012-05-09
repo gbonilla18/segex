@@ -19,8 +19,6 @@ use SGX::Abstract::Exception ();
 Readonly::Scalar my $SESSION_NAME => 'session';
 Readonly::Scalar my $SID_FIELD    => 'sid';
 
-use SGX::Debug;
-
 # Variables declared as "our" within a class (package) scope will be shared between
 # all instances of the class *and* can be addressed from the outside like so:
 #
@@ -296,6 +294,43 @@ sub commit {
         return 1;
     }
     return;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Session::Cookie
+#       METHOD:  dump_cookies_sent_to_user
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  For debugging only
+#     SEE ALSO:  n/a
+#===============================================================================
+sub dump_cookies_sent_to_user {
+    my $s = shift;
+
+    use Data::Dumper qw/Dumper/;
+    my $cookie_array  = Dumper( $s->cookie_array()  || [] );
+    my $session_stash = Dumper( $s->{session_stash} || {} );
+    my $ttl = $s->{session_stash}->{ttl} || '?';
+
+    #my $ttl           = $s->{session_obj}->{ttl};
+
+    return <<"END_COOKIE_BLOCK";
+<pre>
+------------------------------------------------------
+Cookies sent to user:
+
+$cookie_array
+------------------------------------------------------
+Object stored in the "sessions" table in the database:
+
+$session_stash
+------------------------------------------------------
+session expires after $ttl seconds of inactivity
+------------------------------------------------------
+</pre>
+END_COOKIE_BLOCK
 }
 
 1;    # for require

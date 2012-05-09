@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
-use SGX::Debug;
 use JSON;
 use SGX::Abstract::Exception ();
 

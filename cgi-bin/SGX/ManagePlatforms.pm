@@ -6,7 +6,6 @@ use warnings;
 use base qw/SGX::Strategy::CRUD/;
 
 use Scalar::Util qw/looks_like_number/;
-use SGX::Debug qw/Dumper/;
 use SGX::Util qw/car file_opts_html file_opts_columns coord2int/;
 use SGX::Abstract::Exception ();
 require Data::UUID;
