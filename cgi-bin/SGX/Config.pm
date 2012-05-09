@@ -71,6 +71,14 @@ Readonly::Scalar our $JS_DIR         => "$DOCUMENTS_ROOT/js";
 Readonly::Scalar our $CSS_DIR        => "$DOCUMENTS_ROOT/css";
 Readonly::Scalar our $YUI_BUILD_ROOT => $SEGEX_CONFIG{yui_build_root};
 
+#---------------------------------------------------------------------------
+#  Error messages
+#---------------------------------------------------------------------------
+Readonly::Hash my %DBI_errors => (
+    2002 => 'The database server doesn\'t appear to be running',
+    1045 => 'The database is not configured correctly'
+);
+
 # :TRICKY:05/04/2012 16:46:23:es: Untaint $ENV{PATH} by transforming an input
 # list of symbols in qw//. This also strips all trailing slashes from individual
 # paths. WARNING: if you remove the block below, everything will seem to work
@@ -168,17 +176,16 @@ sub get_config {
 # much information (such as code snipped containing MySQL user name), so we are
 # not using it. More on err() and errstr() methods:
 # http://search.cpan.org/~dwheeler/Exception-Class-DBI-1.01/lib/Exception/Class/DBI.pm#Exception::Class::DBI
-            if ( $exception->isa('Exception::Class::DBI::DRH') ) {
-                push @init_messages,
-                  [ {}, 'The database server doesn\'t appear to be running' ];
+            my $errornum = $exception->err;
+            if ( $exception->isa('Exception::Class::DBI::DRH')
+                && exists( $DBI_errors{$errornum} ) )
+            {
+                push @init_messages, [ {}, $DBI_errors{$errornum} ];
             }
             push @init_messages,
               [
                 { -class => 'error' },
-                sprintf(
-                    'DBI Error %d: %s',
-                    $exception->err, $exception->errstr
-                )
+                sprintf( 'DBI Error %d: %s', $errornum, $exception->errstr )
               ];
         }
         elsif ( $exception = Exception::Class->caught() ) {

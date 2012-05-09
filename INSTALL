@@ -6,6 +6,8 @@ Table of Contents:
 2.1. Software Install
 2.2. Database Setup (MySQL)
 
+APPENDIX A: Cloning Segex from GitHub repository
+
 
 1. Linux
 
@@ -28,21 +30,7 @@ Running the second command again will let you confirm that you have all of the
 required Perl packages installed.
 
 
-1.1.2. [Development version only] Change log file path in "Debug.pm" to a path
-actually present and writable on the given system. On Linux, the path is
-"/var/www/error_log/error_log". Make sure that a CGI process has write access to
-said file. On Linux, Apache server process is owned by user under username
-"nobody". For debugging purposes, however, it is more convenient to create a
-separate log file so that more than one software/database instance could be set
-up on the same machine:
-
-  mkdir -p ~/log/apache2
-  cd  ~/log/apache2
-  touch segex_log
-  sudo chown nobody:nobody segex_log
-
-
-1.1.3. Copy files. If you choose to create soft links instead, add
+1.1.2. Copy files. If you choose to create soft links instead, add
 "FollowSymLinks" directive to the Apache configuration file (either local
 .htaccess or global httpd.conf depending on your setup) for both CGI_ROOT and
 DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
@@ -73,6 +61,20 @@ DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
 
    # /segex/js
    sudo cp -R ~/segex/js .
+
+
+1.1.3. [Development version only] Change log file path in "Debug.pm" to a path
+actually present and writable on the given system. On Linux, the path is
+"/var/www/error_log/error_log". Make sure that a CGI process has write access to
+said file. On Linux, Apache server process is owned by user under username
+"nobody". For debugging purposes, however, it is more convenient to create a
+separate log file so that more than one software/database instance could be set
+up on the same machine:
+
+  mkdir -p ~/log/apache2
+  cd  ~/log/apache2
+  touch segex_log
+  sudo chown nobody:nobody segex_log
 
 
 1.1.4. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
@@ -122,7 +124,11 @@ NOTE: don't forget to change segex_user_password to something different.
     ON segex.* TO 'segex_user'@'localhost';
 
 
-1.2.3. Load table definitions and data. To set up from scratch (with empty
+1.2.3. Update cgi-bin/segex.conf file with the correct database, user, and password
+info from the previous step.
+
+
+1.2.4. Load table definitions and data. To set up from scratch (with empty
 tables):
 
   cat sql/table_defs.sql | mysql segex -u root -p
@@ -137,11 +143,6 @@ NOTE: you can use the converse of this command to backup a database:
 
 The --routines option is necessary because otherwise mysqldump command will not
 back up stored MySQL procedures and functions.
-
-
-1.2.4. Update cgi-bin/segex.conf file with the correct database, user, and password
-info.
-
 
 
 
@@ -182,21 +183,8 @@ sudo ln -s \
 /usr/libexec/gcc/darwin
 
 
-2.1.2. [Development version only] Change log file path in "Debug.pm" to a path
-actually present and writable on the given system. On Mac OS X, the path is
-"/private/var/log/apache2/error_log". Make sure that a CGI process has write
-access to said file. On Mac OS X, Apache server process is owned by user under
-username "www". For debugging purposes, however, it is more convenient to create
-a separate log file so that more than one software/database instance could be
-set up on the same machine.
 
-  mkdir -p ~/log/apache2
-  cd  ~/log/apache2
-  touch segex_log
-  sudo chown www:wheel segex_log
-
-
-2.1.3. Set up mailer. The Mail::Send module can use either Sendmail or Postfix. The
+2.1.2. Set up mailer. The Mail::Send module can use either Sendmail or Postfix. The
 current version of Segex relies on a default mailer, which can be either
 Sendmail or Postfix depending on the system. On my Mac OS X Snow Leopard, the
 default mailer is Postfix.
@@ -205,7 +193,7 @@ default mailer is Postfix.
         (Adapted with some changes after: 
         http://www.riverturn.com/blog/?p=239)
 
-   2.1.3.1. Create the Simple Authentication and Security Layer (SASL) password
+   2.1.2.1. Create the Simple Authentication and Security Layer (SASL) password
 file.
 
         sudo vi /etc/postfix/sasl_passwd
@@ -214,7 +202,7 @@ file.
 
         smtp.gmail.com:587 your_name@gmail.com:your_password
 
-   2.1.3.2. Create a Postfix lookup table for SASL.
+   2.1.2.2. Create a Postfix lookup table for SASL.
 
         sudo postmap /etc/postfix/sasl_passwd
 
@@ -230,7 +218,7 @@ database:
 
         sudo chmod 600 /etc/postfix/sasl_passwd.db
 
-   2.1.3.3. Configure Postfix:
+   2.1.2.3. Configure Postfix:
 
         sudo vi /etc/postfix/main.cf
 
@@ -253,13 +241,13 @@ the end of file and then save it:
         smtp_tls_security_level=encrypt
         tls_random_source=dev:/dev/urandom
 
-   2.1.3.4. Test that everything is OK with "sudo postfix start" or, if the process
+   2.1.2.4. Test that everything is OK with "sudo postfix start" or, if the process
 is already running, with "sudo postfix reload". If you need to view mail queue,
 type "mailq" in the terminal. To clear the mail queue, run "sudo postsuper -d
 ALL".
 
 
-2.1.4. Copy files. If you wish to set up symlinks instead of copying, add
+2.1.3. Copy files. If you wish to set up symlinks instead of copying, add
 FollowSymLinks directive in the Apache configuration file (either local
 .htaccess or global httpd.conf depending on your setup) for both CGI_ROOT and
 DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
@@ -290,6 +278,20 @@ DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
 
    # /segex/js
    sudo cp -R ~/segex/js .
+
+
+2.1.4. [Development version only] Change log file path in "Debug.pm" to a path
+actually present and writable on the given system. On Mac OS X, the path is
+"/private/var/log/apache2/error_log". Make sure that a CGI process has write
+access to said file. On Mac OS X, Apache server process is owned by user under
+username "www". For debugging purposes, however, it is more convenient to create
+a separate log file so that more than one software/database instance could be
+set up on the same machine.
+
+  mkdir -p ~/log/apache2
+  cd  ~/log/apache2
+  touch segex_log
+  sudo chown www:wheel segex_log
 
 
 2.1.5. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
@@ -343,7 +345,11 @@ NOTE: don't forget to change segex_user_password to something different.
     ON segex.* TO 'segex_user'@'localhost';
 
 
-2.2.3. Load table definitions and data. To set up from scratch (with empty
+2.2.3. Update cgi-bin/segex.conf file with correct database, user, and password
+info from the previous step.
+
+
+2.2.4. Load table definitions and data. To set up from scratch (with empty
 tables):
 
   cat sql/table_defs.sql | mysql segex -u root -p
@@ -360,5 +366,24 @@ The --routines option is necessary because otherwise mysqldump command will not
 back up stored MySQL procedures and functions.
 
 
-2.2.4. Update cgi-bin/segex.conf file with correct database, user, and password
-information.
+
+
+
+APPENDIX A: Cloning Segex from GitHub repository:
+
+Download a git package using your favorite package manager or compile it from
+source, sign up with GitHub.com, then follow the instructions on the page below
+to register your SSH keys with GitHub:
+http://help.github.com/linux-set-up-git/
+
+Once done, simply clone the GitHub repository using the following command (this
+will create a directory called "segex"):
+
+	git clone git@github.com:escherba/segex.git
+
+You can then cd to the newly created directory and switch between branches
+(currently there are two branches: "master" and "develop"):
+
+	cd segex/
+	git checkout develop
+	git checkout master
