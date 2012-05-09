@@ -19,7 +19,7 @@ APPENDIX A: Cloning Segex from GitHub repository
 required packages:
 
 	sudo /usr/bin/cpan Bundle::CPAN
-	sudo /usr/bin/cpan Apache::Session::MySQL CGI::Carp CGI::Cookie Carp \
+	sudo /usr/bin/cpan Apache::Session::MySQL CGI::Carp CGI::Cookie \
 Config::General DBD::mysql DBI Data::Dumper Data::UUID Digest::SHA1 \
 Email::Address Exception::Class Exception::Class::DBI Hash::Merge JSON \
 JSON::XS Lingua::EN::Inflect List::Util Mail::Send Math::BigFloat Math::BigInt \
@@ -164,12 +164,13 @@ with Xcode) and configured. To upgrade CPAN and install/upgrade all of the
 required packages:
 
 	sudo /usr/bin/cpan Bundle::CPAN
-	sudo /usr/bin/cpan Apache::Session::MySQL CGI::Carp CGI::Cookie Carp \
+	sudo /usr/bin/cpan Apache::Session::MySQL CGI::Carp CGI::Cookie \
 Config::General DBD::mysql DBI Data::Dumper Data::UUID Digest::SHA1 \
 Email::Address Exception::Class Exception::Class::DBI Hash::Merge JSON \
 JSON::XS Lingua::EN::Inflect List::Util Mail::Send Math::BigFloat Math::BigInt \
 Readonly Scalar::Util Storable Text::Autoformat Text::CSV Text::CSV_XS \
 Tie::IxHash URI::Escape
+
 
 Running the second command again will let you confirm that you have all of the
 required Perl packages installed.
