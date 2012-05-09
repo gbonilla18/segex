@@ -41,4 +41,4 @@ debug_caller_info = "yes"
 #---------------------------------------------------------------------------
 # Whether to send errors to browser and/or error log
 #---------------------------------------------------------------------------
-debug_log_path = "/var/www/error_log/segex_dev_log"
+debug_log_path = "/var/www/error_log/segex_log"

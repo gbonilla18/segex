@@ -63,18 +63,33 @@ DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
    sudo cp -R ~/segex/js .
 
 
-1.1.3. [Development version only] Change log file path in "Debug.pm" to a path
-actually present and writable on the given system. On Linux, the path is
-"/var/www/error_log/error_log". Make sure that a CGI process has write access to
-said file. On Linux, Apache server process is owned by user under username
-"nobody". For debugging purposes, however, it is more convenient to create a
-separate log file so that more than one software/database instance could be set
-up on the same machine:
 
-  mkdir -p ~/log/apache2
-  cd  ~/log/apache2
-  touch segex_log
+1.1.3. In the configuration file (located at cgi-bin/segex.conf), check that
+path to default mailer program (sendmail, postfix, etc) is set correctly. On
+Linux Cent OS, this path is /usr/sbin.
+
+mailer_path = "/usr/sbin"
+
+Set up a log file where CGI errors would go to. The default path to the log file
+is set in the following line:
+
+debug_log_path = "/var/www/error_log/segex_log"
+
+Change that path if necessary and create the log file and set up appropriate
+permissions to let Apache write to the file:
+
+  cd /var/www/error_log/
+  sudo touch segex_log
   sudo chown nobody:nobody segex_log
+
+If you do not wish to redirect CGI warnings and error messages, comment out the
+line which begins with "debug_log_path".
+
+For production version, change values for "debug_errors_to_browser" and
+"debug_caller_info" to "no". This is important because CGI errors may contain
+sensitive information such as user names, and we do not want everyone to see
+them.
+
 
 
 1.1.4. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
@@ -88,12 +103,6 @@ to allow .htaccess overrides. On Linux Cent OS, this means:
 When URL rewriting is enabled, set correct path in the "cgi-bin/.htaccess" file:
 
 RewriteRule ^$ /cgi-bin/segex/index.cgi
-
-
-1.1.5. Check that path to default mailer program (sendmail, postfix, etc) is set
-correctly in cgi-bin/segex.conf. On Linux Cent OS, this path is /usr/sbin.
-
-mailer_path = "/usr/sbin"
 
 
 
@@ -280,18 +289,32 @@ DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
    sudo cp -R ~/segex/js .
 
 
-2.1.4. [Development version only] Change log file path in "Debug.pm" to a path
-actually present and writable on the given system. On Mac OS X, the path is
-"/private/var/log/apache2/error_log". Make sure that a CGI process has write
-access to said file. On Mac OS X, Apache server process is owned by user under
-username "www". For debugging purposes, however, it is more convenient to create
-a separate log file so that more than one software/database instance could be
-set up on the same machine.
+2.1.4. In the configuration file (located at cgi-bin/segex.conf), check that
+path to default mailer program (sendmail, postfix, etc) is set correctly. On
+Linux Cent OS, this path is /usr/sbin.
 
-  mkdir -p ~/log/apache2
-  cd  ~/log/apache2
-  touch segex_log
+mailer_path = "/usr/sbin"
+
+Set up a log file where CGI errors would go to. The default path to the log file
+is set in the following line:
+
+debug_log_path = "/var/www/error_log/segex_log"
+
+Change that path if necessary and create the log file and set up appropriate
+permissions to let Apache write to the file:
+
+  cd /var/www/error_log/
+  sudo touch segex_log
   sudo chown www:wheel segex_log
+
+If you do not wish to redirect CGI warnings and error messages, comment out the
+line which begins with "debug_log_path".
+
+For production version, change values for "debug_errors_to_browser" and
+"debug_caller_info" to "no". This is important because CGI errors may contain
+sensitive information such as user names, and we do not want everyone to see
+them.
+
 
 
 2.1.5. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
@@ -306,12 +329,6 @@ When URL rewriting is enabled, set correct path in the "cgi-bin/.htaccess" file:
 
 RewriteRule ^$ /cgi-bin/segex/index.cgi
 
-
-2.1.6. Check that the path to the default mailer program (sendmail, postfix,
-etc) is set correctly in cgi-bin/segex.conf. On Mac OS X, this path is
-/usr/sbin.
-
-mailer_path = "/usr/sbin"
 
 
 
