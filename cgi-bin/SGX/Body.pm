@@ -5,7 +5,7 @@ use warnings;
 
 use SGX::Config qw/$YUI_BUILD_ROOT $JS_DIR $CSS_DIR $IMAGES_DIR/;
 
-my $softwareVersion = '0.4.2.1';
+my $softwareVersion = '0.4.2.2';
 
 my $all_resources = {
 
