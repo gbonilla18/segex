@@ -14,6 +14,7 @@ my ( $module, $obj );
 my @context;
 my @header;
 my $config = SGX::Config->new();
+my $exit_code = 0;
 eval {
     @context = $config->get_context();
     $module  = $config->get_module_name();
@@ -43,8 +44,21 @@ eval {
     $obj->init();
     $obj->set_action('error');
     @header = $obj->get_header();
+    $exit_code = 1;
 };
 
 # Important: Below is the only line in the entire application that is allowed to
 # print to the browser window.
-print @header, $obj->view_show_content();
+print
+
+  # browser headers
+  @header,
+
+  # web page itself
+  $obj->view_show_content(),
+
+  # tell webserver we are done
+  "\n\n";
+
+# clean exit is zero
+exit($exit_code);

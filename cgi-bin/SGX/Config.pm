@@ -14,7 +14,7 @@ use CGI 2.47 qw/-nosticky -private_tempfiles/;
 use Readonly ();
 use File::Basename qw/dirname/;
 
-use SGX::Util qw/replace car/;
+use SGX::Util qw/replace car uniq/;
 use SGX::Abstract::Exception ();
 
 our @EXPORT_OK =
@@ -30,7 +30,7 @@ our @EXPORT_OK =
 #  participating modules inherit from the same abstract class; (b) if possible,
 #  move the dispatcher code into a separate Context class.
 #---------------------------------------------------------------------------
-Readonly::Hash our %DISPATCH_TABLE => (
+Readonly::Hash my %DISPATCH_TABLE => (
 
     # :TODO:08/07/2011 20:39:03:es: come up with nouns to replace verbs for
     # better RESTfulness ('a='-level actions indicate resources...)
@@ -139,19 +139,15 @@ Readonly::Hash my %DBI_errors => (
 );
 
 # :TRICKY:05/04/2012 16:46:23:es: Untaint $ENV{PATH} by transforming an input
-# list of symbols in qw//. This also strips all trailing slashes from individual
-# paths. WARNING: if you remove the block below, everything will seem to work
-# OK, but Segex will be unable to send out user registration emails!
+# list of symbols. This also strips all trailing slashes from individual paths.
+# WARNING: if you remove the block below, everything will seem to work OK, but
+# Segex will be unable to send out user registration emails!
 $ENV{PATH} = join(
     ':',
-    keys %{
-        {
-            map {
-                ( my $key = $_ ) =~ s/\/*$//;
-                $key => undef
-              } ( $SEGEX_CONFIG{mailer_path} )
-        }
-      }
+    uniq map {
+        my ($key) = $_ =~ m/^([^\0]+)\/*$/;
+        $key;
+      } ( $SEGEX_CONFIG{mailer_path} )
 );
 
 #===  CLASS METHOD  ============================================================
@@ -182,7 +178,7 @@ sub new {
 #       METHOD:  get_module_name
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -207,33 +203,32 @@ sub get_module_name {
 #      RETURNS:  ????
 #  DESCRIPTION:  Using this to keep configuration options in one place
 #       THROWS:  no exceptions
-#     COMMENTS:  none
+#     COMMENTS:
+# :TRICKY:08/09/2011 13:30:40:es:
+#
+# Regarding perm2session attribute being set below
+#
+# When key/value pairs are copied from a permanent cookie to a session cookie,
+# we may want to execute some code, depending on which symbols we encounter in
+# the permanent cookie. The code executed would, in its turn, produce key/value
+# tuples that would be then stored in the session cookie. At the same time, the
+# code directly copying the key/value pairs may not know which symbols it will
+# encounter.
+#
+# This is similar to the Visitor pattern except that Visitor operates on
+# objects (and executes methods depending on the classes of objects it
+# encounters), and our class operates on key-value pairs (which of course can
+# be represented as objects but we choose not to, since key symbols are already
+# unique and clearly defined). While in the Visitor pattern, the double
+# dispatch that occurs depends on the type of Visitor passed and on the type of
+# object being operated on, in our case the double dispatch depends on the type
+# of Visitor passed and on the key symbols encountered.
+#
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_context {
     my $self = shift;
     my $q    = $self->{_cgi};
-
- # :TRICKY:08/09/2011 13:30:40:es:
- #
- # Regarding perm2session attribute being set a few blocks below:
- #
- # When key/value pairs are copied from a permanent cookie to a session cookie,
- # we may want to execute some code, depending on which symbols we encounter in
- # the permanent cookie. The code executed would, in its turn, produce key/value
- # tuples that would be then stored in the session cookie. At the same time, the
- # code directly copying the key/value pairs may not know which symbols it will
- # encounter.
- #
- # This is similar to the Visitor pattern except that Visitor operates on
- # objects (and executes methods depending on the classes of objects it
- # encounters), and our class operates on key-value pairs (which of course can
- # be represented as objects but we choose not to, since key symbols are already
- # unique and clearly defined). While in the Visitor pattern, the double
- # dispatch that occurs depends on the type of Visitor passed and on the type of
- # object being operated on, in our case the double dispatch depends on the type
- # of Visitor passed and on the key symbols encountered.
-
     my @init_messages;
     my $dbh = eval {
         require DBI;
