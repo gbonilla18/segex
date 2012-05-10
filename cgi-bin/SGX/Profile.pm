@@ -750,7 +750,7 @@ sub form_registerUser_body {
             ),
             $q->p(
                 { -class => 'hint visible' },
-                'Enter your first and last names here'
+                'Type your first and last names here.'
             )
         ),
         $q->dt( $q->label( { -for => 'username' }, 'Login name:' ) ),
@@ -762,7 +762,7 @@ sub form_registerUser_body {
             ),
             $q->p(
                 { -class => 'hint visible' },
-                'Choose a short name for login purposes'
+                'Choose a short name you will use to sign in to Segex.'
             )
         ),
         $q->dt( $q->label( { -for => 'password1' }, 'Password:' ) ),
@@ -786,7 +786,7 @@ sub form_registerUser_body {
             ),
             $q->p(
                 { -class => 'hint visible' },
-'Passwords must be at least 6 characters long. Please choose a password that is hard to guess and which contains letters as well as digits.'
+'Password must be at least six characters long. Please use a password that is difficult to guess.'
             )
         ),
         $q->dt( $q->label( { -for => 'email1' }, 'Email:' ) ),
@@ -805,17 +805,15 @@ sub form_registerUser_body {
             ),
             $q->p(
                 { -class => 'hint visible' },
-'Registering your email address with Segex will allow you to retrieve your password in case you forget it.'
+                'Email address to send regisration link to.'
             )
         ),
         $q->dt('&nbsp;'),
         $q->dd(
             $q->submit(
-                -name  => 'registerUser',
-                -id    => 'registerUser',
                 -class => 'button black bigrounded',
                 -value => 'Register',
-                -title => 'Submit this registration form'
+                -title => 'Submit this form'
             )
         )
       ),
