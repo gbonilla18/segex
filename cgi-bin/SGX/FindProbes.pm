@@ -1512,6 +1512,20 @@ sub SearchGO_body {
                       )
                     : ()
                 ),
+                (
+                    ( defined( $self->{_graphs} ) && $self->{_graphs} ne '' )
+                    ? (
+                        $q->hidden(
+                            -name  => 'show_graphs',
+                            -value => 'on'
+                        ),
+                        $q->hidden(
+                            -name  => 'graph_type',
+                            -value => $self->{_graphs}
+                        )
+                      )
+                    : ()
+                ),
                 @$extra_fields,
                 $q->submit(
                     -class => 'button black bigrounded',

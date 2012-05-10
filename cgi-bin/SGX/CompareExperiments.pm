@@ -65,7 +65,11 @@ PlatfformStudy_sql
         }
     );
     $findProbes->set_attributes(
-        _dbHelper => SGX::DBHelper->new( delegate => $findProbes ) );
+        _dbHelper => SGX::DBHelper->new( delegate => $findProbes ),
+
+        # reuse current instance of JSEmitter
+        _js_emitter => $self->{_js_emitter}
+    );
 
     # usual initialization stuff
     $self->set_attributes(

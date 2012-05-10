@@ -58,7 +58,7 @@ sub error_head {
             my $error =
               eval { $exception->error } || "$exception" || 'Unknown error';
             my $error_source = $self->{_ExceptionSource} || 'Unknown module';
-            warn "$error in $error_source";    ## no critic
+            warn "$error (caller module: $error_source)";    ## no critic
             $msg = 'Internal error (see log for details)';
         }
     }
