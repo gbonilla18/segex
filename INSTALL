@@ -91,18 +91,26 @@ sensitive information such as user names, and we do not want everyone to see
 them.
 
 
+1.1.4. If "AllowOverride" is set in your main Apache configuration file (on
+CentOS Linux it is /etc/httpd/conf/httpd.conf), you will have to modify
+.htaccess file in cgi-bin/ directory to reflect the correct URI path to
+index.cgi. This is because the .htaccess file included in Segex distribution
+enables URI rewriting, and without verifying that the path it uses is correct,
+URIs may be rewritten incorrectly:
 
-1.1.4. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
-modify your main Apache configuration file (usually /etc/httpd/conf/httpd.conf)
-to allow .htaccess overrides. On Linux Cent OS, this means:
+Here is example of AllowOverride setting in httpd.conf that enables overrides:
 
 <Directory "/var/www/cgi-bin">
     AllowOverride Options FileInfo
     ...
 
-When URL rewriting is enabled, set correct path in the "cgi-bin/.htaccess" file:
+Here is the line in cgi-bin/.htaccess that may need to be changed (for example,
+if you call your segex executable directory "segex2", you would have to change
+"segex" to "segex2" below:
 
 RewriteRule ^$ /cgi-bin/segex/index.cgi
+
+
 
 
 
@@ -318,15 +326,22 @@ them.
 
 
 
-2.1.5. To enable URL rewriting (removes the need to enter "index.cgi" in the URL,
-modify your main Apache configuration file (usually /etc/apache2/httpd.conf) to
-allow .htaccess overrides. On Mac OS X, this means: 
+2.1.5. If "AllowOverride" is set in your main Apache configuration file (on my
+Mac it is /etc/apache2/httpd.conf), you will have to modify .htaccess file in
+cgi-bin/ directory to reflect the correct URI path to index.cgi. This is because
+the .htaccess file included in Segex distribution enables URI rewriting, and
+without verifying that the path it uses is correct, URIs may be rewritten
+incorrectly:
+
+Here is example of AllowOverride setting in httpd.conf that enables overrides:
 
 <Directory "/Library/WebServer/CGI-Executables">
     AllowOverride Options FileInfo
     ...
 
-When URL rewriting is enabled, set correct path in the "cgi-bin/.htaccess" file:
+Here is the line in cgi-bin/.htaccess that may need to be changed (for example,
+if you call your segex executable directory "segex2", you would have to change
+"segex" to "segex2" below:
 
 RewriteRule ^$ /cgi-bin/segex/index.cgi
 
