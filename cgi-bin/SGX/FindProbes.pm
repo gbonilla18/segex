@@ -1117,7 +1117,7 @@ sub printFindProbeCSV {
         $print->(
             [
                 @$annot_headers,
-                map {
+                map {    ## no critic
                     my $eid = $_;
                     map { "$eid: $_" } @$exp_headers[ @{ $eid2array{$eid} } ]
                   } @sorted_eids
@@ -1132,7 +1132,10 @@ sub printFindProbeCSV {
             $print->(
                 [
                     @$annot,
-                    map { my $eid = $_->[0]; @$_[ @{ $eid2array{$eid} } ] }
+                    map {    ## no critic
+                        my $eid = $_->[0];
+                        @$_[ @{ $eid2array{$eid} } ]
+                      }
                       sort { $a->[0] <=> $b->[0] } @$exp
                 ]
             );

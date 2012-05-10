@@ -25,7 +25,7 @@ Readonly::Scalar my $SID_FIELD    => 'sid';
 #   my $var = $PackageName::var;
 #   my $array_reference = \@PackageName::array;
 #
-our @cookies;
+our @cookies;    ## no critic
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Cookie
@@ -301,7 +301,7 @@ sub commit {
 #       METHOD:  dump_cookies_sent_to_user
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  For debugging only
 #     SEE ALSO:  n/a

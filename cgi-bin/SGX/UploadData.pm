@@ -368,12 +368,15 @@ END_insertResponse
         sub { return $self->{_eid}; }
       ];
 
+    # reporting penultimate error code (index -2) because the last one is
+    # statement updating experiment record itself.
     return SGX::CSV::delegate_fileUpload(
-        delegate   => $delegate,
-        statements => \@sth,
-        parameters => \@param,
-        validators => \@check,
-        filename   => $outputFileName
+        delegate              => $delegate,
+        return_code_to_report => -2,
+        statements            => \@sth,
+        parameters            => \@param,
+        validators            => \@check,
+        filename              => $outputFileName
     );
 }
 

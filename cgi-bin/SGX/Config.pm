@@ -94,9 +94,8 @@ BEGIN {
         # on UNIX).
         my ($debug_log_path) = $SEGEX_CONFIG{debug_log_path} =~ m/^([^\0]+)$/i;
 
-        open( my $LOG, '>>', $debug_log_path )
+        open( my $LOG, '>>', $debug_log_path ) ## no critic
           or croak "Unable to append to log file at $debug_log_path $!";
-
         carpout($LOG);
     }
 
@@ -104,7 +103,7 @@ BEGIN {
     # Whether to display caller info for warnings
     #---------------------------------------------------------------------------
     if ( $SEGEX_CONFIG{debug_caller_info} ) {
-        $SIG{__WARN__} = sub {
+        $SIG{__WARN__} = sub {    ## no critic
             my @loc       = caller(1);
             my $timestamp = scalar localtime();
             my $header    = "[$timestamp]";
@@ -113,7 +112,11 @@ BEGIN {
             $header .= ' Warning';
             $header .= " when called $block()" if defined $block;
             $header .= ':';
-            warn $header, "\n", @_;
+
+            # specifically calling warn() here instead of carp() because carp()
+            # would clobber the log file with something like 'at SGX/Config.pm
+            # line <num>.' where <num> is the number of this line.
+            warn $header, "\n", @_;    ## no critic
             return 1;
         };
     }
@@ -142,7 +145,7 @@ Readonly::Hash my %DBI_errors => (
 # list of symbols. This also strips all trailing slashes from individual paths.
 # WARNING: if you remove the block below, everything will seem to work OK, but
 # Segex will be unable to send out user registration emails!
-$ENV{PATH} = join(
+$ENV{PATH} = join(    ## no critic
     ':',
     uniq map {
         my ($key) = $_ =~ m/^([^\0]+)\/*$/;

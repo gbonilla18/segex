@@ -27,6 +27,13 @@ sub delegate_fileUpload {
     my $parameters      = $args{parameters};
     my $index_for_count = $args{index_for_count};
     my $filename        = $args{filename};
+
+    # will use last return code by default (index -1)
+    my $return_code_to_report =
+      exists( $args{return_code_to_report} )
+      ? $args{return_code_to_report}
+      : -1;
+
     my $success_message =
       exists( $args{success_message} ) ? $args{success_message} : 1;
 
@@ -72,12 +79,11 @@ sub delegate_fileUpload {
         elsif ( $exception = Exception::Class->caught() ) {
             my $msg =
               eval { $exception->error } || "$exception" || 'Unknown error';
-            $self->add_message( { -class => 'error' },
-                "$msg\n\n No changes to the database were stored." );
+            $self->add_message( {}, 'No changes to the database were stored' );
+            $self->add_message( { -class => 'error' }, $msg );
         }
         else {
-            $self->add_message(
-                { -class => 'error' },
+            $self->add_message( {},
 'Unknown error occured when loading data into the database. No changes to the database were stored.'
             );
         }
@@ -94,7 +100,7 @@ sub delegate_fileUpload {
     my $t1 = Benchmark->new();
     unlink $filename if defined $filename;
 
-    my $records_added = $return_codes[$#return_codes];
+    my $records_added = $return_codes[$return_code_to_report];
     my $time_diff = timestr( timediff( $t1, $t0 ) );
     if ($success_message) {
         my $msg =
@@ -186,7 +192,7 @@ sub sanitizeUploadFile {
             SUFFIX => '.txt',
             UNLINK => 1
         )->filename();
-        open my $OUTPUTTOSERVER, '>', $outputFileName
+        open my $OUTPUTTOSERVER, '>', $outputFileName    ## no critic
           or SGX::Exception::Internal->throw(
             error => "Could not open $outputFileName for writing: $!\n" );
         push @outputFileName, $outputFileName;
@@ -338,7 +344,7 @@ sub csv_rewrite {
         # perform validation on each column
         eval {
             $printfun->[0]->(
-                map {
+                map {    ## no critic
                     my $val = shift @$fields;
                     ( defined $_ ) ? $_->( $val, $line_num ) : ()
                   } @$parser

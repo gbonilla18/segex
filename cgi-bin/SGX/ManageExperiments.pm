@@ -435,7 +435,7 @@ END_SETUPTOGGLES
                 {
                     -href => $q->url( -absolute => 1 )
                       . sprintf(
-                        '?a=experiments&b=Load&pid=%s&stid=%s',
+                        '?a=experiments&pid=%s&stid=%s',
                         $id_data->{pid}, $stid
                       )
                 },
@@ -656,11 +656,11 @@ sub default_update {
         } or do {
             my $exception = Exception::Class->caught();
             my $msg =
-              eval { $exception->error }
-              ? "$exception"
-              : 'File appears to be empty';
+                 eval { $exception->error }
+              || "$exception"
+              || '';
             $self->add_message( { -class => 'error' },
-                "No records loaded: $msg" );
+                "No records loaded. $msg" );
         };
     }
 
@@ -695,8 +695,8 @@ sub default_create {
         my $msg =
              eval { $exception->error }
           || "$exception"
-          || 'File appears to be empty';
-        $self->add_message( { -class => 'error' }, "No records loaded: $msg" );
+          || '';
+        $self->add_message( { -class => 'error' }, "No records loaded. $msg" );
     };
 
     # show body for form_create again

@@ -274,7 +274,7 @@ sub changeEmail_head {
                          eval { $exception->error }
                       || "$exception"
                       || 'Unknown error';
-                    warn $msg;
+                    warn $msg;    ## no critic
                     $self->add_message(
                         { -class => 'error' },
 'Failed to process your login. If you are an administrator, see error log for details of this error.'
@@ -306,7 +306,7 @@ sub changeEmail_head {
                      eval { $exception->error }
                   || "$exception"
                   || 'Unknown error';
-                warn $msg;
+                warn $msg;    ## no critic
                 $self->add_message(
                     { -class => 'error' },
 'Failed to change email. If you are an administrator, see error log for details of this error.'
@@ -407,7 +407,7 @@ sub login_head {
             $exception = Exception::Class->caught();
             my $msg =
               eval { $exception->error } || "$exception" || 'Unknown error';
-            warn $msg;
+            warn $msg;    ## no critic
             $self->add_message(
                 { -class => 'error' },
 'Failed to process your login. If you are an administrator, see error log for details of this error.'
@@ -612,7 +612,7 @@ sub registerUser_head {
                          eval { $exception->error }
                       || "$exception"
                       || 'Unknown error';
-                    warn $msg;
+                    warn $msg;    ## no critic
                     $self->add_message(
                         { -class => 'error' },
 'Failed to process your login. If you are an administrator, see error log for details of this error.'
@@ -639,7 +639,7 @@ sub registerUser_head {
                      eval { $exception->error }
                   || "$exception"
                   || 'Unknown error';
-                warn $msg;
+                warn $msg;    ## no critic
                 $self->add_message(
                     { -class => 'error' },
 'Failed to process your login. If you are an administrator, see error log for details of this error.'
@@ -861,7 +861,7 @@ sub resetPassword_head {
             # Internal error
             my $msg =
               eval { $exception->error } || "$exception" || 'Unknown error';
-            warn $msg;
+            warn $msg;    ## no critic
             $self->add_message(
                 { -class => 'error' },
 'Failed to process password reset. If you are an administrator, see error log for details of this error.'
@@ -966,7 +966,7 @@ sub changePassword_head {
             # Internal error
             my $msg =
               eval { $exception->error } || "$exception" || 'Unknown error';
-            warn $msg;
+            warn $msg;                                   ## no critic
             $self->add_message(
                 { -class => 'error' },
 'Failed to change password. If you are an administrator, see error log for details of this error.'
