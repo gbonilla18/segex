@@ -1,20 +1,3 @@
-#
-#===============================================================================
-#
-#         FILE:  DBHelper.pm
-#
-#  DESCRIPTION:
-#
-#        FILES:  ---
-#         BUGS:  ---
-#        NOTES:  ---
-#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
-#      COMPANY:  Boston University
-#      VERSION:  1.0
-#      CREATED:  03/13/2012 11:18:02
-#     REVISION:  ---
-#===============================================================================
-
 package SGX::DBHelper;
 
 use strict;
@@ -269,3 +252,23 @@ sub getSessionOverrideCGI {
     return 1;
 }
 1;
+
+
+#
+#===============================================================================
+#
+#         FILE:  DBHelper.pm
+#
+#  DESCRIPTION:
+#
+#        FILES:  ---
+#         BUGS:  ---
+#        NOTES:  ---
+#       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
+#      COMPANY:  Boston University
+#      VERSION:  1.0
+#      CREATED:  03/13/2012 11:18:02
+#     REVISION:  ---
+#===============================================================================
+
+

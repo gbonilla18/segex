@@ -3,6 +3,7 @@ package SGX::Strategy::Base;
 use strict;
 use warnings;
 
+use SGX::Abstract::Exception ();
 use URI::Escape qw/uri_escape/;
 require Lingua::EN::Inflect;
 require Text::Autoformat;
@@ -62,7 +63,8 @@ sub init {
         _css_src_yui  => [],
         _css_src_code => [],
 
-        _header => {}
+        _header          => {},
+        _prepared_header => { -status => 200, -type => 'text/html' }
     );
 
     # default action is identified simply by empty string
@@ -245,9 +247,19 @@ sub get_title {
 #===============================================================================
 sub get_header {
     my $self    = shift;
+    my $q       = $self->{_cgi};
     my $s       = $self->{_UserSession};
     my $cookies = ( defined $s ) ? $s->cookie_array() : [];
-    return ( -cookie => $cookies, %{ $self->{_header} } );
+
+    my $prepared_header = $self->{_prepared_header};
+    if ( !$self->prepare_head() ) {
+        $prepared_header->{-type} = 'text/plain';
+    }
+    return $q->header(
+        %$prepared_header,
+        -cookie => $cookies,
+        %{ $self->{_header} }
+    );
 }
 
 #===  CLASS METHOD  ============================================================
@@ -323,8 +335,8 @@ sub get_dispatch_action {
     # define certain actions as resources later). If that fails, check POSTed
     # data.
     my $q = $self->{_cgi};
-    $action = $q->url_param('b');
-    $action = $q->param('b') unless defined $action;
+    ($action) = $q->param('b');
+    ($action) = $q->url_param('b') unless defined $action;
     $action = '' unless defined $action;
     $self->set_action($action);
     return $action;
@@ -393,7 +405,14 @@ sub _dispatch_by {
     # execute methods that are in the intersection of those found in the
     # requested dispatch table and those which can actually be executed.
     my $dispatch_tables = $self->{_dispatch_tables} || {};
-    my $meta = ( $self->{_dispatch_tables} || {} )->{$action} || {};
+    my $meta = $dispatch_tables->{$action};
+    if ( !exists( $dispatch_tables->{$action} ) ) {
+        SGX::Exception::HTTP->throw(
+            status => 404,
+            error =>
+              "Don't know how to perform $action on $self->{_ResourceName}"
+        );
+    }
 
     my $perm =
       ( defined $meta->{perm} )
@@ -643,9 +662,9 @@ sub view_start_get_form {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub view_show_content {
-    my $self      = shift;
-    my $show_html = shift;
+    my $self = shift;
 
+    my $show_html = $self->{_prepared_header}->{-type} eq 'text/html';
     if ($show_html) {
         require SGX::Body;
         my $body =

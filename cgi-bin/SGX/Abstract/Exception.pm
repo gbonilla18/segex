@@ -8,6 +8,7 @@ use warnings;
 # security risk.
 #
 use Exception::Class (
+
     'SGX::Exception::User' => {
         description =>
           'Error potentially caused by bad user input (to be displayed to user)'
@@ -32,12 +33,17 @@ use Exception::Class (
     },
     'SGX::Exception::Internal::Duplicate' => {
         isa         => 'SGX::Exception::Internal',
-        fields      => ['records_found', 'data'],
+        fields      => [ 'records_found', 'data' ],
         description => 'Two or more records encountered where one was expected'
     },
     'SGX::Exception::Skip' => {
         isa         => 'SGX::Exception::Internal',
         description => 'Skip current step, resuming normal operation'
+    },
+    'SGX::Exception::HTTP' => {
+        isa         => 'SGX::Exception::User',
+        fields      => ['status'],
+        description => 'HTTP error with an HTTP status code'
     }
 );
 

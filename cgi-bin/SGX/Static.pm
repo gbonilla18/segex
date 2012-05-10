@@ -22,12 +22,51 @@ sub init {
 
     $self->set_attributes( _permission_level => 'anonym' );
     $self->register_actions(
+        error  => { head => 'error_head' },
         help   => { body => 'help_body' },
         about  => { body => 'default_body' },
         schema => { body => 'schema_body' }
     );
 
     return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Static
+#       METHOD:  error_body
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Shown on error code 404
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub error_head {
+    my $self = shift;
+    my $msg;
+    if ( my $exception = $self->{_Exception} ) {
+        if ( $exception->isa('SGX::Exception::HTTP') ) {
+            my $status = int( $exception->status );
+            $self->{_prepared_header}->{-status} = $status;
+            $msg = sprintf( 'HTTP Error %d: %s', $status, $exception->error );
+        }
+        elsif ( $exception->isa('SGX::Exception::User') ) {
+            $msg = $exception->error;
+        }
+        else {
+            $self->{_prepared_header}->{-status} = 500;
+            my $error =
+              eval { $exception->error } || "$exception" || 'Unknown error';
+            my $error_source = $self->{_ExceptionSource} || 'Unknown module';
+            warn "$error in $error_source";
+            $msg = 'Internal error (see log for details)';
+        }
+    }
+    else {
+        $msg = 'Unknown error';
+    }
+    $self->add_message( { -class => 'error' }, $msg );
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -120,6 +159,7 @@ sub schema_body {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub default_body {
+
     my $self = shift;
     my $q    = $self->{_cgi};
 

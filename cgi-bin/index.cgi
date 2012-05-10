@@ -3,77 +3,48 @@
 use strict;
 use warnings;
 
-#---------------------------------------------------------------------------
-#  Library includes
-#---------------------------------------------------------------------------
-# :TRICKY:05/04/2012 16:55:21:es:
-# -nosticky: Prevent CGI.pm from printing hidden .cgifields inside a form
-# without us specifically asking it so.
-# -no_xhtml: By default, CGI.pm versions 2.69 and higher emit XHTML. This pragma
-# disables this feature.
-# use CGI::Pretty 2.47 qw/-nosticky -private_tempfiles -no_xhtml/;
-#
-use CGI 2.47 qw/-nosticky -private_tempfiles/;
-
-#---------------------------------------------------------------------------
-#  SGX directory
-#---------------------------------------------------------------------------
 use lib qw/./;
-use SGX::Config qw/croak get_context require_path %DISPATCH_TABLE/;
+use SGX::Abstract::Exception ();
+use SGX::Config              ();
 
 #---------------------------------------------------------------------------
 #  This is our own super-cool custom dispatcher and dynamic loader
 #---------------------------------------------------------------------------
-my $q = CGI->new();
-my ($action) = $q->url_param('a');
-$action = ( defined $action ) ? $action : '';
-
-# :TODO:10/15/2011 23:07:12:es: throw 404 error here if cannot find a module
-# that corresponds to the given action.
-my $module = $DISPATCH_TABLE{$action}
-  or croak "Invalid action name $action";
-
-# get the Perl module needed
-my $obj = eval {
+my ( $module, $obj );
+my @context;
+my @header;
+my $config = SGX::Config->new();
+eval {
+    @context = $config->get_context();
+    $module  = $config->get_module_name();
 
     # convert Perl path to system path and load the file
-    require_path($module);
-    $module->new(
-        config               => { _ResourceName => $action, get_context($q) },
+    my $module_path = $module;
+    $module_path =~ s/::/\//g;
+    require "$module_path.pm";    ## no critic
+    $obj = $module->new(
+        config               => {@context},
         restore_session_from => undef
-    )->init();
+    );
+    $obj->init();
+    @header = $obj->get_header();
 } or do {
-    my $error = $@;
-    croak "Error loading module $module. The message returned was:\n\n$error";
+
+    # do not restore session to show simply a static error page
+    my $exception = Exception::Class->caught();
+    require SGX::Static;
+    $obj = SGX::Static->new(
+        config => {
+            _Exception       => $exception,
+            _ExceptionSource => $module,
+            @context
+        }
+    );
+    $obj->init();
+    $obj->set_action('error');
+    @header = $obj->get_header();
 };
 
-#---------------------------------------------------------------------------
-# next, prepare and print header and body
-#---------------------------------------------------------------------------
-my $show_html = $obj->prepare_head();
-
-my %header_command = (
-    (
-        ($show_html)
-        ? (
-            -status => 200,            # 200 OK
-            -type   => 'text/html',    # do not send Content-Type
-          )
-        : ( -type => 'text/plain' )
-    ),
-    $obj->get_header()
-);
-
-# Show headers and cookies sent to user
-#warn Dumper( \%header_command );
-
-# :TRICKY:05/04/2012 16:53:32:es: Below is the only statement in the entire
-# application that prints HTML body.
-print
-
-  # HTTP response header
-  $q->header(%header_command),
-
-  # HTTP response body
-  $obj->view_show_content($show_html);
-
+# Important: Below is the only line in the entire application that is allowed to
+# print to the browser window.
+print @header, $obj->view_show_content();

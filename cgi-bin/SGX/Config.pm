@@ -4,15 +4,21 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
+# :TRICKY:05/04/2012 16:55:21:es:
+# -nosticky: Prevent CGI.pm from printing hidden .cgifields inside a form
+# without us specifically asking it so.
+# -no_xhtml: By default, CGI.pm versions 2.69 and higher emit XHTML. This pragma
+# disables this feature.
+# use CGI::Pretty 2.47 qw/-nosticky -private_tempfiles -no_xhtml/;
+use CGI 2.47 qw/-nosticky -private_tempfiles/;
 use Readonly ();
 use File::Basename qw/dirname/;
-use SGX::Util qw/replace car/;
 
-# :TODO:07/31/2011 17:53:33:es: replace current exporting behavior (symbols are
-# exported by default with @EXPORT) with one where symbols need to be
-# explicitely specified (@EXPORT_OK).
-our @EXPORT_OK = qw/get_context require_path %SEGEX_CONFIG %DISPATCH_TABLE
-  $YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR carp croak/;
+use SGX::Util qw/replace car/;
+use SGX::Abstract::Exception ();
+
+our @EXPORT_OK =
+  qw/%SEGEX_CONFIG $YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR carp croak/;
 
 #---------------------------------------------------------------------------
 #  Dispatch table that associates action symbols ('?a=' URL parameter) with
@@ -84,9 +90,9 @@ BEGIN {
     #---------------------------------------------------------------------------
     if ( defined $SEGEX_CONFIG{debug_log_path} ) {
 
-        # untaint path
-        my ($debug_log_path) =
-          $SEGEX_CONFIG{debug_log_path} =~ m/([a-z0-9_.-\/]+)/i;
+        # untaint path (NUL character is the only character forbidden in paths
+        # on UNIX).
+        my ($debug_log_path) = $SEGEX_CONFIG{debug_log_path} =~ m/^([^\0]+)$/i;
 
         open( my $LOG, '>>', $debug_log_path )
           or croak "Unable to append to log file at $debug_log_path $!";
@@ -107,7 +113,7 @@ BEGIN {
             $header .= ' Warning';
             $header .= " when called $block()" if defined $block;
             $header .= ':';
-            carp $header, "\n", @_;
+            warn $header, "\n", @_;
             return 1;
         };
     }
@@ -148,37 +154,65 @@ $ENV{PATH} = join(
       }
 );
 
-#===  FUNCTION  ================================================================
-#         NAME:  require_path
-#      PURPOSE:
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Config
+#       METHOD:  new
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  Converts strings such as SGX::Abstract::JSEmitter into
-#                something like SGX/Abstract/JSEmitter.pm
-#
+#  DESCRIPTION:  This is the constructor
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub require_path {
-    my $module_string = shift;
-    $module_string =~ s/::/\//g;
-    require "$module_string.pm";    ## no critic
-    return 1;
+sub new {
+    my $class    = shift;
+    my $q        = CGI->new();
+    my ($action) = $q->url_param('a');
+    $action = '' if !defined($action);
+    my $self = {
+        _cgi          => $q,
+        _ResourceName => $action,
+    };
+    bless $self, $class;
+    return $self;
 }
 
-#===  FUNCTION  ================================================================
-#         NAME:  get_context
-#      PURPOSE:  Keep configurations options in one place
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Config
+#       METHOD:  get_module_name
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub get_module_name {
+    my $self          = shift;
+    my $resource      = $self->{_ResourceName};
+    my $module_string = $DISPATCH_TABLE{$resource};
+    if ( !defined($module_string) ) {
+        SGX::Exception::HTTP->throw(
+            error  => "Resource not found: $resource",
+            status => 404
+        );
+    }
+    return $module_string;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Config
+#       METHOD:  get_context
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Using this to keep configuration options in one place
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
 sub get_context {
-    my $q = shift;
+    my $self = shift;
+    my $q    = $self->{_cgi};
 
  # :TRICKY:08/09/2011 13:30:40:es:
  #
@@ -293,10 +327,11 @@ sub get_context {
       : undef;
 
     return (
-        _cgi         => $q,
-        _dbh         => $dbh,
-        _UserSession => $s,
-        _messages    => \@init_messages
+        _ResourceName => $self->{_ResourceName},
+        _cgi          => $q,
+        _dbh          => $dbh,
+        _UserSession  => $s,
+        _messages     => \@init_messages
     );
 }
 
