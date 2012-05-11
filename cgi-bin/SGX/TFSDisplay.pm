@@ -58,13 +58,13 @@ sub init {
     # find out what the current project is set to
     $self->{_dbHelper}->getSessionOverrideCGI();
 
-    # two lines below modify action value and therefore affect which hook will
-    # get called
-    my $action = $self->{_format} || '';
-    $self->{_cgi}->param( -name => 'b', -value => $action );
+    # warning: the line below affects which hook gets called
+    $self->set_action($self->{_format} || '');
 
     $self->register_actions(
-        CSV => { head => 'CSV_head', body => 'CSV_body' } );
+        CSV  => { head => 'CSV_head',     body => 'CSV_body' },
+        HTML => { head => 'default_head', body => 'default_body' }
+    );
 
     return $self;
 }
@@ -417,7 +417,7 @@ END_LoadQuery
 #       METHOD:  build_headerRecords
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  
+#  DESCRIPTION:
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
@@ -438,7 +438,6 @@ sub build_headerRecords {
             };
           } @{ $self->{_xExpList} }
     };
-
 
 }
 
