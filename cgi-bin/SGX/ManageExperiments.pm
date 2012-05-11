@@ -195,7 +195,7 @@ sub init {
 '<p class="visible hint">(Typically) the experimental sample</p>'
                     },
                     ExperimentDescription => {
-                        label        => 'Description',
+                        label        => 'Exp. Description',
                         -maxlength   => 255,
                         -size        => 55,
                         __optional__ => 1,

@@ -786,7 +786,7 @@ sub form_registerUser_body {
             ),
             $q->p(
                 { -class => 'hint visible' },
-'Password must be at least six characters long. Please use a password that is difficult to guess.'
+'Passwords must be at least six characters long. Please choose a password that is difficult to guess.'
             )
         ),
         $q->dt( $q->label( { -for => 'email1' }, 'Email:' ) ),
@@ -1035,17 +1035,20 @@ sub form_changePassword_body {
                 -id        => 'new_password1',
                 -maxlength => 40,
                 -title => 'Enter the new password you would like to change to'
-            )
-        ),
-        $q->dt(
-            $q->label( { -for => 'new_password2' }, 'Confirm New Password:' )
-        ),
-        $q->dd(
+            ),
+            $q->label(
+                { -for => 'new_password2' },
+                $q->strong('Retype to confirm:')
+            ),
             $q->password_field(
                 -name      => 'new_password',
                 -id        => 'new_password2',
                 -maxlength => 40,
                 -title     => 'Type the new password again to confirm it'
+            ),
+            $q->p(
+                { -class => 'hint visible' },
+'Passwords must be at least six characters long. Please choose a password that is difficult to guess.'
             )
         ),
         $q->dt('&nbsp;'),

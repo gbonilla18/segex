@@ -315,7 +315,7 @@ across specified experiments.
 COMPARE_SUMMARY
       $q->div(
         { -class => 'clearfix' },
-        $q->h3('1. Choose experiments'),
+        $q->h3('1. Pick experiments to compare'),
         $q->dl(
             $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
             $q->dd(
