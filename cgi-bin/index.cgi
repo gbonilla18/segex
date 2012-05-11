@@ -5,7 +5,7 @@ use warnings;
 
 use lib qw/./;
 use SGX::Abstract::Exception ();
-use SGX::Config              ();
+use SGX::Config ();
 
 #---------------------------------------------------------------------------
 #  This is our own super-cool custom dispatcher and dynamic loader

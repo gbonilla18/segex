@@ -54,7 +54,8 @@ PlatfformStudy_sql
     }
 
     push @{ $pse->{_Platform}->{attr} }, ( 'def_p_cutoff', 'def_f_cutoff' );
-    push @{ $pse->{_Experiment}->{attr} }, 'PValFlag';
+    push @{ $pse->{_Experiment}->{attr} },
+      ( 'PValFlag', 'AdditionalInformation' );
 
     # Using FindProbes module
     my $findProbes = SGX::FindProbes->new(
@@ -626,14 +627,15 @@ sub Compare_body {
       $q->hidden( -name => 'searchFilter',     -id => 'searchFilter' ),
       $q->h2('Probes significant in different experiment combinations'),
       $q->p(<<"END_MATRIX"),
-Rows correspond to experiment combinations, and columns labeled with pound signs
-correspond to experiments (P-value used indicated in parentheses). Other
-columns: <strong>Probe Subset</strong> - subsets enumerated by flagsum,
-<strong>Probes</strong> - observed number of probes in the given subset,
-<strong>Signif. in</strong> - number of experiments in which probes from the
-given subset are significant, <strong>Log Odds Ratio</strong> - natural
-logarithm of the number of observed probes (in the given subset) over the
-expected (calculated assuming probes for each subset are drawn at random).
+In the table beow, rows correspond to experiment combinations and columns that
+are labeled with pound signs correspond to experiments (the number in the
+parentheses indicates which P-value was used). Other columns: <strong>Probe
+Subset</strong> -- subsets enumerated by flagsum, <strong>Probes</strong> --
+observed number of probes in the given subset, <strong>Signif. in</strong> --
+number of experiments in which probes from the given subset are significant,
+<strong>Log Odds Ratio</strong> -- natural logarithm of the number of observed
+probes (in the given subset) over the expected (calculated assuming probes for
+each subset are drawn at random).
 END_MATRIX
       $q->dl(
         $q->dt( $q->strong('Report format:') ),

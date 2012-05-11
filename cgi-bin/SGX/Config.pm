@@ -4,6 +4,10 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
+# :TRICKY:05/11/2012 15:53:34:es: Only include system files here (nothing from
+# SGX/ directory). For SGX/ includes, see below (there is a place to put them at
+# the end of the BEGIN {} block).
+
 # :TRICKY:05/04/2012 16:55:21:es:
 # -nosticky: Prevent CGI.pm from printing hidden .cgifields inside a form
 # without us specifically asking it so.
@@ -13,9 +17,6 @@ use base qw/Exporter/;
 use CGI 2.47 qw/-nosticky -private_tempfiles/;
 use Readonly ();
 use File::Basename qw/dirname/;
-
-use SGX::Util qw/replace car uniq/;
-use SGX::Abstract::Exception ();
 
 our @EXPORT_OK =
   qw/%SEGEX_CONFIG $YUI_BUILD_ROOT $IMAGES_DIR $JS_DIR $CSS_DIR carp croak/;
@@ -94,7 +95,7 @@ BEGIN {
         # on UNIX).
         my ($debug_log_path) = $SEGEX_CONFIG{debug_log_path} =~ m/^([^\0]+)$/i;
 
-        open( my $LOG, '>>', $debug_log_path ) ## no critic
+        open( my $LOG, '>>', $debug_log_path )    ## no critic
           or croak "Unable to append to log file at $debug_log_path $!";
         carpout($LOG);
     }
@@ -103,7 +104,7 @@ BEGIN {
     # Whether to display caller info for warnings
     #---------------------------------------------------------------------------
     if ( $SEGEX_CONFIG{debug_caller_info} ) {
-        $SIG{__WARN__} = sub {    ## no critic
+        $SIG{__WARN__} = sub {                    ## no critic
             my @loc       = caller(1);
             my $timestamp = scalar localtime();
             my $header    = "[$timestamp]";
@@ -120,6 +121,17 @@ BEGIN {
             return 1;
         };
     }
+
+    #---------------------------------------------------------------------------
+    #  All SGX includes go here and are imported via the two-step process of
+    #  require() and import(). This is because, if we were to simply place them
+    #  at the top, we would not catch errors in Util or Exception modules
+    #  (they would get written to Apache system log and not to our program log).
+    #---------------------------------------------------------------------------
+    require SGX::Util;
+    SGX::Util->import(qw/replace uniq/);
+    require SGX::Abstract::Exception;
+    SGX::Abstract::Exception->import();
 }
 
 #---------------------------------------------------------------------------

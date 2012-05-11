@@ -5,11 +5,6 @@
 var dom = YAHOO.util.Dom;
 var lang = YAHOO.lang;
 
-function getExperimentName(oArgs) {
-    var sample1 = oArgs.sample1;
-    var sample2 = oArgs.sample2;
-    return oArgs.eid + '. ' + oArgs.study_desc + ': ' + (oArgs.reverse ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1));
-}
 function isSignif(oRecord) {
     if (_fs === null) {
         return null;
@@ -26,19 +21,24 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var formatterYesNo = function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = (oData) ? 'Yes' : 'No';
     };
-    var experimentFormatter = function(elCell, oRecord, oColumn, oData) {
+    var experimentS2S1Formatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
-        var text = document.createTextNode(getExperimentName(forEach(
-            ['eid', 'study_desc', 'sample1', 'sample2', 'reverse'], 
-            function(key) { this[key] = oRecord.getData(key); }, 
-            {}
-        )));
+        var sample1 = oRecord.getData('sample1');
+        var sample2 = oRecord.getData('sample2');
+        var reverseCell = oRecord.getData('reverse');
+        var newVal = reverseCell ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1);
+        var eid = oRecord.getData('eid');
         var a = document.createElement('a');
-        a.setAttribute('href', './?a=experiments&id=' + oData);
-        if (!isSignif(oRecord)) {
-            a.setAttribute('class', 'disabled');
-        } 
-        a.appendChild(text);
+        a.setAttribute('href', './?a=experiments&id=' + encodeURIComponent(eid));
+        a.appendChild(document.createTextNode(newVal));
+        elCell.appendChild(a);
+    };
+    var studyFormatter = function(elCell, oRecord, oColumn, oData) {
+        removeAllChildren(elCell);
+        var stid = oRecord.getData('stid');
+        var a = document.createElement('a');
+        a.setAttribute('href', './?a=studies&id=' + encodeURIComponent(stid));
+        a.appendChild(document.createTextNode(oData));
         elCell.appendChild(a);
     };
     var formatterReqSignif = function(elCell, oRecord, oColumn, oData) {
@@ -57,6 +57,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var summary_data = new YAHOO.util.DataSource(_xExpList);
     summary_data.responseSchema = { fields: [
         {key:"eid", parser:"number"},
+        {key:"stid"},
         {key:"study_desc"},
         {key:"sample1"},
         {key:"sample2"},
@@ -67,12 +68,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"fchange", parser: "number"}
     ]};
     var summary_table_defs = [
-        {key:"eid", sortable:false, resizeable:true, label:'Experiment', formatter:experimentFormatter},
-        {key:"reverse", sortable:false, resizeable:false, label:'Switched Samples', formatter:formatterYesNo},
+        {key:"eid", sortable:false, resizeable:true, label:'Exp. no.'},
+        {key:"fchange", sortable:false, resizeable:false, label:'|Fold| >'},
         {key:"pValClass", sortable:false, resizeable:false, label:'P-value'},
         {key:"pval", sortable:false, resizeable:false, label:'P <'},
-        {key:"fchange", sortable:false, resizeable:false, label:'|Fold| >'},
-        {key:"reqSignif", sortable:false, resizeable:true, label:'Signif. In', formatter:formatterReqSignif}
+        {key:"reqSignif", sortable:false, resizeable:true, label:'Signif. in', formatter:formatterReqSignif},
+        {key:"study_desc", sortable:false, resizeable:true, label:'Study', formatter:studyFormatter},
+        {key:"samples", sortable:false, resizeable:true, label:'Experiment samples', formatter:experimentS2S1Formatter},
+        {key:"reverse", sortable:false, resizeable:false, label:'Switched samples', formatter:formatterYesNo}
     ];
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 

@@ -141,15 +141,25 @@ YAHOO.util.Event.addListener(window, "load", function () {
         }, this, true);
         elCell.appendChild(btn);
     };
-    var experimentFormatter = function(elCell, oRecord, oColumn, oData) {
+    var experimentS2S1Formatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
-        var eid = oRecord.getData('eid');
-        var study_desc = oRecord.getData('study_desc');
         var sample1 = oRecord.getData('sample1');
         var sample2 = oRecord.getData('sample2');
         var reverseCell = oRecord.getData('reverse');
-        var newVal = eid + '. ' + study_desc + ': ' + (reverseCell ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1));
-        elCell.appendChild(document.createTextNode(newVal));
+        var newVal = reverseCell ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1);
+        var eid = oRecord.getData('eid');
+        var a = document.createElement('a');
+        a.setAttribute('href', './?a=experiments&id=' + encodeURIComponent(eid));
+        a.appendChild(document.createTextNode(newVal));
+        elCell.appendChild(a);
+    };
+    var studyFormatter = function(elCell, oRecord, oColumn, oData) {
+        removeAllChildren(elCell);
+        var stid = oRecord.getData('stid');
+        var a = document.createElement('a');
+        a.setAttribute('href', './?a=studies&id=' + encodeURIComponent(stid));
+        a.appendChild(document.createTextNode(oData));
+        elCell.appendChild(a);
     };
     var pValClassFormatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
@@ -196,11 +206,13 @@ YAHOO.util.Event.addListener(window, "load", function () {
     }, 'shortnum');
 
     var myColumnDefs = [
-        {key:"eid", sortable:true, resizeable:true, label:'Experiment', formatter:experimentFormatter},
-        {key:"reverse", sortable:true, resizeable:false, label:'Switch Samples', formatter:checkboxFormatter},
+        {key:"eid", sortable:true, resizeable:true, label:'Exp. no.'},
+        {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >', formatter:fchangeFormatter},
         {key:"pValClass", sortable:true, resizeable:false, label:'P-value', formatter:pValClassFormatter},
         {key:"pval", sortable:true, resizeable:false, label:'P <', formatter:pvalFormatter},
-        {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >', formatter:fchangeFormatter},
+        {key:"study_desc", sortable:true, resizeable:true, label:'Study', formatter:studyFormatter},
+        {key:"samples", resizeable:true, label:'Experiment samples', formatter:experimentS2S1Formatter},
+        {key:"reverse", sortable:true, resizeable:false, label:'Switch samples', formatter:checkboxFormatter},
         {key:"drop", sortable:false, resizeable:false, label:'', formatter:removeFormatter}
     ];
     var myDataTable = new YAHOO.widget.DataTable(

@@ -151,16 +151,24 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var formatterYesNo = function(elCell, oRecord, oColumn, oData) {
         elCell.innerHTML = (oData) ? 'Yes' : 'No';
     };
-    var experimentFormatter = function(elCell, oRecord, oColumn, oData) {
+    var experimentS2S1Formatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
-        var text = document.createTextNode(getExperimentName(forEach(
-            ['eid', 'study_desc', 'sample1', 'sample2', 'reverse'], 
-            function(key) { this[key] = oRecord.getData(key); }, 
-            {}
-        )));
+        var sample1 = oRecord.getData('sample1');
+        var sample2 = oRecord.getData('sample2');
+        var reverseCell = oRecord.getData('reverse');
+        var newVal = reverseCell ? (sample1 + ' / ' + sample2) : (sample2 + ' / ' + sample1);
+        var eid = oRecord.getData('eid');
         var a = document.createElement('a');
-        a.setAttribute('href', './?a=experiments&id=' + oData);
-        a.appendChild(text);
+        a.setAttribute('href', './?a=experiments&id=' + encodeURIComponent(eid));
+        a.appendChild(document.createTextNode(newVal));
+        elCell.appendChild(a);
+    };
+    var studyFormatter = function(elCell, oRecord, oColumn, oData) {
+        removeAllChildren(elCell);
+        var stid = oRecord.getData('stid');
+        var a = document.createElement('a');
+        a.setAttribute('href', './?a=studies&id=' + encodeURIComponent(stid));
+        a.appendChild(document.createTextNode(oData));
         elCell.appendChild(a);
     };
     var formatterProbeCounts = function(elCell, oRecord, oColumn, oData) {
@@ -193,14 +201,6 @@ YAHOO.util.Event.addListener(window, "load", function() {
         }, {}, 0, 1 << rowcount_titles);
     var totalSignExpected = totalExpected - fs2expected['0'];
     fs2expected[null] = includeAllProbes ? totalExpected : totalSignExpected;
-
-    //var expectedNonZero = object_forValues(h, function(row) {
-    //    var row_fs = row.fs;
-    //    if (fs2expected.hasOwnProperty(row_fs) && parseInt(row_fs) > 0) {
-    //        this.total += fs2expected[row_fs];
-    //    }
-    //}, {total: 0.0}).total;
-    //var correctionFactor = probe_count / expectedNonZero;
 
     // TFS: all
     var row_all = iterateForward(function(i) {
@@ -274,6 +274,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
     var summary_data = new YAHOO.util.DataSource(_xExpList);
     summary_data.responseSchema = { fields: [
         {key:"eid", parser:"number"},
+        {key:"stid", parser:"number"},
         {key:"study_desc"},
         {key:"sample1"},
         {key:"sample2"},
@@ -284,12 +285,14 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"fchange", parser: "number"},
     ]};
     var summary_table_defs = [
-        {key:"eid", sortable:true, resizeable:true, label:'Experiment', formatter:experimentFormatter},
-        {key:"reverse", sortable:true, resizeable:false, label:'Switched Samples', formatter:formatterYesNo},
+        {key:"eid", sortable:true, resizeable:true, label:'Exp. no.'},
+        {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >'},
         {key:"pValClass", sortable:true, resizeable:false, label:'P-value'},
         {key:"pval", sortable:true, resizeable:false, label:'P <'},
-        {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >'},
-        {key:"probe_count", sortable:true, resizeable:false, label:'Signif. Probes', formatter:formatterProbeCounts}
+        {key:"study_desc", sortable:true, resizeable:true, label:'Study', formatter:studyFormatter},
+        {key:"samples", sortable:true, resizeable:true, label:'Experiment samples', formatter:experimentS2S1Formatter},
+        {key:"reverse", sortable:true, resizeable:false, label:'Switched samples', formatter:formatterYesNo},
+        {key:"probe_count", sortable:true, resizeable:false, label:'Signif. probes', formatter:formatterProbeCounts}
     ];
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 

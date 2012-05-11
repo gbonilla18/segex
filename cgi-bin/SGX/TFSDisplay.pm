@@ -59,7 +59,7 @@ sub init {
     $self->{_dbHelper}->getSessionOverrideCGI();
 
     # warning: the line below affects which hook gets called
-    $self->set_action($self->{_format} || '');
+    $self->set_action( $self->{_format} || '' );
 
     $self->register_actions(
         CSV  => { head => 'CSV_head',     body => 'CSV_body' },
@@ -427,18 +427,16 @@ sub build_headerRecords {
     $self->{_headerRecords} = +{
         map {
             $_->{eid} => +{
-                experimentHeading => (
-                    $_->{study_desc} . ': '
-                      . (
-                        $_->{reverse}
-                        ? ( $_->{sample1} . '/' . $_->{sample2} )
-                        : ( $_->{sample2} . '/' . $_->{sample1} )
-                      )
+                study_desc  => $_->{study_desc},
+                exp_samples => (
+                    $_->{reverse}
+                    ? ( $_->{sample1} . '/' . $_->{sample2} )
+                    : ( $_->{sample2} . '/' . $_->{sample1} )
                 )
             };
           } @{ $self->{_xExpList} }
     };
-
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -622,12 +620,13 @@ sub displayDataCSV {
     # Print Experiment info header.
     $print->(
         [
-            'Experiment No.',
-            'Experiment Heading',
+            'Exp. no.',
             '|FC| >',
             'P-value used',
             'P <',
-            'Significant in'
+            'Signif. in',
+            'Study',
+            'Exp. samples',
         ]
     );
 
@@ -649,7 +648,7 @@ sub displayDataCSV {
         # Form the line that displays experiment names above data columns.
         # Offsetting by 4 fields: FC, Intensity-1, Intensity-2, P-value
         push @experimentNameHeader,
-          $eid . ':' . $eid_node->{experimentHeading},
+          $eid . ':' . $eid_node->{exp_samples},
           (undef) x 4;
 
         my $signCell = '';
@@ -670,9 +669,10 @@ sub displayDataCSV {
             }
         }
         my $currLine = [
-            $eid,            $eid_node->{experimentHeading},
-            $row->{fchange}, $row->{pValClass},
-            $row->{pval},    $signCell
+            $eid,              $row->{fchange},
+            $row->{pValClass}, $row->{pval},
+            $signCell,         $eid_node->{study_desc},
+            $eid_node->{exp_samples},
         ];
         $print->($currLine);
     }

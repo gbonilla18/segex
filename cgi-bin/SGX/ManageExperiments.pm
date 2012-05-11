@@ -181,14 +181,14 @@ sub init {
                         __readonly__ => 1
                     },
                     sample1 => {
-                        label      => 'Sample-1 name',
+                        label      => 'Sample 1 name',
                         -maxlength => 255,
                         -size      => 35,
                         __extra_html__ =>
 '<p class="visible hint">(Typically) the control sample</p>'
                     },
                     sample2 => {
-                        label      => 'Sample-2 name',
+                        label      => 'Sample 2 name',
                         -maxlength => 255,
                         -size      => 35,
                         __extra_html__ =>
@@ -227,7 +227,7 @@ sub init {
                         ),
                         __readonly__ => 1,
                         __extra_html__ =>
-'<p class="hint visible">When uploading data that use a new set of probes, must set up a new platform first</p>'
+'<p class="hint visible">When uploading data that use probes not previously entered in Segex, you should first set up a new platform.</p>'
                     },
                 },
                 lookup => [

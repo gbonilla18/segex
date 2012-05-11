@@ -8,10 +8,37 @@ use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
-  inherit_hash enum_array array2hash list_keys list_values tuples car cdr
-  equal bind_csv_handle notp file_opts_html file_opts_columns distinct
-  dec2indexes32 abbreviate coord2int writeFlags count_bits
-  before_dot uniq/;
+inherit_hash enum_array array2hash list_keys list_values tuples car cdr equal
+bind_csv_handle notp file_opts_html file_opts_columns distinct dec2indexes32
+abbreviate coord2int writeFlags count_bits before_dot uniq format_phrase/;
+
+#===  FUNCTION  ================================================================
+#         NAME:  format_phrase
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Strip spaces from beginning and end, also replace all multiple
+#  spaces and space-like characters with a single space. Return undef if
+#  undefined.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub format_phrase {
+    my $phrase = shift;
+    return undef unless defined $phrase;
+    if ( $phrase =~ m/^\s*(.+)\s*$/ ) {
+        $phrase = $1;
+
+        # also replace all multiple spaces and space-like characters with a
+        # single white space.
+        $phrase =~ s/\s+/ /g;
+    }
+    else {
+        $phrase = '';
+    }
+    return $phrase;
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  uniq
@@ -335,7 +362,6 @@ sub bind_csv_handle {
 sub print_truth_table {
     return join( ' ', map { $_ ? 1 : 0 } @_ );
 }
-
 
 #===  FUNCTION  ================================================================
 #         NAME:  equal

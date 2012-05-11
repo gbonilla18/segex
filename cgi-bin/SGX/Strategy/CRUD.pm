@@ -8,7 +8,8 @@ use base qw/SGX::Strategy::Base/;
 require Tie::IxHash;
 use SGX::Config qw/$IMAGES_DIR $YUI_BUILD_ROOT/;
 
-use SGX::Util qw/inherit_hash tuples notp car cdr list_values equal uniq/;
+use SGX::Util
+  qw/inherit_hash tuples notp car cdr list_values equal uniq format_phrase/;
 use SGX::Abstract::Exception ();
 
 #===  CLASS METHOD  ============================================================
@@ -1568,21 +1569,28 @@ sub _build_select {
 sub _readrow_command {
     my ( $self, $table_alias ) = @_;
     my $id = $self->{_id};
-    return unless defined $id;
+    SGX::Exception::HTTP->throw(
+        status => 404,
+        error  => "Non-numeric resource id=$id requested"
+    ) unless ( defined($id) && $id =~ /^\d+$/ );
 
     $table_alias = $self->{_default_table} unless $table_alias;
-    return unless defined $table_alias;
+    SGX::Exception::Internal->throw( error => 'Table name not specified' )
+      unless defined($table_alias);
 
     my ( $dbh, $q, $table_defs ) = @$self{qw{_dbh _cgi _table_defs}};
     my $table_info = $table_defs->{$table_alias};
-    return unless $table_info;
+    SGX::Exception::Internal->throw( error => 'Schema not configured' )
+      unless $table_info;
 
     my @key = $self->_select_fields(
         table    => $table_info,
         fieldset => 'key',
         dealias  => '__sql__'
     );
-    return if @key != 1;
+    SGX::Exception::Internal->throw(
+        error => 'Resource identifier must be unique' )
+      unless @key == 1;
 
     my $table = $table_info->{table} || $table_alias;
     my $predicate = join( ' AND ', map { "$_=?" } @key );
@@ -1606,21 +1614,23 @@ sub _readrow_command {
       $self->_lookup_prepare( $table_info, fields => 'base' );
 
     my $sth = $dbh->prepare($query);
-
     my @params = ( $id, ( map { $q->param($_) } cdr @key ) );
-
-    #warn $query;
-    #warn Dumper( \@params );
 
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
     return sub {
         my $rc = $sth->execute(@params);
+        SGX::Exception::HTTP->throw(
+            status => 404,
+            error  => (
+                $rc == 0
+                ? "Resource $id not found"
+                : "Expected to find a unique resource but found $rc"
+            )
+        );
         $self->{_id_data} = $sth->fetchrow_hashref;
         $sth->finish;
-
         $self->_lookup_execute($lookup_join_sth);
-
         return $rc;
     };
 }
@@ -1883,19 +1893,13 @@ sub _process_val {
         return $encoder->($val);
     }
 
-    # strip spaces from beginning and end
-    return undef unless defined $val;
-    my $clean_val;
-    if ( $val =~ m/^\s*(.+)\s*$/ ) {
-        $clean_val = $1;
-    }
-    else {
-        $clean_val = '';
-    }
+    # Clean up the phrase by removing extra space characters
+    my $clean_val = format_phrase($val);
 
     # for numeric types, interpret empty strings as NULL
     if (   defined($parser)
         && $parser eq 'number'
+        && defined($clean_val)
         && $clean_val eq '' )
     {
         return undef;

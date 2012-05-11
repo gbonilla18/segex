@@ -73,9 +73,10 @@ sub init {
                         label        => 'PubMed ID',
                         formatter    => sub { 'formatPubMed' },
                         -maxlength   => 255,
+                        -size        => 30,
                         __optional__ => 1,
                         __extra_html__ =>
-'<p class="hint visible">PubMed IDs entered in the format such as "PMID:16469768" will be automatically hotlinked</p>'
+'<p class="hint visible">PubMed IDs entered in the format such as "PMID:16469768" will be automatically hotlinked to PubMed site.</p>'
                     },
                     pid => {
                         label        => 'Platform',
@@ -86,14 +87,7 @@ sub init {
                               ( defined($pid) && $pid =~ /^\d+$/ )
                             ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
-                        ),
-
-                        #__tie__      => [
-                        #    (
-                        #        ( defined($pid) && $pid =~ /^\d+$/ ) ? ()
-                        #        : ( platform => 'pid' )
-                        #    )
-                        #],
+                        )
                     },
                 },
                 lookup => [
