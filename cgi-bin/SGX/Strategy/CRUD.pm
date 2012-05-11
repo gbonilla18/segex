@@ -1627,7 +1627,7 @@ sub _readrow_command {
                 ? "Resource $id not found"
                 : "Expected to find a unique resource but found $rc"
             )
-        );
+        ) unless $rc == 1;
         $self->{_id_data} = $sth->fetchrow_hashref;
         $sth->finish;
         $self->_lookup_execute($lookup_join_sth);

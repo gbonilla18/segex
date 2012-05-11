@@ -815,6 +815,7 @@ sub displayDataHTML {
             {
                 -title  => 'UCSC BLAT on DNA',
                 -target => '_blank',
+                -class  => 'external',
                 -href =>
 'http://genome.ucsc.edu/cgi-bin/hgBlat?org={1}&type=DNA&userSeq={0}'
             },

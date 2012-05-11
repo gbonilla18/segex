@@ -343,7 +343,7 @@ exports.formatEmail = function(elLiner, oRecord, oColumn, oData) {
     elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) ? "<a href=\"mailto:" + oData + "\">" + oData + "</a>" : '';
 }
 exports.formatPubMed = function(elLiner, oRecord, oColumn, oData) {
-    elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, '<a target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>') : '';
+    elLiner.innerHTML = (typeof oData !== 'undefined' && oData !== null) ? oData.replace(/\bPMID *: *([0-9]+)\b/gi, '<a class="external" target="_blank" title="View this study on PubMed" href="http://www.ncbi.nlm.nih.gov/pubmed?term=$1[uid]">PMID:$1</a>') : '';
 }
 exports.populateDropdowns = function(lookupTables, lookup, data) {
     var inverseLookup = forPairInList(lookup, function(table, fieldmap) {
