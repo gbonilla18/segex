@@ -22,13 +22,13 @@ require SGX::Model::PlatformStudyExperiment;
 sub init {
     my $class = shift;
     my $self  = $class->SUPER::init(@_);
-    
+
     $self->register_actions( form_assign =>
           { head => 'form_assign_head', body => 'form_assign_body' } );
 
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
     my $curr_proj = $s->{session_cookie}->{curr_proj};
-    my $pid = car $q->param('pid');
+    my $pid       = car $q->param('pid');
     $self->set_attributes(
 
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
@@ -70,10 +70,12 @@ sub init {
                         -size      => 55
                     },
                     pubmed => {
-                        label        => 'PubMed',
+                        label        => 'PubMed ID',
                         formatter    => sub { 'formatPubMed' },
                         -maxlength   => 255,
-                        __optional__ => 1
+                        __optional__ => 1,
+                        __extra_html__ =>
+'<p class="hint visible">PubMed IDs entered in the format such as "PMID:16469768" will be automatically hotlinked</p>'
                     },
                     pid => {
                         label        => 'Platform',

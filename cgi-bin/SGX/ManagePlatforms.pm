@@ -33,7 +33,7 @@ sub init {
           { head => 'form_assign_head', body => 'form_assign_body' },
     );
 
-    my $q     = $self->{_cgi};
+    my $q = $self->{_cgi};
     $self->set_attributes(
 
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
@@ -62,7 +62,9 @@ sub init {
                         label        => 'Species',
                         __type__     => 'popup_menu',
                         __optional__ => 1,
-                        __tie__      => [ species => 'sid' ]
+                        __tie__      => [ species => 'sid' ],
+                        __extra_html__ =>
+'<p class="visible hint">Assigning a species here will associate this platform with gene annotation uploaded to the corresponding species</p>'
                     },
                     file => {
                         label => 'Probes',

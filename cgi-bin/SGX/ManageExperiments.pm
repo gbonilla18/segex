@@ -181,14 +181,18 @@ sub init {
                         __readonly__ => 1
                     },
                     sample1 => {
-                        label      => 'Sample 1',
+                        label      => 'Sample-1 name',
                         -maxlength => 255,
-                        -size      => 35
+                        -size      => 35,
+                        __extra_html__ =>
+'<p class="visible hint">(Typically) the control sample</p>'
                     },
                     sample2 => {
-                        label      => 'Sample 2',
+                        label      => 'Sample-2 name',
                         -maxlength => 255,
-                        -size      => 35
+                        -size      => 35,
+                        __extra_html__ =>
+'<p class="visible hint">(Typically) the experimental sample</p>'
                     },
                     ExperimentDescription => {
                         label        => 'Description',
@@ -197,7 +201,7 @@ sub init {
                         __optional__ => 1,
                     },
                     AdditionalInformation => {
-                        label        => 'Additional Info',
+                        label        => 'Additional info',
                         -maxlength   => 255,
                         -size        => 55,
                         __optional__ => 1
@@ -221,15 +225,9 @@ sub init {
                             ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
                         ),
-
-                        #__tie__  => [
-                        #    (
-                        #        (defined($pid) && $pid =~ /^\d+$/)
-                        #        ? ()
-                        #        : ( platform => 'pid' )
-                        #    )
-                        #],
                         __readonly__ => 1,
+                        __extra_html__ =>
+'<p class="hint visible">When uploading data that use a new set of probes, must set up a new platform first</p>'
                     },
                 },
                 lookup => [
