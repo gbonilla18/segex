@@ -138,14 +138,19 @@ sub default_create {
     my $self = shift;
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
 
-    my $ret = $self->SUPER::default_create();
-    $s->reset_password(
-        new_user          => 1,
-        username_or_email => car( $q->param('uname') ),
-        project_name      => 'Segex',
-        login_uri => $q->url( -full => 1 ) . '?a=profile&b=form_changePassword'
-    ) if $ret;
-    return $ret;
+    if ( my @ret = $self->SUPER::default_create() ) {
+        $s->reset_password(
+            new_user          => 1,
+            username_or_email => car( $q->param('uname') ),
+            project_name      => 'Segex',
+            login_uri         => $q->url( -full => 1 )
+              . '?a=profile&b=form_changePassword'
+        );
+        return @ret;
+    }
+    else {
+        return;
+    }
 }
 
 1;

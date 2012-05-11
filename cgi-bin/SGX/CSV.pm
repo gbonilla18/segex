@@ -413,36 +413,6 @@ __END__
 #         BUGS:  ---
 #        NOTES:
 #
-#  use Carp;
-#  use SGX::CSV;
-#
-#  my ( $infile, $outfile ) = splice @ARGV, 0, 2;
-#  exit unless (defined($infile) && defined($outfile));
-#
-#  print "Opening files...\n";
-#  open( my $in,  '<', $infile )  or croak "$infile: $!";
-#  open( my $out, '>', $outfile ) or croak "$outfile: $!";
-#  print "Rewriting...\n";
-#  my $ok = eval {
-#      SGX::CSV::csv_rewrite(
-#          $in,
-#          $out,
-#          input_header => 1,
-#          data_fields  => 5,
-#          csv_in_opts  => { sep_char => "\t" }
-#      );
-#  };
-#
-#  if ( not $ok or $@ ) {
-#      print "Closing files...\n";
-#      close $in;
-#      close $out;
-#      croak $@;
-#  }
-#  print "Closing files...\n";
-#  close $in;
-#  close $out;
-#
 #       AUTHOR:  Eugene Scherba (es), escherba@gmail.com
 #      COMPANY:  Boston University
 #      VERSION:  1.0

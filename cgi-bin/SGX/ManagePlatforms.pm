@@ -278,12 +278,14 @@ sub ajax_clear_annot {
             my @param;
 
             push @sth, $dbh->prepare(<<"END_delete");
-DELETE ProbeGene FROM ProbeGene INNER JOIN probe ON probe.pid=? AND ProbeGene.rid=probe.rid
+DELETE ProbeGene FROM ProbeGene 
+INNER JOIN probe ON probe.pid=? AND ProbeGene.rid=probe.rid
 END_delete
             push @param, [ $self->{_id} ];
 
             push @sth, $dbh->prepare(<<"END_delete");
-DELETE locus FROM locus INNER JOIN probe ON probe.pid=? AND locus.rid=probe.rid
+DELETE locus FROM locus 
+INNER JOIN probe ON probe.pid=? AND locus.rid=probe.rid
 END_delete
             push @param, [ $self->{_id} ];
 

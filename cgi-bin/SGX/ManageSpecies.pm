@@ -455,7 +455,7 @@ END_delete
 
             # no need to insert gene symbols afresh if gene names or gene
             # descriptions were also uploaded.
-            push @sth_terms, sprintf(<<"END_insertUpdate");
+            push @sth_terms, <<"END_insertUpdate";
 INSERT IGNORE INTO gene (sid, gsymbol, gtype)
 SELECT ? AS sid, gsymbol, 1 AS gtype FROM $terms_table
 END_insertUpdate

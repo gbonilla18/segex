@@ -369,10 +369,10 @@ sub start {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Session::Base
-#       METHOD:  cleanse
+#       METHOD:  renew
 #   PARAMETERS:  ????
 #      RETURNS:  ????
-#  DESCRIPTION:  "Untaint" (cleanse) impure session (one whose id has been
+#  DESCRIPTION:  "Untaint" (renew) impure session (one whose id has been
 #                shared with the outside). Accomplishes this by deleting session
 #                object from the database store, creating a new one and
 #                populating the new object from the stash. Assumes that the
@@ -381,7 +381,7 @@ sub start {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub cleanse {
+sub renew {
     my ($self) = @_;
 
     # delete session_obj and create a new one

@@ -81,7 +81,7 @@ WHERE rid=? $sql_where_clause
 GROUP BY probe.rid
 END_SQL1
 
-    my $sth1 = $dbh->prepare($sql1);
+    my $sth1     = $dbh->prepare($sql1);
     my $rowcount = $sth1->execute(@exec_array_title);
     $self->{_scc} = $sth1->fetchrow_arrayref;
     $sth1->finish;
@@ -138,9 +138,8 @@ END_SQL2
     $s->commit();
     print $q->header( -type => 'image/svg+xml', -cookie => $s->cookie_array() ),
       $self->default_body();
-    exit;
 
-    #return; # do not show body
+    exit;    # do not show body
 }
 
 #===  CLASS METHOD  ============================================================

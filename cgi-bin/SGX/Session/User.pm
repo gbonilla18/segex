@@ -454,10 +454,10 @@ sub change_password {
     # request.
     $self->session_delete(qw(change_pwd));
 
-    # The cleanse() method basically changes the session id while keeping the
+    # The renew() method basically changes the session id while keeping the
     # same session data that we have currently set. Changing the session id will
     # also automatically delete the old session cookie.
-    return $self->cleanse();
+    return $self->renew();
 }
 
 #===  CLASS METHOD  ============================================================

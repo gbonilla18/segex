@@ -316,7 +316,7 @@ sub changeEmail_head {
             };
 
             # restore session
-            $s->cleanse();
+            $s->renew();
 
             # on success show default page (user profile)
             $self->add_message(
@@ -658,7 +658,7 @@ sub registerUser_head {
             # Grant basic access (we actually call this level 'nogrants' because
             # it does not let one perform any SQL statements on data).
             $s->session_store( user_level => 'nogrants' );
-            $s->cleanse();
+            $s->renew();
 
             # on success show default page (user profile)
             $self->add_message(<<"END_notify_comment");

@@ -308,22 +308,8 @@ END_no_allProbes
         $i++;
     }
 
-    $self->{_headerRecords} = +{
-        map {
-            $_->{eid} => +{
-                experimentHeading => (
-                    (
-                        $_->{study_desc} . ': '
-                          . (
-                            $_->{reverse}
-                            ? ( $_->{sample1} . '/' . $_->{sample2} )
-                            : ( $_->{sample2} . '/' . $_->{sample1} )
-                          )
-                    )
-                )
-            };
-          } @{ $self->{_xExpList} }
-    };
+    # build record names (sample2 / sample 1, etc)
+    $self->build_headerRecords();
 
     if ( $self->{_opts} eq 'annot' ) {
         $self->{_numStart} += 3;
@@ -394,7 +380,7 @@ sub getPlatformData {
       : 'NULL';
 
   # :TODO:07/25/2011 02:39:05:es: Since experiments from different platforms
-  # cannot be comoared using Compare Experiments, this query is a little bit too
+  # cannot be compared using Compare Experiments, this query is a little bit too
   # fat for what we need.
     my $singleItemQuery = <<"END_LoadQuery";
 SELECT
@@ -424,6 +410,36 @@ END_LoadQuery
     $sth->finish;
 
     return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::TFSDisplay
+#       METHOD:  build_headerRecords
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub build_headerRecords {
+    my $self = shift;
+    $self->{_headerRecords} = +{
+        map {
+            $_->{eid} => +{
+                experimentHeading => (
+                    $_->{study_desc} . ': '
+                      . (
+                        $_->{reverse}
+                        ? ( $_->{sample1} . '/' . $_->{sample2} )
+                        : ( $_->{sample2} . '/' . $_->{sample1} )
+                      )
+                )
+            };
+          } @{ $self->{_xExpList} }
+    };
+
+
 }
 
 #===  CLASS METHOD  ============================================================
@@ -557,20 +573,8 @@ GROUP BY probe.rid
 ORDER BY abs_fs DESC
 END_queryCSV
 
-    $self->{_headerRecords} = +{
-        map {
-            $_->{eid} => +{
-                experimentHeading => (
-                    $_->{study_desc} . ': '
-                      . (
-                        $_->{reverse}
-                        ? ( $_->{sample1} . '/' . $_->{sample2} )
-                        : ( $_->{sample2} . '/' . $_->{sample1} )
-                      )
-                )
-            };
-          } @{ $self->{_xExpList} }
-    };
+    # build record names (sample2 / sample 1, etc)
+    $self->build_headerRecords();
 
     #Run the query for the actual data records.
     my $dbh = $self->{_dbh};
