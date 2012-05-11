@@ -428,6 +428,7 @@ sub build_headerRecords {
         map {
             $_->{eid} => +{
                 study_desc  => $_->{study_desc},
+                exp_info    => $_->{exp_info},
                 exp_samples => (
                     $_->{reverse}
                     ? ( $_->{sample1} . '/' . $_->{sample2} )
@@ -626,7 +627,8 @@ sub displayDataCSV {
             'P <',
             'Signif. in',
             'Study',
-            'Exp. samples',
+            'Exp. info',
+            'Exp. samples'
         ]
     );
 
@@ -669,10 +671,10 @@ sub displayDataCSV {
             }
         }
         my $currLine = [
-            $eid,              $row->{fchange},
-            $row->{pValClass}, $row->{pval},
-            $signCell,         $eid_node->{study_desc},
-            $eid_node->{exp_samples},
+            $eid,                  $row->{fchange},
+            $row->{pValClass},     $row->{pval},
+            $signCell,             $eid_node->{study_desc},
+            $eid_node->{exp_info}, $eid_node->{exp_samples},
         ];
         $print->($currLine);
     }

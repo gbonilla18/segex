@@ -308,6 +308,7 @@ YAHOO.util.Event.addListener(window, "load", function () {
         var record = YAHOO.widget.DataTable._cloneObject({
             sample1  : expRoot.sample1,
             sample2  : expRoot.sample2,
+            exp_info: expRoot.AdditionalInformation,
             pValFlag : expRoot.PValFlag,
             study_desc: studyRoot.description,
 
