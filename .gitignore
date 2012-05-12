@@ -1,3 +1,4 @@
 cgi-bin/segex.conf
 *.swp
+*.bak
 .DS_Store
