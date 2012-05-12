@@ -54,6 +54,8 @@ sub error_head {
             $msg = $exception->error;
         }
         else {
+
+            # Behave as if it was Error 500 (Internal Server Error)
             $self->{_prepared_header}->{-status} = 500;
             my $error =
               eval { $exception->error } || "$exception" || 'Unknown error';

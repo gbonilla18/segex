@@ -1185,11 +1185,13 @@ sub _lookup_execute {
 sub _readall_command {
     my ( $self, $table_alias ) = @_;
     $table_alias = $self->{_default_table} unless $table_alias;
-    return unless defined $table_alias;
+    SGX::Exception::Internal->throw( error => 'Table name not specified' )
+      unless defined($table_alias);
 
     my ( $dbh, $q, $table_defs ) = @$self{qw{_dbh _cgi _table_defs}};
-    my $table_info = $table_defs->{$table_alias};
-    return unless $table_info;
+    my $table_info = $table_defs->{$table_alias}
+      or SGX::Exception::Internal->throw(
+        error => "Definition of table $table_alias absent from model" );
 
     my ( $key, $this_meta, $this_view ) = @$table_info{qw/key meta view/};
 
@@ -1570,7 +1572,7 @@ sub _readrow_command {
     my ( $self, $table_alias ) = @_;
     my $id = $self->{_id};
     SGX::Exception::HTTP->throw(
-        status => 404,
+        status => 400,
         error  => "Non-numeric resource id=$id requested"
     ) unless ( defined($id) && $id =~ /^\d+$/ );
 
@@ -1579,9 +1581,9 @@ sub _readrow_command {
       unless defined($table_alias);
 
     my ( $dbh, $q, $table_defs ) = @$self{qw{_dbh _cgi _table_defs}};
-    my $table_info = $table_defs->{$table_alias};
-    SGX::Exception::Internal->throw( error => 'Schema not configured' )
-      unless $table_info;
+    my $table_info = $table_defs->{$table_alias}
+      or SGX::Exception::Internal->throw(
+        error => "Definition of table $table_alias absent from model" );
 
     my @key = $self->_select_fields(
         table    => $table_info,
@@ -1649,12 +1651,16 @@ sub _delete_command {
     my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = car( $q->param('table') ) || $self->{_default_table};
-    return unless defined $table;
+    SGX::Exception::HTTP->throw(
+        status => 400,
+        error  => "Don't know which table to delete from"
+    ) unless defined($table);
 
     # :TODO:10/26/2011 11:22:52:es: check whether $table or $table_alias should
     # be used here
-    my $table_info = $self->{_table_defs}->{$table};
-    return unless $table_info;
+    my $table_info = $self->{_table_defs}->{$table}
+      or SGX::Exception::Internal->throw(
+        error => "Definition of table $table absent from model" );
 
     my @key = $self->_select_fields(
         table    => $table_info,
@@ -1673,8 +1679,8 @@ sub _delete_command {
     # separate preparation from execution because we may want to send different
     # error messages to user depending on where the error has occurred.
     return sub {
-        my $rc = eval { $sth->execute(@params) } or do {
-            my $exception = Exception::Class->caught();
+        my $rc = eval { $sth->execute(@params) };
+        if ( my $exception = Exception::Class->caught() ) {
             $dbh->rollback;
             $sth->finish;
             $dbh->{AutoCommit} = $old_AutoCommit;
@@ -1686,10 +1692,7 @@ sub _delete_command {
                     SGX::Exception::Internal->throw( error => "$exception" );
                 }
             }
-            else {
-                return 0;
-            }
-        };
+        }
         $dbh->commit;
         $sth->finish;
         $dbh->{AutoCommit} = $old_AutoCommit;
@@ -1711,12 +1714,16 @@ sub _assign_command {
     my ($self) = @_;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = car $q->param('table');
-    return unless defined $table;
+    SGX::Exception::HTTP->throw(
+        status => 400,
+        error  => "Don't know which table to assign to"
+    ) unless defined($table);
 
     # :TODO:10/26/2011 11:23:21:es: check whether $table or $table_alias
     # should be used here
-    my $table_info = $self->{_table_defs}->{$table};
-    return unless $table_info;
+    my $table_info = $self->{_table_defs}->{$table}
+      or SGX::Exception::Internal->throw(
+        error => "Definition of table $table absent from model" );
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
@@ -1725,7 +1732,9 @@ sub _assign_command {
         table    => $table_info,
         fieldset => 'key',
     );
-    return if ( !defined($id) || @key != 2 );
+    SGX::Exception::Internal->throw(
+        error => 'Need either valid id or two key fields to define a relation' )
+      if ( !defined($id) || @key != 2 );
 
     my @dealiased_key = $self->_select_fields(
         table    => $table_info,
@@ -1775,16 +1784,22 @@ sub _create_command {
     my $self = shift;
     my ( $dbh, $q ) = @$self{qw{_dbh _cgi}};
     my $table = car( $q->param('table') ) || $self->{_default_table};
-    return unless defined $table;
+    SGX::Exception::HTTP->throw(
+        status => 400,
+        error  => "Don't know which table to add to"
+    ) unless defined($table);
 
-    my $table_info = $self->{_table_defs}->{$table};
-    return unless $table_info;
+    my $table_info = $self->{_table_defs}->{$table}
+      or SGX::Exception::Internal->throw(
+        error => "Definition of table $table absent from model" );
 
     # We do not support creation queries on resource links that correspond to
     # elements (have ids) when database table has one key or fewer.
     my $id  = $self->{_id};
     my $key = $table_info->{key};
-    return if defined $id and @$key < 2;
+    SGX::Exception::Internal->throw(
+        error => 'If id is present, must have one key field' )
+      if ( defined($id) && @$key < 2 );
 
     my @fields = $self->_select_fields(
         table    => $table_info,
@@ -2058,11 +2073,14 @@ sub _update_command {
 
     # :TODO:09/15/2011 13:22:27:es:  fix this: there should be two default
     # tables, one when {_id} is not set, and one when it is set.
-    #
-    return unless defined $table;
+    SGX::Exception::HTTP->throw(
+        status => 400,
+        error  => "Don't know which table to update"
+    ) unless defined($table);
 
-    my $table_info = $self->{_table_defs}->{$table};
-    return unless $table_info;
+    my $table_info = $self->{_table_defs}->{$table}
+      or SGX::Exception::Internal->throw(
+        error => "Definition of table $table absent from model" );
 
     # If param($field) evaluates to undefined, then we do not set the field.
     # This means that we cannot directly set a field to NULL -- unless we
@@ -2239,7 +2257,10 @@ sub _head_init {
 #===============================================================================
 sub form_create_head {
     my $self = shift;
-    return if defined $self->{_id};    # no _id
+    SGX::Exception::HTTP->throw(
+        status => 400,
+        error  => "Id is present but create form requested"
+    ) if defined $self->{_id};
 
     #---------------------------------------------------------------------------
     #  Lookups

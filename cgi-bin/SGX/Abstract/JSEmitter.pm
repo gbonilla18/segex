@@ -82,13 +82,60 @@ BEGIN {
 #===============================================================================
 sub new {
     my ( $class, %args ) = @_;
-
     my $self = {};
     bless $self, $class;
 
     $self->init(%args);
-
     return $self;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Abstract::JS
+#       METHOD:  init
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  Performs object initialization. Always called by new()
+#                constructor but could also be called separately and after
+#                object construction.
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub init {
+    my ( $self, %args ) = @_;
+
+    # The optional 'pretty' input symbol overrides object property under the
+    # same name. When neither the input symbol nor the corresponding object
+    # property are set, use default value of 1.
+    my $arg_pretty =
+      exists( $args{pretty} )
+      ? $args{pretty}
+      : ( exists( $self->{pretty} ) ? $self->{pretty} : 1 );
+
+    my $type_declaration = 'var ';
+    $self->{function_template} =
+      $arg_pretty ? "function %s(%s) {\n%s}" : 'function %s(%s){%s}';
+    $self->{assignment_operator} = $arg_pretty ? ' = ' : '=';
+    $self->{line_terminator}     = $arg_pretty ? ";\n" : ';';
+    $self->{type_declaration}    = $type_declaration;
+    my $list_separator = ',';
+    $self->{type_declaration_separator} =
+      $arg_pretty
+      ? "$list_separator\n" . ' ' x length($type_declaration)
+      : $list_separator;
+
+    $self->{list_separator} =
+      $arg_pretty
+      ? "$list_separator "
+      : $list_separator;
+
+    $self->{pretty} = $arg_pretty;
+
+    # 'Orcish' operator (||=): assign value to property only if that property
+    # evaluates to false. A valid reference will never evaluate to false.
+    $self->{json} ||= JSON->new->allow_nonref;
+
+    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -170,7 +217,7 @@ sub register_var {
 
     #tie my %barewords => 'Safe::Hash';
     my %barewords =
-        ( $self->{pretty} )
+      $self->{pretty}
       ? ( map { $_ => $self->literal($_) } @$ids )
       : ( map { $ids->[$_] => $self->literal( $prefix . $_ ) } 0 .. $#$ids );
     return \%barewords;
@@ -206,59 +253,8 @@ sub literal {
     my ( $self, @rest ) = @_;
     return sub {
         my $tmp = join( '.', @rest, @_ );
-        return (@_) ? $self->literal($tmp) : $tmp;
+        return @_ ? $self->literal($tmp) : $tmp;
     };
-}
-
-#===  CLASS METHOD  ============================================================
-#        CLASS:  SGX::Abstract::JS
-#       METHOD:  init
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  Performs object initialization. Always called by new()
-#                constructor but could also be called separately and after
-#                object construction.
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub init {
-    my ( $self, %args ) = @_;
-
-    # The optional 'pretty' input symbol overrides object property under the
-    # same name. When neither the input symbol nor the corresponding object
-    # property are set, use default value of 1.
-    #
-    my $arg_pretty = (
-        exists $args{pretty}
-        ? $args{pretty}
-        : ( exists $self->{pretty} ? $self->{pretty} : 1 )
-    );
-
-    my $type_declaration = 'var ';
-    $self->{function_template} =
-      ($arg_pretty) ? "function %s(%s) {\n%s}" : 'function %s(%s){%s}';
-    $self->{assignment_operator} = ($arg_pretty) ? ' = ' : '=';
-    $self->{line_terminator}     = ($arg_pretty) ? ";\n" : ';';
-    $self->{type_declaration}    = $type_declaration;
-    my $list_separator = ',';
-    $self->{type_declaration_separator} =
-      ($arg_pretty)
-      ? "$list_separator\n" . ' ' x length($type_declaration)
-      : $list_separator;
-
-    $self->{list_separator} =
-      ($arg_pretty)
-      ? "$list_separator "
-      : $list_separator;
-
-    $self->{pretty} = $arg_pretty;
-
-    # 'Orcish' operator (||=): assign value to property only if that property
-    # evaluates to false. A valid reference will never evaluate to false.
-    $self->{json} ||= JSON->new->allow_nonref;
-
-    return 1;
 }
 
 #===  CLASS METHOD  ============================================================
@@ -277,8 +273,8 @@ sub let {
     # @assignments holds the list of assignments to be emitted...
     my @assignments;
 
-    my $arg_declare = ( exists $args{declare} ? $args{declare} : 1 );
-    my $validate = ($arg_declare) ? \&_validate_identifier : \&_validate_chain;
+    my $arg_declare = exists( $args{declare} ) ? $args{declare} : 1;
+    my $validate = $arg_declare ? \&_validate_identifier : \&_validate_chain;
 
     while ( my ( $key, $value ) = splice( @$href, 0, 2 ) ) {
         push @assignments,
@@ -294,12 +290,14 @@ sub let {
     my $terminator = $self->{line_terminator};
     my $code = ( $arg_declare ? $self->{type_declaration} : '' )
       . join(
-        ($arg_declare)
-        ? $self->{type_declaration_separator}
-        : $self->{line_terminator},
+        (
+              $arg_declare
+            ? $self->{type_declaration_separator}
+            : $self->{line_terminator}
+        ),
         @assignments
       );
-    return ( wantarray() )
+    return wantarray()
       ? sub { $code }
       : $code . $terminator;
 }
@@ -485,13 +483,13 @@ sub encode {
 sub apply {
     my ( $self, $id, $list, %args ) = @_;
     my $terminator = $self->{line_terminator};
-    my $prefix     = ( $args{new_object} ) ? 'new ' : '';
+    my $prefix     = $args{new_object} ? 'new ' : '';
     my $separator  = $self->{list_separator};
     my $arguments  = join( $separator, map { $self->encode($_) } @$list );
 
     # by returning a subroutine reference, we can delay execution
     my $code = $prefix . _evaluate($id) . "($arguments)";
-    return ( wantarray() )
+    return wantarray()
       ? sub { $code }
       : $code . $terminator;
 }
@@ -505,7 +503,11 @@ __END__
 #
 #         FILE:  JSEmitter.pm
 #
-#  DESCRIPTION:
+#  DESCRIPTION:  Code-generation routines for forming valid Javascript. Delayed
+#                evaluation used for literals and functions via anonymous
+#                subroutines. This is all a bunch of hackery and black magic; do
+#                not touch unless with a ten-feet pole. A clean from-scratch 
+#                design would be preferable.
 #
 #        FILES:  ---
 #         BUGS:  ---
