@@ -33,7 +33,7 @@ sub init {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Static
-#       METHOD:  error_body
+#       METHOD:  error_head
 #   PARAMETERS:  ????
 #      RETURNS:  ????
 #  DESCRIPTION:  Shown on error code 404

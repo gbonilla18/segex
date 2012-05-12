@@ -1626,8 +1626,11 @@ sub _readrow_command {
             status => 404,
             error  => (
                 $rc == 0
-                ? "Resource $id not found"
-                : "Expected to find a unique resource but found $rc"
+                ? "Resource not found: $self->{_ResourceName}&id=$id"
+                : <<"END_NONUNIQUE"
+Expected to find a unique resource under $self->{_ResourceName}&id=$id but instead
+found $rc matching records in the database
+END_NONUNIQUE
             )
         ) unless $rc == 1;
         $self->{_id_data} = $sth->fetchrow_hashref;
