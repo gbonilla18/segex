@@ -89,12 +89,12 @@ END_SQL1
 ####################################################################
     # Get the data
     my $xtitle_text        = 'Experiment';
-    my $sql_project_clause = 'WHERE microarray.rid=?';
+    my $sql_project_clause = 'WHERE response.rid=?';
     my @exec_array         = ($reporter);
 
     if ( defined($curr_proj) and $curr_proj =~ m/^\d+$/ ) {
         $sql_project_clause =
-'NATURAL JOIN ProjectStudy WHERE microarray.rid=? AND ProjectStudy.prid=?';
+'NATURAL JOIN ProjectStudy WHERE response.rid=? AND ProjectStudy.prid=?';
         push @exec_array, $curr_proj;
     }
 
@@ -104,7 +104,7 @@ experiment.eid,
 CONCAT(GROUP_CONCAT(study.description SEPARATOR ', '), ': ', experiment.sample2, '/', experiment.sample1) AS label, 
 $sql_trans as y, 
 pvalue1
-FROM microarray 
+FROM response 
 NATURAL JOIN experiment 
 NATURAL JOIN StudyExperiment 
 NATURAL JOIN study 

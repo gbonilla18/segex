@@ -274,7 +274,7 @@ sub init {
                 ],
             },
             data_count => {
-                table => 'microarray',
+                table => 'response',
                 key   => [qw/eid rid/],
                 view  => [qw/probe_count/],
                 meta  => {

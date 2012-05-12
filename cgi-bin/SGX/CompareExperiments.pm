@@ -460,12 +460,12 @@ sub getResultsJS {
         push @query_fs_body, ($includeAllProbes)
           ? <<"END_part_all"
 SELECT rid, IF(pvalue$pValClass < ? AND ABS(foldchange)  > ?, ?, 0) AS flag
-FROM microarray 
+FROM response 
 WHERE eid=?
 END_part_all
           : <<"END_part_significant";
 SELECT rid, ? AS flag 
-FROM microarray
+FROM response
 WHERE eid=? AND pvalue$pValClass < ? AND ABS(foldchange)  > ?
 END_part_significant
         push @query_fs_body_params,

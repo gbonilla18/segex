@@ -219,43 +219,43 @@ END_loadData
     if ($update) {
         push @sth, sprintf(
             <<"END_insertResponse",
-UPDATE microarray
-INNER JOIN probe ON microarray.rid=probe.rid AND microarray.eid=?
+UPDATE response
+INNER JOIN probe ON response.rid=probe.rid AND response.eid=?
 INNER JOIN $temp_table AS temptable USING(reporter)
 SET %s
 END_insertResponse
             join(
                 ',',
-                ( $upload_ratio ? 'microarray.ratio=temptable.ratio' : () ),
+                ( $upload_ratio ? 'response.ratio=temptable.ratio' : () ),
                 (
                     $upload_fchange
-                    ? 'microarray.foldchange=temptable.foldchange'
+                    ? 'response.foldchange=temptable.foldchange'
                     : ()
                 ),
                 (
                     $upload_intensity1
-                    ? 'microarray.intensity1=temptable.intensity1'
+                    ? 'response.intensity1=temptable.intensity1'
                     : ()
                 ),
                 (
                     $upload_intensity2
-                    ? 'microarray.intensity2=temptable.intensity2'
+                    ? 'response.intensity2=temptable.intensity2'
                     : ()
                 ),
                 (
-                    $upload_pvalue1 ? 'microarray.pvalue1=temptable.pvalue1'
+                    $upload_pvalue1 ? 'response.pvalue1=temptable.pvalue1'
                     : ()
                 ),
                 (
-                    $upload_pvalue2 ? 'microarray.pvalue2=temptable.pvalue2'
+                    $upload_pvalue2 ? 'response.pvalue2=temptable.pvalue2'
                     : ()
                 ),
                 (
-                    $upload_pvalue3 ? 'microarray.pvalue3=temptable.pvalue3'
+                    $upload_pvalue3 ? 'response.pvalue3=temptable.pvalue3'
                     : ()
                 ),
                 (
-                    $upload_pvalue4 ? 'microarray.pvalue4=temptable.pvalue4'
+                    $upload_pvalue4 ? 'response.pvalue4=temptable.pvalue4'
                     : ()
                 )
             ),
@@ -279,7 +279,7 @@ END_insertProbe
         }
         push @sth, sprintf(
             <<"END_insertResponse",
-INSERT INTO microarray (%s)
+INSERT INTO response (%s)
 SELECT %s FROM probe
 INNER JOIN $temp_table AS temptable USING(reporter)
 WHERE probe.pid=?

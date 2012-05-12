@@ -823,7 +823,7 @@ SELECT
     CONCAT(experiment.sample2, ' / ', experiment.sample1)  AS 'Exp. Name',
     experiment.ExperimentDescription                       AS 'Exp. Description'
 FROM $exp_temp_table AS tmp
-INNER JOIN microarray USING(rid)
+INNER JOIN response USING(rid)
 INNER JOIN experiment USING(eid)
 LEFT JOIN StudyExperiment USING(eid)
 LEFT JOIN study USING(stid)
@@ -956,7 +956,7 @@ SELECT
     pvalue3     AS 'P-Value 3',
     pvalue4     AS 'P-Value 4'
 FROM $data_temp_table AS tmp
-INNER JOIN microarray USING(rid)
+INNER JOIN response USING(rid)
 END_ExperimentDataQuery
     my $data_sth = $dbh->prepare($data_sql);
     $data_sth->execute();

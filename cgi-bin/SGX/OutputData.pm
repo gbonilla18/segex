@@ -290,31 +290,31 @@ END_EXTRALOCUS
     my $query_data = sprintf(
         <<"END_ReportQuery",
 SELECT
-    microarray.eid AS 'Exp. ID',
+    response.eid AS 'Exp. ID',
     probe.reporter        AS 'Probe ID',
     $probe_fields
     GROUP_CONCAT(DISTINCT if(gene.gtype=0, gene.gsymbol, NULL) separator ', ') AS 'Accession No.',
     GROUP_CONCAT(DISTINCT if(gene.gtype=1, gene.gsymbol, NULL) separator ', ') AS 'Gene Symbol',
     $gene_fields
-    microarray.ratio      AS 'Ratio',
-    microarray.foldchange AS 'Fold Change',
-    microarray.intensity1 AS 'Intensity 1',
-    microarray.intensity2 AS 'Intensity 2',
-    microarray.pvalue1    AS 'P-1',
-    microarray.pvalue2    AS 'P-2',
-    microarray.pvalue3    AS 'P-3',
-    microarray.pvalue4    AS 'P-4'
+    response.ratio      AS 'Ratio',
+    response.foldchange AS 'Fold Change',
+    response.intensity1 AS 'Intensity 1',
+    response.intensity2 AS 'Intensity 2',
+    response.pvalue1    AS 'P-1',
+    response.pvalue2    AS 'P-2',
+    response.pvalue3    AS 'P-3',
+    response.pvalue4    AS 'P-4'
 FROM (
     SELECT eid FROM experiment WHERE eid IN (%s)
 ) AS d1
-INNER JOIN microarray USING(eid)
+INNER JOIN response USING(eid)
 LEFT JOIN probe USING(rid)
 LEFT JOIN ProbeGene USING(rid)
 LEFT JOIN gene USING(gid)
 $probe_join
 $gene_join
-GROUP BY microarray.eid, microarray.rid
-ORDER BY microarray.eid, probe.reporter
+GROUP BY response.eid, response.rid
+ORDER BY response.eid, probe.reporter
 END_ReportQuery
         ( @$experiments ? join( ',', map { '?' } @$experiments ) : 'NULL' )
     );

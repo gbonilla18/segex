@@ -1,5 +1,3 @@
-*) rename table "microarray" to "response" (don't rush with this)
-
 *) Write tests
 
 *) Installation: automate file copying: have user provide only two directories:

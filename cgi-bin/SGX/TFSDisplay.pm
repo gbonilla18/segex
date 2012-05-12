@@ -279,7 +279,7 @@ sub loadDataHTML {
         }
 
         push @query_join,
-"LEFT JOIN microarray $table ON $table.rid=d2.rid AND $table.eid=$eid";
+"LEFT JOIN response $table ON $table.rid=d2.rid AND $table.eid=$eid";
 
         #This is part of the query when we are including all probes.
         push @query_body, ($allProbes)
@@ -291,7 +291,7 @@ SELECT
        IF(foldchange > 0, $dir_flag), 
        0
     ) AS dir_flag
-FROM microarray
+FROM response
 WHERE eid=$eid
 END_yes_allProbes
           : <<"END_no_allProbes";
@@ -299,7 +299,7 @@ SELECT
     rid, 
     $abs_flag AS abs_flag,
     IF(foldchange > 0, $dir_flag) AS dir_flag
-FROM microarray 
+FROM response 
 WHERE eid = $eid 
   AND $pval_sql < $pval 
   AND ABS(foldchange) > $fc
@@ -501,7 +501,7 @@ sub loadDataCSV {
         push @query_proj, "$table.$pval_sql AS '$eid: P-$pValClass'";
 
         push @query_join,
-"LEFT JOIN microarray $table ON $table.rid=d2.rid AND $table.eid=$eid";
+"LEFT JOIN response $table ON $table.rid=d2.rid AND $table.eid=$eid";
 
         push @query_body, ( $self->{_allProbes} )
           ? <<"END_yes_allProbesCSV"
@@ -509,7 +509,7 @@ SELECT
     rid,
     IF($pval_sql < $pval AND ABS(foldchange) > $fc, $abs_flag, 0) AS abs_flag,
     IF($pval_sql < $pval AND ABS(foldchange) > $fc, IF(foldchange > 0, $dir_flag), 0) AS dir_flag
-FROM microarray
+FROM response
 WHERE eid=$eid
 END_yes_allProbesCSV
           : <<"END_no_allProbesCSV";
@@ -517,7 +517,7 @@ SELECT
     rid, 
     $abs_flag AS abs_flag,
     IF(foldchange > 0, $dir_flag) AS dir_flag
-FROM microarray 
+FROM response 
 WHERE eid = $eid 
   AND $pval_sql < $pval 
   AND ABS(foldchange) > $fc
