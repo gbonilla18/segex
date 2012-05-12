@@ -354,14 +354,14 @@ COMPARE_SUMMARY
       # experiment table
       $q->div(
         { -class => 'clearfix' },
-        $q->h3('2. Specify comparison options'),
+        $q->h3('2. Set experiment options and thresholds'),
         $q->div( { -class => 'clearfix', -id => 'exp_table' }, '' )
       ),
 
       # form below the table
       $q->div(
         { -class => 'clearfix' },
-        $q->h3('3. Perform comparison'),
+        $q->h3('3. Set global options and perform comparison'),
         $q->start_form(
             -accept_charset => 'utf8',
             -method         => 'POST',

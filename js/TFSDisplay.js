@@ -18,8 +18,8 @@ function isSignif(oRecord) {
 YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
 YAHOO.util.Event.addListener(window, "load", function() {
     // ======= Summary table ==============
-    var formatterYesNo = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = (oData) ? 'Yes' : 'No';
+    var formatterSampleOrder = function(elCell, oRecord, oColumn, oData) {
+        elCell.innerHTML = (oData) ? 'Reverse (s1 / s2)' : 'Default (s2 / s1)';
     };
     var experimentS2S1Formatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
@@ -75,7 +75,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"reqSignif", sortable:false, resizeable:true, label:'Signif. in', formatter:formatterReqSignif},
         {key:"study_desc", sortable:false, resizeable:true, label:'Study', formatter:studyFormatter},
         {key:"samples", sortable:false, resizeable:true, label:'Experiment samples', formatter:experimentS2S1Formatter},
-        {key:"reverse", sortable:false, resizeable:false, label:'Switched samples', formatter:formatterYesNo}
+        {key:"reverse", sortable:false, resizeable:false, label:'Sample order', formatter:formatterSampleOrder}
     ];
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});
 

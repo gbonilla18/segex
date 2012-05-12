@@ -148,8 +148,8 @@ YAHOO.util.Event.addListener(window, "load", function() {
             elCell.innerHTML = oData;
         }
     };
-    var formatterYesNo = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = (oData) ? 'Yes' : 'No';
+    var formatterSampleOrder = function(elCell, oRecord, oColumn, oData) {
+        elCell.innerHTML = (oData) ? 'Reverse (s1 / s2)' : 'Default (s2 / s1)';
     };
     var experimentS2S1Formatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
@@ -291,7 +291,7 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"pval", sortable:true, resizeable:false, label:'P <'},
         {key:"study_desc", sortable:true, resizeable:true, label:'Study', formatter:studyFormatter},
         {key:"samples", sortable:true, resizeable:true, label:'Experiment samples', formatter:experimentS2S1Formatter},
-        {key:"reverse", sortable:true, resizeable:false, label:'Switched samples', formatter:formatterYesNo},
+        {key:"reverse", sortable:true, resizeable:false, label:'Sample order', formatter:formatterSampleOrder},
         {key:"probe_count", sortable:true, resizeable:false, label:'Signif. probes', formatter:formatterProbeCounts}
     ];
     var summary_table = new YAHOO.widget.DataTable("summary_table", summary_table_defs, summary_data, {});

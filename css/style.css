@@ -15,7 +15,7 @@ em {
 }
 ol li { list-style: decimal; margin-left:20px; }
 input.shortnum {
-	width:5em;
+	width:4em;
 }
 .hidden {
 	visibility:hidden;

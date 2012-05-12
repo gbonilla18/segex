@@ -205,10 +205,15 @@ sub getSessionOverrideCGI {
     my ( $dbh, $q, $s ) = @$self{qw{_dbh _cgi _UserSession}};
 
     # For user name, just look it up from the session
-    $self->{_UserFullName} =
-      ( defined $s )
-      ? $s->{session_cookie}->{full_name}
-      : '';
+    if (defined $s) {
+        my $name = $s->{session_cookie}->{full_name};
+        if (!defined($name) || $name eq '') {
+            $name = $s->{session_stash}->{username};
+        }
+        $self->{_UserFullName} = $name;
+    } else {
+        $self->{_UserFullName} = '';
+    }
 
     # :TRICKY:06/28/2011 13:47:09:es: We implement the following behavior: if,
     # in the URI option string, "proj" is set to some value (e.g. "proj=32") or
@@ -253,7 +258,6 @@ sub getSessionOverrideCGI {
 }
 1;
 
-
 #
 #===============================================================================
 #
@@ -270,5 +274,4 @@ sub getSessionOverrideCGI {
 #      CREATED:  03/13/2012 11:18:02
 #     REVISION:  ---
 #===============================================================================
-
 
