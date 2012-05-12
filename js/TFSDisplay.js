@@ -19,7 +19,7 @@ YAHOO.util.Event.addListener("tfs_astext", "click", export_table, tfs, true);
 YAHOO.util.Event.addListener(window, "load", function() {
     // ======= Summary table ==============
     var formatterSampleOrder = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = (oData) ? 'Reverse (s1 / s2)' : 'Default (s2 / s1)';
+        elCell.innerHTML = (oData) ? 'Reverse: s1 / s2' : 'Default: s2 / s1';
     };
     var experimentS2S1Formatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
