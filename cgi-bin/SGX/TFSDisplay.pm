@@ -9,7 +9,7 @@ require Math::BigInt;
 require Math::BigFloat;
 use JSON qw/decode_json/;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car bind_csv_handle count_bits before_dot/;
+use SGX::Util qw/car count_bits before_dot/;
 require SGX::DBHelper;
 
 #===  FUNCTION  ================================================================
@@ -597,7 +597,8 @@ sub displayDataCSV {
     my $self      = shift;
     my $data_rows = $self->{_xExpList};
 
-    my $print = bind_csv_handle( \*STDOUT );
+    require SGX::CSV;
+    my $print = SGX::CSV::bind_handle( \*STDOUT );
 
     my $sth_records = $self->{_Records};
 

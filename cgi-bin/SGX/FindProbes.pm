@@ -8,8 +8,8 @@ use base qw/SGX::Strategy::Base/;
 require SGX::DBHelper;
 require Tie::IxHash;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car cdr trim min bind_csv_handle uniq_i file_opts_html
-dec2indexes32 coord2int/;
+use SGX::Util qw/car cdr trim min uniq_i file_opts_html dec2indexes32
+coord2int/;
 use SGX::Config qw/$IMAGES_DIR/;
 
 #---------------------------------------------------------------------------
@@ -1042,7 +1042,8 @@ sub printFindProbeCSV {
         -cookie     => ( ( defined $s ) ? $s->cookie_array() : [] )
     );
 
-    my $print = bind_csv_handle( \*STDOUT );
+    require SGX::CSV;
+    my $print = SGX::CSV::bind_handle( \*STDOUT );
 
     # Report Header
     my $search_params = $self->{_SeachParams};

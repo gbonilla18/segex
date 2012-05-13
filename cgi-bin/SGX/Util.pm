@@ -9,8 +9,8 @@ use Scalar::Util qw/looks_like_number/;
 
 our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
   inherit_hash enum_array array2hash list_keys list_values tuples car cdr equal
-  bind_csv_handle notp file_opts_html file_opts_columns dec2indexes32
-  abbreviate coord2int writeFlags count_bits before_dot uniq uniq_i format_phrase/;
+  notp file_opts_html file_opts_columns dec2indexes32 abbreviate coord2int
+  writeFlags count_bits before_dot uniq uniq_i format_phrase/;
 
 #===  FUNCTION  ================================================================
 #         NAME:  format_phrase
@@ -26,7 +26,7 @@ our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
 #===============================================================================
 sub format_phrase {
     my $phrase = shift;
-    return undef unless defined $phrase;
+    return undef unless defined $phrase;    ## no critic
     if ( $phrase =~ m/^\s*(.+)\s*$/ ) {
         $phrase = $1;
 
@@ -50,7 +50,7 @@ sub format_phrase {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub uniq {
+sub uniq {    ## no critic
     my %seen;
     return grep { !$seen{$_}++ } @_;
 }
@@ -65,7 +65,7 @@ sub uniq {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub uniq_i {
+sub uniq_i {    ## no critic
     my %seen;
     return grep { !$seen{ lc($_) }++ } @_;
 }
@@ -96,7 +96,7 @@ sub before_dot {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub writeFlags {
+sub writeFlags {    ## no critic
     my $flagsum = 0;
     for ( my $i = 0 ; $i < @_ ; $i++ ) {
         if ( $_[$i] ) {
@@ -253,8 +253,7 @@ sub file_opts_html {
 #     SEE ALSO:  n/a
 #===============================================================================
 sub file_opts_columns {
-    my $q    = shift;
-    my %args = @_;
+    my ( $q, %args ) = @_;
 
     my $id    = $args{id};
     my $items = $args{items};
@@ -272,7 +271,7 @@ sub file_opts_columns {
         { -id => "${id}_container", -class => 'dd_collapsible' },
         (
             (
-                map {
+                map {    ## no critic
                     my ( $key, $val ) = @$_;
                     my $title = $val->{-title} || ( $val->{-value} || $key );
                     $q->input(
@@ -309,37 +308,9 @@ sub file_opts_columns {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub notp {
+sub notp {    ## no critic
     !$_ || return for @_;
     return 1;
-}
-
-#===  FUNCTION  ================================================================
-#         NAME:  bind_csv_handle
-#      PURPOSE:
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:
-#
-# :TODO:10/21/2011 00:49:20:es: Use Text::CSV types:
-# http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm#types
-#
-#     SEE ALSO:  n/a
-#===============================================================================
-sub bind_csv_handle {
-    my $handle = shift;
-    require Text::CSV;
-    my $csv = Text::CSV->new(
-        {
-            eol      => "\r\n",
-            sep_char => ","
-        }
-    ) or die 'Cannot use Text::CSV';
-    return sub {
-        return $csv->print( $handle, shift || [] );
-    };
 }
 
 #===  FUNCTION  ================================================================
@@ -352,7 +323,7 @@ sub bind_csv_handle {
 #     COMMENTS:  For debugging only
 #     SEE ALSO:  n/a
 #===============================================================================
-sub print_truth_table {
+sub print_truth_table {    ## no critic
     return join( ' ', map { $_ ? 1 : 0 } @_ );
 }
 
@@ -361,12 +332,12 @@ sub print_truth_table {
 #      PURPOSE:  Check whether all members of a list are equal to each other
 #   PARAMETERS:  ????
 #      RETURNS:  Returns first member if yes, empty list if otherwise
-#  DESCRIPTION:  ????
+#  DESCRIPTION:  eq predicate
 #       THROWS:  no exceptions
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub equal {
+sub equal {    ## no critic
     my $first = shift;
     return unless defined $first;
     defined($_) && $first eq $_ || return for @_;
@@ -415,7 +386,11 @@ sub count_bits {
 #     SEE ALSO:
 # https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/some
 #===============================================================================
-sub count_gtzero { my $c = 0; defined && $_ > 0 && $c++ for @_; return $c }
+sub count_gtzero {    ## no critic
+    my $c = 0;
+    defined && $_ > 0 && $c++ for @_;
+    return $c;
+}
 
 #===  FUNCTION  ================================================================
 #         NAME:  replace
@@ -581,7 +556,7 @@ sub tuples {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub list_keys {
+sub list_keys {    ## no critic
     return @_[ grep { !( $_ % 2 ) } 0 .. $#_ ];
 }
 
@@ -596,14 +571,37 @@ sub list_keys {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub list_values {
+sub list_values {    ## no critic
     return @_[ grep { $_ % 2 } 0 .. $#_ ];
 }
 
-#---------------------------------------------------------------------------
-#  Some Lisp-like stuff: http://okmij.org/ftp/Perl/Scheme-in-Perl.txt
-#---------------------------------------------------------------------------
-sub car { return $_[0] }        # car List -> Atom  -- the head of the list
-sub cdr { shift; return @_ }    # cdr List -> List -- the tail of the list
+#===  FUNCTION  ================================================================
+#         NAME:  car
+#      PURPOSE:  return first element (head) of an array (list)
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  car List -> Atom
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  http://okmij.org/ftp/Perl/Scheme-in-Perl.txt
+#===============================================================================
+sub car {
+    return shift;
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  cdr
+#      PURPOSE:  return tail of an array (list)
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  cdr List -> List
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  http://okmij.org/ftp/Perl/Scheme-in-Perl.txt
+#===============================================================================
+sub cdr {    ## no critic
+    shift;
+    return @_;
+}
 
 1;

@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use base qw/SGX::Strategy::Base/;
-use SGX::Config qw/$IMAGES_DIR/;
+use SGX::Config qw/$IMAGES_DIR %SEGEX_CONFIG/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Static
@@ -60,8 +60,14 @@ sub error_head {
             my $error =
               eval { $exception->error } || "$exception" || 'Unknown error';
             my $error_source = $self->{_ExceptionSource} || 'Unknown module';
-            warn "$error (caller module: $error_source)";    ## no critic
-            $msg = 'Internal error (see log for details)';
+            my $full_error = "$error (caller module: $error_source)";
+            warn $full_error;    ## no critic
+            if ( $SEGEX_CONFIG{debug_errors_to_browser} ) {
+                $msg = "Internal error: $full_error";
+            }
+            else {
+                $msg = 'Internal error (see log for details)';
+            }
         }
     }
     else {

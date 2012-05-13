@@ -9,6 +9,34 @@ use Benchmark qw/timediff timestr/;
 use SGX::Util qw/all_match car/;
 use SGX::Abstract::Exception ();
 
+#===  FUNCTION  ================================================================
+#         NAME:  bind_handle
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:
+#
+# :TODO:10/21/2011 00:49:20:es: Use Text::CSV types:
+# http://search.cpan.org/~makamaka/Text-CSV-1.21/lib/Text/CSV.pm#types
+#
+#     SEE ALSO:  n/a
+#===============================================================================
+sub bind_handle {
+    my $handle = shift;
+    my $csv = eval { Text::CSV->new( { eol => "\r\n", sep_char => "," } ); }
+      or do {
+        my $exception = Exception::Class->caught();
+        my $msg = "$exception" || 'Unknown error';
+        SGX::Exception::Internal->throw(
+            error => "Can't load Text::CSV: $msg" );
+      };
+    return sub {
+        return $csv->print( $handle, shift || [] );
+    };
+}
+
 #===  CLASS METHOD  ============================================================
 #        CLASS:  CSV
 #       METHOD:
