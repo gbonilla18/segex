@@ -4,9 +4,9 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
-our @EXPORT_OK = qw/trim label_format replace build_matchp inherit_hash list_keys
-list_values tuples car cdr equal notp file_opts_html file_opts_columns
-dec2indexes32 abbreviate coord2int writeFlags count_bits before_dot uniq uniq_i
+our @EXPORT_OK = qw/trim label_format replace build_matchp inherit_hash
+list_keys list_values tuples car cdr equal notp file_opts_html file_opts_columns
+dec2indexes32 coord2int writeFlags count_bits before_dot uniq uniq_i
 format_phrase/; 
 
 #===  FUNCTION  ================================================================
