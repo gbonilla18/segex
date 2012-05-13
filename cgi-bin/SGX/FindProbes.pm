@@ -8,8 +8,8 @@ use base qw/SGX::Strategy::Base/;
 require SGX::DBHelper;
 require Tie::IxHash;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car cdr trim min bind_csv_handle distinct file_opts_html
-  dec2indexes32 coord2int/;
+use SGX::Util qw/car cdr trim min bind_csv_handle uniq file_opts_html
+dec2indexes32 coord2int/;
 use SGX::Config qw/$IMAGES_DIR/;
 
 #---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ sub GetCSV_head {
     $self->{_UserSession}->commit();
 
     my $search_terms =
-      [ distinct( split( /[,\s]+/, trim( car $q->param('q') ) ) ) ];
+      [ uniq split( /[,\s]+/, trim( car $q->param('q') ) ) ];
     my $exp_hash  = $self->getReportExperiments($search_terms);
     my $data_hash = $self->getReportData($search_terms);
     $self->{_DataForCSV} = [ $exp_hash, $data_hash ];
