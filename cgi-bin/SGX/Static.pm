@@ -59,8 +59,8 @@ sub error_head {
             $self->{_prepared_header}->{-status} = 500;
             my $error =
               eval { $exception->error } || "$exception" || 'Unknown error';
-            my $error_source = $self->{_ExceptionSource} || 'Unknown module';
-            my $full_error = "$error (caller module: $error_source)";
+            my $propagated_by = $self->{_ExceptionSource} || 'Unknown module';
+            my $full_error = "$error (propagated by: $propagated_by)";
             warn $full_error;    ## no critic
             if ( $SEGEX_CONFIG{debug_errors_to_browser} ) {
                 $msg = "Internal error: $full_error";
