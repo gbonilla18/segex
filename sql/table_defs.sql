@@ -103,7 +103,7 @@ CREATE TABLE `experiment` (
   PRIMARY KEY (`eid`),
   KEY `pid` (`pid`),
   CONSTRAINT `experiment_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`)
-) ENGINE=InnoDB AUTO_INCREMENT=141 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=154 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -166,32 +166,6 @@ CREATE TABLE `locus` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `microarray`
---
-
-DROP TABLE IF EXISTS `microarray`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `microarray` (
-  `eid` int(10) unsigned NOT NULL,
-  `rid` int(10) unsigned NOT NULL,
-  `ratio` double DEFAULT NULL,
-  `foldchange` double DEFAULT NULL,
-  `intensity1` double DEFAULT NULL,
-  `intensity2` double DEFAULT NULL,
-  `pvalue1` double DEFAULT NULL,
-  `pvalue2` double DEFAULT NULL,
-  `pvalue3` double DEFAULT NULL,
-  `pvalue4` double DEFAULT NULL,
-  PRIMARY KEY (`eid`,`rid`),
-  KEY `rid` (`rid`),
-  KEY `eid` (`eid`),
-  CONSTRAINT `microarray_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE,
-  CONSTRAINT `microarray_ibfk_2` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `platform`
 --
 
@@ -208,7 +182,7 @@ CREATE TABLE `platform` (
   UNIQUE KEY `pname` (`pname`),
   KEY `sid` (`sid`),
   CONSTRAINT `platform_ibfk_1` FOREIGN KEY (`sid`) REFERENCES `species` (`sid`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -228,7 +202,7 @@ CREATE TABLE `probe` (
   UNIQUE KEY `pid_reporter` (`pid`,`reporter`),
   KEY `pid` (`pid`),
   CONSTRAINT `probe_ibfk_1` FOREIGN KEY (`pid`) REFERENCES `platform` (`pid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=316999 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=382534 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -245,6 +219,32 @@ CREATE TABLE `project` (
   PRIMARY KEY (`prid`),
   UNIQUE KEY `prname` (`prname`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `response`
+--
+
+DROP TABLE IF EXISTS `response`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `response` (
+  `eid` int(10) unsigned NOT NULL,
+  `rid` int(10) unsigned NOT NULL,
+  `ratio` double DEFAULT NULL,
+  `foldchange` double DEFAULT NULL,
+  `intensity1` double DEFAULT NULL,
+  `intensity2` double DEFAULT NULL,
+  `pvalue1` double DEFAULT NULL,
+  `pvalue2` double DEFAULT NULL,
+  `pvalue3` double DEFAULT NULL,
+  `pvalue4` double DEFAULT NULL,
+  PRIMARY KEY (`eid`,`rid`),
+  KEY `rid` (`rid`),
+  KEY `eid` (`eid`),
+  CONSTRAINT `response_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `experiment` (`eid`) ON DELETE CASCADE,
+  CONSTRAINT `response_ibfk_2` FOREIGN KEY (`rid`) REFERENCES `probe` (`rid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -276,7 +276,7 @@ CREATE TABLE `species` (
   `sversion` varchar(24) DEFAULT NULL,
   PRIMARY KEY (`sid`),
   UNIQUE KEY `sname` (`sname`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -318,7 +318,7 @@ CREATE TABLE `users` (
   `udate` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`),
   UNIQUE KEY `uname` (`uname`)
-) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -357,4 +357,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2012-05-08 11:30:09
+-- Dump completed on 2012-05-12 20:01:37
