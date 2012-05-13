@@ -303,7 +303,7 @@ sub _head_data_table {
 
                     # only highlight those cells that have .yui-dt-editable DOM
                     # class
-                    cellMouseoverEvent => $js->literal('highlightEditableCell'),
+                    cellMouseoverEvent => $js->symbol('highlightEditableCell'),
 
                     # unhighlight all cells
                     cellMouseoutEvent =>
@@ -312,7 +312,7 @@ sub _head_data_table {
 
                         # this JS function prevents Cell Editor from showing up
                         # after the link inside the cell has been clicked.
-                        [ $js->literal('oArg') ],
+                        [ $js->symbol('oArg') ],
                         $js->apply( 'return', [ $js->false ] )
                     ),
                     cellClickEvent =>
@@ -382,14 +382,14 @@ sub _head_data_table {
         [
             $self->{dom_export_link_id},
             'click',
-            $js->literal('export_table'),
+            $js->symbol('export_table'),
             $var->{data},
             $js->true
         ]
       )
       . $js->apply(
         'YAHOO.util.Event.addListener',
-        [ $js->literal('window'), 'load', $onloadLambda ],
+        [ $js->symbol('window'), 'load', $onloadLambda ],
       );
 }
 
@@ -2303,7 +2303,7 @@ sub _js_populate_dropdowns {
       . $js->apply(
         'YAHOO.util.Event.addListener',
         [
-            $js->literal('window'),
+            $js->symbol('window'),
             'load',
             $js->apply(
                 'populateDropdowns',

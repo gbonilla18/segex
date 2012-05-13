@@ -218,19 +218,19 @@ sub register_var {
     #tie my %barewords => 'Safe::Hash';
     my %barewords =
       $self->{pretty}
-      ? ( map { $_ => $self->literal($_) } @$ids )
-      : ( map { $ids->[$_] => $self->literal( $prefix . $_ ) } 0 .. $#$ids );
+      ? ( map { $_ => $self->symbol($_) } @$ids )
+      : ( map { $ids->[$_] => $self->symbol( $prefix . $_ ) } 0 .. $#$ids );
     return \%barewords;
 }
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Abstract::JS
-#       METHOD:  literal
+#       METHOD:  symbol
 #   PARAMETERS:  ????
 #      RETURNS:  Returns a lambda capable of adding identifiers to chain.
 #  DESCRIPTION:  Example:
 #
-#       $self->literal('ee')->('e')->('ppppp')->('er','re','r')->();
+#       $self->symbol('ee')->('e')->('ppppp')->('er','re','r')->();
 #
 #   evaluates to (note empty parantheses needed for termination):
 #
@@ -238,7 +238,7 @@ sub register_var {
 #
 #   Intermediate values can be cached:
 #
-#        my $cache = $self->literal('ee')->('e');
+#        my $cache = $self->symbol('ee')->('e');
 #        $cache->('test')->();
 #
 #    evaluates to:
@@ -249,11 +249,11 @@ sub register_var {
 #     COMMENTS:  none
 #     SEE ALSO:  n/a
 #===============================================================================
-sub literal {
+sub symbol {
     my ( $self, @rest ) = @_;
     return sub {
         my $tmp = join( '.', @rest, @_ );
-        return @_ ? $self->literal($tmp) : $tmp;
+        return @_ ? $self->symbol($tmp) : $tmp;
     };
 }
 
@@ -425,15 +425,16 @@ sub encode {
     if ( $value_reftype eq '' ) {
 
         # Most common type -- unreferenced (direct) scalar (maps to Javascript
-        # literal)
+        # symbol)
         return $self->json_encode($value);
     }
     elsif ( $value_reftype eq 'ARRAY' ) {
 
         # Perl array (maps to Javascript Array object)
-        my $separator = $self->{list_separator};
         return
-          '[' . join( $separator, map { $self->encode($_) } @$value ) . ']';
+            '['
+          . join( $self->{list_separator}, map { $self->encode($_) } @$value )
+          . ']';
     }
     elsif ( $value_reftype eq 'HASH' ) {
 
@@ -442,8 +443,7 @@ sub encode {
         while ( my ( $id, $obj ) = each %$value ) {
             push @tmp, $self->json_encode($id) . ':' . $self->encode($obj);
         }
-        my $separator = $self->{list_separator};
-        return '{' . join( $separator, @tmp ) . '}';
+        return '{' . join( $self->{list_separator}, @tmp ) . '}';
     }
     elsif ( $value_reftype eq 'CODE' ) {
 
@@ -504,7 +504,7 @@ __END__
 #         FILE:  JSEmitter.pm
 #
 #  DESCRIPTION:  Code-generation routines for forming valid Javascript. Delayed
-#                evaluation used for literals and functions via anonymous
+#                evaluation used for symbols and functions via anonymous
 #                subroutines. This is all a bunch of hackery and black magic; do
 #                not touch unless with a ten-feet pole. A clean from-scratch 
 #                design would be preferable.
