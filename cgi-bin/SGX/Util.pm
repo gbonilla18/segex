@@ -7,10 +7,10 @@ use base qw/Exporter/;
 use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
 
-our @EXPORT_OK = qw/trim max min label_format replace all_match count_gtzero
-  inherit_hash enum_array array2hash list_keys list_values tuples car cdr equal
-  notp file_opts_html file_opts_columns dec2indexes32 abbreviate coord2int
-  writeFlags count_bits before_dot uniq uniq_i format_phrase/;
+our @EXPORT_OK = qw/trim max min label_format replace all_match inherit_hash
+list_keys list_values tuples car cdr equal notp file_opts_html file_opts_columns
+dec2indexes32 abbreviate coord2int writeFlags count_bits before_dot uniq uniq_i
+format_phrase/; 
 
 #===  FUNCTION  ================================================================
 #         NAME:  format_phrase
@@ -189,116 +189,6 @@ sub all_match {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  cgi_file_opts
-#      PURPOSE:
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub file_opts_html {
-    my $q  = shift;
-    my $id = shift;
-    return $q->p(
-        $q->a(
-            {
-                -id    => $id,
-                -class => 'pluscol',
-                -title => 'Click to specify file format'
-            },
-            '+ File options'
-        )
-      )
-      . $q->div(
-        {
-            -id    => "${id}_container",
-            -class => 'dd_collapsible',
-        },
-        $q->p(
-            $q->radio_group(
-                -name   => 'separator',
-                -values => [ "\t", ',' ],
-                -labels => {
-                    ','  => 'Comma-separated',
-                    "\t" => 'Tab-separated'
-                },
-                -default => (
-                    defined $q->param('separator')
-                    ? $q->param('separator')
-                    : "\t"
-                )
-            )
-        ),
-        $q->p(
-            $q->checkbox(
-                -name     => 'header',
-                -checked  => ( defined( $q->param('header') ) ? 1 : 0 ),
-                -label    => 'First line is a header',
-                -override => 1
-            )
-        )
-      );
-}
-
-#===  FUNCTION  ================================================================
-#         NAME:  file_opts_columns
-#      PURPOSE:
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub file_opts_columns {
-    my ( $q, %args ) = @_;
-
-    my $id    = $args{id};
-    my $items = $args{items};
-    return $q->p(
-        $q->a(
-            {
-                -id    => $id,
-                -class => 'pluscol',
-                -title => 'Click to customize which columns to upload'
-            },
-            '+ Columns in file'
-        )
-      ),
-      $q->div(
-        { -id => "${id}_container", -class => 'dd_collapsible' },
-        (
-            (
-                map {    ## no critic
-                    my ( $key, $val ) = @$_;
-                    my $title = $val->{-title} || ( $val->{-value} || $key );
-                    $q->input(
-                        {
-                            -type  => 'checkbox',
-                            -name  => $key,
-                            -title => $title,
-                            %$val
-                        }
-                      )
-                  } tuples($items)
-            ),
-
-            # preserve state of radio buttons
-            $q->input( { -type => 'hidden', -id => "${id}_state" } )
-        ),
-        $q->div(
-            {
-                -class => 'hint visible',
-                -id    => "${id}_hint"
-            },
-            ''
-        )
-      );
-}
-
-#===  FUNCTION  ================================================================
 #         NAME:  is_false
 #      PURPOSE:
 #   PARAMETERS:  ????
@@ -345,21 +235,6 @@ sub equal {    ## no critic
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  array2hash
-#      PURPOSE:
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub array2hash {
-    my %hash = @{ shift || [] };
-    return \%hash;
-}
-
-#===  FUNCTION  ================================================================
 #         NAME:  count_bits
 #      PURPOSE:  Count number of '1'-s in binary representation of number
 #   PARAMETERS:  ????
@@ -371,25 +246,6 @@ sub array2hash {
 #===============================================================================
 sub count_bits {
     return unpack( '%32b*', pack( 'I', shift ) );
-}
-
-#===  FUNCTION  ================================================================
-#         NAME:  count_gtzero
-#      PURPOSE:  Returns the number of elements in the argument array that are
-#                greater than zero, ignoring undefined values
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  This function is conceptually similar to Javascript some()
-#                array method.
-#     SEE ALSO:
-# https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/some
-#===============================================================================
-sub count_gtzero {    ## no critic
-    my $c = 0;
-    defined && $_ > 0 && $c++ for @_;
-    return $c;
 }
 
 #===  FUNCTION  ================================================================
@@ -511,21 +367,6 @@ sub inherit_hash {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  enum_array
-#      PURPOSE:
-#   PARAMETERS:  ????
-#      RETURNS:  ????
-#  DESCRIPTION:  ????
-#       THROWS:  no exceptions
-#     COMMENTS:  none
-#     SEE ALSO:  n/a
-#===============================================================================
-sub enum_array {
-    my $i = 0;
-    return +{ map { $_ => $i++ } @$_ };
-}
-
-#===  FUNCTION  ================================================================
 #         NAME:  tuples
 #      PURPOSE:
 #   PARAMETERS:  anonymous array
@@ -603,5 +444,116 @@ sub cdr {    ## no critic
     shift;
     return @_;
 }
+
+#===  FUNCTION  ================================================================
+#         NAME:  cgi_file_opts
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub file_opts_html {
+    my $q  = shift;
+    my $id = shift;
+    return $q->p(
+        $q->a(
+            {
+                -id    => $id,
+                -class => 'pluscol',
+                -title => 'Click to specify file format'
+            },
+            '+ File options'
+        )
+      )
+      . $q->div(
+        {
+            -id    => "${id}_container",
+            -class => 'dd_collapsible',
+        },
+        $q->p(
+            $q->radio_group(
+                -name   => 'separator',
+                -values => [ "\t", ',' ],
+                -labels => {
+                    ','  => 'Comma-separated',
+                    "\t" => 'Tab-separated'
+                },
+                -default => (
+                    defined $q->param('separator')
+                    ? $q->param('separator')
+                    : "\t"
+                )
+            )
+        ),
+        $q->p(
+            $q->checkbox(
+                -name     => 'header',
+                -checked  => ( defined( $q->param('header') ) ? 1 : 0 ),
+                -label    => 'First line is a header',
+                -override => 1
+            )
+        )
+      );
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  file_opts_columns
+#      PURPOSE:
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  ????
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub file_opts_columns {
+    my ( $q, %args ) = @_;
+
+    my $id    = $args{id};
+    my $items = $args{items};
+    return $q->p(
+        $q->a(
+            {
+                -id    => $id,
+                -class => 'pluscol',
+                -title => 'Click to customize which columns to upload'
+            },
+            '+ Columns in file'
+        )
+      ),
+      $q->div(
+        { -id => "${id}_container", -class => 'dd_collapsible' },
+        (
+            (
+                map {    ## no critic
+                    my ( $key, $val ) = @$_;
+                    my $title = $val->{-title} || ( $val->{-value} || $key );
+                    $q->input(
+                        {
+                            -type  => 'checkbox',
+                            -name  => $key,
+                            -title => $title,
+                            %$val
+                        }
+                      )
+                  } tuples($items)
+            ),
+
+            # preserve state of radio buttons
+            $q->input( { -type => 'hidden', -id => "${id}_state" } )
+        ),
+        $q->div(
+            {
+                -class => 'hint visible',
+                -id    => "${id}_hint"
+            },
+            ''
+        )
+      );
+}
+
 
 1;
