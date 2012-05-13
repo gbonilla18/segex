@@ -8,8 +8,7 @@ use base qw/SGX::Strategy::Base/;
 require SGX::DBHelper;
 require Tie::IxHash;
 use SGX::Abstract::Exception ();
-use SGX::Util qw/car cdr trim min uniq_i file_opts_html dec2indexes32
-coord2int/;
+use SGX::Util qw/car cdr trim uniq_i file_opts_html dec2indexes32 coord2int/;
 use SGX::Config qw/$IMAGES_DIR/;
 
 #---------------------------------------------------------------------------

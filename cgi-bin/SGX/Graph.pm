@@ -5,8 +5,8 @@ use warnings;
 
 use base qw/SGX::Strategy::Base/;
 
-use List::Util qw/max/;
-use SGX::Util qw/car min max label_format/;
+use List::Util qw/max min/;
+use SGX::Util qw/car label_format/;
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  Graph

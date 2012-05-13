@@ -4,11 +4,8 @@ use strict;
 use warnings;
 use base qw/Exporter/;
 
-use List::Util qw/min max/;
-use Scalar::Util qw/looks_like_number/;
-
-our @EXPORT_OK = qw/trim max min label_format replace all_match inherit_hash
-list_keys list_values tuples car cdr equal notp file_opts_html file_opts_columns
+our @EXPORT_OK = qw/trim label_format replace build_matchp inherit_hash list_keys
+list_values tuples car cdr equal notp file_opts_html file_opts_columns
 dec2indexes32 abbreviate coord2int writeFlags count_bits before_dot uniq uniq_i
 format_phrase/; 
 
@@ -145,7 +142,7 @@ sub dec2indexes32 {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  all_empty
+#         NAME:  build_matchp
 #      PURPOSE:  Generates a function that checks whether all element of an
 #                array conform to some predefined regular expression.
 #   PARAMETERS:  REQUIRED
@@ -159,7 +156,7 @@ sub dec2indexes32 {
 #                   resulting function will return false when it encounters such
 #                   values.
 #      RETURNS:  True/False
-#  DESCRIPTION:  ????
+#  DESCRIPTION:  Build match predicate
 #       THROWS:  no exceptions
 #     COMMENTS:  This is a higher-order function. It is similar to every()
 #                array method in ECMAScript 5 / Javascript 1.6. Like its
@@ -167,13 +164,13 @@ sub dec2indexes32 {
 #                zero-length array (of no elements).
 #
 #                # Example usage:
-#                my $foo = all_match(qr/^\s*$/);
+#                my $foo = build_matchp(qr/^\s*$/);
 #                $foo->();                       # true
 #                $foo->('', ' ', "\n");          # true
 #                $foo->('', 'foo');              # false
 #                $foo->('', undef);              # false
 #
-#                my $bar = all_match(qr/^\s*$/, ignore_undef => 1);
+#                my $bar = build_matchp(qr/^\s*$/, ignore_undef => 1);
 #                $bar->();                       # true
 #                $bar->('', undef);              # true
 #                $bar->('', 'foo');              # false
@@ -181,7 +178,7 @@ sub dec2indexes32 {
 #     SEE ALSO:
 # https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/every
 #===============================================================================
-sub all_match {
+sub build_matchp {
     my ( $regex, %args ) = @_;
     return ( $args{ignore_undef} )
       ? sub { !defined || m/$regex/ || return for @_; return 1 }

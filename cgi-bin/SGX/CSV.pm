@@ -6,7 +6,7 @@ use warnings;
 require File::Temp;
 require Text::CSV;
 use Benchmark qw/timediff timestr/;
-use SGX::Util qw/all_match car/;
+use SGX::Util qw/build_matchp car/;
 use SGX::Abstract::Exception ();
 
 #===  FUNCTION  ================================================================
@@ -338,10 +338,14 @@ sub csv_rewrite {
     # "allow_whitespace" is not set, we define "empty" to mean any combination
     # of space characters *or* an empty string. In addition, we ignore undefined
     # values (they are equivalent to empty fields).
-    my $is_empty =
-      ( $csv_in_opts{allow_whitespace} )
-      ? all_match( qr/^$/,    ignore_undef => 1 )
-      : all_match( qr/^\s*$/, ignore_undef => 1 );
+    my $is_empty = build_matchp(
+        (
+            $csv_in_opts{allow_whitespace}
+            ? qr/^$/
+            : qr/^\s*$/
+        ),
+        ignore_undef => 1
+    );
 
     #---------------------------------------------------------------------------
     #  default process routine
