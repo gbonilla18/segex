@@ -68,22 +68,16 @@ sub new {
 sub session_is_tied {
     my $self = shift;
 
-    # :TRICKY:06/21/2011 15:24:13:es: if we write this as a one-liner, we will
-    # be returning a referene to the tied object instead of Boolean, which will
-    # eventually result in the following error when we call untie():
+    # :TRICKY:06/21/2011 15:24:13:es: Writing this without mapping to 1/True and
+    # ()/False will copy reference to tied and result in the following error
+    # when calling untie():
     #
     # "untie attempted while 1 inner references still exist at ..."
     #
-    # # One-liner version:
+    # The "bad" version of this function:
     #    return defined(tied %{ $self->{session_obj} });
     #
-    my $ref = tied %{ $self->{session_obj} };
-    if ( defined($ref) ) {
-        return 1;
-    }
-    else {
-        return;
-    }
+    return defined( tied %{ $self->{session_obj} } ) ? 1 : ();
 }
 
 #===  CLASS METHOD  ============================================================
