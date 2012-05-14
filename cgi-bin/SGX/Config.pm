@@ -190,6 +190,69 @@ sub new {
 
 #===  CLASS METHOD  ============================================================
 #        CLASS:  SGX::Config
+#       METHOD:  run
+#   PARAMETERS:  ????
+#      RETURNS:  ????
+#  DESCRIPTION:  This is our own super-cool custom dispatcher and dynamic loader
+#       THROWS:  no exceptions
+#     COMMENTS:  none
+#     SEE ALSO:  n/a
+#===============================================================================
+sub run {
+    my $self = shift;
+    my ( $module, $obj );
+    my @context;
+    my @header;
+    eval {
+        @context = $self->get_context();
+        $module  = $self->get_module_name();
+
+        # convert Perl path to system path and load the file
+        my $module_path = $module;
+        $module_path =~ s/::/\//g;
+        require "$module_path.pm";    ## no critic
+        $obj = $module->new(
+            config               => {@context},
+            restore_session_from => undef
+        );
+        $obj->init();
+        @header = $obj->get_header();
+        1;
+    } or do {
+
+        # do not restore session to show simply a static error page
+        my $exception = Exception::Class->caught();
+        require SGX::Static;
+        $obj = SGX::Static->new(
+            config => {
+                _Exception       => $exception,
+                _ExceptionSource => $module,
+                @context
+            }
+        );
+        $obj->init();
+        $obj->set_action('error');
+        @header = $obj->get_header();
+    };
+
+    # Below is the only line in the entire application that is allowed to print
+    # to the browser window.
+    print
+
+      # browser headers
+      @header,
+
+      # web page itself
+      $obj->view_show_content(),
+
+      # tell webserver we are done
+      "\n\n";
+
+    return 1;
+}
+
+#===  CLASS METHOD  ============================================================
+#        CLASS:  SGX::Config
 #       METHOD:  get_module_name
 #   PARAMETERS:  ????
 #      RETURNS:  ????

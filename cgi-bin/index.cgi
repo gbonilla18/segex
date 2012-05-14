@@ -4,61 +4,9 @@ use strict;
 use warnings;
 
 use lib qw/./;
-use SGX::Abstract::Exception ();
 use SGX::Config ();
+my $app = SGX::Config->new();
+$app->run();
 
-#---------------------------------------------------------------------------
-#  This is our own super-cool custom dispatcher and dynamic loader
-#---------------------------------------------------------------------------
-my ( $module, $obj );
-my @context;
-my @header;
-my $config = SGX::Config->new();
-my $exit_code = 0;
-eval {
-    @context = $config->get_context();
-    $module  = $config->get_module_name();
-
-    # convert Perl path to system path and load the file
-    my $module_path = $module;
-    $module_path =~ s/::/\//g;
-    require "$module_path.pm";    ## no critic
-    $obj = $module->new(
-        config               => {@context},
-        restore_session_from => undef
-    );
-    $obj->init();
-    @header = $obj->get_header();
-} or do {
-
-    # do not restore session to show simply a static error page
-    my $exception = Exception::Class->caught();
-    require SGX::Static;
-    $obj = SGX::Static->new(
-        config => {
-            _Exception       => $exception,
-            _ExceptionSource => $module,
-            @context
-        }
-    );
-    $obj->init();
-    $obj->set_action('error');
-    @header = $obj->get_header();
-    $exit_code = 1;
-};
-
-# Important: Below is the only line in the entire application that is allowed to
-# print to the browser window.
-print
-
-  # browser headers
-  @header,
-
-  # web page itself
-  $obj->view_show_content(),
-
-  # tell webserver we are done
-  "\n\n";
-
-# clean exit is zero
-exit($exit_code);
+# clean exit code is zero
+exit(0);

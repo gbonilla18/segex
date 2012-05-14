@@ -74,10 +74,17 @@ sub session_is_tied {
     #
     # "untie attempted while 1 inner references still exist at ..."
     #
-    # The "bad" version of this function:
+    # "Bad" version of this function include:
     #    return defined(tied %{ $self->{session_obj} });
+    #    return defined(tied %{ $self->{session_obj} }) ? 1 : ();
     #
-    return defined( tied %{ $self->{session_obj} } ) ? 1 : ();
+    my $ref = tied %{ $self->{session_obj} };
+    if ( defined $ref ) {
+        return 1;
+    }
+    else {
+        return;
+    }
 }
 
 #===  CLASS METHOD  ============================================================
@@ -228,20 +235,20 @@ sub checkin {
 
     my $curr_time = now();
 
+    my $obj = $self->{session_obj};
     if (
-           $self->{session_obj}
-        && looks_like_number( $self->{session_obj}->{tla} )
-        && looks_like_number( $self->{session_obj}->{ttl} )
-        && $curr_time <
-        $self->{session_obj}->{tla} + $self->{session_obj}->{ttl}
-        && defined( $self->{session_obj}->{_session_id} )
+           $obj
+        && looks_like_number( $obj->{tla} )
+        && looks_like_number( $obj->{ttl} )
+        && $curr_time < $obj->{tla} + $obj->{ttl}
+        && defined( $obj->{_session_id} )
         && ( !defined($required_session_id)
-            || $self->{session_obj}->{_session_id} eq $required_session_id )
+            || $obj->{_session_id} eq $required_session_id )
         && (
             !$self->{check_ip}
-            || (   defined( $self->{session_obj}->{ip} )
+            || (   defined( $obj->{ip} )
                 && defined( $ENV{REMOTE_ADDR} )
-                && $ENV{REMOTE_ADDR} eq $self->{session_obj}->{ip} )
+                && $ENV{REMOTE_ADDR} eq $obj->{ip} )
         )
       )
     {
@@ -251,8 +258,8 @@ sub checkin {
     # nearby, e.g. to one of the fields of the current instance.
 
         # also update time last accessed
-        $self->{session_obj}->{tla} = $curr_time;
-        $self->{session_obj}->{ttl} = $self->{expire_in};
+        $obj->{tla} = $curr_time;
+        $obj->{ttl} = $self->{expire_in};
         return 1;
     }
     else {
