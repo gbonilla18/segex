@@ -67,13 +67,16 @@ sub init {
             body => 'form_create_body',
             perm => 'user'
         },
-        ajax_create => { redirect => 'ajax_create',    perm => 'user' },
-        ajax_update => { redirect => 'ajax_update',    perm => 'user' },
-        ajax_delete => { redirect => 'ajax_delete',    perm => 'user' },
-        assign      => { redirect => 'default_assign', perm => 'user' },
-        create      => { redirect => 'default_create', perm => 'user' },
-        update      => { redirect => 'default_update', perm => 'user' },
-        delete      => { redirect => 'default_delete', perm => 'user' }
+        ajax_create =>
+          { redirect => 'ajax_create', perm => 'user', show_body => 0 },
+        ajax_update =>
+          { redirect => 'ajax_update', perm => 'user', show_body => 0 },
+        ajax_delete =>
+          { redirect => 'ajax_delete', perm => 'user', show_body => 0 },
+        assign => { redirect => 'default_assign', perm => 'user' },
+        create => { redirect => 'default_create', perm => 'user' },
+        update => { redirect => 'default_update', perm => 'user' },
+        delete => { redirect => 'default_delete', perm => 'user' }
     );
 
     return $self;

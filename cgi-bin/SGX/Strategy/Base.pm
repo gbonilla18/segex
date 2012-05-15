@@ -440,7 +440,7 @@ sub _dispatch_by {
               . uri_escape( $self->request_uri() ) )
           unless $self->{_ResourceName} eq 'profile'
               and $action eq 'form_login';
-        return;                # don't show body
+        return;    # don't show body
     }
     elsif ( $is_auth == -1 and $hook eq 'head' and $action ) {
 
@@ -450,7 +450,14 @@ sub _dispatch_by {
     else {
 
         # 403 Unauthorized
-        if ( exists $meta->{redirect} ) {
+        my $show_body = exists( $meta->{show_body} ) ? $meta->{show_body} : 1;
+        if ($show_body) {
+            SGX::Exception::HTTP->throw(
+                status => 403,
+                error  => 'Authorization required'
+            );
+        }
+        else {
             $self->set_header(
                 -status => 403,
                 -cookie => undef
@@ -458,12 +465,6 @@ sub _dispatch_by {
             $self->add_message( { -class => 'error' },
                 'Authorization required' );
             return 1;    ## returning 1 will not show body
-        }
-        else {
-            SGX::Exception::HTTP->throw(
-                status => 403,
-                error  => 'Authorization required'
-            );
         }
 
         # redirect to main page

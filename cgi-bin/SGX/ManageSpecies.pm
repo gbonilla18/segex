@@ -69,7 +69,8 @@ sub init {
     my $self = $class->SUPER::init(@param);
 
     $self->register_actions(
-        clearAnnot  => { redirect => 'ajax_clear_annot', perm => 'user' },
+        clearAnnot =>
+          { redirect => 'ajax_clear_annot', perm => 'user', show_body => 0 },
         uploadAnnot => {
             head => 'UploadAnnot_head',
             body => 'readrow_body',
