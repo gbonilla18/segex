@@ -11,6 +11,10 @@
 * build/datatable/datatable-min.js
 */
 
+var getUpdateQuery = function(field, newValue) {
+    return "b=ajax_update&" + field + "=" + escape(newValue);
+};
+
 function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 
@@ -83,9 +87,6 @@ function createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, row
 }
 exports.createCellDropdown = function(resourceURIBuilder, rowNameBuilder) {
     return function(lookup_table, update_field, name_field) {
-        var getUpdateQuery = function(update_field, newValue) {
-            return "b=ajax_update&" + update_field + "=" + encodeURIComponent(newValue);
-        };
         // TODO: instead of sending name_field as a parameter, rely on 'names'
         // property?
         var name_column = lookup_table.symbol2index[name_field];
@@ -98,18 +99,12 @@ exports.createCellDropdown = function(resourceURIBuilder, rowNameBuilder) {
 }
 exports.createCellDropdownDirect = function(resourceURIBuilder, rowNameBuilder) {
     return function(field, rename_array) {
-        var getUpdateQuery = function(field, newValue) {
-            return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
-        };
         return createCellDropdownCreator(rename_array, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
 exports.createCellUpdater = function(resourceURIBuilder, rowNameBuilder) {
     return function(field) {
         /* uses createCellUpdater in TableUpdateDelete.js */
-        var getUpdateQuery = function(field, newValue) {
-            return "b=ajax_update&" + field + "=" + encodeURIComponent(newValue);
-        };
         return createCellUpdaterCreator(field, resourceURIBuilder, getUpdateQuery, rowNameBuilder);
     };
 }
