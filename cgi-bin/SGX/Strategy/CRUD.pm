@@ -30,7 +30,7 @@ sub init {
     $self->set_attributes(
 
         # Overridden Base attributes
-        _permission_level => 'user',
+        _permission_level => 'readonly',
         _js_env           => $js->register_var( '_glob', [qw/lookupTables/] ),
 
         # Read-only CRUD-specific attributes
@@ -62,15 +62,18 @@ sub init {
               )
             : ()
         ),
-        form_create =>
-          { head => 'form_create_head', body => 'form_create_body' },
-        ajax_create => { redirect => 'ajax_create' },
-        ajax_update => { redirect => 'ajax_update' },
-        ajax_delete => { redirect => 'ajax_delete' },
-        assign      => { redirect => 'default_assign' },
-        create      => { redirect => 'default_create' },
-        update      => { redirect => 'default_update' },
-        delete      => { redirect => 'default_delete' }
+        form_create => {
+            head => 'form_create_head',
+            body => 'form_create_body',
+            perm => 'user'
+        },
+        ajax_create => { redirect => 'ajax_create',    perm => 'user' },
+        ajax_update => { redirect => 'ajax_update',    perm => 'user' },
+        ajax_delete => { redirect => 'ajax_delete',    perm => 'user' },
+        assign      => { redirect => 'default_assign', perm => 'user' },
+        create      => { redirect => 'default_create', perm => 'user' },
+        update      => { redirect => 'default_update', perm => 'user' },
+        delete      => { redirect => 'default_delete', perm => 'user' }
     );
 
     return $self;

@@ -22,8 +22,13 @@ sub init {
     my ( $class, @param ) = @_;
     my $self = $class->SUPER::init(@param);
 
-    $self->register_actions( form_assign =>
-          { head => 'form_assign_head', body => 'form_assign_body' } );
+    $self->register_actions(
+        form_assign => {
+            head => 'form_assign_head',
+            body => 'form_assign_body',
+            perm => 'user'
+        }
+    );
 
     $self->set_attributes(
 
@@ -43,8 +48,8 @@ sub init {
                 base      => [qw/prname prdesc/],
 
                 # table key to the left, URI param to the right
-                names     => [qw/prname/],
-                meta      => {
+                names => [qw/prname/],
+                meta  => {
                     prid => {
                         label  => 'No.',
                         parser => 'number'
@@ -56,7 +61,7 @@ sub init {
                     },
                     prdesc => {
                         label        => 'Description',
-                         __type__     => 'textarea',
+                        __type__     => 'textarea',
                         __optional__ => 1,
                         -maxlength   => 255,
                         -size        => 55

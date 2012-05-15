@@ -11,10 +11,6 @@
 * build/datatable/datatable-min.js
 */
 
-function ajaxError(o, verb, name, resourceURI) {
-    return (o.responseText !== undefined) ? "Error encountered when attempting to " + verb + " " + name + " under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + "):\n\n" + o.responseText : "Timeout on updating record (" + name + ") under " + resourceURI;
-}
-
 function createCellDropdownCreator(transformed_data, field, resourceURIBuilder, getUpdateQuery, rowNameBuilder) {
     var submitter = function(callback, newValue) {
         if (this.value === newValue) { 

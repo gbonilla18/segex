@@ -433,46 +433,44 @@ sub _dispatch_by {
           );
         return @ret;
     }
+    elsif ( $is_auth == 0 ) {
+
+        # redirect to login (unless block prevents infinite loops)
+        $self->redirect( '?a=profile&b=form_login&next='
+              . uri_escape( $self->request_uri() ) )
+          unless $self->{_ResourceName} eq 'profile'
+              and $action eq 'form_login';
+        return;                # don't show body
+    }
+    elsif ( $is_auth == -1 and $hook eq 'head' and $action ) {
+
+        # try default action
+        return $self->_dispatch_by( '' => $hook );
+    }
     else {
 
-        # For normal requests, 302 Found (with a redirect to login page) should
-        # be returned when user is unauthorized -- while AJAX requests should
-        # get 401 Authentication Required. Finally, for AJAX requests we do not
-        # display body or bother to do further processing.
-        if ( $action =~ m/^ajax_/ ) {
-            $self->add_message(
-                { -class => 'error' },
-'Your user account does not have the necessary privileges to perform this operation'
-            );
-
+        # 403 Unauthorized
+        if ( exists $meta->{redirect} ) {
             $self->set_header(
-                -status => 401,    # 401 Unauthorized
+                -status => 403,
                 -cookie => undef
             );
-            return 1;              # don't show body
-        }
-        elsif ( $is_auth == 0 ) {
-
-            # redirect to login (unless block prevents infinite loops)
-            $self->redirect( '?a=profile&b=form_login&next='
-                  . uri_escape( $self->request_uri() ) )
-              unless $self->{_ResourceName} eq 'profile'
-                  and $action eq 'form_login';
-            return;                # don't show body
-        }
-        elsif ( $is_auth == -1 and $hook eq 'head' and $action ) {
-
-            # try default action
-            return $self->_dispatch_by( '' => $hook );
+            $self->add_message( { -class => 'error' },
+                'Authorization required' );
+            return 1;    ## returning 1 will not show body
         }
         else {
-
-            # redirect to main page
-            $self->redirect( $self->url( -absolute => 1 ) )
-              if $self->{_ResourceName}
-                  or $action;
-            return;    # don't show body
+            SGX::Exception::HTTP->throw(
+                status => 403,
+                error  => 'Authorization required'
+            );
         }
+
+        # redirect to main page
+        #$self->redirect( $self->url( -absolute => 1 ) )
+        #      if $self->{_ResourceName}
+        #          or $action;
+        #return;    # don't show body
     }
 }
 

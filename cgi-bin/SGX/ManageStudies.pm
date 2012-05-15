@@ -23,8 +23,13 @@ sub init {
     my $class = shift;
     my $self  = $class->SUPER::init(@_);
 
-    $self->register_actions( form_assign =>
-          { head => 'form_assign_head', body => 'form_assign_body' } );
+    $self->register_actions(
+        form_assign => {
+            head => 'form_assign_head',
+            body => 'form_assign_body',
+            perm => 'user'
+        }
+    );
 
     my ( $q, $s ) = @$self{qw/_cgi _UserSession/};
     my $curr_proj = $s->{session_cookie}->{curr_proj};
@@ -84,8 +89,7 @@ sub init {
                         parser       => 'number',
                         __readonly__ => 1,
                         (
-                              ( defined($pid) && $pid =~ /^\d+$/ )
-                            ? ()
+                              ( defined($pid) && $pid =~ /^\d+$/ ) ? ()
                             : ( __tie__ => [ ( platform => 'pid' ) ] )
                         )
                     },

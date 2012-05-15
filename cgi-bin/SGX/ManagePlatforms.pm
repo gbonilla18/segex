@@ -27,10 +27,17 @@ sub init {
     my $self  = $class->SUPER::init(@_);
 
     $self->register_actions(
-        clearAnnot => { redirect => 'ajax_clear_annot' },
-        uploadAnnot => { head => 'UploadAnnot_head', body => 'readrow_body' },
-        form_assign =>
-          { head => 'form_assign_head', body => 'form_assign_body' },
+        clearAnnot  => { redirect => 'ajax_clear_annot', perm => 'user' },
+        uploadAnnot => {
+            head => 'UploadAnnot_head',
+            body => 'readrow_body',
+            perm => 'user'
+        },
+        form_assign => {
+            head => 'form_assign_head',
+            body => 'form_assign_body',
+            perm => 'user'
+        },
     );
 
     my $q = $self->{_cgi};
@@ -381,6 +388,7 @@ sub readrow_head {
     my ( $js_src_yui, $js_src_code, $css_src_yui ) =
       @$self{qw{_js_src_yui _js_src_code _css_src_yui}};
 
+    my $resourceURI = $self->get_resource_uri();
     my $clearAnnotURI = $self->get_resource_uri( b => 'clearAnnot' );
     push @$css_src_yui, 'button/assets/skins/sam/button.css';
     push @$js_src_yui,  'button/button-min.js';
@@ -398,7 +406,7 @@ YAHOO.util.Event.addListener('clearAnnot', 'click', function(){
             },
             failure:function(o) { 
                 wait_indicator.hide();
-                alert("Clear request failed.");
+                alert(ajaxError(o, 'clear', 'annotation', '$resourceURI'));
             },
             scope:this
         };

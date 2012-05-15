@@ -26,7 +26,8 @@ sub init {
     $self->register_actions(
         form_assign => {
             head => 'form_assign_head',
-            body => 'form_assign_body'
+            body => 'form_assign_body',
+            perm => 'user'
         }
     );
 

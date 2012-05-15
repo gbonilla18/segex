@@ -2,6 +2,11 @@
 
 var dom = YAHOO.util.Dom;
 
+function ajaxError(o, verb, name, resourceURI) {
+    return (o.responseText !== undefined) ? "Error encountered when attempting to " + verb + " " + name + " under " + resourceURI +".\nServer responded with code " + o.status + " (" + o.statusText + "):\n\n" + o.responseText : "Timeout on updating record (" + name + ") under " + resourceURI;
+}
+
+
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // Scalar utilities
 //==============================================================================

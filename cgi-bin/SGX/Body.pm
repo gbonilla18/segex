@@ -5,7 +5,7 @@ use warnings;
 
 use SGX::Config qw/$YUI_BUILD_ROOT $JS_DIR $CSS_DIR $IMAGES_DIR/;
 
-my $softwareVersion = '0.4.3';
+my $softwareVersion = '0.4.3.1';
 
 my $all_resources = {
 
@@ -32,11 +32,15 @@ my $all_resources = {
     users       => { label => 'Manage Users', perm => 'admin' },
 
     # Upload
-    'experiments&b=form_create' =>
-      { label => 'Upload Data', title => 'Upload data to a new experiment' },
+    'experiments&b=form_create' => {
+        label => 'Upload Data',
+        title => 'Upload data to a new experiment',
+        perm  => 'user'
+    },
     uploadGO => {
         label => 'Upload GO Terms',
-        title => 'Upload Gene Ontology term names and definitions'
+        title => 'Upload Gene Ontology term names and definitions',
+        perm  => 'user'
     },
 };
 
@@ -47,7 +51,7 @@ sub make_link_creator {
         my @result;
         foreach my $action (@_) {
             if ( my $properties = $resource_table->{$action} ) {
-                my $perm = $properties->{perm} || 'user';
+                my $perm = $properties->{perm} || 'readonly';
                 next if $obj->is_authorized( level => $perm ) != 1;
                 my $label = $properties->{label} || $action;
                 my $title = $properties->{title} || $label;

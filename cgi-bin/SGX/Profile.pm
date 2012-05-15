@@ -122,9 +122,9 @@ sub init {
 
             head => 'default_head',
             body => 'form_login_body',
-            perm => [ 'anonym', 'anonym' ]
+            perm => 'anonym'
         },
-        login => { head => 'login_head', perm => [ 'anonym', 'anonym' ] }
+        login => { head => 'login_head', perm => 'anonym' }
     );
 
     return $self;
@@ -399,7 +399,7 @@ sub login_head {
             # User error: show corresponding form again
             $self->add_message( { -class => 'error' }, $exception->error );
             $self->set_action('form_login');
-            return 1;
+            return 1; ## do show body
         }
         else {
 
@@ -413,7 +413,7 @@ sub login_head {
 'Failed to process your login. If you are an administrator, see error log for details of this error.'
             );
             $self->set_action('');
-            return 1;
+            return 1; ## do show body
         }
     };
 
