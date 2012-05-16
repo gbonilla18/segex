@@ -5,11 +5,11 @@ Table of Contents
 -----------------
 
 1.   Linux
-1.1. Software Install
-1.2. Database Setup (MySQL)
+  1.1. Software Install
+  1.2. Database Setup (MySQL)
 2.   Mac OS X
-2.1. Software Install
-2.2. Database Setup (MySQL)
+  2.1. Software Install
+  2.2. Database Setup (MySQL)
 3.   APPENDIX A: Cloning Segex from GitHub repository
 
 
@@ -266,10 +266,10 @@ the end of file and then save it:
 	smtp_tls_security_level=encrypt
 	tls_random_source=dev:/dev/urandom
 
-##### 4. Test that everything is OK with `sudo postfix start` or, if the process is
-already running, with `sudo postfix reload`. If you need to view mail queue,
-type `mailq` in the terminal. To clear the mail queue, run `sudo postsuper -d
-ALL`.
+##### 4. Test that everything is OK
+Run `sudo postfix start` or, if the process is already running, run `sudo
+postfix reload`. If you need to view mail queue, type `mailq` in the terminal.
+To clear the mail queue, run `sudo postsuper -d ALL`.
 
 
 ### Copy files
@@ -409,13 +409,15 @@ command will not back up stored MySQL procedures and functions.
 	mysqldump --routines segex -u root -p | gzip -c > segex.`date "+%Y-%m-%d"`.sql.gz
 
 
-# APPENDIX A: Cloning Segex from GitHub repository:
+# APPENDIX A: Cloning Segex from GitHub repository
 
+## 1. Download and install git
 Download a git package using your favorite package manager or compile it from
 source, sign up with [GitHub.com](http://github.com/), then follow [the GitHub
 instructions](http://help.github.com/linux-set-up-git/) to register your SSH
 keys with GitHub:
 
+## 2. Clone Segex from GitHub repository
 Once done, simply clone the GitHub repository using the following command (this
 will create a directory called "segex"):
 
