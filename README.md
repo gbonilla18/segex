@@ -1,5 +1,5 @@
-README
-======
+Segex
+=====
 
 What is Segex?
 --------------
