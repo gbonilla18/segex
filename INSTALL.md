@@ -74,8 +74,8 @@ OS, this path is `/usr/sbin`:
 
 	mailer_path = "/usr/sbin"
 
-Set up a log file where CGI errors would go to. The default path to the log file
-is set in the following line:
+Set up a log file where program error messages would go to. The default path to
+the log file is set in the following line:
 
 	debug_log_path = "/var/www/error_log/segex_log"
 
@@ -86,13 +86,13 @@ permissions to let Apache write to the file:
 	sudo touch segex_log
 	sudo chown nobody:nobody segex_log
 
-If you do not wish to redirect CGI warnings and error messages, comment out the
-line which begins with `debug_log_path`.
+If you do not wish to redirect warnings and error messages, comment out the line
+which begins with `debug_log_path`.
 
 For production version, change values for `debug_errors_to_browser` and
-`debug_caller_info` to `"no"`. This is important because CGI errors may contain
-sensitive information such as user names, and you do not want everyone to see
-them.
+`debug_caller_info` to `"no"`. This is important because Segex error messages
+may contain sensitive information such as user names, and you do not want
+everyone to see them.
 
 
 ### Edit Apache configuration file(s)
@@ -226,45 +226,45 @@ default mailer is Postfix.
 
 Enter the following and save the file:
 
-        smtp.gmail.com:587 your_name@gmail.com:your_password
+	smtp.gmail.com:587 your_name@gmail.com:your_password
 
 2. Create a Postfix lookup table for SASL.
 
-        sudo postmap /etc/postfix/sasl_passwd
+	sudo postmap /etc/postfix/sasl_passwd
 
 This creates a binary file called `/etc/postfix/sasl_passwd.db`. When done, you
 can delete the `/etc/postfix/sasl_passwd` created in the previous step, to
 prevent the plain-text password from being discovered by an attacker (Postfix
 will use the `.db` file from now on):
 
-        sudo rm /etc/postfix/sasl_passwd
+	sudo rm /etc/postfix/sasl_passwd
 
 Also, there is no need for anyone but root to have read access to the database:
 
-        sudo chmod 600 /etc/postfix/sasl_passwd.db
+	sudo chmod 600 /etc/postfix/sasl_passwd.db
 
 3. Configure Postfix
 
-        sudo vi /etc/postfix/main.cf
+	sudo vi /etc/postfix/main.cf
 
 By default, everything is commented out. You can just append the following to
 the end of file and then save it:
 
-        # Minimum Postfix-specific configurations.
-        mydomain_fallback = localhost
-        mail_owner = _postfix
-        setgid_group = _postdrop
-        relayhost=smtp.gmail.com:587
+	# Minimum Postfix-specific configurations.
+	mydomain_fallback = localhost
+	mail_owner = _postfix
+	setgid_group = _postdrop
+	relayhost=smtp.gmail.com:587
 
-        # Enable SASL authentication in the Postfix SMTP client.
-        smtp_sasl_auth_enable=yes
-        smtp_sasl_password_maps=hash:/etc/postfix/sasl_passwd
-        smtp_sasl_security_options=
+	# Enable SASL authentication in the Postfix SMTP client.
+	smtp_sasl_auth_enable=yes
+	smtp_sasl_password_maps=hash:/etc/postfix/sasl_passwd
+	smtp_sasl_security_options=
 
-        # Enable Transport Layer Security (TLS), i.e. SSL.
-        smtp_use_tls=yes
-        smtp_tls_security_level=encrypt
-        tls_random_source=dev:/dev/urandom
+	# Enable Transport Layer Security (TLS), i.e. SSL.
+	smtp_use_tls=yes
+	smtp_tls_security_level=encrypt
+	tls_random_source=dev:/dev/urandom
 
 4. Test that everything is OK with `sudo postfix start` or, if the process is
 already running, with `sudo postfix reload`. If you need to view mail queue,
@@ -312,8 +312,8 @@ this path is /usr/sbin.
 
 	mailer_path = "/usr/sbin"
 
-Set up a log file where CGI errors would go to. The default path to the log file
-is set in the following line:
+Set up a log file where Segex error messages would go to. The default path to
+the log file is set in the following line:
 
 	debug_log_path = "/var/www/error_log/segex_log"
 
@@ -324,13 +324,13 @@ permissions to let Apache write to the file:
 	sudo touch segex_log
 	sudo chown www:wheel segex_log
 
-If you do not wish to redirect CGI warnings and error messages, comment out the
-line which begins with `debug_log_path`.
+If you do not wish to redirect warnings and error messages, comment out the line
+which begins with `debug_log_path`.
 
 For production version, change values for `debug_errors_to_browser` and
-`debug_caller_info` to `"no"`. This is important because CGI errors may contain
-sensitive information such as user names, and you do not want everyone to see
-them.
+`debug_caller_info` to `"no"`. This is important because Segex error messages
+may contain sensitive information such as user names, and you do not want
+everyone to see them.
 
 
 ### Configure Apache
@@ -347,9 +347,9 @@ Here is example of `AllowOverride` setting in httpd.conf that enables overrides:
 	   AllowOverride Options FileInfo
 	   ...
 
-Here is the line in cgi-bin/.htaccess that may need to be changed (for example,
-if you call your segex executable directory "segex2", you would have to change
-"segex" to "segex2" below:
+Here is the line in `cgi-bin/.htaccess` that may need to be changed (for
+example, if you call your segex executable directory "segex2", you would have to
+change "segex" to "segex2" below:
 
 	RewriteRule ^$ /cgi-bin/segex/index.cgi
 
