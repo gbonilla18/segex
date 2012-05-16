@@ -1,5 +1,5 @@
 INSTALL
-@@@@@@@
+======
 
 Table of Contents
 -----------------
@@ -13,14 +13,12 @@ Table of Contents
 3.   APPENDIX A: Cloning Segex from GitHub repository
 
 
-1. Linux
-========
+# 1. Linux
 
-1.1. Software Install on Linux
+## 1.1. Software Install on Linux
 
-
-## Install dependencies
-To upgrade CPAN and install/upgrade all of the required packages:
+### Install dependencies
+Upgrade your `cpan` executable and install/upgrade all of the required packages:
 
 	sudo /usr/bin/cpan Bundle::CPAN
 	sudo /usr/bin/cpan Apache::Session::MySQL CGI::Carp CGI::Cookie \
@@ -30,105 +28,107 @@ To upgrade CPAN and install/upgrade all of the required packages:
 	Readonly Scalar::Util Storable Text::Autoformat Text::CSV Text::CSV_XS \
 	Tie::IxHash URI::Escape
 
-Running the second command again will confirm that you have all of the required
-Perl packages installed.
+Repeating the second command will confirm whether you have all of the required Perl
+packages installed.
 
 
-## Copy files
+### Copy files
 If you choose to create soft links instead, add `FollowSymLinks` directive to
-the Apache configuration file (either local `.htaccess` or global httpd.conf
-depending on your setup) for both CGI_ROOT and DOCUMENTS_ROOT directories. Note:
-this assumes you have downloaded [YUI 2](http://developer.yahoo.com/yui/2/) to
-`~/tarballs/yui.tgz`.
+the Apache configuration file (either local `.htaccess` or the top-level
+`httpd.conf` depending on your setup) for both CGI_ROOT and DOCUMENTS_ROOT
+directories. Note: this assumes you have downloaded [YUI
+2](http://developer.yahoo.com/yui/2/) to `~/tarballs/yui.tgz`.
 
-   # CGI_ROOT
+	# CGI_ROOT
+	
+	# /cgi-bin/segex
+	cd /var/www/cgi-bin
+	sudo cp -R ~/segex/cgi-bin segex
+	sudo cp ~/segex/segex.conf.sample segex/segex.conf
+	
+	# DOCUMENTS_ROOT
+	
+	# /yui
+	cd /var/www/
+	tar xvzf ~/tarballs/yui.tgz .
+	
+	# /segex/
+	mkdir segex
+	cd segex
+	
+	# /segex/css
+	sudo cp -R ~/segex/css .
+	
+	# /segex/images
+	sudo cp -R ~/segex/images .
+	
+	# /segex/js
+	sudo cp -R ~/segex/js .
 
-   # /cgi-bin/segex
-   cd /var/www/cgi-bin
-   sudo cp -R ~/segex/cgi-bin segex
-   sudo cp ~/segex/segex.conf.sample segex/segex.conf
 
-   # DOCUMENTS_ROOT
-
-   # /yui
-   cd /var/www/
-   tar xvzf ~/tarballs/yui.tgz .
-
-   # /segex/
-   mkdir segex
-   cd segex
-
-   # /segex/css
-   sudo cp -R ~/segex/css .
-
-   # /segex/images
-   sudo cp -R ~/segex/images .
-
-   # /segex/js
-   sudo cp -R ~/segex/js .
-
-
-
-1.1.3. In the configuration file (located at cgi-bin/segex.conf), check that
+### Edit `segex.conf`
+In the configuration file (located at `cgi-bin/segex.conf`), check that
 path to default mailer program (sendmail, postfix, etc) is set correctly. On
 Linux Cent OS, this path is /usr/sbin.
 
-mailer_path = "/usr/sbin"
+	mailer_path = "/usr/sbin"
 
 Set up a log file where CGI errors would go to. The default path to the log file
 is set in the following line:
 
-debug_log_path = "/var/www/error_log/segex_log"
+	debug_log_path = "/var/www/error_log/segex_log"
 
 Change that path if necessary and create the log file and set up appropriate
 permissions to let Apache write to the file:
 
-  cd /var/www/error_log/
-  sudo touch segex_log
-  sudo chown nobody:nobody segex_log
+	cd /var/www/error_log/
+	sudo touch segex_log
+	sudo chown nobody:nobody segex_log
 
 If you do not wish to redirect CGI warnings and error messages, comment out the
-line which begins with "debug_log_path".
+line which begins with `debug_log_path`.
 
-For production version, change values for "debug_errors_to_browser" and
-"debug_caller_info" to "no". This is important because CGI errors may contain
+For production version, change values for `debug_errors_to_browser` and
+`debug_caller_info` to `"no"`. This is important because CGI errors may contain
 sensitive information such as user names, and we do not want everyone to see
 them.
 
 
-1.1.4. If "AllowOverride" is set in your main Apache configuration file (on
-CentOS Linux it is /etc/httpd/conf/httpd.conf), you will have to modify
-.htaccess file in cgi-bin/ directory to reflect the correct URI path to
-index.cgi. This is because the .htaccess file included in Segex distribution
+### Edit `.htaccess` or `httpd.conf`
+If `AllowOverride` is set in your main Apache configuration file (on
+CentOS Linux it is `/etc/httpd/conf/httpd.conf`), you will have to modify
+`.htaccess` file in the `cgi-bin/` directory to reflect the correct URI path to
+`index.cgi`. This is because the .htaccess file included in Segex distribution
 enables URI rewriting, and without verifying that the path it uses is correct,
 URIs may be rewritten incorrectly:
 
-Here is example of AllowOverride setting in httpd.conf that enables overrides:
+Here is example of the `AllowOverride` setting in httpd.conf that enables overrides:
 
-<Directory "/var/www/cgi-bin">
-    AllowOverride Options FileInfo
-    ...
+	<Directory "/var/www/cgi-bin">
+	   AllowOverride Options FileInfo
+	   ...
 
-Here is the line in cgi-bin/.htaccess that may need to be changed (for example,
+Here is the line in `cgi-bin/.htaccess` that may need to be changed (for example,
 if you call your segex executable directory "segex2", you would have to change
 "segex" to "segex2" below:
 
-RewriteRule ^$ /cgi-bin/segex/index.cgi
+	RewriteRule ^$ /cgi-bin/segex/index.cgi
 
 
 
 
 
-1.2. Database Setup (MySQL) on Linux
+## 1.2. Database Setup (MySQL) on Linux
 
 
-1.2.1. [Optional] To allow for full-text searches on three-letter words and acronyms
-such as DNA, RNA, etc., edit file called my.cnf (CentOS: /etc/my.cnf) and add
-the following line(s) under section called "[mysqld]":
+### Edit `my.cnf` to allow searches on three-letter words
+[Optional] To allow for full-text searches on three-letter words and acronyms
+such as DNA, RNA, etc., edit file called `my.cnf` (CentOS: `/etc/my.cnf`) and add
+the following line(s) under section `[mysqld]`:
 
-   [mysqld]
-   # Allow full-text indexes on three-letter words such as DNA, RNA, etc.
-   ft_min_word_len=3
+	[mysqld]
+	# Allow full-text indexes on three-letter words such as DNA, RNA, etc.
+	ft_min_word_len=3
 
 Next, restart MySQL server:
 
