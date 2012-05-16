@@ -1,5 +1,5 @@
 INSTALL
-=======
+@@@@@@@
 
 Table of Contents
 -----------------
@@ -14,31 +14,32 @@ Table of Contents
 
 
 1. Linux
-
+========
 
 1.1. Software Install on Linux
 
 
-1.1.1. Install dependencies. To upgrade CPAN and install/upgrade all of the
-required packages:
+## Install dependencies
+To upgrade CPAN and install/upgrade all of the required packages:
 
 	sudo /usr/bin/cpan Bundle::CPAN
 	sudo /usr/bin/cpan Apache::Session::MySQL CGI::Carp CGI::Cookie \
-Config::General DBD::mysql DBI Data::Dumper Data::UUID Digest::SHA1 \
-Email::Address Exception::Class Exception::Class::DBI Hash::Merge JSON \
-JSON::XS Lingua::EN::Inflect List::Util Mail::Send Math::BigFloat Math::BigInt \
-Readonly Scalar::Util Storable Text::Autoformat Text::CSV Text::CSV_XS \
-Tie::IxHash URI::Escape
+	Config::General DBD::mysql DBI Data::Dumper Data::UUID Digest::SHA1 \
+	Email::Address Exception::Class Exception::Class::DBI Hash::Merge JSON \
+	JSON::XS Lingua::EN::Inflect List::Util Mail::Send Math::BigFloat Math::BigInt \
+	Readonly Scalar::Util Storable Text::Autoformat Text::CSV Text::CSV_XS \
+	Tie::IxHash URI::Escape
 
-Running the second command again will let you confirm that you have all of the
-required Perl packages installed.
+Running the second command again will confirm that you have all of the required
+Perl packages installed.
 
 
-1.1.2. Copy files. If you choose to create soft links instead, add
-"FollowSymLinks" directive to the Apache configuration file (either local
-.htaccess or global httpd.conf depending on your setup) for both CGI_ROOT and
-DOCUMENTS_ROOT directories. Note: this assumes you have downloaded YUI v2.x to
-~/tarballs/yui.tgz.
+## Copy files
+If you choose to create soft links instead, add `FollowSymLinks` directive to
+the Apache configuration file (either local `.htaccess` or global httpd.conf
+depending on your setup) for both CGI_ROOT and DOCUMENTS_ROOT directories. Note:
+this assumes you have downloaded [YUI 2](http://developer.yahoo.com/yui/2/) to
+`~/tarballs/yui.tgz`.
 
    # CGI_ROOT
 
