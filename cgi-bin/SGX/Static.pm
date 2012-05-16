@@ -100,9 +100,9 @@ sub help_body {
         $q->a(
             {
                 -title => 'Installation instructions',
-                -href => 'https://github.com/escherba/segex/blob/master/INSTALL'
+                -href => 'https://github.com/escherba/segex/blob/master/INSTALL.md'
             },
-            'INSTALL'
+            'INSTALL.md'
         ),
         'file on GitHub (you can also find it in the source directory).',
       ),
