@@ -67,7 +67,7 @@ directories. Note: this assumes you have downloaded [YUI
 	sudo cp -R ~/segex/js .
 
 
-### Edit Segex configuration file
+### Change Segex configuration file
 In the configuration file located at `cgi-bin/segex.conf`, check that path to
 default mailer program (sendmail, postfix, etc) is set correctly. On Linux Cent
 OS, this path is `/usr/sbin`:
@@ -95,7 +95,7 @@ may contain sensitive information such as user names, and you do not want
 everyone to see them.
 
 
-### Edit Apache configuration file(s)
+### Configure web server
 If `AllowOverride` is set in your main Apache configuration file (on CentOS
 Linux it is `/etc/httpd/conf/httpd.conf`), you will have to modify `.htaccess`
 file in the `cgi-bin/` directory to reflect the correct URI path to `index.cgi`.
@@ -161,15 +161,15 @@ To set up from scratch (with empty tables):
 
 To load tables plus data from backup:
 
+	# Restore from backup
 	gunzip -c segex.2012.05.07.sql.gz | mysql segex -u root -p
 
-Note that you can use the converse of this command to backup a database:
+Note that you can use the converse of this command to backup a database. In the
+example below, the `--routines` option is necessary because otherwise the
+`mysqldump` command will not back up stored MySQL procedures and functions.
 
-	mysqldump --routines segex -u root -p | gzip -c > segex.2012.05.07.sql.gz
-
-The `--routines` option is necessary because otherwise the `mysqldump` command
-will not back up stored MySQL procedures and functions.
-
+	# Create database backup
+	mysqldump --routines segex -u root -p | gzip -c > segex.`date "+%Y-%m-%d"`.sql.gz
 
 
 # 2. Mac OS X
@@ -220,7 +220,7 @@ default mailer is Postfix.
 #### GMAIL EMAIL RELAY USING POSTFIX ON MAC OS X 
 (Adapted with some changes after: http://www.riverturn.com/blog/?p=239)
 
-1. Create the Simple Authentication and Security Layer (SASL) password file.
+##### 1. Create the Simple Authentication and Security Layer (SASL) password file.
 
 	sudo vi /etc/postfix/sasl_passwd
 
@@ -228,7 +228,7 @@ Enter the following and save the file:
 
 	smtp.gmail.com:587 your_name@gmail.com:your_password
 
-2. Create a Postfix lookup table for SASL.
+##### 2. Create a Postfix lookup table for SASL.
 
 	sudo postmap /etc/postfix/sasl_passwd
 
@@ -243,7 +243,7 @@ Also, there is no need for anyone but root to have read access to the database:
 
 	sudo chmod 600 /etc/postfix/sasl_passwd.db
 
-3. Configure Postfix
+##### 3. Configure Postfix
 
 	sudo vi /etc/postfix/main.cf
 
@@ -266,7 +266,7 @@ the end of file and then save it:
 	smtp_tls_security_level=encrypt
 	tls_random_source=dev:/dev/urandom
 
-4. Test that everything is OK with `sudo postfix start` or, if the process is
+##### 4. Test that everything is OK with `sudo postfix start` or, if the process is
 already running, with `sudo postfix reload`. If you need to view mail queue,
 type `mailq` in the terminal. To clear the mail queue, run `sudo postsuper -d
 ALL`.
@@ -306,6 +306,7 @@ directories. Note: this assumes you have downloaded [YUI
 	sudo cp -R ~/segex/js .
 
 
+### Change Segex configuration file
 In the configuration file (located at `cgi-bin/segex.conf`), check that path to
 default mailer program (sendmail, postfix, etc) is set correctly. On Mac OS X,
 this path is /usr/sbin.
@@ -333,7 +334,7 @@ may contain sensitive information such as user names, and you do not want
 everyone to see them.
 
 
-### Configure Apache
+### Configure web server
 If `AllowOverride` is set in your main Apache configuration file (on my Mac it
 is `/etc/apache2/httpd.conf`), you will have to modify `.htaccess` file in
 `cgi-bin/` directory to reflect the correct URI path to `index.cgi`. This is
@@ -397,15 +398,15 @@ To set up from scratch (with empty tables):
 
 To load tables plus data from backup:
 
+	# Restore from backup
 	gunzip -c segex.sql.gz | mysql segex -u root -p
 
-Note that you can use the converse of this command to backup a database:
+Note that you can use the converse of this command to backup a database. In the
+example below, the `--routines` option is necessary because otherwise mysqldump
+command will not back up stored MySQL procedures and functions.
 
-	mysqldump --routines segex -u root -p | gzip -c > segex.2012.05.07.sql.gz
-
-The `--routines` option is necessary because otherwise mysqldump command will
-not back up stored MySQL procedures and functions.
-
+	# Create database backup
+	mysqldump --routines segex -u root -p | gzip -c > segex.`date "+%Y-%m-%d"`.sql.gz
 
 
 # APPENDIX A: Cloning Segex from GitHub repository:
