@@ -4,19 +4,19 @@ INSTALL
 Table of Contents
 -----------------
 
-[1.   Linux](#1-linux)
+1. [Linux](#1-linux)
 
-  [1.1. Software Install](#11-software-install-on-linux)
+   1.1. [Software Install on Linux](#11-software-install-on-linux)
 
-  [1.2. Database Setup](#12-database-setup-mysql-on-linux)
+   1.2. [Database Setup on Linux](#12-database-setup-mysql-on-linux)
 
-[2.   Mac OS X](#2-mac-os-x)
+2. [Mac OS X](#2-mac-os-x)
 
-  [2.1. Software Install](#21-software-install-mac-os-x)
+   2.1. [Software Install on Mac OS X](#21-software-install-mac-os-x)
 
-  [2.2. Database Setup](#database-setup-mysql-on-mac-os-x)
+   2.2. [Database Setup on Mac OS X](#database-setup-mysql-on-mac-os-x)
 
-[3.   APPENDIX A: Cloning Segex from GitHub repository](#appendix-a-cloning-segex-from-github-repository)
+3. [APPENDIX A: Cloning Segex from GitHub repository](#appendix-a-cloning-segex-from-github-repository)
 
 
 # 1. Linux
