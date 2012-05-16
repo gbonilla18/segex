@@ -406,13 +406,13 @@ command will not back up stored MySQL procedures and functions.
 
 # APPENDIX A: Cloning Segex from GitHub repository
 
-## 1. Download and install git
+### Download and install git
 Download a git package using your favorite package manager or compile it from
 source, sign up with [GitHub.com](http://github.com/), then follow [the GitHub
 instructions](http://help.github.com/linux-set-up-git/) to register your SSH
 keys with GitHub:
 
-## 2. Clone Segex from GitHub repository
+### Clone Segex from GitHub repository
 Once done with installing git, simply clone the GitHub repository using the
 following command (this will create a directory called "segex"):
 
