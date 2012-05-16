@@ -217,59 +217,59 @@ current version of Segex relies on a default mailer, which can be either
 Sendmail or Postfix depending on the system. On my Mac OS X Snow Leopard, the
 default mailer is Postfix.
 
-#### GMAIL EMAIL RELAY USING POSTFIX ON MAC OS X 
-(Adapted with some changes after: http://www.riverturn.com/blog/?p=239)
-
-##### 1. Create the Simple Authentication and Security Layer (SASL) password file.
-
-	sudo vi /etc/postfix/sasl_passwd
-
-Enter the following and save the file:
-
-	smtp.gmail.com:587 your_name@gmail.com:your_password
-
-##### 2. Create a Postfix lookup table for SASL.
-
-	sudo postmap /etc/postfix/sasl_passwd
-
-This creates a binary file called `/etc/postfix/sasl_passwd.db`. When done, you
-can delete the `/etc/postfix/sasl_passwd` created in the previous step, to
-prevent the plain-text password from being discovered by an attacker (Postfix
-will use the `.db` file from now on):
-
-	sudo rm /etc/postfix/sasl_passwd
-
-Also, there is no need for anyone but root to have read access to the database:
-
-	sudo chmod 600 /etc/postfix/sasl_passwd.db
-
-##### 3. Configure Postfix
-
-	sudo vi /etc/postfix/main.cf
-
-By default, everything is commented out. You can just append the following to
-the end of file and then save it:
-
-	# Minimum Postfix-specific configurations.
-	mydomain_fallback = localhost
-	mail_owner = _postfix
-	setgid_group = _postdrop
-	relayhost=smtp.gmail.com:587
-
-	# Enable SASL authentication in the Postfix SMTP client.
-	smtp_sasl_auth_enable=yes
-	smtp_sasl_password_maps=hash:/etc/postfix/sasl_passwd
-	smtp_sasl_security_options=
-
-	# Enable Transport Layer Security (TLS), i.e. SSL.
-	smtp_use_tls=yes
-	smtp_tls_security_level=encrypt
-	tls_random_source=dev:/dev/urandom
-
-##### 4. Test that everything is OK
-Run `sudo postfix start` or, if the process is already running, run `sudo
-postfix reload`. If you need to view mail queue, type `mailq` in the terminal.
-To clear the mail queue, run `sudo postsuper -d ALL`.
+> #### GMAIL EMAIL RELAY USING POSTFIX ON MAC OS X 
+> (Adapted with some changes after: http://www.riverturn.com/blog/?p=239)
+> 
+> ##### 1. Create the Simple Authentication and Security Layer (SASL) password file
+> 
+>     sudo vi /etc/postfix/sasl_passwd
+> 
+> Enter the following and save the file:
+> 
+>     smtp.gmail.com:587 your_name@gmail.com:your_password
+> 
+> ##### 2. Create a Postfix lookup table for SASL
+> 
+>     sudo postmap /etc/postfix/sasl_passwd
+> 
+> This creates a binary file called `/etc/postfix/sasl_passwd.db`. When done, you
+> can delete the `/etc/postfix/sasl_passwd` created in the previous step, to
+> prevent the plain-text password from being discovered by an attacker (Postfix
+> will use the `.db` file from now on):
+> 
+>     sudo rm /etc/postfix/sasl_passwd
+> 
+> Also, there is no need for anyone but root to have read access to the database:
+> 
+>     sudo chmod 600 /etc/postfix/sasl_passwd.db
+> 
+> ##### 3. Configure Postfix
+> 
+>     sudo vi /etc/postfix/main.cf
+> 
+> By default, everything is commented out. You can just append the following to
+> the end of file and then save it:
+> 
+>     # Minimum Postfix-specific configurations.
+>     mydomain_fallback = localhost
+>     mail_owner = _postfix
+>     setgid_group = _postdrop
+>     relayhost=smtp.gmail.com:587
+>     
+>     # Enable SASL authentication in the Postfix SMTP client.
+>     smtp_sasl_auth_enable=yes
+>     smtp_sasl_password_maps=hash:/etc/postfix/sasl_passwd
+>     smtp_sasl_security_options=
+>     
+>     # Enable Transport Layer Security (TLS), i.e. SSL.
+>     smtp_use_tls=yes
+>     smtp_tls_security_level=encrypt
+>     tls_random_source=dev:/dev/urandom
+> 
+> ##### 4. Test that everything is OK
+> Run `sudo postfix start` or, if the process is already running, run `sudo
+> postfix reload`. If you need to view mail queue, type `mailq` in the terminal.
+> To clear the mail queue, run `sudo postsuper -d ALL`.
 
 
 ### Copy files
