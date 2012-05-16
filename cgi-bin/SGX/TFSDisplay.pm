@@ -246,8 +246,9 @@ sub loadDataHTML {
     my @query_body;
 
     my $allProbes = $self->{_allProbes};
-    my $i         = 1;
-    foreach my $row (@$experiment_rows) {
+    for ( my $i = 0 ; $i < @$experiment_rows ; $i++ ) {
+        my $row = $experiment_rows->[$i];
+
         my $eid       = $row->{eid};
         my $fc        = $row->{fchange};
         my $pval      = $row->{pval};
@@ -255,10 +256,10 @@ sub loadDataHTML {
         my $pval_sql  = "pvalue$pValClass";
         my $reverse   = $row->{reverse};
 
-        my $abs_flag = 1 << $i - 1;
+        my $abs_flag = 1 << $i;
         my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
 
-        my $table = "m${eid}_${pValClass}";
+        my $table = "tmp_$i";    #"m${eid}_${pValClass}";
         push @query_proj,
           (
             $reverse
@@ -308,8 +309,6 @@ WHERE eid = $eid
   AND $pval_sql < $pval 
   AND ABS(foldchange) > $fc
 END_no_allProbes
-
-        $i++;
     }
 
     # build record names (sample2 / sample 1, etc)
@@ -457,6 +456,9 @@ sub build_headerRecords {
 sub loadDataCSV {
     my $self = shift;
 
+    my $experiment_rows = $self->{_xExpList};
+    return if !@$experiment_rows;
+
     #This is the different parts of the experiment and titles query.
     my @query_body;
     my @query_proj;
@@ -468,8 +470,9 @@ sub loadDataCSV {
       ? " WHERE rid IN (" . $self->{_searchFilter} . ") "
       : '';
 
-    my $i = 1;
-    foreach my $row ( @{ $self->{_xExpList} } ) {
+    for ( my $i = 0 ; $i < @$experiment_rows ; $i++ ) {
+        my $row = $experiment_rows->[$i];
+
         my $eid       = $row->{eid};
         my $fc        = $row->{fchange};
         my $pval      = $row->{pval};
@@ -477,10 +480,10 @@ sub loadDataCSV {
         my $pValClass = $row->{pValClass};
         my $pval_sql  = "pvalue$pValClass";
 
-        my $abs_flag = 1 << $i - 1;
+        my $abs_flag = 1 << $i;
         my $dir_flag = $reverse ? "$abs_flag,0" : "0,$abs_flag";
 
-        my $table = "m${eid}_${pValClass}";
+        my $table = "tmp_$i";    #"m${eid}_${pValClass}";
         push @query_proj,
           (
             $reverse
@@ -526,8 +529,6 @@ WHERE eid = $eid
   AND $pval_sql < $pval 
   AND ABS(foldchange) > $fc
 END_no_allProbesCSV
-
-        $i++;
     }
 
     #This is the having part of the data query.
