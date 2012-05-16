@@ -55,21 +55,15 @@ Copy files to CGI_ROOT:
 Copy files to DOCUMENTS_ROOT (note: this assumes you have downloaded [YUI
 2](http://developer.yahoo.com/yui/2/) to `~/tarballs/yui.tgz`):
 	
-	# /yui
+	# YUI 2
 	cd /var/www/
 	tar xvzf ~/tarballs/yui.tgz .
 	
-	# /segex/
+	# Documents
 	mkdir segex
 	cd segex
-	
-	# /segex/css
 	sudo cp -R ~/segex/css .
-	
-	# /segex/images
 	sudo cp -R ~/segex/images .
-	
-	# /segex/js
 	sudo cp -R ~/segex/js .
 
 
@@ -295,21 +289,15 @@ Copy files to CGI_ROOT:
 Copy files to DOCUMENTS_ROOT (note: this assumes you have downloaded [YUI
 2](http://developer.yahoo.com/yui/2/) to `~/tarballs/yui.tgz`):
 
-	# /yui
+	# YUI 2
 	cd /Library/WebServer/Documents
 	tar xvzf ~/tarballs/yui.tgz .
 
-	# /segex/
+	# Documents
 	mkdir segex
 	cd segex
-
-	# /segex/css
 	sudo cp -R ~/segex/css .
-
-	# /segex/images
 	sudo cp -R ~/segex/images .
-
-	# /segex/js
 	sudo cp -R ~/segex/js .
 
 
