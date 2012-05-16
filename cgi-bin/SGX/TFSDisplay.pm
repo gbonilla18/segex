@@ -191,15 +191,16 @@ sub loadDataFromSubmission {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    $self->{_xExpList}     = decode_json( car $q->param('user_selection') );
+    $self->{_xExpList} =
+      decode_json( car( $q->param('user_selection') ) || '[]' );
     $self->{_allProbes}    = $q->param('includeAllProbes') || '';
-    $self->{_searchFilter} = $q->param('searchFilter') || '';
+    $self->{_searchFilter} = $q->param('searchFilter')     || '';
 
     $self->{_opts} = $q->param('opts') || '0';
 
     # The $self->{_fs} parameter is the flagsum for which we filter data
     my $fs = car $q->param('selectedFS');
-    $self->{_fs} = $fs ne '' ? $fs : undef;
+    $self->{_fs} = ( defined($fs) && $fs ne '' ) ? $fs : undef;
     $self->{_expected} = decode_json( car( $q->param('selectedExp') ) || '{}' );
     $self->{_format} = car $q->param('get');
 
@@ -219,13 +220,16 @@ sub loadDataFromSubmission {
 sub loadDataHTML {
     my $self = shift;
 
-    # Build the SQL query that does the TFS calculation
-    my $having =
-      ( defined( $self->{_fs} ) ) ? "HAVING abs_fs=$self->{_fs}" : '';
-
     # index of the column that is the beginning of the "numeric" half of the
     # table (required for table sorting)
     $self->{_numStart} = 5;
+
+    my $experiment_rows = $self->{_xExpList};
+    return if !@$experiment_rows;
+
+    # Build the SQL query that does the TFS calculation
+    my $having =
+      ( defined( $self->{_fs} ) ) ? "HAVING abs_fs=$self->{_fs}" : '';
 
     #If we got a list to filter on, build the string.
     #
@@ -243,7 +247,7 @@ sub loadDataHTML {
 
     my $allProbes = $self->{_allProbes};
     my $i         = 1;
-    foreach my $row ( @{ $self->{_xExpList} } ) {
+    foreach my $row (@$experiment_rows) {
         my $eid       = $row->{eid};
         my $fc        = $row->{fchange};
         my $pval      = $row->{pval};
@@ -279,7 +283,7 @@ sub loadDataHTML {
         }
 
         push @query_join,
-"LEFT JOIN response $table ON $table.rid=d2.rid AND $table.eid=$eid";
+          "LEFT JOIN response $table ON $table.rid=d2.rid AND $table.eid=$eid";
 
         #This is part of the query when we are including all probes.
         push @query_body, ($allProbes)
@@ -501,7 +505,7 @@ sub loadDataCSV {
         push @query_proj, "$table.$pval_sql AS '$eid: P-$pValClass'";
 
         push @query_join,
-"LEFT JOIN response $table ON $table.rid=d2.rid AND $table.eid=$eid";
+          "LEFT JOIN response $table ON $table.rid=d2.rid AND $table.eid=$eid";
 
         push @query_body, ( $self->{_allProbes} )
           ? <<"END_yes_allProbesCSV"
@@ -772,8 +776,8 @@ sub displayDataHTML {
     my @table_parser;
     my @table_format;
 
-    my $sth_records  = $self->{_Records};
-    my $record_names = $sth_records->{NAME};
+    my $sth_records = $self->{_Records};
+    my $record_names = $sth_records->{NAME} || [];
 
     for ( my $j = 2 ; $j < $self->{_numStart} ; $j++ ) {
         push @table_header, $record_names->[$j];
@@ -827,8 +831,11 @@ sub displayDataHTML {
     #---------------------------------------------------------------------------
     #  print table body
     #---------------------------------------------------------------------------
-    my $data_array = $sth_records->fetchall_arrayref;
-    $sth_records->finish;
+    my $data_array = eval {
+        my $cache = $sth_records->fetchall_arrayref;
+        $sth_records->finish;
+        $cache;
+    } || [];
 
     my $eid_count = @{ $self->{_xExpList} };
     unshift( @$_, get_tfs( shift @$_, shift @$_, $eid_count ) )
@@ -842,7 +849,7 @@ sub displayDataHTML {
             _fs       => $self->{_fs},
             tfs       => {
                 caption => sprintf( 'This subset includes %d probes',
-                    $self->{_RowCountAll} ),
+                    ( $self->{_RowCountAll} || 0 ) ),
                 headers => [ 'TFS',        @table_header ],
                 parsers => [ 'string',     @table_parser ],
                 formats => [ 'formatText', @table_format ],
