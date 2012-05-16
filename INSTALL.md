@@ -1,8 +1,7 @@
-INSTALL
-======
+Installing Segex
+================
 
-Table of Contents
------------------
+## Table of Contents
 
 1. [Linux](#1-linux)
 
