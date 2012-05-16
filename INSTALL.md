@@ -4,13 +4,19 @@ INSTALL
 Table of Contents
 -----------------
 
-1.   Linux
-  1.1. Software Install
-  1.2. Database Setup (MySQL)
-2.   Mac OS X
-  2.1. Software Install
-  2.2. Database Setup (MySQL)
-3.   APPENDIX A: Cloning Segex from GitHub repository
+[1.   Linux](#1-linux)
+
+  [1.1. Software Install](#11-software-install-on-linux)
+
+  [1.2. Database Setup](#12-database-setup-mysql-on-linux)
+
+[2.   Mac OS X](#2-mac-os-x)
+
+  [2.1. Software Install](#21-software-install-mac-os-x)
+
+  [2.2. Database Setup](#database-setup-mysql-on-mac-os-x)
+
+[3.   APPENDIX A: Cloning Segex from GitHub repository](#appendix-a-cloning-segex-from-github-repository)
 
 
 # 1. Linux
@@ -418,8 +424,8 @@ instructions](http://help.github.com/linux-set-up-git/) to register your SSH
 keys with GitHub:
 
 ## 2. Clone Segex from GitHub repository
-Once done, simply clone the GitHub repository using the following command (this
-will create a directory called "segex"):
+Once done with installing git, simply clone the GitHub repository using the
+following command (this will create a directory called "segex"):
 
 	git clone git@github.com:escherba/segex.git
 
