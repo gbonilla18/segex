@@ -39,20 +39,21 @@ Perl packages were installed successfully.
 
 
 ### Copy files
-If you choose to create soft links instead, add `FollowSymLinks` directive to
-the Apache configuration file (either local `.htaccess` or the top-level
-`httpd.conf` depending on your setup) for both CGI_ROOT and DOCUMENTS_ROOT
-directories. Note: this assumes you have downloaded [YUI
-2](http://developer.yahoo.com/yui/2/) to `~/tarballs/yui.tgz`.
+You can either copy all files to the appropriate directories or you can set up
+soft links. If you choose to create soft links instead, add `FollowSymLinks`
+directive to the Apache configuration file (either local `.htaccess` or the
+top-level `httpd.conf` depending on your setup) for both CGI_ROOT and
+DOCUMENTS_ROOT directories. 
 
-	# CGI_ROOT
+Copy files to CGI_ROOT:
 	
 	# /cgi-bin/segex
 	cd /var/www/cgi-bin
 	sudo cp -R ~/segex/cgi-bin segex
 	sudo cp ~/segex/segex.conf.sample segex/segex.conf
 	
-	# DOCUMENTS_ROOT
+Copy files to DOCUMENTS_ROOT (note: this assumes you have downloaded [YUI
+2](http://developer.yahoo.com/yui/2/) to `~/tarballs/yui.tgz`):
 	
 	# /yui
 	cd /var/www/
@@ -278,20 +279,21 @@ To clear the mail queue, run `sudo postsuper -d ALL`.
 
 
 ### Copy files
-If you choose to create soft links instead, add `FollowSymLinks` directive to
-the Apache configuration file (either local `.htaccess` or the top-level
-`httpd.conf` depending on your setup) for both CGI_ROOT and DOCUMENTS_ROOT
-directories. Note: this assumes you have downloaded [YUI
-2](http://developer.yahoo.com/yui/2/) to `~/tarballs/yui.tgz`.
+You can either copy all files to the appropriate directories or you can set up
+soft links. If you choose to create soft links instead, add `FollowSymLinks`
+directive to the Apache configuration file (either local `.htaccess` or the
+top-level `httpd.conf` depending on your setup) for both CGI_ROOT and
+DOCUMENTS_ROOT directories. 
 
-	# CGI_ROOT
+Copy files to CGI_ROOT:
 
 	# /cgi-bin/segex
 	cd /Library/WebServer/CGI-Executables
 	sudo cp -R ~/segex/cgi-bin segex
 	sudo cp ~/segex/segex.conf.sample segex/segex.conf
 
-	# DOCUMENTS_ROOT
+Copy files to DOCUMENTS_ROOT (note: this assumes you have downloaded [YUI
+2](http://developer.yahoo.com/yui/2/) to `~/tarballs/yui.tgz`):
 
 	# /yui
 	cd /Library/WebServer/Documents
