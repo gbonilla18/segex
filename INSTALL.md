@@ -1,12 +1,16 @@
-Table of Contents:
+INSTALL
+=======
+
+Table of Contents
+-----------------
+
 1.   Linux
 1.1. Software Install
 1.2. Database Setup (MySQL)
 2.   Mac OS X
 2.1. Software Install
 2.2. Database Setup (MySQL)
-
-APPENDIX A: Cloning Segex from GitHub repository
+3.   APPENDIX A: Cloning Segex from GitHub repository
 
 
 1. Linux
