@@ -1286,8 +1286,7 @@ END_sql_subset_by_project
         push @select_fields,
           (
             "probe.probe_sequence AS 'Probe Sequence'",
-"GROUP_CONCAT(DISTINCT format_locus(locus.chr, locus.zinterval) separator '; ') AS 'Locus'",
-"group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
+"GROUP_CONCAT(DISTINCT format_locus(locus.chr, locus.zinterval) separator '; ') AS 'Locus'"
           );
         if ( !defined( $self->{_loc_chr} ) || $self->{_loc_chr} eq '' ) {
 
@@ -1295,6 +1294,12 @@ END_sql_subset_by_project
             # we are already joining the locus table anyway
             $limit_sql .= ' LEFT JOIN locus ON probe.rid=locus.rid';
         }
+    }
+    if ( $extra_fields > 0 ) {
+        push @select_fields,
+        (
+"group_concat(distinct concat(gene.gname, if(isnull(gene.gdesc), '', concat(', ', gene.gdesc))) separator '; ') AS 'Gene Name/Desc.'"
+        );
     }
     my $selectFieldsSQL = join( ',', @select_fields );
 

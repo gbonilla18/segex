@@ -351,8 +351,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
         );
         if (extra_fields > 1) {
             forEach(
-                ['probe_sequence', 'locus', 'gene_name'],
-                function(val) { this.self[val] = String(this.index++) },
+                ['probe_sequence', 'locus'],
+                function(val) {
+                    this.self[val] = String(this.index++);
+                },
                 { self: dataFields, index: countOwnProperties(dataFields) }
             );
             myColumnList.push(
@@ -372,16 +374,22 @@ YAHOO.util.Event.addListener(window, "load", function() {
             {key:dataFields.gsymbol, sortable:true, resizeable:true, 
                 label:data.headers[parseInt(dataFields.gsymbol)], formatter:formatGene}
         );
-        if (extra_fields > 1) {
-            myColumnList.push(
-                {key:dataFields.gene_name}
-            );
-            myColumnDefs.push(
-                {key:dataFields.gene_name, sortable:true, resizeable:true, 
-                    label:data.headers[parseInt(dataFields.gene_name)], formatter:formatGeneName}
-            );
-        }
+        forEach(
+            ['gene_name'],
+            function(val) {
+                this.self[val] = String(this.index++);
+            },
+            { self: dataFields, index: countOwnProperties(dataFields) }
+        );
+        myColumnList.push(
+            {key:dataFields.gene_name}
+        );
+        myColumnDefs.push(
+            {key:dataFields.gene_name, sortable:true, resizeable:true, 
+                label:data.headers[parseInt(dataFields.gene_name)], formatter:formatGeneName}
+        );
     }
+
     var columns2highlight = {
       'GO IDs'               : { },
       'Probe IDs'            : tuplesToObj([dataFields.reporter, null]),

@@ -602,18 +602,33 @@ LINES TERMINATED BY '\n' STARTING BY '' (
 END_loadTermDefs
         push @param_symbols, [$filename_symbols];
 
-        # WARNING: block below means that both gene symbols and accession
-        # numbers are deleted for the particular subset of probes uploaded
-        # before they are updated, which means that, on a second upload, both
-        # old and new gene symbols *and* accession numbers must be present for
-        # the probes uploaded.
-        push @sth_symbols, <<"END_delete";
+        if ( $upload_accnums && $upload_symbols ) {
+
+            # uploading both gene symbols and accession numbers: delete all
+            # ProbeGene entries for probes uploaded
+            push @sth_symbols, <<"END_delete";
 DELETE ProbeGene 
 FROM ProbeGene 
     INNER JOIN probe ON probe.pid=? AND ProbeGene.rid=probe.rid
     INNER JOIN $symbol_table USING(reporter)
 END_delete
-        push @param_symbols, [$pid];
+            push @param_symbols, [$pid];
+        }
+        else {
+
+            # uploading either gene symbols or accession numbers: delete only
+            # those ProbeGene entries which map to accession numbers (if
+            # accession numbers are uploaded) or to gene symbols (if gene
+            # symbols are uploaded)
+            push @sth_symbols, <<"END_delete";
+DELETE ProbeGene 
+FROM ProbeGene
+    INNER JOIN probe ON probe.pid=? AND ProbeGene.rid=probe.rid
+    INNER JOIN $symbol_table AS temptable USING(reporter)
+    INNER JOIN gene ON gene.gid=ProbeGene.gid AND gene.gtype=?
+END_delete
+            push @param_symbols, [ $pid, ( $upload_accnums ? 0 : 1 ) ];
+        }
 
         push @sth_symbols, <<"END_insert_gene";
 INSERT INTO gene (sid, gtype, gsymbol)
