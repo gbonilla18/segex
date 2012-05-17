@@ -636,7 +636,6 @@ END_info
                 $q->dt('&nbsp;'),
                 $q->dd(
                     $q->submit(
-                        -name  => 'b',
                         -value => 'Upload',
                         -title => 'Upload gene annotation',
                         -class => 'button black bigrounded'

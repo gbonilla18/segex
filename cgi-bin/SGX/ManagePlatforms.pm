@@ -1116,7 +1116,6 @@ END_LOCI_TITLE
                 $q->dt('&nbsp;'),
                 $q->dd(
                     $q->submit(
-                        -name  => 'b',
                         -value => 'Upload',
                         -title => 'Upload probe locations',
                         -class => 'button black bigrounded'

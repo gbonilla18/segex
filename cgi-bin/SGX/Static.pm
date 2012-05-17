@@ -73,6 +73,7 @@ sub error_head {
     else {
         $msg = 'Unknown error';
     }
+    warn $msg;                   # May want to disable this for production
     $self->add_message( { -class => 'error' }, $msg );
     return 1;
 }
@@ -100,7 +101,8 @@ sub help_body {
         $q->a(
             {
                 -title => 'Installation instructions',
-                -href => 'https://github.com/escherba/segex/blob/master/INSTALL.md'
+                -href =>
+                  'https://github.com/escherba/segex/blob/master/INSTALL.md'
             },
             'INSTALL.md'
         ),
