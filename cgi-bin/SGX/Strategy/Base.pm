@@ -452,7 +452,7 @@ sub _dispatch_by {
         # 403 Unauthorized
         my $show_body = exists( $meta->{show_body} ) ? $meta->{show_body} : 1;
         if ($show_body) {
-            SGX::Exception::HTTP->throw(
+            return SGX::Exception::HTTP->throw(
                 status => 403,
                 error  => 'Authorization required'
             );
