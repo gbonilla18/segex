@@ -79,6 +79,9 @@ sub init {
     );
 
     $self->set_attributes(
+
+		_permission_level => 'user',
+
         _table_defs => {
             species => {
                 item_name => 'species',

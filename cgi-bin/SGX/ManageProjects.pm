@@ -32,6 +32,8 @@ sub init {
 
     $self->set_attributes(
 
+		_permission_level => 'user',
+
         _table_defs => {
             'ProjectStudy' => {
                 key        => [qw/prid stid/],

@@ -36,6 +36,8 @@ sub init {
     my ( $pid, $stid ) = $self->get_id_data();
     $self->set_attributes(
 
+		        _permission_level => 'user',
+
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
 #
 # key:        Fields that uniquely identify rows

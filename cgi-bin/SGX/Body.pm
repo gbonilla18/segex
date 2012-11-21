@@ -5,7 +5,7 @@ use warnings;
 
 use SGX::Config qw/$YUI_BUILD_ROOT $JS_DIR $CSS_DIR $IMAGES_DIR/;
 
-my $softwareVersion = '0.4.3.1';
+my $softwareVersion = '0.4.3.2';
 
 my $all_resources = {
 
@@ -24,11 +24,11 @@ my $all_resources = {
     outputData => { label => 'Output Data', perm => 'readonly' },
 
     # Manage
-    platforms   => { label => 'Manage Platforms' },
-    experiments => { label => 'Manage Experiments' },
-    studies     => { label => 'Manage Studies' },
-    projects    => { label => 'Manage Projects' },
-    species     => { label => 'Manage Species' },
+    platforms   => { label => 'Manage Platforms', perm => 'user'},
+    experiments => { label => 'Manage Experiments', perm => 'user'},
+    studies     => { label => 'Manage Studies', perm => 'user'},
+    projects    => { label => 'Manage Projects', perm => 'user' },
+    species     => { label => 'Manage Species', perm => 'user' },
     users       => { label => 'Manage Users', perm => 'admin' },
 
     # Upload

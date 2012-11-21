@@ -36,6 +36,8 @@ sub init {
     my $pid       = car $q->param('pid');
     $self->set_attributes(
 
+		_permission_level => 'user',
+
 # _table_defs: hash with keys corresponding to the names of tables handled by this module.
 #
 # key:        Fields that uniquely identify rows
