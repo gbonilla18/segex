@@ -116,8 +116,8 @@ sub default_head {
 
     # background image from: http://subtlepatterns.com/?p=703
     push @$css_src_code, +{ -code => <<"END_css"};
-.yui-skin-sam .yui-navset .yui-content { 
-    background-image:url('$IMAGES_DIR/fancy_deboss.png'); 
+.yui-skin-sam .yui-navset .yui-content {
+    background-image:url('$IMAGES_DIR/fancy_deboss.png');
 }
 END_css
 
@@ -442,7 +442,7 @@ SELECT
     count(distinct ProbeGene.rid) AS 'Probes'
 FROM (
     SELECT go_acc, go_name, go_term_definition, go_term_type $relevance
-    FROM go_term 
+    FROM go_term
     $predicate
 ) AS search_result
 INNER JOIN GeneGO    USING(go_acc)
@@ -816,7 +816,7 @@ sub getReportExperiments {
     my $exp_sql = <<"END_ExperimentDataQuery";
 SELECT
     experiment.pid,
-    experiment.eid                                         AS 'Exp. ID', 
+    experiment.eid                                         AS 'Exp. ID',
     PValFlag,
     GROUP_CONCAT(DISTINCT study.description SEPARATOR ',') AS 'Study(ies)',
     CONCAT(experiment.sample2, ' / ', experiment.sample1)  AS 'Exp. Name',
@@ -1174,7 +1174,7 @@ sub xTableQuery {
     if ($haveTable) {
         if ( $scope eq 'Probe IDs' ) {
             $innerSQL = <<"END_table_probe";
-SELECT rid, gid FROM probe 
+SELECT rid, gid FROM probe
 INNER JOIN $tmp_table USING(reporter)
 LEFT JOIN ProbeGene USING(rid)
 END_table_probe
@@ -1184,8 +1184,8 @@ END_table_probe
 SELECT rid, gid
 FROM ProbeGene
 INNER JOIN (
-    SELECT DISTINCT rid FROM ProbeGene 
-    INNER JOIN GeneGO USING(gid) 
+    SELECT DISTINCT rid FROM ProbeGene
+    INNER JOIN GeneGO USING(gid)
     INNER JOIN $tmp_table USING(go_acc)
 ) AS d1 USING(rid)
 END_table_go
@@ -1195,9 +1195,9 @@ END_table_go
 SELECT rid, gid
 FROM ProbeGene
 INNER JOIN (
-    SELECT DISTINCT rid FROM ProbeGene 
-    INNER JOIN gene USING(gid) 
-    INNER JOIN $tmp_table USING(gsymbol) 
+    SELECT DISTINCT rid FROM ProbeGene
+    INNER JOIN gene USING(gid)
+    INNER JOIN $tmp_table USING(gsymbol)
 ) AS d1 USING(rid)
 END_table_gene
         }
@@ -1208,7 +1208,7 @@ END_table_gene
         push @param, @$pred_param;
         if ( $scope eq 'Probe IDs' ) {
             $innerSQL = <<"END_no_table_probe";
-SELECT rid, gid 
+SELECT rid, gid
 FROM
     (SELECT rid FROM probe $pred_sql) AS search_result
 LEFT JOIN ProbeGene USING(rid)
@@ -1633,8 +1633,8 @@ sub Search_body {
     if ( $self->{_graphs} ) {
         push @ret, (
             $q->p(<<"END_LEGEND"),
-<strong>Dark bars</strong>: values meething the P threshold. 
-<strong>Light bars</strong>: values above the P threshold. 
+<strong>Dark bars</strong>: values meething the P threshold.
+<strong>Light bars</strong>: values above the P threshold.
 <strong>Green horizontal lines</strong>: fold-change threshold.
 END_LEGEND
             $q->div( { -id => 'graphs' }, '' ),
@@ -1800,13 +1800,13 @@ sub mainFormDD {
                                     -id    => 'pattern_fullword_hint'
                                 },
                                 <<"END_EXAMPLE_TEXT"),
-In 
+In
 <a target="_blank" title="Click for more info on full-word searching" href="http://dev.mysql.com/doc/refman/5.5/en/fulltext-boolean.html">full-word mode</a>
 in this scope, the phrase
 <span class="unbreakable-term">"brain development"</span> will match exactly,
-<span class="unbreakable-term">brain -development</span> will match "brain" but not "development", 
+<span class="unbreakable-term">brain -development</span> will match "brain" but not "development",
 <span class="unbreakable-term">+brain +development</span> will match both words
-in any order, and <span class="unbreakable-term">brain development</span> 
+in any order, and <span class="unbreakable-term">brain development</span>
 will match any of the two words.
 END_EXAMPLE_TEXT
                             $q->div(
@@ -1815,10 +1815,10 @@ END_EXAMPLE_TEXT
                                     -id    => 'pattern_part_hint'
                                 },
                                 <<"END_EXAMPLE_TEXT"),
-Matches word fragments or 
+Matches word fragments or
 <a target="_blank" title="Click for more info on regular expressions" href="http://dev.mysql.com/doc/refman/5.5/en/regexp.html">regular expressions</a>.
-For example, the expression 
-<span class="unbreakable-term">^[A-Z]{2}[0-9]{6}\$</span> 
+For example, the expression
+<span class="unbreakable-term">^[A-Z]{2}[0-9]{6}\$</span>
 matches accession numbers that have the format of any two letters followed by
 six digits (such as AK022913).
 END_EXAMPLE_TEXT
@@ -1953,7 +1953,7 @@ sub default_body {
       $q->h2('Find Probes'),
 
       $q->p(<<"END_H2P_TEXT"),
-You can enter here a list of probes, accession numbers, or gene names. 
+You can enter here a list of probes, accession numbers, or gene names.
 The results will contain probes that are related to the search terms.
 END_H2P_TEXT
       $q->start_form(
@@ -2045,7 +2045,7 @@ END_H2P_TEXT
                         <<"END_graph_hint"
 For graphs to display, your browser should support Scalable Vector Graphics
 (SVG). Internet Explorer (IE) versions earlier than v9.0 can only display SVG
-images via 
+images via
 <a target="_blank" href="http://www.adobe.com/svg/viewer/install/" title="Download Adobe SVG plugin">Adobe SVG plugin</a>.
 END_graph_hint
                     )
@@ -2095,5 +2095,3 @@ Artistic License 2.0
 http://www.opensource.org/licenses/artistic-license-2.0.php
 
 =cut
-
-
