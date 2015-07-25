@@ -30,6 +30,9 @@ my $all_resources = {
     projects    => { label => 'Manage Projects', perm => 'user' },
     species     => { label => 'Manage Species', perm => 'user' },
     users       => { label => 'Manage Users', perm => 'admin' },
+    tissues     => { label => 'Manage Tissues', perm => 'admin' },
+    
+    samples     => { label => 'Manage Samples', perm => 'admin' },
 
     # Upload
     'experiments&b=form_create' => {
@@ -415,7 +418,7 @@ sub build_menu {
         'Query' =>
           $link_creator->(qw/compareExperiments findProbes outputData/),
         'Manage' => $link_creator->(
-            qw/experiments studies projects platforms species users/),
+            qw/experiments studies projects platforms species users tissues samples/),
         'Upload' => $link_creator->(qw/experiments&b=form_create uploadGO/)
     );
 

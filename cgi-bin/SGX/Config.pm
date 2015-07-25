@@ -54,6 +54,8 @@ Readonly::Hash my %DISPATCH_TABLE => (
     experiments => 'SGX::ManageExperiments',
     users       => 'SGX::ManageUsers',
     species     => 'SGX::ManageSpecies',
+    tissues     => 'SGX::ManageTissues',
+    samples     => 'SGX::ManageSamples',
 
     profile => 'SGX::Profile',
 );

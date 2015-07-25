@@ -54,6 +54,23 @@ sub init {
                 base      => [qw/eid stid/],
                 join_type => 'INNER'
             },
+			'SampleExperiment' => {
+				table 	=> "experiment",
+                key       => [qw/smid/],
+                base      => [qw/eid smid/],
+                
+				 constraint => [ eid => sub { shift->{_id} } ]
+            },
+			'sample_brief' => {
+				resource  => 'samples',
+                item_name => 'sample',
+				key       => [qw/smid/],
+				view     => [qw/smdesc/],
+				names     => [qw/smdesc/],
+				table 	=> 'sample',
+				join_type => 'LEFT'
+			},
+			    
             'study_brief' => {
 
                 # this table is used in View All Experiments
@@ -112,7 +129,59 @@ sub init {
 
                #join => [ species => [ sid => 'sid', { join_type => 'LEFT' } ] ]
             },
+			
+			'sample1' => {
+               table    => 'sample1',
+			   resource  => 'samples',
+                item_name => 'sample1',
+                key       => [qw/smid1/],
+                view      => [qw/smdesc1 lpname1 rsname1 tname1 /],
+            #    names     => [qw/smdesc lpid rsid tid/],
+			names     => [qw/smid1/],
+			meta      => { smdesc1 => { label => '1 from sample' },
+						
+						},
+           
+            },
+			'sample_filtered' => {
+			   table    => 'sample_view',
+			   resource  => 'samples',
+                item_name => 'sample_view',
+                key       => [qw/smid/],
+                view      => [qw/smdesc lpname rsname tname /],
+            #    names     => [qw/smdesc lpid rsid tid/],
+			names     => [qw/smid/],
+			meta      => { smdesc => { label => 'Sample Description' },
+						
+						},
+			join => [
+                    SampleExperiment => [
+                        'smid' => 'smid',
+	
+                        { constraint => [ eid => sub { shift->{_id} } ] }
+                    ],
+                    
+					
+                   
+                ]
+           
+            },
 
+			
+
+		data_count => {
+                table => 'response',
+                key   => [qw/eid rid/],
+                view  => [qw/probe_count/],
+                meta  => {
+                    probe_count => {
+                        __sql__ => 'COUNT(data_count.rid)',
+                        label   => 'Probes',
+                        parser  => 'number'
+                    },
+                },
+                group_by => [qw/eid/]
+            },
             #species => {
             #    key   => [qw/sid/],
             #    view  => [qw/sname/],
@@ -123,12 +192,12 @@ sub init {
                 item_name => 'experiment',
                 key       => [qw/eid/],
                 view      => [
-                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation/
+                    qw/eid sample1 sample2 ExperimentDescription AdditionalInformation  /
                 ],
                 resource => 'experiments',
                 base     => [
                     qw/sample1 sample2 ExperimentDescription
-                      AdditionalInformation pid stid file/
+                      AdditionalInformation s1id pid stid file/ # add smdesc here
                 ],
 
                 # table key to the left, URI param to the right
@@ -183,6 +252,19 @@ sub init {
                         parser       => 'number',
                         __readonly__ => 1
                     },
+					s1id => {
+                        label      => 'inside meta Sample 1 name',
+                        -maxlength => 255,
+                        -size      => 35,
+					   __extra_html__ =>
+'<p class="visible hint">(Typically) the control sample</p>',
+                        parser   => 'number',
+						__type__ => 'textarea',
+						__tie__ => [ ( sample_brief=> 's1id' ) ],
+						__extra_html__ => $q->div("sample modifying code goes here"						
+						)
+                        
+					},
                     sample1 => {
                         label      => 'Sample 1 name',
                         -maxlength => 255,
@@ -210,6 +292,7 @@ sub init {
                         __optional__ => 1
                     },
 
+                  
                     # stid here is needed for Study popup in Upload Data page
                     stid => {
                         label          => 'Study',
@@ -245,14 +328,31 @@ sub init {
                               && !$self->get_dispatch_action() eq 'form_create'
                         ) ? ()
                         : ( 'platform' => [ 'pid' => 'pid' ] )
-                    )
+                    ),
+					(
+
+                        (
+                               
+                            $self->get_dispatch_action() eq 'form_create'
+                        ) ? ()
+                        : ( sample_brief      => [  s1id=>'smid'  ])
+                    ),
+					 
+					
                 ],
                 join => [
-                    StudyExperiment => [
+                    sample1 => [
+                        's1id' => 'smid1',
+						{ join_type => 'LEFT' },
+						
+                    ],
+
+					StudyExperiment => [
                         eid => 'eid',
                         { selectors => { stid => 'stid' } }
                     ],
-                    study_brief => [
+                    
+					study_brief => [
                         'StudyExperiment.stid' => 'stid',
                         { join_type => 'LEFT' }
                     ],
@@ -276,19 +376,7 @@ sub init {
                     ),
                 ],
             },
-            data_count => {
-                table => 'response',
-                key   => [qw/eid rid/],
-                view  => [qw/probe_count/],
-                meta  => {
-                    probe_count => {
-                        __sql__ => 'COUNT(data_count.rid)',
-                        label   => 'Probes',
-                        parser  => 'number'
-                    },
-                },
-                group_by => [qw/eid/]
-            }
+            
         },
         _default_table  => 'experiment',
         _readrow_tables => [
@@ -296,9 +384,27 @@ sub init {
                 heading    => 'Studies Experiment is Assigned to',
                 actions    => { form_assign => 'assign' },
                 remove_row => { verb => 'unassign', table => 'StudyExperiment' }
-            }
+            },
+			### TODO 6/29 need to fix this part
+			# 'sample1' => {
+                # heading    => 'Sample in this experiment',
+                # actions    => { form_assign => 'assign' },
+                # remove_row => { verb => 'unassign', table => 'sample' }
+            # },
+			
+			
         ],
-
+        # _readrow_tables => [
+           
+			# ### TODO 6/29 need to fix this part
+			 # 'sample_filtered' => {
+                # heading    => 'Samples in this experiment',
+                 # actions    => { form_assign => 'assign' },
+                 # remove_row => { verb => 'delete', table => 'SampleExperiment' }
+             # },
+			
+			
+        # ],
         _PlatformStudyExperiment =>
           SGX::Model::PlatformStudyExperiment->new( dbh => $self->{_dbh} ),
     );
@@ -562,6 +668,14 @@ sub default_body {
       # Resource URI: /studies
       $self->view_start_get_form(),
       $q->dl(
+	   $q->dt( $q->label( { -for => 's1id' }, 'Sample 1 (from default_body):' ) ),
+        $q->dd(
+            $q->popup_menu(
+                -name  => 's1id',
+                -id    => 's1id',
+                -title => 'Choose sample',
+            )
+        ),
         $q->dt( $q->label( { -for => 'pid' }, 'Platform:' ) ),
         $q->dd(
             $q->popup_menu(
@@ -644,6 +758,16 @@ sub default_update {
     return if not defined $self->{_id};
 
     my $q             = $self->{_cgi};
+	
+	#### added by GB
+	#### update other tables (for sample, like library prep, etc.)
+	my $sample1field     = 's1id';
+	my $sample1field_val = $q->param($sample1field);
+	
+	my $form_test=join(", ", $sample1field_val);
+	 $self->add_message( { -class => 'error' },
+                "data from nested form ... or something $form_test" );
+	
     my $filefield     = 'file';
     my $filefield_val = $q->param($filefield);
     if ( defined($filefield_val) and $filefield_val ne '' ) {

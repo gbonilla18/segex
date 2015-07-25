@@ -55,7 +55,7 @@ PlatfformStudy_sql
 
     push @{ $pse->{_Platform}->{attr} }, ( 'def_p_cutoff', 'def_f_cutoff' );
     push @{ $pse->{_Experiment}->{attr} },
-      ( 'PValFlag', 'AdditionalInformation' );
+      ( 'PValFlag', 'FCFlag', 'AdditionalInformation' );
 
     # Using FindProbes module
     my $findProbes = SGX::FindProbes->new(

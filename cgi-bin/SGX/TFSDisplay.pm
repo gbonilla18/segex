@@ -633,7 +633,7 @@ sub displayDataCSV {
             'P <',
             'Signif. in',
             'Study',
-            'Exp. info',
+            'Additional info',
             'Exp. samples'
         ]
     );

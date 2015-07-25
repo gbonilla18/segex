@@ -173,7 +173,7 @@ sub default_body {
     my $self = shift;
     my $q    = $self->{_cgi};
 
-    return $q->h2('About'),
+    return $q->h2('======= SEGEX DEVELOPMENT VERSION 2015 =========='),
 
       # ==== ABOUT SEGEX =====
       $q->h3('What is Segex?'), $q->p(<<"END_paragraph1"),
