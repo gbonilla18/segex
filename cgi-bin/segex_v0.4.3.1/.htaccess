@@ -1,0 +1,15 @@
+Options -Indexes +ExecCGI +FollowSymLinks
+
+# Configure Apache to serve SVG/SVGZ the right way
+# http://kaioa.com/node/45
+AddType image/svg+xml svg svgz
+AddEncoding gzip svgz
+
+# treat all files in current subtree as CGI scripts
+SetHandler cgi-script
+
+<IfModule mod_rewrite.c>
+RewriteEngine on
+RewriteBase /
+RewriteRule ^$ /cgi-bin/segex/index.cgi
+</IfModule>
