@@ -279,7 +279,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
         {key:"sample1"},
         {key:"sample2"},
         {key:"reverse"},
+<<<<<<< HEAD
         {key:"FCFlag", parser:"number"},
+=======
+>>>>>>> fff9d8d7950b20b683423368896ff5be2cc170a4
         {key:"pValFlag", parser:"number"},
         {key:"pValClass", parser:"number"},
         {key:"pval", parser:"number"},
@@ -287,7 +290,10 @@ YAHOO.util.Event.addListener(window, "load", function() {
     ]};
     var summary_table_defs = [
         {key:"eid", sortable:true, resizeable:true, label:'Exp. no.'},
+<<<<<<< HEAD
         {key:"FCClass", sortable:true, resizeable:false, label:'FC'},
+=======
+>>>>>>> fff9d8d7950b20b683423368896ff5be2cc170a4
         {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >'},
         {key:"pValClass", sortable:true, resizeable:false, label:'P-value'},
         {key:"pval", sortable:true, resizeable:false, label:'P <'},

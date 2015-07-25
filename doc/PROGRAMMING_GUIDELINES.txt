@@ -1,0 +1,615 @@
+1. Model-View-Controller Pattern
+
+1.1 SEPARATING MODEL AND VIEW - Model
+
+We achieve separation of concerns by minimizing and refining points of
+communication between different layers in the program. The layers we use are as
+follows:
+
+    Data source: SQL database, plain-text files -> 
+    Server-side: Perl -> 
+    Intermediate data representation: JSON (recommended), XML -> 
+    Client-side transformation: Javascript (recommended), XSLT ->
+    View layer: HTML (recommended), XHTML
+
+We do this intentionally, to avoid the traditional shortcut:
+
+    Database layer -> Server-side code -> HTML
+
+By using JSON intermediary, we embed an MVC substructure within what was
+traditionally seen as "View":
+
+   --------   HTTP   -------                        ------
+  | SERVER | =====> | JSON  | ===================> | HTML |
+  |        |        | HEAD  |                      | BODY |
+  |        |        | model | =>  ------------  => | view |
+  |        |         -------  <- | Javascript | <-  ------
+  |        | ==================> | .js files  |      |
+   --------  <------------------ | controller |      |
+                      AJAX        ------------       |
+             <---------------------------------------
+                      HTTP GET/POST to CGI controller
+
+                   |________________ VIEW ________________|
+
+The diagram above is a "zoomed-in" view focusing on the client. See Two-Step
+View pattern from Martin Fowler's book for a better discussion:
+http://martinfowler.com/eaaCatalog/twoStepView.html
+
+JSON intermediary is obviously the way to go because dynamic funtionality
+otherwise would require either constant server-side (database) lookups (bad) or
+DOM parsing (worse).
+
+Currently, we write dynamic data (i.e. contents of tables, dropdown lists, etc.)
+as JSON to page header (never inside <BODY> tag!). The JSON data should be
+formed first as native Perl data structures and converted to JSON with the use
+of JSON::XS module. For example, we *do not want* to do this:
+
+    my $out = 'var contents = ';
+    for (@result_array) {
+        my $col1 = $_->[3];
+        my $col2 = $_->[1];
+        $col1 =~ s/"/\\"/g; # backslashing double quotes
+        $col2 =~ s/"/\\"/g;
+        $out .= '{"probe":"' . $col1 . '","gene":"' . $col2 . '"}' . ',';
+    }
+    $out =~ s/,\s*$//;
+    return "$out;\n";
+
+Such code is very bad, evil, and generally awful. It increases coupling between
+Perl and Javascript, which is bad, because, when writing it, we have to worry
+about the different syntaxes of these two languages at once, which makes our
+code more error prone and our coding slower.  Instead, we write:
+
+    use JSON::XS;
+    my @tmp;
+    for (@result_array) {
+        push @tmp, { probe => $_->[3], gene => $_->[1] };
+    }
+    return sprintf(
+        "var contents = %s;\n",
+        encode_json(\@tmp)
+    );
+
+Or using a more functional style,
+
+    use JSON::XS;
+    return sprintf(
+        "var contents = %s;\n",
+        encode_json([ 
+            map { +{ probe => $_->[3], gene => $_->[1] } } 
+            @result_array
+        ])
+    );
+
+Because we first form a Perl data structure in the second example, if we make a
+typo, for example, Perl will let us know about it right away. Similarly,
+JSON::XS ensures that the Perl data structure is encoded as valid Javascript
+without needing to backslash double quotes manually.
+
+Note: Another commonly-used pattern in web applications is Template View. Our
+current architecture actually discourages the use of Template View, for the
+following reason: forming AJAX data on the server and then filling them into
+view using Javascript and element IDs actually gives us better guarantees about
+view correctness than filling in placeholders into an HTML template on the
+server and then sending it to the client.
+
+
+1.2 CONTROLLER
+
+1.2.1 CONTROLLER - General
+
+Considering the use of CGI::Application to handle dispatching of requests. If
+initial trial/validation succeeds, this will be the recommended framework.
+
+There should be a "tree" of user actions. Index.cgi should only take care of
+dispatching top-level actions in the tree. The modules (ManageProjects,
+ManageStudies, ManageExperiments, etc.) should dispatch actions at the remaining
+level(s). Top-level actions are called with "a=" parameter, second-level actions
+are called with "b=" parameter and so on. Since the parameter is one-letter
+only, action names should be descriptive by themselves. Object constructors are
+passed a reference to an array of Javascript includes, since only modules will
+know which Javascript files they need.  Constructors must not print anything to
+screen.  Constructors will almost always be passed the database handle and may
+also be passed session object handle. The array of Javascript includes simply
+contains relative paths of Javascript files to load; after top-level dispatch is
+complete, it is transformed to convert relative paths to absolute and is sent to
+CGI.pm.
+
+1.2.2 CONTROLLER - SGX::CRUD abstract class
+
+Define an abstract class supporting typical CRUD operations (create, read,
+update, delete) as AJAX or regular requests.  Currently, the module expressing
+similar functionality most closely is SGX::ManageExperiments. It should be
+renamed to SGX::CRUD::Experiment. The following inheritance hierarchy will be
+implemented
+
+                      SGX::CRUD
+                  /   |             \               \
+                /     |              |                \
+SGX::CRUD:User SGX::CRUD::Project SGX::CRUD::Study SGX::CRUD::Experiment
+
+When passing arguments to module constructors, prefer named arguments. For
+example: my $findProbes = SGX::FindProbes->new(dbh => $dbh, cgi => $q, session
+=> $s). (Note: this was replaced with %controller_context hash).
+
+
+1.3 VIEW
+
+1.3.1. HTML
+
+Generated HTML should be valid. Since most pages being worked on are private, it
+is cumbersome to validate their source using the W3C service. This can be worked
+around by using Total Validator Firefox plugin and the accompanying Mac or
+Windows application.
+
+
+1.3.2 Dynamic elements
+
+Avoid using 'onclick' and 'onchange' attributes of DOM elements. Instead, use
+the addListener function from the YUI library and place corresponding code in
+the <HEAD> element.
+
+1.3.3 Data visualization
+
+Consider using g.Raphael Javascript framework for drawing graphs inside the
+client browser window from JSON data obtained from the server (as opposed to
+generating SVG files on the server as it is set up currently).
+https://github.com/mobz/g.raphael
+https://github.com/alexyoung/ico
+
+
+
+
+
+
+
+
+
+2. REST (far from fully implemented....)
+
+2.1 Some basic facts:
+
+   * REST is the way to go; currently it is the only correct way to architecture
+     web applications. All other existing ways are either inherently worse or 
+     they eventually end up mirroring REST in some strange and non-standard way.
+
+   * XHTML 1 and HTML 4 do not support all REST methods. For example, the only
+     allowed values of 'method=' attribute in web forms in XHTML 1 and HTML 4
+     are GET and POST. PUT and DELETE are not supported. 
+
+   * HTML5 supports all REST methods, however not all browsers currently in use 
+     support HTML5.
+
+   * Although REST places heavy emphasis on using correct methods for sending
+     requests, we can obtain nearly all of the benefits of RESTful architecture
+     without resorting to the use of PUT and DELETE methods. To do so, it is
+     enough to (a) identify resources and express them as nouns, (b) use GET 
+     and POST methods (verbs) in a correct way, (c) apply HATEOAS (Hypermedia as
+     the Engine of Application State).
+
+
+2.2 CGI.pm
+
+According to recipe 1.8 in RESTful Web Services Cookbook, after creating a
+resource with POST, a response with code 201 (Created) and either a Location: or
+a Content-Location: header must be returned containing the URI of the newly
+created resource. The Content-Location: header is returned only if the body of
+the response already includes a complete representation of the newly created
+resource and no redirect (which occurs when Location: is sent to client) is
+needed.
+
+    # Example of the first scenario using CGI.pm (Location:)
+    print $q->redirect(            # do redirect
+        -status => 201,            # 201 Created
+        -uri    => '/resource/1',  # sends Location: style header
+        -cookie => \@cookies
+    );
+
+    # Example of the second scenario using CGI.pm (Content-Location:)
+    print $q->header(                        # no redirect
+         -status           => 201,           # 201 Created
+         -content_location => '/resource/1', # Content-Location:
+         -cookie           => \@cookies
+    );
+
+For further reference, see the following sections in the HTTP 1.1 specification
+on Location: and Content-Location: style headers respectively:
+
+http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.14
+http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.30
+
+For reference on HTTP error codes, see REST cookbook, pp. 71-72.
+
+Note: Returning the URI of the newly created resource in a Location: or
+Content-Location: style header is a form of HATEOAS.
+
+
+2.3 Forms
+
+With CGI.pm, always pass "-enctype => 'application/x-www-form-urlencoded'"
+option to start_form() unless the form contains a file input field
+("multipart/form-data" which is default in CGI.pm creates a binary stream which
+doubles the traffic).
+
+
+2.4 GET vs POST
+
+For forms, prefer GET method to POST unless (1) submitting the form modifies a
+resource on the server, or (2) requires the user to upload a file (i.e. when
+file upload control is present) or (3) sends large textual data to server (i.e.
+when textarea control is present or when hidden fields in the form could contain
+large amounts of data).  Because URL parameters in the 'action' attribute of a
+form element may interfere with form input fields, instead of specifying input
+data in the action attribute of the form element, we should instead create a
+hidden field in the form that stores the desired value of "x". The above applies
+for GET forms only -- for POST forms, it is okay to specify URL parameters in
+the 'action' attribute directly as long as they are read with url_param() CGI
+method on processing. 
+
+Which brings us to the question which information should be read using param()
+and which using url_param() CGI method. The above entails that top-level and
+second-level "resources" should be read using CGI::url_param() while all other
+non-RESTful state information should be read using CGI::param(). Correct use of
+url_param and param would reflect the conceptual separation between "resource"
+and "state". Resources should be determined by looking up url_param() and state
+should be modified by reading param().
+
+Which brings us to the question of how to identify resources when everything can
+be represented as state. By 'resource' we mean locations that are accessed more
+or less often or situations that occur more or less often and which tend to
+persist more than other stateful behaviors. Resources are, for example,
+first-level branches ('a=' parameter) and ids of items in a collection.
+
+Plain URLs *must not* be used to affect resource states.  Here is a very short
+reason why: any plain link should be crawlable, regardless of whether it is
+behind password protection (one day, for specific reources, or even by accident,
+password protection may be removed, and we *really, really* do not want a web
+crawler to delete every resource on the site that has a delete link).
+
+Instead of creating "Delete" and "Remove" links, we should be create forms with
+textual submit buttons. Alternatively, we could submit an AJAX POST request to
+delete these resources from the table. This would be in agreement with the
+"RESTful Web Services Cookbook" (pp. 13-15): "Use GET for safe and idempotent
+information retrieval. ... Use POST ... To create a new resource ... To modify
+one or more resources via a controller resource ... To run queries with large
+inputs ... To perform any unsafe or nonidempotent operation when no other HTTP
+method seems appropriate".
+
+The URLs should be short enough and human readable enough that they could be
+modified by the user. Care should be taken that, in case a link is shared via
+email, the resulting page looks the same regardless of who the user is or what
+computer he or she uses. To achieve this goal, all state information should be
+expressly specified in the form of hidden fields in the form performing the GET
+request.
+
+"The REST cookbook –- a fantastic by the way –- suggests to identify commonly
+used search criteria and expose those queries as separate resources."
+http://nicksda.apotomo.de/2011/06/rails-misapprehensions-query-parameters-are-restful/
+
+Perl documentation suggests that for GET forms, URL query string in the 'action'
+attribute should not contain URL parameters because they may interfere with
+input field names present in the form. For POST names, those parameters are
+guaranteed not to interfere with field names because of the url_param/param
+separation: "[Speaking of POST...] The param() method will always return the
+contents of the POSTed fill-out form, ignoring the URL's query string. To
+retrieve URL parameters, call the url_param() method. ... The main difference is
+that url_param() allows you to read the parameters, but not set them. ... If you
+try to mix a URL query string with a form submitted with the GET method, the
+results will not be what you expect."
+http://perldoc.perl.org/CGI.html#MIXING-POST-AND-URL-PARAMETERS
+
+"If the form was submitted with GET, both param() and url_param() return the
+parameters from the URL. If the form was submitted with POST but also had URL
+parameters thrown in too, then param() returns only the POSTed parameters and
+url_param() returns only the URL ones."
+http://www.garayed.com/perl/75096-cgi-pm-distinguish-between-post-get-3.html#post335175
+
+2.5 REST -- errors
+
+Input validation faliure: 400 Bad Request.
+Double submit: Return 409 Conflict.
+
+
+2.6 REST -- further reading
+
+http://martinfowler.com/articles/richardsonMaturityModel.html
+http://timelessrepo.com/haters-gonna-hateoas
+http://blog.steveklabnik.com/2011/07/03/nobody-understands-rest-or-http.html
+
+http://www.ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm
+
+
+
+
+
+
+
+
+
+
+
+
+
+4. Perl
+
+4.1 Perl - General
+
+Perl::Critic and Perl::Tidy are recommended. Vim plugin "perl-support" (see Vim
+site for download) lets one run Perl::Critic and Perl::Tidy on current source
+with only a few keystrokes (\rc and \ry respectively). Additional nicety of
+perl-support is that it lets one quickly generate "framed" comments (\cfr),
+module method headers (\cm), function headers (\cfu) and so on. Equivalent
+plugin is available for C (called "c-support"), with most key mappings being the
+same.
+
+4.2 Object-Oriented Programming
+
+Perl doesn't have attribute inheritance, and even if it did (via some CPAN
+package), it would "introduce a tremendous amount of coupling between an
+inherited class and a derived class" (Advanced Perl Programming, O'Reilly,
+section 8.3.1).
+
+Therefore, if we want to use inheritance, we should avoid introducing
+specialization into attributes. For example, when we have two classes that
+interact with two similar database tables and one of them (the class that
+interacts with the larger of the two tables) inherits from another, we do not
+want to store SQL queries as attributes because that way they cannot be
+overridden during inheritance. On the other hand, Perl allows for method
+inheritance, so all SQL queries should be declared and used directly inside
+methods (if there is a need to separate the declaration/preparation from
+execution, then create two different methods).
+
+
+4.3. Exceptions
+
+Use SGX::Exceptions. 
+
+User exceptions (SGX::Exception::User) are messages to user; internal exceptions
+(SGX::Exception::Internal) are messages for internal development purposes.
+Showing internal exceptions to user may pose a security risk.
+
+Because we use Class::Exception::DBI module, DBI exceptions have the same
+interface. When you need to communicate a DBI error (e.g. duplicate record) to
+user, do not show DBI exception to user directly -- instead re-throw it as User
+exception with a custom message.
+
+
+4.4 I/O
+
+CSV format should be supported in addition to tab-delimited. The idea is that
+the same formats that are supported for output should also be supported for
+input.
+
+Note: Have since switched to using CSV/CSV::XS module from CPAN.
+
+
+4.5 DEFAULT ARGUMENTS TO PERL SUBROUTINES
+
+The following snippet is from the constructor to File::Temp in default Perl
+installation. It shows an example of how default arguments could be used by a
+subroutine. We should not be converting to uppercase unless special behavior is
+desired, but the example below shows how it could be done when needed. Note that
+exists() is used instead of defined() to set defaults. This allows the user to
+use the following: my $tmp = File::Temp->new(UNLINK => undef); to set UNLINK to
+false.  Since undefined value evaluates to false, we should allow for the use of
+undef in such situations. We may not want to delete argument from argument
+lists, however, since it may result in ambiguity. For example, $args{UNLINK}
+evaluates to false after UNLINK has been deleted from the argument list.
+
+  # read arguments and convert keys to upper case
+  my %args = @_;
+  #%args = map { uc($_), $args{$_} } keys %args;
+
+  # see if they are unlinking (defaulting to "yes")
+  my $unlink = (exists $args{UNLINK} ? $args{UNLINK} : 1 );
+  #delete $args{UNLINK};
+
+If the named argument defaulted to "no", we could simply assign it:
+
+  my $unlink = $args{UNLINK};
+
+
+
+
+
+
+
+
+
+
+5. SQL
+
+
+5.1. SQL - Views (not implemented currently)
+
+Avoid repeating data. For example, if columns A and B are combined to produce
+some value over large number of rows, do not cache the result in column C -- use
+SQL views instead. A specific example where SQL views could be useful is the
+corrected P-value column in the main data/response table.
+
+
+
+5.2 SQL - Graph traversal
+
+In Find Probe, we attempt to retrieve all probes related to each other through
+gene symbols or accession numbers. The probe table joined with the annotation
+table forms an *adjacency list* of probe ids, so the problem we are looking at
+is recursively extracting all probes related to queried ones based on that
+adjacency list. The current implementation only goes one level deep in the list.
+Illustration:
+
+   Probes          Accnum
+      x --------> 12321  # x links to 12321
+               /
+      y ------           # y links to both 12321 and 3423
+               \
+      z --------> 3423   # z links to 3423
+
+When searching for probe "x", Find Probes will also return probe "y" because it
+links to the same accession number as "y". It will not, however, return probe
+"z", even though "z", since it shares an accession number with "y", could be
+strongly associated with both x and y. Returning all three probes (and any
+others linked in this way) would require a recursive traversal of the bipartite
+graph formed by the sets of probes, accession numbers, and their relations.
+MySQL does not support recursive queries; however PostgreSQL has a "WITH
+RECURSIVE q AS () SELECT FROM q" statement where, inside the parentheses, we
+select the zeroth level with WHERE clause from a table (call it Table A) and
+then combine it using UNION statement with a JOIN of Table A and q.
+
+http://explainextended.com/2009/09/24/adjacency-list-vs-nested-sets-postgresql/
+
+
+5.3 SQL - Performance
+
+While with Perl code, performance generally should not be the main
+consideration, it is the main consideration with SQL, trumping readability (and
+nearly everything else).  Strategies for best database performance: (1) joins
+are the most expensive operations; try to reduce the number of joins if
+possible; (2) LEFT and RIGHT joins are usually more expensive than INNER joins
+(3) try to minimize the number of rows searched early on, using subqueries or
+INNER joins, (4) benchmark all queries, (5) try to rewrite a slow query in
+several alternative ways (for example, using RIGHT joins instead of LEFT etc.)
+and then benchmark all of them, (6) ensure that all commonly performed JOINS
+operate on indexed columns or combinations of columns; create necessary indexes
+otherwise, (7) use query optimizer (EXPLAIN statement) to decide which columns
+should be indexed and to track the progress of the query and the number of rows
+it operates on.  (8) avoid using NATURAL joins (this is more of a
+maintainability issue but may affect performance because it obscures what really
+happens in the query), (9) avoid using DISTINCT modifier (prefer GROUP BY clause
+instead, since it allows you to enter specific column names on which to perform
+grouping; preference should go to those columns that are indexed keys). (10) use
+DBI::Profile to monitor performance, (11) use DBI placeholders (more of a
+security issue but may affect performance when the same query is executed
+repeatedly with different input parameters). (12) consider using
+prepare_cached() DBI function instead of prepare(). (13) indexes on columns that
+may contain long text are suboptimal.
+
+Partial word matches in databases do not use indexes, so do not use REGEXP
+'^(word1|word2)$' for matching "word1" and "word2", and instead either use WHERE
+IN predicate (faster) or JOIN with a TEMPORARY table (fastest).
+
+
+
+
+
+
+
+
+
+6 THEORY
+
+
+6.1 THEORY - Compare Experiments
+
+Compare Experiments produces a list of significant probes in the selected
+experiments. A probe is called significant if it satisfies P<0.05 and
+|foldchange|>x in at least one of the selected experiments.
+
+
+
+6.2 THEORY - LOR Statistic
+
+Log odds ratio of observed over expected -- this is a statistic that can be
+useful for gauging concordance of probe lists. Given a combination of
+experiments, say 101 (three experiments from left to right, 1 corresponds to
+significant in experiment, 0 corresponds to not significant), we would expect
+to see the following number of probes:
+
+	E_101 = [ S1/A1 * (A2 - S2)/A2 * S3 / A3 ] * (A1 + A2 + A3)
+
+Where Ax stands for "all probes in experiment x", and Sx stands for "significant
+probes in experiment x". When we compare experiments from the same platform
+(actually we *only* compare experiments from the same platform), A1 = A2 = A3,
+adn we can rewrite the above as:
+
+	E_101 = 3 * S1 * (A - S2) * S3 / A^2
+
+If the probes were classified as significant by a random process independently
+in each experiment, we would expect the observed number of probes in group 101
+(called O_101) to be similar to E_101 in magnitude. We measure the discrepancy
+as follows:
+
+	LOR = log (O_101 / E_101)
+
+Where LOR is the Log-Odds Ratio statistic. LOR is high when the experiments
+chosen were measured under similar conditions (same probes became up- or
+downregulated) and low when experiments chosen were measured under very
+dissimilar conditions (different probes become up- or downregulated).
+
+
+
+
+
+
+
+
+
+7. UI/UX
+
+7.1. Forms
+
+Use tooltips for all controls (set "title" attribute).
+
+Avoid using grayed-out text in forms -- gray color should be reserved for
+controls that are disabled. Instead, use either (a) text in a different color,
+or (b) HTML tooltips using "title" attribute on controls, or (c ) YUI tooltips.
+
+
+
+
+
+
+
+
+
+
+8. Development notes
+
+8.1. Git
+
+Do not do any development without Git. Refer to Github on how to set up and
+install Git. There is a useful graphical utility from GitHub.com for Mac OS X
+which lets you visualize your code changes.
+
+8.2. SGX::Debug
+
+This module is for debugging purposes only; all references to it should be
+removed once the code goes into production.
+
+8.3. CGI::Carp
+
+In the development version, you can use "croak" and "carp" from CGI::Carp (they
+replace "die" and "warn" respectively) to send error messages directly to the
+browser insead of the error log.
+
+8.4. Devel::StackTrace
+
+To display stacktrace for a function call, place the following at the top of the
+function body (requires Devel::StackTrace module from CPAN):
+
+	use Devel::StackTrace;
+	my $trace = Devel::StackTrace->new;
+	warn $trace->as_string;
+
+8.5. Devel::REPL
+
+Devel::REPL lets you enter Read-Eval-Print Loop by typing "re.pl" on the command
+line. REPL is a shell-like environment  where you can type Perl commands and
+immediately see results of their execution.
+
+	sudo /usr/bin/cpan Devel::REPL
+	re.pl
+
+8.6. Vim, Perl::Critic, and Perl::Tidy
+
+If you use Vim editor, download and install perl-support.vim plugin from
+http://www.vim.org/scripts/script.php?script_id=556
+
+Next, install the following Perl packages
+	
+	sudo /usr/bin/cpan Perl::Critic
+	sudo /usr/bin/cpan Perl::Tidy
+
+Now whenever you edit a Perl module with Vim, you can type \ry command to
+reformat a file using Perl::Tidy or \rc to run your script through Perl::Critic.

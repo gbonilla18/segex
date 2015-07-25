@@ -1,0 +1,64 @@
+*) Custom-code Venn diagram generator in JS in such a way as to always show
+overalap if some is present. Google-generated Venns have a problem where they
+don't show overlap sometimes even though it is present. 
+
+Example: Go to Compare Experiments and compare experiments 9, 10, and 11 (Mouse
+Agilent v44_k1) filtered by prefix "Cyp2b".  The 3-circle Venn diagram should be
+biased to reflect overlaps if they exist, at the expense of proportionality.
+
+*) A mechanism to purge old session data from `sessions' table in the database.
+
+*) Test Segex on IE on Windows
+
+*) Refuse login after N attempts?
+
+*) Clicking on submit and then hitting Back button in the browser should
+preserve selections in CompareExperiments.
+
+*) Add a page to view MySQL logs?
+Consider using
+http://search.cpan.org/~dnichter/MySQL-Log-ParseFilter-1.00/lib/MySQL/Log/ParseFilter.pm
+and parsing only UPDATE logs:
+http://dev.mysql.com/doc/refman/4.1/en/update-log.html
+This is potentially complicated (would require filtering to prevent sensitive
+info from showing through).
+
+*) In Find Probes, list terms for which matches were and were not found 
+Currently, the result page in Find Probes reports something like: "Searched gene
+symbols (prefix): term,term,term..." What it should do instead is that it should
+list terms for which matches were found in one paragraph, and terms for which
+matches were not found in another.
+
+
+*) Write tests
+
+*) Installation: automate file copying: have user provide only two directories:
+CGI_ROOT and DOCUMENTS_ROOT. Create the subtree containing css/, images/, and
+js/ directories under DOCUMENTS_ROOT and the subtree corresponding to cgi-bin
+under CGI_ROOT.
+
+*) Consider using YUI tooltip control to make forms (e.g. Find Probes, Compare
+Experiments) more user-friendly.
+http://developer.yahoo.com/yui/examples/container/tooltip.html
+
+*) Raphael is now a plugin for YUI 3: http://yuilibrary.com/gallery/show/raphael
+Find out (1) whether changing over to YUI 3 is feasible (seems like it should
+be!) and (2) whether Raphael can be used for easy graphing (will probably have
+to write own Javascript graphing module).
+
+*) Venn diagrams could be plotted using Raphael. What is needed: optimization
+algorithm (implemented in Javascript) for 3-cirlcle diagrams, and something to
+show text labels (i.e. how many probes are significant). If done, place
+resulting code on Github.
+
+*) Eventually, we need at least two types of database users: segex_basic and
+segex_user. segex_user is granted UPDATE, INSERT, DELETE, and CREATE TEMPOARY
+privileges, while segex_basic is only granted SELECT.
+
+*) Consider using a Tree View instead of multiple levels of dropdown boxes. YUI
+has a Tree View control available. Doing so would make sense -- consider the
+following hierarchy:
+	species -> platform -> study -> experiment
+It's four levels deep!
+
+*) Implement breadcrumbs.

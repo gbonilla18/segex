@@ -1,0 +1,44 @@
+#---------------------------------------------------------------------------
+# Absolute path to default mailer executable (sendmail, postfix, etc). On
+# both Mac OS X and CentOS Linux, this is /usr/sbin.
+#---------------------------------------------------------------------------
+mailer_path = "/usr/sbin"
+
+#---------------------------------------------------------------------------
+# Relative path of YUI Build directory (relative to webserver root)
+#---------------------------------------------------------------------------
+yui_build_root = "/yui/build"
+
+#---------------------------------------------------------------------------
+# Database info
+#---------------------------------------------------------------------------
+dbname     = "segex"
+dbuser     = "segex_user"
+dbpassword = "segex_user_password"
+
+#---------------------------------------------------------------------------
+# Session timeout (seconds): 1 hour = 3600 sec
+#---------------------------------------------------------------------------
+timeout = 3600
+
+#---------------------------------------------------------------------------
+# System timezone (you can check which timezone your UNIX-like sytem uses
+# by running `date' command)
+#---------------------------------------------------------------------------
+timezone = "EST"
+
+#---------------------------------------------------------------------------
+# Whether to send error messages to browser
+#---------------------------------------------------------------------------
+debug_errors_to_browser = "yes"
+
+#---------------------------------------------------------------------------
+# Whether to display caller info for warnings (sends name of the function
+# responsible for the warning to the log file)
+#---------------------------------------------------------------------------
+debug_caller_info = "yes"
+
+#---------------------------------------------------------------------------
+# Whether to send errors to browser and/or error log
+#---------------------------------------------------------------------------
+debug_log_path = "/var/www/error_log/segex_log"

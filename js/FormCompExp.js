@@ -85,10 +85,14 @@ YAHOO.util.Event.addListener(window, "load", function () {
         {key:"pValFlag", parser:"number"},
         {key:"pValClass", parser:"number"},
         {key:"pval", parser:"number"},
+<<<<<<< HEAD
         {key:"FCFlag", parser:"number"},
         {key:"FCClass", parser: "number"},
 	    {key:"fchange", parser: "number"},
 
+=======
+        {key:"fchange", parser: "number"},
+>>>>>>> fff9d8d7950b20b683423368896ff5be2cc170a4
         {key:"drop"}
     ] };
 
@@ -164,6 +168,7 @@ YAHOO.util.Event.addListener(window, "load", function () {
         a.appendChild(document.createTextNode(oData));
         elCell.appendChild(a);
     };
+<<<<<<< HEAD
     var FCClassFormatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
         var select = document.createElement('select');
@@ -191,6 +196,8 @@ YAHOO.util.Event.addListener(window, "load", function () {
         oRecord.setData(oColumn.key, getSelectedValue(select));
         elCell.appendChild(select);
     };
+=======
+>>>>>>> fff9d8d7950b20b683423368896ff5be2cc170a4
     var pValClassFormatter = function(elCell, oRecord, oColumn, oData) {
         removeAllChildren(elCell);
         var select = document.createElement('select');
@@ -237,7 +244,10 @@ YAHOO.util.Event.addListener(window, "load", function () {
 
     var myColumnDefs = [
         {key:"eid", sortable:true, resizeable:true, label:'Exp. no.'},
+<<<<<<< HEAD
         {key:"fCClass", sortable:true, resizeable:false, label:'Fold-change', formatter:FCClassFormatter},
+=======
+>>>>>>> fff9d8d7950b20b683423368896ff5be2cc170a4
         {key:"fchange", sortable:true, resizeable:false, label:'|Fold| >', formatter:fchangeFormatter},
         {key:"pValClass", sortable:true, resizeable:false, label:'P-value', formatter:pValClassFormatter},
         {key:"pval", sortable:true, resizeable:false, label:'P <', formatter:pvalFormatter},
@@ -341,8 +351,11 @@ YAHOO.util.Event.addListener(window, "load", function () {
             sample2  : expRoot.sample2,
             exp_info: expRoot.AdditionalInformation,
             pValFlag : expRoot.PValFlag,
+<<<<<<< HEAD
             FCFlag : expRoot.FCFlag,
 
+=======
+>>>>>>> fff9d8d7950b20b683423368896ff5be2cc170a4
             study_desc: studyRoot.description,
 
             stid     : stid,
