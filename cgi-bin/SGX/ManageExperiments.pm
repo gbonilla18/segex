@@ -48,18 +48,17 @@ sub init {
 # selectors:  Fields which, when present in CGI::param list, can narrow down
 #             output. Format: { URI => SQL }.
 # meta:       Additional field info.
-        _table_defs => {
-            'StudyExperiment' => {
+		_table_defs => {
+			'StudyExperiment' => {
                 key       => [qw/eid stid/],
                 base      => [qw/eid stid/],
                 join_type => 'INNER'
             },
 			'SampleExperiment' => {
-				table 	=> "experiment",
-                key       => [qw/smid/],
+				table 	=> "SampleExperiment",
+                key       => [qw/eid smid/],
                 base      => [qw/eid smid/],
-                
-				 constraint => [ eid => sub { shift->{_id} } ]
+                join_type => 'INNER'
             },
 			'sample_brief' => {
 				resource  => 'samples',
@@ -119,6 +118,72 @@ sub init {
                     ]
                 ]
             },
+			'sample_filtered' => {
+				table  => 'sample_view',
+				resource  => 'samples',
+                item_name  => 'sample_view',
+				base  => [qw/smdesc lpname rsname tname /],
+                key  => [qw/smid/],
+                view  => [qw/smdesc lpname rsname tname /],
+				#    names     => [qw/smdesc lpid rsid tid/],
+				names  => [qw/smid/],
+				meta  => { 
+					smdesc => { label => 'Sample Description' },
+								lpname => { label => 'Library Preparation' },
+								rsname => { label => 'RNA Category' },
+								tname => { label => 'Tissue' },
+					},
+				join => [
+                    SampleExperiment => [
+                        smid => 'smid',
+	                    { constraint => [ eid => sub { shift->{_id} } ] }
+                    ],
+                ]
+            },
+			'sample_filtered1' => {
+				table    => 'sample_view',
+				resource  => 'samples',
+                item_name => 'sample_view',
+				base	=> [qw/smdesc lpname rsname tname /],
+                key       => [qw/smid/],
+                view      => [qw/smdesc lpname rsname tname /],
+				#    names     => [qw/smdesc lpid rsid tid/],
+				names     => [qw/smid/],
+				meta      => { 
+						smdesc => { label => 'Sample 1 Description' },
+						lpname => { label => 'Library Preparation' },
+						rsname => { label => 'RNA Category' },
+						tname => { label => 'Tissue' },
+					},
+				join => [
+                    SampleExperiment => [
+                        smid => 'smid',
+	                    { constraint => [ eid => sub { shift->{_id} } ] }
+                    ],
+                ]
+            },
+			'sample_filtered2' => {
+				table    => 'sample_view',
+				resource  => 'samples',
+                item_name => 'sample_view',
+				base	=> [qw/smdesc lpname rsname tname /],
+                key       => [qw/smid/],
+                view      => [qw/smdesc lpname rsname tname /],
+				#    names     => [qw/smdesc lpid rsid tid/],
+				names     => [qw/smid/],
+				meta      => { smdesc => { label => 'Sample 2 Description' },
+						lpname => { label => 'Library Preparation' },
+						rsname => { label => 'RNA Category' },
+						tname => { label => 'Tissue' },
+						
+						},
+				join => [
+                    SampleExperiment => [
+                        smid => 'smid',
+						{ constraint => [ eid => sub { shift->{_id} } ] }
+                    ],
+                ]
+            },
             'platform' => {
                 resource  => 'platforms',
                 item_name => 'platform',
@@ -131,45 +196,33 @@ sub init {
             },
 			
 			'sample1' => {
-               table    => 'sample1',
-			   resource  => 'samples',
+				table    => 'sample1',
+				resource  => 'samples',
                 item_name => 'sample1',
                 key       => [qw/smid1/],
                 view      => [qw/smdesc1 lpname1 rsname1 tname1 /],
-            #    names     => [qw/smdesc lpid rsid tid/],
-			names     => [qw/smid1/],
-			meta      => { smdesc1 => { label => '1 from sample' },
-						
+				#    names     => [qw/smdesc lpid rsid tid/],
+				names     => [qw/smid1/],
+				meta      => { 
+							smdesc1 => { label => 'Sample 1 Description' },
+							lpname1 => { label => 'Library Preparation' },
+							rsname1 => { label => 'RNA Category' },
+							tname1 => { label => 'Tissue' },
 						},
-           
             },
-			'sample_filtered' => {
-			   table    => 'sample_view',
-			   resource  => 'samples',
-                item_name => 'sample_view',
-                key       => [qw/smid/],
-                view      => [qw/smdesc lpname rsname tname /],
-            #    names     => [qw/smdesc lpid rsid tid/],
-			names     => [qw/smid/],
-			meta      => { smdesc => { label => 'Sample Description' },
-						
-						},
-			join => [
-                    SampleExperiment => [
-                        'smid' => 'smid',
-	
-                        { constraint => [ eid => sub { shift->{_id} } ] }
-                    ],
-                    
-					
-                   
-                ]
-           
-            },
-
 			
-
-		data_count => {
+			'sample2' => {
+				table    => 'sample2',
+				resource  => 'samples',
+                item_name => 'sample2',
+                key       => [qw/smid2/],
+                view      => [qw/smdesc2 lpname2 rsname2 tname2 /],
+				#    names     => [qw/smdesc lpid rsid tid/],
+				names     => [qw/smid2/],
+				meta      => { smdesc2 => { label => '2 from sample' },
+						},
+            },
+			data_count => {
                 table => 'response',
                 key   => [qw/eid rid/],
                 view  => [qw/probe_count/],
@@ -197,7 +250,7 @@ sub init {
                 resource => 'experiments',
                 base     => [
                     qw/sample1 sample2 ExperimentDescription
-                      AdditionalInformation s1id pid stid file/ # add smdesc here
+                      AdditionalInformation s1id s2id pid stid file/ # add smdesc here
                 ],
 
                 # table key to the left, URI param to the right
@@ -256,14 +309,25 @@ sub init {
                         label      => 'inside meta Sample 1 name',
                         -maxlength => 255,
                         -size      => 35,
+						__readonly__ => 1,
 					   __extra_html__ =>
 '<p class="visible hint">(Typically) the control sample</p>',
                         parser   => 'number',
-						__type__ => 'textarea',
+						__type__ => 'popup_menu',
 						__tie__ => [ ( sample_brief=> 's1id' ) ],
-						__extra_html__ => $q->div("sample modifying code goes here"						
-						)
-                        
+					},
+					
+					s2id => {
+                        label      => 'inside meta Sample 2  name',
+                        -maxlength => 255,
+                        -size      => 35,
+						__readonly__ => 1,
+					   __extra_html__ =>
+'<p class="visible hint">(Typically) the treatmen sample</p>',
+                        parser   => 'number',
+						__type__ => 'popup_menu',
+						__tie__ => [ ( sample_brief=> 's2id' ) ],
+
 					},
                     sample1 => {
                         label      => 'Sample 1 name',
@@ -319,7 +383,6 @@ sub init {
                 lookup => [
                     data_count => [ eid => 'eid', { join_type => 'LEFT' } ],
                     (
-
                         # No need to display platform column if specific
                         # platform is requested.
                         (
@@ -330,22 +393,28 @@ sub init {
                         : ( 'platform' => [ 'pid' => 'pid' ] )
                     ),
 					(
-
                         (
-                               
-                            $self->get_dispatch_action() eq 'form_create'
+                            !$self->get_dispatch_action() eq 'form_create'
                         ) ? ()
                         : ( sample_brief      => [  s1id=>'smid'  ])
                     ),
-					 
-					
                 ],
                 join => [
-                    sample1 => [
+					sample1=> [
                         's1id' => 'smid1',
 						{ join_type => 'LEFT' },
 						
-                    ],
+                     ],
+					 sample2=> [
+                        's2id' => 'smid2',
+						{ join_type => 'LEFT' },
+						
+                     ],
+                    # sample1 => [
+                        # 's1id' => 'smid1',
+						# { join_type => 'LEFT' },
+						
+                    # ],
 
 					StudyExperiment => [
                         eid => 'eid',
@@ -380,18 +449,22 @@ sub init {
         },
         _default_table  => 'experiment',
         _readrow_tables => [
-            'study' => {
-                heading    => 'Studies Experiment is Assigned to',
-                actions    => { form_assign => 'assign' },
-                remove_row => { verb => 'unassign', table => 'StudyExperiment' }
-            },
+            # 'study' => {
+                # heading    => 'Studies Experiment is Assigned to',
+                # actions    => { form_assign => 'assign' },
+                # remove_row => { verb => 'unassign', table => 'StudyExperiment' }
+            # },
 			### TODO 6/29 need to fix this part
 			# 'sample1' => {
                 # heading    => 'Sample in this experiment',
                 # actions    => { form_assign => 'assign' },
                 # remove_row => { verb => 'unassign', table => 'sample' }
             # },
-			
+			 'sample_filtered' => {
+                heading    => 'Samples in this experiment',
+                 actions    => { form_assign => 'assign' },
+                 remove_row => { verb => 'delete', table => 'SampleExperiment' }
+             },
 			
         ],
         # _readrow_tables => [

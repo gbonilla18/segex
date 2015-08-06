@@ -634,7 +634,8 @@ sub displayDataCSV {
             'Signif. in',
             'Study',
             'Additional info',
-            'Exp. samples'
+            'Exp. samples',
+			'Library prep'
         ]
     );
 
@@ -680,7 +681,7 @@ sub displayDataCSV {
             $eid,                  $row->{fchange},
             $row->{pValClass},     $row->{pval},
             $signCell,             $eid_node->{study_desc},
-            $eid_node->{exp_info}, $eid_node->{exp_samples},
+            $eid_node->{exp_info}, $eid_node->{exp_samples},"library prep test",
         ];
         $print->($currLine);
     }
